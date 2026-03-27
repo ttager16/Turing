@@ -1,0 +1,76 @@
+{
+  "id": "resp_065fd5ea5ff150270069c31c6310c88196b359d30adf251816",
+  "object": "response",
+  "created_at": 1774394467,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774394471,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_065fd5ea5ff150270069c31c635cb4819682cab34f395ca3a7",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_065fd5ea5ff150270069c31c63881881969cc5570b2a3b9268",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\nimport bisect\n\ndef manage_high_freq_trades(\n    markets: List[List[float]],\n    operations: List[str],\n    prices: List[float],\n    market_indices: List[int]\n) -> List[int]:\n    # Maintain each market as a sorted list; ensure input markets are copied/sorted\n    M = [sorted(m) for m in markets]\n    results: List[int] = []\n    n = len(operations)\n    for i in range(n):\n        op = operations[i]\n        price = prices[i]\n        midx = market_indices[i]\n        if midx < 0 or midx >= len(M):\n            # invalid market index: FIND returns -1, UPDATE ignored\n            if op == \"FIND\":\n                results.append(-1)\n            continue\n        market = M[midx]\n        if op == \"FIND\":\n            # binary search for exact match\n            lo = bisect.bisect_left(market, price)\n            if lo < len(market) and market[lo] == price:\n                results.append(lo)\n            else:\n                results.append(-1)\n        elif op == \"UPDATE\":\n            # insert price preserving sort; if exact value exists, replace the first occurrence\n            lo = bisect.bisect_left(market, price)\n            if lo < len(market) and market[lo] == price:\n                market[lo] = price  # replace (idempotent for floats)\n            else:\n                market.insert(lo, price)\n        else:\n            # Unknown operation: ignore, but for FIND behave as not found\n            if op == \"FIND\":\n                results.append(-1)\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1184,
+    "input_tokens_details": {
+      "cached_tokens": 1152
+    },
+    "output_tokens": 367,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1551
+  },
+  "user": null,
+  "metadata": {}
+}

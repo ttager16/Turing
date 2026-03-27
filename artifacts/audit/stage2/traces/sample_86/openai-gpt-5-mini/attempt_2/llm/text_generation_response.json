@@ -1,0 +1,76 @@
+{
+  "id": "resp_007ac3b42791f71d0069c32f6329d4819798a3af7efbc28d68",
+  "object": "response",
+  "created_at": 1774399331,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774399382,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_007ac3b42791f71d0069c32f640cbc8197840286ec09654d9d",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_007ac3b42791f71d0069c32f645c508197bb18bdb8ea0ee0b5",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import copy\nfrom decimal import Decimal, getcontext, ROUND_HALF_UP\nfrom typing import List, Dict, Any, Optional, Tuple\n\ngetcontext().prec = 28\n\ndef _dec(x):\n    return Decimal(str(x))\n\nclass SegmentTree:\n    def __init__(self, n):\n        self.n = n\n        size = 1\n        while size < n: size <<= 1\n        self.size = size\n        # store per-leaf base metrics: price, volume\n        # tree nodes store aggregate: sum_pv, sum_v, max_p, min_p, mpd, ls\n        self.sum_pv = [Decimal('0')] * (2 * size)\n        self.sum_v = [Decimal('0')] * (2 * size)\n        self.max_p = [Decimal('-Infinity')] * (2 * size)\n        self.min_p = [Decimal('Infinity')] * (2 * size)\n        # lazy for price delta and volume delta to apply to range\n        self.lazy_price = [Decimal('0')] * (2 * size)\n        self.lazy_volume = [Decimal('0')] * (2 * size)\n        # track which leaves have nonzero volume for mpd rules: if all zero, mpd=0\n        self.leaf_price = [Decimal('0')] * size  # index 0..size-1\n        self.leaf_volume = [Decimal('0')] * size\n\n    def _pull(self, idx):\n        l = idx*2\n        r = l+1\n        self.sum_pv[idx] = self.sum_pv[l] + self.sum_pv[r]\n        self.sum_v[idx] = self.sum_v[l] + self.sum_v[r]\n        # max/min only consider leaves with volume>0. If child has none, its max_p may be -Inf\n        self.max_p[idx] = self.max_p[l] if self.max_p[l] > self.max_p[r] else self.max_p[r]\n        self.min_p[idx] = self.min_p[l] if self.min_p[l] < self.min_p[r] else self.min_p[r]\n\n    def _apply_node(self, idx, length, price_delta, vol_delta):\n        # price_delta applied to all prices in node; volumes increased by vol_delta per element\n        # But vol_delta is per-element delta; length is number of elements\n        # Update sum_pv: sum_pv += price_delta * sum_v + vol_delta * avg_price? Actually we apply price change to each element's price:\n        # For each element: price += price_delta; volume += vol_delta\n        # New sum_pv = sum(price_i*volume_i) + price_delta*sum_v + sum_price_after_vol_change_due_to_volume_delta\n        # When volume changes by vol_delta, the new contribution is price_i * vol_delta summed = vol_delta * sum(price_i)\n        # We don't store sum(price_i) directly. But we can approximate by sum_pv / sum_v = WAP, and sum(price_i) = ? Not available.\n        # To handle correctly, we will apply lazy only at leaves in this implementation for correctness.\n        # So here, we won't implement complex lazy; instead use range update by iterating leaves when needed.\n        pass\n\n    # leaf operations\n    def set_point(self, pos:int, price:Decimal, volume:Decimal):\n        # set leaf to given base metrics\n        idx = pos\n        self.leaf_price[idx] = price\n        self.leaf_volume[idx] = volume\n        node = 1\n        l = 0\n        r = self.size\n        # update tree by setting leaf at pos in internal arrays\n        tree_idx = 1\n        left = 0\n        right = self.size\n        while tree_idx < self.size:\n            mid = (left + right)//2\n            if pos < mid:\n                tree_idx = tree_idx*2\n                right = mid\n            else:\n                tree_idx = tree_idx*2+1\n                left = mid\n        # tree_idx is leaf\n        if volume > 0:\n            self.sum_v[tree_idx] = volume\n            self.sum_pv[tree_idx] = price * volume\n            self.max_p[tree_idx] = price\n            self.min_p[tree_idx] = price\n        else:\n            self.sum_v[tree_idx] = Decimal('0')\n            self.sum_pv[tree_idx] = Decimal('0')\n            self.max_p[tree_idx] = Decimal('-Infinity')\n            self.min_p[tree_idx] = Decimal('Infinity')\n        # pull up\n        tree_idx //= 2\n        while tree_idx >= 1:\n            self._pull(tree_idx)\n            tree_idx //= 2\n\n    def range_add(self, l:int, r:int, price_delta:Decimal, vol_delta:Decimal):\n        # apply by updating each leaf in [l,r]\n        if l > r: return\n        for pos in range(l, r+1):\n            p = self.leaf_price[pos] + price_delta\n            v = self.leaf_volume[pos] + vol_delta\n            if v < Decimal('0'):\n                v = Decimal('0')\n            self.set_point(pos, p, v)\n\n    def query_range(self, l:int, r:int) -> Tuple[Decimal, Decimal, Decimal, Decimal]:\n        # aggregate over leaves l..r\n        total_pv = Decimal('0')\n        total_v = Decimal('0')\n        max_p = Decimal('-Infinity')\n        min_p = Decimal('Infinity')\n        for pos in range(l, r+1):\n            v = self.leaf_volume[pos]\n            p = self.leaf_price[pos]\n            if v > 0:\n                total_v += v\n                total_pv += p * v\n                if p > max_p: max_p = p\n                if p < min_p: min_p = p\n        if total_v == 0:\n            wap = Decimal('0')\n            mpd = Decimal('0')\n        else:\n            wap = total_pv / total_v\n            if max_p == Decimal('-Infinity'):\n                mpd = Decimal('0')\n            else:\n                mpd = max_p - min_p\n        ls = (total_v / (Decimal('1') + mpd)) if (Decimal('1') + mpd) != 0 else Decimal('0')\n        return wap, mpd, total_v, ls\n\n    def apply_price_boost(self, l:int, r:int, boost:Decimal):\n        for pos in range(l, r+1):\n            p = self.leaf_price[pos] + boost\n            self.set_point(pos, p, self.leaf_volume[pos])\n\n    def snapshot_state(self):\n        return {\n            'leaf_price': self.leaf_price.copy(),\n            'leaf_volume': self.leaf_volume.copy(),\n        }\n\n    def restore_state(self, state):\n        self.leaf_price = state['leaf_price'].copy()\n        self.leaf_volume = state['leaf_volume'].copy()\n        # rebuild tree\n        for pos in range(self.size):\n            if pos < self.n:\n                self.set_point(pos, self.leaf_price[pos], self.leaf_volume[pos])\n            else:\n                # clear extra leaves\n                self.set_point(pos, Decimal('0'), Decimal('0'))\n\ndef process_operations(n: int, operations: list) -> list:\n    st = SegmentTree(n)\n    # operation log for rollback: list of dicts with timestamp and type and data to revert\n    op_log: List[Dict[str, Any]] = []\n    snapshots: Dict[Any, Dict[str, Any]] = {}\n    results: List[List[float]] = []\n\n    for op in operations:\n        if not op: continue\n        cmd = op[0]\n        if cmd == 'update':\n            _, idx, price, volume, timestamp = op\n            idx = int(idx)\n            price_d = _dec(price)\n            vol_d = _dec(volume)\n            # record previous base metrics\n            prev_p = st.leaf_price[idx]\n            prev_v = st.leaf_volume[idx]\n            op_log.append({'timestamp': int(timestamp), 'type':'update', 'idx':idx, 'prev_p':prev_p, 'prev_v':prev_v})\n            st.set_point(idx, price_d, vol_d)\n        elif cmd == 'range_update':\n            _, start, end, price_delta, volume_delta, timestamp = op\n            l = int(start); r = int(end)\n            pd = _dec(price_delta); vd = _dec(volume_delta)\n            # record previous for all affected\n            prev = [(i, st.leaf_price[i], st.leaf_volume[i]) for i in range(l, r+1)]\n            op_log.append({'timestamp': int(timestamp), 'type':'range_update', 'prev': prev})\n            st.range_add(l, r, pd, vd)\n        elif cmd == 'query':\n            _, start, end = op\n            l = int(start); r = int(end)\n            wap, mpd, cv, ls = st.query_range(l, r)\n            # round to 2 decimals\n            def rnd(d):\n                return float(d.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))\n            results.append([rnd(wap), rnd(mpd), rnd(cv), rnd(ls)])\n        elif cmd == 'rollback':\n            # [\"rollback\", t_start, t_end, metrics_to_rollback(optional)]\n            if len(op) >= 3:\n                t1 = int(op[1]); t2 = int(op[2])\n            else:\n                continue\n            metrics = None\n            if len(op) >= 4:\n                metrics = op[3]\n            # find operations with timestamp in range, reverse chronological\n            to_rollback = [ (i,entry) for i,entry in enumerate(op_log) if t1 <= entry['timestamp'] <= t2 ]\n            # sort by timestamp desc, then by index desc to reverse apply\n            to_rollback.sort(key=lambda x: (x[1]['timestamp'], x[0]), reverse=True)\n            indices = set(i for i,_ in to_rollback)\n            for i,entry in to_rollback:\n                if entry['type'] == 'update':\n                    idx = entry['idx']\n                    prev_p = entry['prev_p']\n                    prev_v = entry['prev_v']\n                    st.set_point(idx, prev_p, prev_v)\n                elif entry['type'] == 'range_update':\n                    for pos, pp, pv in entry['prev']:\n                        st.set_point(pos, pp, pv)\n                # remove from log\n            # purge those entries from op_log\n            op_log = [e for e in op_log if not (t1 <= e['timestamp'] <= t2)]\n        elif cmd == 'snapshot':\n            _, snap_id, timestamp = op\n            snapshots[snap_id] = {\n                'state': st.snapshot_state(),\n                'op_log': copy.deepcopy(op_log),\n                'timestamp': int(timestamp)\n            }\n        elif cmd == 'restore':\n            _, snap_id = op\n            if snap_id in snapshots:\n                snap = snapshots[snap_id]\n                st.restore_state(snap['state'])\n                op_log = copy.deepcopy(snap['op_log'])\n            else:\n                # do nothing\n                pass\n        elif cmd == 'conditional_check':\n            (_, src_start, src_end, mpd_threshold, dst_start, dst_end, cv_threshold, price_boost) = op\n            ss = int(src_start); se = int(src_end)\n            ds = int(dst_start); de = int(dst_end)\n            mpd_t = _dec(mpd_threshold)\n            cv_t = _dec(cv_threshold)\n            boost = _dec(price_boost)\n            wap_s, mpd_s, cv_s, ls_s = st.query_range(ss, se)\n            wap_d, mpd_d, cv_d, ls_d = st.query_range(ds, de)\n            if mpd_s > mpd_t and cv_d < cv_t:\n                # apply as range_update with synthetic timestamp  - use timestamp 0\n                prev = [(i, st.leaf_price[i], st.leaf_volume[i]) for i in range(ds, de+1)]\n                op_log.append({'timestamp': 0, 'type':'range_update', 'prev': prev})\n                st.apply_price_boost(ds, de, boost)\n        else:\n            # unknown; ignore\n            pass\n\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1856,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2635,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4491
+  },
+  "user": null,
+  "metadata": {}
+}

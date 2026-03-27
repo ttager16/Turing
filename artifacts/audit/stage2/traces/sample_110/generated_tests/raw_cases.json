@@ -1,0 +1,255 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "1": [
+          [
+            2,
+            {
+              "time_cost": {
+                "day": 2
+              }
+            }
+          ],
+          [
+            3,
+            {
+              "time_cost": {
+                "day": 2
+              }
+            }
+          ]
+        ],
+        "2": [
+          [
+            1,
+            {
+              "time_cost": {
+                "day": 2
+              }
+            }
+          ],
+          [
+            3,
+            {
+              "time_cost": {
+                "night": 2
+              }
+            }
+          ]
+        ],
+        "3": [
+          [
+            1,
+            {
+              "time_cost": {
+                "day": 2
+              }
+            }
+          ],
+          [
+            2,
+            {
+              "time_cost": {
+                "night": 2
+              }
+            }
+          ]
+        ]
+      },
+      []
+    ],
+    "input_lines": [
+      "{\"1\": [[2, {\"time_cost\": {\"day\": 2}}], [3, {\"time_cost\": {\"day\": 2}}]], \"2\": [[1, {\"time_cost\": {\"day\": 2}}], [3, {\"time_cost\": {\"night\": 2}}]], \"3\": [[1, {\"time_cost\": {\"day\": 2}}], [2, {\"time_cost\": {\"night\": 2}}]]}",
+      "[]"
+    ],
+    "focus": "triangle_missing_time_fields_tiebreak"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "1": [
+          [
+            2,
+            {
+              "time_cost": {
+                "day": 5,
+                "night": 5
+              },
+              "pollution_factor": 1.2
+            }
+          ],
+          [
+            2,
+            {
+              "time_cost": {
+                "day": 3
+              },
+              "pollution_factor": 0.5
+            }
+          ]
+        ],
+        "2": [
+          [
+            1,
+            {
+              "time_cost": {
+                "day": 5,
+                "night": 5
+              },
+              "pollution_factor": 1.2
+            }
+          ],
+          [
+            1,
+            {
+              "time_cost": {
+                "day": 3
+              },
+              "pollution_factor": 0.5
+            }
+          ]
+        ],
+        "3": [
+          [
+            4,
+            {
+              "time_cost": {
+                "day": 4
+              },
+              "maintenance_mode": true
+            }
+          ]
+        ],
+        "4": [
+          [
+            3,
+            {
+              "time_cost": {
+                "day": 4
+              },
+              "maintenance_mode": true
+            }
+          ],
+          [
+            5,
+            {
+              "time_cost": {
+                "day": 2,
+                "night": 2
+              }
+            }
+          ]
+        ],
+        "5": [
+          [
+            4,
+            {
+              "time_cost": {
+                "day": 2,
+                "night": 2
+              }
+            }
+          ]
+        ]
+      },
+      [
+        {
+          "substructure_id": "pollute_block",
+          "edge_constraints": [
+            {
+              "pollution_factor": {
+                "min": 1.0,
+                "max": 2.0
+              }
+            }
+          ]
+        },
+        {
+          "substructure_id": "maint_block",
+          "edge_constraints": [
+            {
+              "maintenance_mode": true
+            }
+          ]
+        }
+      ]
+    ],
+    "input_lines": [
+      "{\"1\": [[2, {\"time_cost\": {\"day\": 5, \"night\": 5}, \"pollution_factor\": 1.2}], [2, {\"time_cost\": {\"day\": 3}, \"pollution_factor\": 0.5}]], \"2\": [[1, {\"time_cost\": {\"day\": 5, \"night\": 5}, \"pollution_factor\": 1.2}], [1, {\"time_cost\": {\"day\": 3}, \"pollution_factor\": 0.5}]], \"3\": [[4, {\"time_cost\": {\"day\": 4}, \"maintenance_mode\": true}]], \"4\": [[3, {\"time_cost\": {\"day\": 4}, \"maintenance_mode\": true}], [5, {\"time_cost\": {\"day\": 2, \"night\": 2}}]], \"5\": [[4, {\"time_cost\": {\"day\": 2, \"night\": 2}}]]}",
+      "[{\"substructure_id\": \"pollute_block\", \"edge_constraints\": [{\"pollution_factor\": {\"min\": 1.0, \"max\": 2.0}}]}, {\"substructure_id\": \"maint_block\", \"edge_constraints\": [{\"maintenance_mode\": true}]}]"
+    ],
+    "focus": "parallel_edges_and_edge_forbidden_by_patterns"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "1": [
+          [
+            2,
+            {
+              "time_cost": {
+                "day": 5
+              },
+              "pollution_factor": 1.0
+            }
+          ]
+        ],
+        "2": [
+          [
+            1,
+            {
+              "time_cost": {
+                "day": 5
+              },
+              "pollution_factor": 1.0
+            }
+          ]
+        ],
+        "3": [
+          [
+            4,
+            {
+              "time_cost": {
+                "day": 2
+              },
+              "pollution_factor": 2.0
+            }
+          ]
+        ],
+        "4": [
+          [
+            3,
+            {
+              "time_cost": {
+                "day": 2
+              },
+              "pollution_factor": 2.0
+            }
+          ]
+        ]
+      },
+      [
+        {
+          "substructure_id": "range_block",
+          "edge_constraints": [
+            {
+              "pollution_factor": {
+                "min": 1.0,
+                "max": 2.0
+              }
+            }
+          ]
+        }
+      ]
+    ],
+    "input_lines": [
+      "{\"1\": [[2, {\"time_cost\": {\"day\": 5}, \"pollution_factor\": 1.0}]], \"2\": [[1, {\"time_cost\": {\"day\": 5}, \"pollution_factor\": 1.0}]], \"3\": [[4, {\"time_cost\": {\"day\": 2}, \"pollution_factor\": 2.0}]], \"4\": [[3, {\"time_cost\": {\"day\": 2}, \"pollution_factor\": 2.0}]]}",
+      "[{\"substructure_id\": \"range_block\", \"edge_constraints\": [{\"pollution_factor\": {\"min\": 1.0, \"max\": 2.0}}]}]"
+    ],
+    "focus": "boundary_exclusion_inclusive_range_all_forbidden"
+  }
+]

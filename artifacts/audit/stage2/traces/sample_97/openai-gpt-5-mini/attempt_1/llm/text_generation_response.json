@@ -1,0 +1,76 @@
+{
+  "id": "resp_075d3944d84c985c0069c3334ed14c81948f60cfed589164ae",
+  "object": "response",
+  "created_at": 1774400334,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774400355,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_075d3944d84c985c0069c3334f27d88194a69d2daf986d4428",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_075d3944d84c985c0069c3334f690c8194bc4a456f2d1b0d9e",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Optional\n\nclass TrieNode:\n    __slots__ = ('children', 'words')\n    def __init__(self):\n        self.children = {}  # char -> TrieNode\n        self.words = set()  # set of full words ending in subtree\n\n    def insert(self, word: str):\n        node = self\n        node.words.add(word)\n        for ch in word:\n            if ch not in node.children:\n                node.children[ch] = TrieNode()\n            node = node.children[ch]\n            node.words.add(word)\n\n    def remove(self, word: str):\n        # Remove word from words sets along its path if present\n        node = self\n        if word in node.words:\n            node.words.discard(word)\n        for ch in word:\n            node = node.children.get(ch)\n            if not node:\n                return\n            if word in node.words:\n                node.words.discard(word)\n\n    def search_prefix(self, prefix: str):\n        node = self\n        for ch in prefix:\n            node = node.children.get(ch)\n            if not node:\n                return set()\n        return set(node.words)\n\nclass Segment:\n    __slots__ = ('name', 'versions', 'active_words')\n    def __init__(self, name: str):\n        self.name = name\n        # versions: list of tuples (user_id, op_type, content)\n        # We'll store insertions as set of words per version; deletions as markers\n        self.versions = []  # list of dicts: {'user':..., 'type': 'insert'/'delete', 'word':...}\n        self.active_words = set()  # current active words in segment after merging\n\n    def record(self, user: str, op_type: str, word: str):\n        self.versions.append({'user': user, 'type': op_type, 'word': word})\n\n    def deterministic_merge(self):\n        # Apply versions in deterministic order: sort by (index) but deterministic across users.\n        # We will simulate CRDT-like merging: collect inserts and deletes and preserve all inserts unless deleted.\n        # To be deterministic even with concurrent edits, we'll apply versions in recorded order but\n        # when multiple inserts of same word exist, all are same word -> keep one.\n        active = set()\n        deletes = set()\n        for v in self.versions:\n            if v['type'] == 'insert':\n                if v['word'] not in deletes:\n                    active.add(v['word'])\n            elif v['type'] == 'delete':\n                # deletion removes word if present or marks so future inserts don't revive it unless later insert occurs\n                if v['word'] in active:\n                    active.discard(v['word'])\n                deletes.add(v['word'])\n        self.active_words = active\n\ndef parse_data_field(data: str):\n    # expected \"segment_x:content\"\n    if ':' not in data:\n        return None, None\n    seg, content = data.split(':', 1)\n    seg = seg.strip()\n    content = content.strip()\n    return seg, content\n\ndef collaborative_editor(operations: List[Dict[str, str]]) -> Dict[str, List[str]]:\n    segments: Dict[str, Segment] = {}\n    trie = TrieNode()\n    last_search_result: Optional[List[str]] = None\n\n    for op_dict in operations:\n        user = op_dict.get('user_id', '')\n        operation = op_dict.get('operation', '')\n        data = op_dict.get('data', '')\n        seg_name, content = parse_data_field(data)\n        if operation == 'insert':\n            if not seg_name or content == '':\n                continue\n            # treat content as a single word token\n            seg = segments.setdefault(seg_name, Segment(seg_name))\n            seg.record(user, 'insert', content)\n            # immediate merge for real-time behavior: merge segment deterministic and update trie\n            seg.deterministic_merge()\n            # rebuild trie entries for this segment: remove all previous words from trie for this segment, then add active\n            # To track per-segment words in trie, we will rebuild whole trie from all segments for simplicity (acceptable <=500 ops)\n            # Rebuild:\n            trie = TrieNode()\n            for s in segments.values():\n                # ensure latest merge\n                s.deterministic_merge()\n                for w in s.active_words:\n                    trie.insert(w)\n        elif operation == 'delete':\n            if not seg_name or content == '':\n                continue\n            seg = segments.setdefault(seg_name, Segment(seg_name))\n            seg.record(user, 'delete', content)\n            seg.deterministic_merge()\n            # rebuild trie\n            trie = TrieNode()\n            for s in segments.values():\n                s.deterministic_merge()\n                for w in s.active_words:\n                    trie.insert(w)\n        elif operation == 'merge_offline':\n            # data may represent \"segment_x:word\" or \"segment_x:\" meaning merge entire offline buffer\n            if not seg_name:\n                continue\n            seg = segments.setdefault(seg_name, Segment(seg_name))\n            # For offline merge, we simulate that this user's offline edits come as a single insert if content present\n            if content != '':\n                # tag as insert by this user (could be multiple)\n                seg.record(user, 'insert', content)\n            # perform deterministic merge combining all versions\n            seg.deterministic_merge()\n            # rebuild trie\n            trie = TrieNode()\n            for s in segments.values():\n                s.deterministic_merge()\n                for w in s.active_words:\n                    trie.insert(w)\n        elif operation == 'search':\n            if not seg_name:\n                # global prefix search\n                prefix = content\n                matches = sorted(trie.search_prefix(prefix))\n                last_search_result = matches\n            else:\n                prefix = content\n                # Search limited to segment: ensure merged state\n                seg = segments.get(seg_name)\n                if not seg:\n                    last_search_result = []\n                else:\n                    seg.deterministic_merge()\n                    # filter active words by prefix\n                    matches = [w for w in seg.active_words if w.startswith(prefix)]\n                    last_search_result = sorted(matches)\n        else:\n            # unknown operation: ignore\n            continue\n\n    if last_search_result is None:\n        return {}\n    return {\"matches\": last_search_result}"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 937,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1318,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2255
+  },
+  "user": null,
+  "metadata": {}
+}

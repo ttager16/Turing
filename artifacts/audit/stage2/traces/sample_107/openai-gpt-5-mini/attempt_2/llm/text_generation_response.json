@@ -1,0 +1,76 @@
+{
+  "id": "resp_0f26a4b6258e340b0069c336cd2be8819ca86ab404a05fc0d3",
+  "object": "response",
+  "created_at": 1774401229,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774401239,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0f26a4b6258e340b0069c336cd7830819cb6975c4d99bc2f63",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0f26a4b6258e340b0069c336cdace4819cb655b54bee41ffe4",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List\n\ndef optimize_supply_chain_flow(\n    graph: Dict[str, Dict[str, int]],\n    user_adjustments: List[List]\n) -> Dict[str, Dict[str, int]]:\n    # Validate types\n    if not isinstance(graph, dict) or not isinstance(user_adjustments, list):\n        return {}\n    # If both empty -> {}\n    if graph == {} and user_adjustments == []:\n        return {}\n    # Validate graph structure and collect nodes\n    nodes = set()\n    for src, out in graph.items():\n        if not isinstance(src, str) or src == \"\" or not isinstance(out, dict):\n            return {}\n        if src != src.upper() or any(ch < 'A' or ch > 'Z' for ch in src):\n            return {}\n        nodes.add(src)\n        for dst, cap in out.items():\n            if not isinstance(dst, str) or dst == \"\" or not isinstance(cap, int):\n                return {}\n            if dst != dst.upper() or any(ch < 'A' or ch > 'Z' for ch in dst):\n                return {}\n            if src == dst:\n                return {}\n            if cap < 0:\n                return {}\n            nodes.add(dst)\n    # Validate adjustments and aggregate deltas\n    deltas = {}  # (src,dst)->int\n    adjusted_pairs = set()\n    for item in user_adjustments:\n        if not isinstance(item, list) or len(item) != 3:\n            return {}\n        src, dst, delta = item\n        if not isinstance(src, str) or src == \"\" or not isinstance(dst, str) or dst == \"\":\n            return {}\n        if src != src.upper() or any(ch < 'A' or ch > 'Z' for ch in src):\n            return {}\n        if dst != dst.upper() or any(ch < 'A' or ch > 'Z' for ch in dst):\n            return {}\n        if not isinstance(delta, int):\n            return {}\n        if src == dst:\n            return {}\n        nodes.add(src); nodes.add(dst)\n        key = (src, dst)\n        deltas[key] = deltas.get(key, 0) + delta\n        adjusted_pairs.add(key)\n    # Build base capacities copy\n    base = {}\n    for n in graph:\n        base[n] = dict(graph[n])  # shallow copy\n    # Ensure nodes with no outgoing in original exist in base\n    for n in nodes:\n        if n not in base:\n            base[n] = {}\n    # Apply aggregated deltas\n    # For each adjusted pair, compute current (0 if absent) + aggregated delta\n    for (src, dst), agg in deltas.items():\n        current = base.get(src, {}).get(dst, 0)\n        final = current + agg\n        if agg == 0:\n            # no effective change; leave as-is (even if edge absent)\n            continue\n        if final <= 0:\n            # remove edge if existed or added (only if affected by non-zero aggregated delta)\n            if dst in base.get(src, {}):\n                del base[src][dst]\n        else:\n            # set/add edge with final capacity\n            base.setdefault(src, {})[dst] = final\n    # Verify untouched pre-existing zero-capacity edges remain (already preserved)\n    # Ensure lexicographic ordering: build new dicts sorted\n    out = {}\n    for src in sorted(nodes):\n        edges = base.get(src, {})\n        if not isinstance(edges, dict):\n            return {}\n        inner = {}\n        for dst in sorted(edges.keys()):\n            cap = edges[dst]\n            if not isinstance(dst, str) or dst == \"\" or not isinstance(cap, int):\n                return {}\n            inner[dst] = cap\n        out[src] = inner\n    return out"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1112,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 806,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1918
+  },
+  "user": null,
+  "metadata": {}
+}

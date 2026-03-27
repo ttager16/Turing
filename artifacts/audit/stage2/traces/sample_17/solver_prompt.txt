@@ -1,0 +1,116 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+In a large-scale logistics operation, a company manages a network of depots that collectively service various delivery requests in real time. While the depots are originally listed in ascending order of their distance from a central warehouse, frequent road closures, sudden traffic congestion, and dynamically changing depot capacities cause the positions in this list to shift unpredictably. Even with attempts to maintain near-sorted ordering (each depot’s distance might be displaced by at most two positions from its ideal sorted position), finding the optimal depot is no longer a matter of simple searching.
+
+Furthermore, depots can intermittently go “offline” due to maintenance or capacity limits, and then come back online, creating an additional layer of complexity. The challenge is to design a solution that locates the depot nearest to a queried target distance while accounting for real-time updates and advanced constraints. A straightforward adaptation of binary search on a near-sorted array is insufficient, as multiple parallel conditions—ranging from online/offline statuses to capacity thresholds—must be tracked. To handle queries efficiently, you will need to construct auxiliary data structures like Segment Trees to dynamically maintain the set of valid depots and retrieve the closest distance.
+
+#### Objectives
+1. Implement a function `find_nearest_depot` that uses advanced data structures to handle:  
+   - Real-time depot status toggles (online vs. offline).  
+   - Adjustments of depot distances.  
+   - Capacity limitations or other depot attributes that may invalidate certain depots, even if they are physically closer.
+
+2. The function must balance multiple constraints in determining the "nearest" depot, including distance, online status, capacity, priority levels, operating hours, load capacities, weather conditions, service type compatibility, maintenance schedules, zone restrictions, and budget constraints. Selection criteria (in order of importance):
+   - Distance: Minimize absolute difference from target_distance
+   - Priority: Among equally distant depots, prefer higher priority_levels (1-5, higher is better)
+   - Index: Among equally distant and prioritized depots, return smallest index
+   - All depots must be online, have capacity > 0, be within operating hours, have load_capacity > 0, not be weather-affected, support the required service type, not be in maintenance, be in allowed zones, and be within budget
+
+3. Provide an efficient solution that handles the complex constraints of the logistics system.
+
+4. Provide a robust solution that gracefully handles edge cases such as:  
+   - All depots going offline.  
+   - Depots with zero distance but zero capacity.  
+   - Simultaneous updates to multiple depots’ positions or statuses.
+
+#### Constraints
+- The list of depot distances will contain between 1,000 and 10,000 elements, each representing the depot’s nominal distance from the warehouse.  
+- Each depot can be displaced by up to two positions from its strictly sorted order, but repeated real-time adjustments can compound this effect within the data structure.  
+- Depot capacity or “availability” can fluctuate, meaning the function must track both distance ordering and operational status.  
+- The solution must not rely on external Python libraries.
+
+#### Function Signature
+```python
+def find_nearest_depot(depots: List[int], target_distance: int, 
+                      offline_depots: List[int] = None, 
+                      zero_capacity_depots: List[int] = None,
+                      priority_levels: List[int] = None,
+                      operating_hours: List[List[int, int]] = None,
+                      load_capacities: List[int] = None,
+                      current_hour: int = 12,
+                      weather_affected_depots: List[int] = None,
+                      service_types: List[str] = None,
+                      required_service_type: str = None,
+                      maintenance_schedules: List[List[int, int]] = None,
+                      depot_zones: List[str] = None,
+                      allowed_zones: List[str] = None,
+                      depot_costs: List[int] = None,
+                      max_budget: int = None) -> int:
+    pass
+```
+- The function returns the index of the nearest valid depot or -1 if none.
+- `offline_depots`: List of depot indices that are offline (default: None, meaning all depots are online)
+- `zero_capacity_depots`: List of depot indices with zero capacity (default: None, meaning all depots have capacity)
+- `priority_levels`: List of priority levels (1-5) for each depot (default: None, meaning all depots have priority 1)
+- `operating_hours`: List of (start_hour, end_hour) list for each depot (default: None, meaning 24/7 operation)
+- `load_capacities`: List of maximum load capacities for each depot (default: None, meaning unlimited capacity)
+- `current_hour`: Current hour (0-23) for checking operating hours (default: 12)
+- `weather_affected_depots`: List of depot indices affected by weather (default: None, meaning no weather issues)
+- `service_types`: List of service types each depot can handle (default: None, meaning all depots handle all services)
+- `required_service_type`: Required service type for the request (default: None, meaning any service type is acceptable)
+- `maintenance_schedules`: List of (start_hour, end_hour) maintenance windows (default: None, meaning no maintenance)
+- `depot_zones`: List of zone identifiers for each depot (default: None, meaning all zones allowed)
+- `allowed_zones`: List of allowed zone identifiers (default: None, meaning all zones allowed)
+- `depot_costs`: List of cost values for each depot (default: None, meaning no cost constraint)
+- `max_budget`: Maximum budget constraint (default: None, meaning no budget limit)
+
+**Parameter Handling:** The function must treat empty values as equivalent to `None` (not provided):
+- Empty dictionary `{}` for any optional list/array parameter means not provided (same as `None`)
+- Empty list `[]` for any optional list/array parameter means not provided (same as `None`)
+- Integer `0` for `depot_costs` means not provided (same as `None`)
+- Integer `0` for `max_budget` means not provided (same as `None`)
+- Float `0.0` for `depot_costs` means not provided (same as `None`)
+- Float `0.0` for `max_budget` means not provided (same as `None`)
+
+#### Sample Input/Output
+Input (example scenario):
+```python
+# Distances of depots, which may be slightly unsorted (displacements up to ±2).
+depots = [15, 14, 28, 16, 20, 22, 21, 23, 19, 25]
+target_distance = 17
+offline_depots = [1]  # Depot 1 (distance=14) is offline
+zero_capacity_depots = None  # All depots have capacity
+priority_levels = [3, 1, 5, 2, 4, 1, 3, 2, 4, 1]  # Priority levels 1-5
+operating_hours = [[8, 18], [6, 22], [0, 24], [9, 17], [7, 19], [8, 20], [6, 18], [9, 21], [7, 17], [8, 16]]
+load_capacities = [100, 50, 200, 75, 150, 25, 125, 80, 175, 30]  # Load capacities
+
+result = find_nearest_depot(depots, target_distance, offline_depots, zero_capacity_depots, 
+                          priority_levels, operating_hours, load_capacities)
+```
+Output:
+```
+3
+```
+
+#### Expected Output Format
+- The function should return an integer representing the index of the depot that satisfies all constraints (closeness to target_distance, online status, and any additional capacity checks). 
+- In edge cases where no depot satisfies capacity or online constraints, the function may return an indicative fallback value (e.g., -1), but such behavior should be documented internally.
+
+Starter Code:
+```python
+def find_nearest_depot(depots, target_distance, offline_depots=None, zero_capacity_depots=None, 
+                      priority_levels=None, operating_hours=None, load_capacities=None, current_hour=12,
+                      weather_affected_depots=None, service_types=None, required_service_type=None,
+                      maintenance_schedules=None, depot_zones=None, allowed_zones=None, 
+                      depot_costs=None, max_budget=None):
+	"""Return index of nearest valid depot or -1."""
+	pass
+```

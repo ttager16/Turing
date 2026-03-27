@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: manage_patient_queue\n\nProblem Statement:\n### Problem Statement\n\nIn a next-generation hospital network spanning multiple geographical locations, a Python developer is tasked with designing a complex, multi-ward patient scheduling ecosystem. This system must administer diverse triage strategies, cross-ward resource allocation, and dynamic priority adjustments in real time. At the core, it requires a sophisticated data structure that can track patient records, handle intricate dependencies (e.g., doctor availability, ward capacity, and medical equipment usage), and efficiently accommodate large-scale concurrency. The design must support advanced algorithms—such as tree-based segment partitioning—to ensure minimal latency when assigning and reassigning patients across wards, even under high system load. Furthermore, the solution must accurately synchronize state changes (such as transferring a patient to a new ward or reprioritizing multiple patients simultaneously) across all nodes in the hospital network, preventing data inconsistencies or corruption.\n\n### Objectives:\n\n1. **Build a Multi-Layer Patient Data Structure:**\n\n   * Devise a data structure (e.g., self-balancing trees) that can process insertions, deletions, and dynamic reordering of patient records while handling inter-ward dependencies.\n   * Ensure each record can track multiple attributes: priority levels, estimated treatment duration, emergency status, and potential resource conflicts.\n\n2. **Implement Concurrent Scheduling and Resource Allocation:**\n\n   * Integrate concurrency controls that accommodate input from multiple healthcare providers in separate wards, guaranteeing atomicity of state updates.\n   * Use locking or lock-free strategies that propagate changes throughout the data structure, ensuring consistent treatment schedules without overlapping resource usage.\n\n3. **Coordinate Cross-Ward Transfers and Compound State Updates:**\n\n   * Develop logic to relocate patients from one ward to another without compromising overall scheduling efficiency.\n   * Support compound transitions, such as moving groups of patients simultaneously or switching large numbers of priorities based on sudden emergency influxes.\n\n4. **Optimize for Scalability and Minimally Disruptive Updates:**\n\n   * Maintain an update mechanism capable of recalculating only affected segments or nodes rather than recomputing the entire schedule.\n\n### Constraints:\n\n* All core operations (e.g., inserting, deleting, transferring, reprioritizing) must achieve amortized O(n) or better using specialized algorithms/data structures.\n* The system must manage at least 100,0 concurrent patients and handle up to 50,0 concurrent modification requests across wards without data corruption or significant latency spikes.\n* State updates (including cross-ward transfers and mass priority changes) must be reflected throughout the entire hospital network within 500 milliseconds to maintain real-time accuracy.\n* Only standard Python libraries are allowed; no external libraries can be used to implement concurrency, data structures, or graph algorithms.\n\n### Function Signature\n\n```python\ndef manage_patient_queue(commands: list[list[str, any]]) -> list[str]:\n    pass\n```\n\n### Sample Input/Output\n\nSample Input:\n\n```python\ncommands = [\n    ('insert', {'id': 101, 'ward': 'ICU', 'priority': 3, 'emergency': False, 'duration': 120}),\n    ('insert', {'id': 202, 'ward': 'ER', 'priority': 1, 'emergency': True, 'duration': 45}),\n    ('transfer', {'id': 202, 'new_ward': 'ICU'}),\n    ('reorder',  {'id': 101, 'new_priority': 2, 'simulate_mass_update': True}),\n    ('delete',   {'id': 101})\n]\n```\n\nSample Output:\n\n```python\n[\n    \"Patient 101 added to ward ICU\",\n    \"Patient 202 added to ward ER\",\n    \"Patient 202 transferred to ward ICU\",\n    \"Patient 101 updated to priority 2 with mass update simulation\",\n    \"Patient 101 removed from system\"\n]\n```\n\n### Expected Output Format\n\n• The function should return a list of strings summarizing the actions taken or results of each command in the order they were processed.\n\nStarter Code:\n```python\nfrom typing import List, Tuple, Any, Dict, Optional\nfrom threading import RLock\nfrom collections import defaultdict\nimport bisect\nimport time\n\ndef manage_patient_queue(commands: List[List]) -> List[str]:\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[[\\\"insert\\\", {\\\"id\\\": 101, \\\"ward\\\": \\\"ICU\\\", \\\"priority\\\": 3, \\\"emergency\\\": false, \\\"duration\\\": 120}], [\\\"insert\\\", {\\\"id\\\": 102, \\\"ward\\\": \\\"ICU\\\", \\\"priority\\\": 2, \\\"emergency\\\": true, \\\"duration\\\": 60}], [\\\"delete\\\", {\\\"id\\\": 101}]]\",\n    \"output\": \"[\\\"Patient 101 added to ward ICU\\\", \\\"Patient 102 added to ward ICU\\\", \\\"Patient 101 removed from system\\\"]\"\n  },\n  {\n    \"input\": \"[[\\\"insert\\\", {\\\"id\\\": 201, \\\"ward\\\": \\\"ER\\\", \\\"priority\\\": 1, \\\"emergency\\\": true, \\\"duration\\\": 45}], [\\\"insert\\\", {\\\"id\\\": 202, \\\"ward\\\": \\\"ICU\\\", \\\"priority\\\": 3, \\\"emergency\\\": false, \\\"duration\\\": 90}], [\\\"transfer\\\", {\\\"id\\\": 201, \\\"new_ward\\\": \\\"ICU\\\"}], [\\\"ward_status\\\", {\\\"ward\\\": \\\"ICU\\\"}]]\",\n    \"output\": \"[\\\"Patient 201 added to ward ER\\\", \\\"Patient 202 added to ward ICU\\\", \\\"Patient 201 transferred to ward ICU\\\", \\\"Ward ICU: 2 patients, 1 emergencies\\\"]\"\n  },\n  {\n    \"input\": \"[[\\\"insert\\\", {\\\"id\\\": 301, \\\"ward\\\": \\\"ER\\\", \\\"priority\\\": 5, \\\"emergency\\\": false, \\\"duration\\\": 100}], [\\\"reorder\\\", {\\\"id\\\": 301, \\\"new_priority\\\": 2, \\\"simulate_mass_update\\\": false}], [\\\"patient_info\\\", {\\\"id\\\": 301}]]\",\n    \"output\": \"[\\\"Patient 301 added to ward ER\\\", \\\"Patient 301 updated to priority 2\\\", \\\"Patient 301: ward=ER, priority=2, emergency=False, duration=100\\\"]\"\n  }\n]\n"
+    }
+  ]
+}

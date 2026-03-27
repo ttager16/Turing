@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6knpaqPKYEn5kOJeqPbGVXhXUdk",
+  "object": "chat.completion",
+  "created": 1774399877,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[\\\"In a surprise, Apple Inc. (AAPL) reports upbeat revenue; analysts are positive.\\\", \\\"Quarterly notes: Apple Incorporated (AAPL) posts mixed results but recorta costs afterward.\\\", \\\"NAZDAQ had notable volatility; some reports were bullish.\\\", \\\"Analysts remain cautious on the Nasdaq Composite amid mixed signals.\\\", \\\"新闻：纳斯达克 表现稳健。\\\"]\"\n      ],\n      \"focus\": \"Fuzzy matching and multilingual aliases (Chinese), distinguishing alias edges (no sentiment transfer) from entity edges (transfer) and propagation when two canonical entities are shared.\"\n    },\n    {\n      \"input_lines\": [\n        \"[\\\"apple inc. expands operations in Europe; AAPL shows strength.\\\", \\\"Applr Inc (AAPL) posts flat revenue.\\\", \\\"Investors are POSITIVE on aapl despite headwinds.\\\"]\"\n      ],\n      \"focus\": \"Case-insensitive and punctuation-robust matching, single-character typo (Applr) fuzzy-mapped to company alias, lowercase ticker variants, and whole-word sentiment detection (POSITIVE).\"\n    },\n    {\n      \"input_lines\": [\n        \"[\\\"Market note: positive signals then negative; overall the final word is negative.\\\", \\\"Company brief: Apple Inc.\\\", \\\"Ticker brief: AAPL\\\", \\\"Combined: Apple Inc. and AAPL are discussed but no sentiment words.\\\", \\\"Mirror: Apple Incorporated AAPL performance is under review; analysts remain upbeat.\\\"]\"\n      ],\n      \"focus\": \"Edge of entity-edge requirement (requires two shared canonical entities): some articles only share one entity and should not transfer sentiment; tests last-keyword wins and that an unconnected negative article stays negative.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1402,
+    "completion_tokens": 3779,
+    "total_tokens": 5181,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3392,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

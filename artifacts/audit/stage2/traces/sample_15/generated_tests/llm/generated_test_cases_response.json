@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5HXUJwCuEMQgy5wJc2ItxFZlwtO",
+  "object": "chat.completion",
+  "created": 1774394219,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[[0, 1, -5, 2], [1, 2, 10, 3]]\",\n        \"[[0], [1]]\"\n      ],\n      \"focus\": \"Negative capacity in a workshop should raise ValueError (malformed input detection).\"\n    },\n    {\n      \"input_lines\": [\n        \"[[0, 1, 2, 10], [1, 1, 2, 10], [0, 2, 2, 11]]\",\n        \"[[0, 1], [0, 1], [2], [2]]\"\n      ],\n      \"focus\": \"Instructor conflict: two workshops share the same instructor and timeslot; solver must avoid scheduling both and pick the minimal feasible set.\"\n    },\n    {\n      \"input_lines\": [\n        \"[[0, 1, 0, 5], [1, 2, 1, 6], [2, 3, 2, 7]]\",\n        \"[[0, 0], [1, 2], [2], []]\"\n      ],\n      \"focus\": \"Format-sensitive: zero-capacity workshop, duplicated preference indices, and a student with empty preferences — should lead to impossibility (-1) rather than a silent failure.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1634,
+    "completion_tokens": 2478,
+    "total_tokens": 4112,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2176,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

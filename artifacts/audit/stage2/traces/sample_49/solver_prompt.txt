@@ -1,0 +1,204 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+A multinational retail corporation operates a complex supply chain network with multiple distribution centers, warehouses, and delivery destinations. The company needs to optimize transportation routes to minimize total operational costs while satisfying strict delivery constraints and capacity limitations.
+
+You are tasked with implementing a sophisticated greedy algorithm that dynamically selects optimal transportation routes based on real-time operational data. The system must handle multiple distribution centers, each with different capacities, operating costs, and delivery time windows, while ensuring all customer demands are met within specified deadlines.
+
+## Core Requirements
+
+Your solution must implement a **pure Python** greedy algorithm (no external libraries) that processes supply chain data and generates an optimal route assignment plan. The algorithm should prioritize routes based on cost-efficiency while respecting all operational constraints.
+
+### Key Operational Constraints
+
+1. **Capacity Constraints**: Each distribution center has a maximum daily throughput capacity (sum of all assigned demands cannot exceed capacity)
+2. **Time Window Constraints**: Each delivery must be scheduled within the specified time window for that destination
+3. **Demand Fulfillment**: All customer demands must be satisfied exactly
+4. **Route Exclusivity**: Each destination can only be assigned to one distribution center
+5. **Cost Optimization**: The algorithm must minimize total operational costs
+
+### Advanced Algorithmic Requirements
+
+The greedy selection criterion must consider multiple factors simultaneously using this composite scoring function:
+
+**Total Route Cost = Transportation Cost + (Base Cost × Demand × Efficiency Factor)**
+
+Where:
+- Transportation Cost: From cost_matrix[distribution_center][destination]
+- Base Cost: Per-unit operational cost from distribution center
+- Demand: Delivery quantity for the destination
+- Efficiency Factor: Processing efficiency multiplier for the distribution center
+
+The algorithm must also incorporate time urgency weighting, where the urgency multiplier is **75%** of the maximum time window span across all destinations. The maximum time window span is calculated as: `max(latest_time - earliest_time for earliest_time, latest_time in time_windows)`.
+
+**Urgency Weighting Formula**:
+- `urgency_multiplier = 0.75 * max_time_window_span`
+- `urgency_weight = urgency_multiplier / (priority_level * 10.0)`
+- `weighted_cost = total_route_cost - urgency_weight`
+
+The greedy algorithm selects assignments based on the `weighted_cost`, where higher priority destinations (lower priority_level numbers) receive more favorable urgency weighting by having their weighted costs reduced more significantly.
+
+## Function Signature
+
+```python
+def optimize_supply_chain_routes(distribution_centers, destinations, cost_matrix, time_windows):
+    """
+    Optimizes supply chain routes using advanced greedy algorithm.
+    
+    Returns: Dictionary with route assignments and total cost
+    """
+    pass
+```
+
+## Input Specifications
+
+- **distribution_centers**: List of dictionaries, each containing:
+  - `id`: Unique identifier (integer)
+  - `capacity`: Maximum daily throughput (integer, 50-500)
+  - `base_cost`: Fixed operational cost per unit (float, 0.5-5.0)
+  - `efficiency_factor`: Processing efficiency multiplier (float, 0.5-1.5)
+
+- **destinations**: List of dictionaries, each containing:
+  - `id`: Unique identifier (integer)
+  - `demand`: Required delivery quantity (integer, 1-100)
+  - `priority_level`: Delivery priority (integer, 1=highest to 5=lowest)
+
+- **cost_matrix**: 2D list where `cost_matrix[i][j]` represents base transportation cost from distribution center i to destination j (float, 10.0-50.0)
+
+- **time_windows**: List of lists `[earliest_time, latest_time]` for each destination (integers, 0-168 representing hours in a week)
+
+## Output Specification
+
+Return a dictionary containing:
+```python
+{
+    "assignments": [
+        {
+            "distribution_center_id": int,
+            "destination_id": int,
+            "transportation_cost": float,
+            "operational_cost": float,
+            "total_route_cost": float,
+            "scheduled_delivery_time": int
+        },
+        # ... more assignments
+    ],
+    "total_system_cost": float,
+    "unassigned_destinations": list[int]  # Empty if all assigned successfully
+}
+```
+
+## Constraint Requirements
+
+1. **Input Validation**: Return {"error": "Invalid cost matrix dimensions"}  if cost_matrix dimensions don't match the number of distribution centers and destinations
+2. **Capacity Validation**: During assignment, return {"error":"Capacity exceeded for distribution center {id}"} if assigning a destination would exceed the center's remaining capacity
+3. **Empty Input**: Return {"error":"Empty destination list provided"} if the destinations list is empty
+4. **Negative Values**: Return {"error": "Negative cost detected in cost matrix"} if any value in cost_matrix is negative
+5. **Time Window Validation**: Return {"error": "Invalid time window for destination {id}"} if any time window has earliest_time >= latest_time
+6. For any other input parameter violation, return {"error": "Input is not valid"}
+
+## Sample Input/Output
+
+**Input:**
+```python
+distribution_centers = [
+    {"id": 0, "capacity": 150, "base_cost": 2.0, "efficiency_factor": 1.2},
+    {"id": 1, "capacity": 200, "base_cost": 1.8, "efficiency_factor": 1.0},
+    {"id": 2, "capacity": 180, "base_cost": 2.2, "efficiency_factor": 1.1}
+]
+
+destinations = [
+    {"id": 0, "demand": 50, "priority_level": 1},
+    {"id": 1, "demand": 75, "priority_level": 2},
+    {"id": 2, "demand": 60, "priority_level": 1},
+    {"id": 3, "demand": 40, "priority_level": 3}
+]
+
+cost_matrix = [
+    [25.5, 30.0, 35.2, 28.0],
+    [32.0, 22.5, 40.0, 35.5],
+    [28.5, 35.0, 20.0, 30.0]
+]
+
+time_windows = [(0, 24), (12, 36), (24, 48), (0, 72)]
+```
+
+**Expected Output:**
+```python
+{
+    "assignments": [
+        {
+            "distribution_center_id": 1, 
+            "destination_id": 3, 
+            "transportation_cost": 35.5, 
+            "operational_cost": 72.0, 
+            "total_route_cost": 107.5,
+            "scheduled_delivery_time": 36
+        },
+        {
+            "distribution_center_id": 1, 
+            "destination_id": 0, 
+            "transportation_cost": 32.0, 
+            "operational_cost": 90.0, 
+            "total_route_cost": 122.0,
+            "scheduled_delivery_time": 12
+        },
+        {
+            "distribution_center_id": 1, 
+            "destination_id": 2, 
+            "transportation_cost": 40.0, 
+            "operational_cost": 108.0, 
+            "total_route_cost": 148.0,
+            "scheduled_delivery_time": 36
+        },
+        {
+            "distribution_center_id": 0, 
+            "destination_id": 1, 
+            "transportation_cost": 30.0, 
+            "operational_cost": 180.0, 
+            "total_route_cost": 210.0,
+            "scheduled_delivery_time": 24
+        }
+    ],
+    "total_system_cost": 587.5,
+    "unassigned_destinations": []
+}
+```
+
+## Implementation Guidelines
+
+1. **Greedy Selection Strategy**: At each iteration, select the route assignment with the lowest `weighted_cost` (total_route_cost - urgency_weight) among all feasible options
+2. **Capacity Tracking**: Maintain running totals of assigned demand for each distribution center and check capacity constraints before assignment
+3. **Time Window Scheduling**: Schedule deliveries at the midpoint of each destination's time window: `(earliest_time + latest_time) // 2`
+4. **Priority Consideration**: When multiple routes have identical weighted costs, prioritize destinations with higher priority levels (lower priority_level numbers)
+5. **Urgency Weighting**: Apply urgency weighting where `urgency_weight = urgency_multiplier / (priority_level * 10.0)` and subtract from total_route_cost to favor higher priority destinations
+6. **Deterministic Output**: The algorithm must produce consistent results for identical inputs
+7. **Feasibility Check**: Before making any assignment, verify that the destination's demand doesn't exceed the distribution center's remaining capacity
+
+## Algorithm Flow
+
+1. Calculate maximum time window span for urgency weighting: `max_time_span = max(latest_time - earliest_time for earliest_time, latest_time in time_windows)`
+2. Calculate urgency multiplier: `urgency_multiplier = 0.75 * max_time_span`
+3. For each unassigned destination, calculate weighted_cost for each feasible distribution center using: `weighted_cost = total_route_cost - (urgency_multiplier / (priority_level * 10.0))`
+4. Select the assignment with the minimum weighted_cost
+5. Update capacity tracking and mark the destination as assigned
+6. Repeat until all destinations are assigned or no feasible assignments remain
+
+The algorithm should terminate successfully when all destinations are assigned within their respective constraints, or identify unassigned destinations if capacity limitations prevent complete assignment.
+
+Starter Code:
+```python
+from typing import List, Dict, Any
+
+def optimize_supply_chain_routes(distribution_centers: List[Dict], destinations: List[Dict], 
+                               cost_matrix: List[List[float]], time_windows: List) -> Dict[str, Any]:
+                               pass
+```

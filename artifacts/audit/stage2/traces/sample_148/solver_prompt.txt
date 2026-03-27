@@ -1,0 +1,183 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Overview
+
+Given a uniform grid in the complex plane `[-2, 2] × [-2, 2]`, apply a sequence of **geometric transformations** (selected by integer codes). Build a **multi-layer graph** where:
+- Each **node** is a grid point.
+- Each **layer** represents the state after one transformation.
+- An **edge** from `z` to `T(z)` exists if `T(z)` **snaps exactly** to another grid point within bounds.
+
+**Goal**: Find **invariant clusters** — sets of points that map among themselves under the full transformation chain.
+
+> This models **symmetry detection** in discrete fractal-like systems (e.g., Mandelbrot set), using only **geometric** operations.
+
+---
+
+## Function Signature
+
+```python
+from typing import List, Dict, Any
+
+def analyze_mandelbrot_invariants(
+    grid_resolution: int,
+    transformation_codes: List[int]
+) -> Dict[str, Any]:
+    """
+    Detect invariant point clusters under a sequence of coded transformations.
+
+    Args:
+        grid_resolution: Grid size N × N (N ≥ 1)
+        transformation_codes: List of integers 0–4 selecting transformations
+
+    Returns:
+        Dictionary with invariant clusters and analysis summary
+    """
+    pass
+```
+
+---
+
+## Transformation Codes
+
+| Code | Name                  | Operation             | Example: `z = 1 + i` → |
+|------|------------------------|------------------------|-------------------------|
+| `0`  | Conjugation            | `z → conj(z)`          | `1 - i`                 |
+| `1`  | Rotate 90° CCW         | `z → z × i`            | `-1 + i`                |
+| `2`  | Scale by 0.5           | `z → 0.5 × z`          | `0.5 + 0.5i`            |
+| `3`  | Project to Real Axis   | `z → real(z)`          | `1 + 0i`                |
+| `4`  | Negate (180° rotation) | `z → -z`               | `-1 - i`                |
+
+> Invalid codes (e.g. `99`) are **silently ignored**.
+
+---
+
+## Sample Input
+
+```python
+grid_resolution = 5
+transformation_codes = [0, 1, 2]
+```
+
+---
+
+## Expected Output
+
+```python
+{
+    'invariant_subgraphs': 
+    [[
+        [-2.0, -2.0], [-2.0, -1.0], [-2.0, 0.0], [-2.0, 1.0], [-2.0, 2.0], [-1.0, -2.0], [-1.0, -1.0], 
+        [-1.0, 0.0], [-1.0, 1.0], [-1.0, 2.0], [0.0, -2.0], [0.0, -1.0], [0.0, 0.0], [0.0, 1.0], [0.0, 2.0], [1.0, -2.0], [1.0, -1.0], [1.0, 0.0], [1.0, 1.0], [1.0, 2.0], [2.0, -2.0], [2.0, -1.0], 
+        [2.0, 0.0], [2.0, 1.0], [2.0, 2.0]
+    ]], 
+    'analysis_summary': {
+        'total_points': 25, 
+        'num_layers': 4, 
+        'num_invariant_components': 1, 
+        'largest_component_size': 25, 
+        'detected_symmetries': ['4-fold_rotational_symmetry_on_axes']
+        }
+}
+```
+
+---
+
+## Output Format
+
+```python
+{
+    'invariant_subgraphs': List[List[List[float]]]
+        # List of clusters
+        # Each cluster: list of [real, imag] points
+        # Clusters sorted: largest first, then by first point (lex)
+        # Points in cluster sorted lexicographically
+
+    'analysis_summary': {
+        'total_points': int,
+        'num_layers': int,                    # len(codes) + 1
+        'num_invariant_components': int,
+        'largest_component_size': int,
+        'detected_symmetries': List[str]     # Heuristic labels
+    }
+}
+```
+
+---
+
+## Algorithm Steps (Clear & Sequential)
+
+1. **Create Grid**  
+   - `step = 4.0 / (grid_resolution - 1)`  
+   - Points: `x = i * step - 2.0`, `y = j * step - 2.0` for `i, j = 0..N-1`
+
+2. **Index Points**  
+   - Map each `complex` point → unique integer ID
+
+3. **Union-Find Setup**  
+   - Each point starts in its own group
+
+4. **Apply Transformations**  
+   For each code in `transformation_codes`:
+   - Get function `T`
+   - For each point `z` in current layer:
+     - Compute `w = T(z)`
+     - Skip if out of `[-2, 2]` or `inf`/`nan`
+     - **Snap** `w.real` and `w.imag` to nearest grid value:
+       ```python
+       rx = round((w.real + 2.0) / step) * step - 2.0
+       ```
+     - If snapped point `rw` is in grid → union `z` and `rw`
+   - Update current layer to surviving points (deduplicated)
+
+5. **Extract & Sort Clusters**  
+   - Group points by union-find root
+   - Convert to `[[real, imag], ...]`, sort internally
+   - Sort clusters: size descending → lexicographical
+
+6. **Generate Summary**  
+   - Count layers, components, max size
+   - Detect: origin fixed? 4-fold symmetry near unit circle?
+
+---
+
+## Constraints
+
+- **No external libraries** (only built-ins)
+- **Floating-point exactness**: `0.0`, `±2.0` preserved
+- **Snapping**: Use `round()` + recompute → exact grid match only
+- **Filtering**: Skip invalid outputs per point
+- **Deterministic**: Same output across Python runs
+
+---
+
+## Edge Cases (Key Behaviors)
+
+| Case                     | Input Example                     | Expected Outcome |
+|--------------------------|-----------------------------------|------------------|
+| `grid_resolution = 1`    | `N=1`, any codes                  | `[[[0.0, 0.0]]]` |
+| Empty codes              | `transformation_codes = []`       | All points as singletons, sorted |
+| Invalid code             | `[99]`                            | Ignored |
+| All points leave bounds  | Repeated scaling `[2,2,2]`        | All singletons |
+| Self-inverse             | `[0, 0]` (conj twice)             | Layer 1 = Layer 0 |
+| Full 4-cycle             | `[1,1,1,1]`                        | Merges 4 axis points |
+| Boundary points          | `z = 2+0i → T=4 → -2+0i`          | Connected exactly |
+```
+
+Starter Code:
+```python
+from typing import List, Dict, Any
+import math
+
+
+def analyze_mandelbrot_invariants(
+    grid_resolution: int,
+    transformation_codes: List[int]
+) -> Dict[str, Any]:
+```

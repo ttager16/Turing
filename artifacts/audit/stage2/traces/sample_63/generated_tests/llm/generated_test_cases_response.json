@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6G7tzKcCy9THbybIp8qwv82A6gy",
+  "object": "chat.completion",
+  "created": 1774397975,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[]\",\"[[5, 6]]\",\"[{\\\"type\\\": \\\"reclassify\\\", \\\"road\\\": [5, 6], \\\"new_capacity\\\": 3}, {\\\"type\\\": \\\"optimize\\\", \\\"k\\\": 2, \\\"boost_priority_roads\\\": true}, {\\\"type\\\": \\\"close_partial\\\", \\\"road\\\": [1, 2], \\\"lanes_closed\\\": 1}, {\\\"type\\\": \\\"optimize\\\", \\\"k\\\": 1, \\\"boost_priority_roads\\\": false}]\"],\"focus\":\"Empty network + intersection-only nodes; operations reference intersections and nonexistent roads to test silent skips and handling of no-op updates.\"},{\"input_lines\":[\"[[1, 2], [2, 3], [3, 4], [10, 11], [11, 12], [12, 13]]\",\"[]\",\"[{\\\"type\\\": \\\"expand\\\", \\\"road\\\": [3, 4], \\\"extended_road\\\": [4, 10]}, {\\\"type\\\": \\\"merge_levels\\\", \\\"road\\\": [1, 2], \\\"adjacent_road\\\": [10, 11], \\\"distance_threshold\\\": 2}, {\\\"type\\\": \\\"reclassify\\\", \\\"road\\\": [11, 10], \\\"new_capacity\\\": 3}, {\\\"type\\\": \\\"close_partial\\\", \\\"road\\\": [2, 3], \\\"lanes_closed\\\": 1}, {\\\"type\\\": \\\"optimize\\\", \\\"k\\\": 5, \\\"boost_priority_roads\\\": true}]\"],\"focus\":\"Multi-hop chain merging and expansion: connect two chains via expand then run proximity-based merge; includes a reversed-endpoint reclassify to test normalization and a partial close.\"},{\"input_lines\":[\"[[9, 10], [7, 8], [15, 16], [16, 17], [20, 21]]\",\"[[12, 13]]\",\"[{\\\"type\\\": \\\"reclassify\\\", \\\"road\\\": [10, 9], \\\"new_capacity\\\": 5}, {\\\"type\\\": \\\"close_partial\\\", \\\"road\\\": [7, 8], \\\"lanes_closed\\\": 1}, {\\\"type\\\": \\\"close_partial\\\", \\\"road\\\": [15, 16], \\\"lanes_closed\\\": 1}, {\\\"type\\\": \\\"expand\\\", \\\"road\\\": [20, 21], \\\"extended_road\\\": [21, 22]}, {\\\"type\\\": \\\"optimize\\\", \\\"k\\\": 2, \\\"boost_priority_roads\\\": true}, {\\\"type\\\": \\\"merge_levels\\\", \\\"road\\\": [9, 10], \\\"adjacent_road\\\": [20, 21], \\\"distance_threshold\\\": 100}]\"],\"focus\":\"Capacity extremes and deactivations: reclassify with reversed endpoints, multiple close_partial operations causing deactivations, expansion adding new node, and priority optimization affecting highest-priority roads.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2905,
+    "completion_tokens": 2853,
+    "total_tokens": 5758,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2240,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

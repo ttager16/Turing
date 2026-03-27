@@ -1,0 +1,30 @@
+{
+  "model": "gpt-5-mini",
+  "input": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are a careful coding assistant. Return the best possible answer for the task."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Solve the following Python coding task.\n\nRequirements:\n- Return only Python code.\n- Implement the requested entry function exactly.\n- Do not include explanations before or after the code.\n- Use only the Python standard library unless the prompt explicitly permits otherwise.\n\nProblem Statement:\n### Problem Statement\n\nA global consortium of financial regulators seeks a deterministic multilingual analysis system that transforms unstructured financial news into structured, cross-referenced insights. The system must build an evolving article graph, extract key entities from text in multiple scripts, and iteratively propagate sentiment through linked articles while handling new inputs incrementally.\n\n---\n\n### Objectives\n\n1. **Incremental Weighted Graph Construction**\n\n   * Maintain a directed graph where each node is an article and edges encode contextual similarity.\n   * Create edges by rule:\n\n     * Entity edge: connect two articles if they share at least two canonical entities; weight = Jaccard(entity sets).\n     * Alias edge: connect articles if one contains a lexical alias of an entity in the other; weight = 0 for sentiment transfer (see Sentiment rules).\n   * On new article arrival, only update incident edges; existing weights remain unchanged.\n\n2. **Trie-Based Multilingual Entity Recognition**\n\n   * Implement a Trie with canonical forms and aliases. Minimum required canonical buckets:\n\n     * Company: {“Apple Inc.”} with aliases {“Apple Incorporated”, “Apple Inc”}.\n     * Stock Symbol: {“AAPL”}.\n     * Market Index: {“Nasdaq Composite”, “Nasdaq”} with aliases {“NAZDAQ”, “纳斯达克”}.\n   * Fuzzy matching: accept aliases within edit distance ≤ 1; map to the canonical bucket name.\n\n3. **Dynamic Sentiment Propagation**\n\n   * Base sentiment per article from keyword rules (case-insensitive; whole-word match):\n\n     * Positive keywords: {“positive”, “positivos”, “upbeat”, “bullish”, “amplía”, “expands”}.\n     * Negative keywords: {“negative”, “negativos”, “bearish”, “cuts”, “recorta”}.\n     * If both sets appear, prefer the last sentiment keyword in the article. If none appear, base = neutral.\n   * Propagation step: only through Entity edges (alias edges do not transfer sentiment). Convert labels to scores {positive: +1, neutral: 0, negative: −1} and iteratively update each node to the weighted average of neighbors (edge weights normalized). Stop when max absolute change < 0.05 or after 20 iterations. Map back to labels via thresholds: ≥ +0.25 → positive, ≤ −0.25 → negative, else neutral.\n   * Deterministic tie-breaking: if score exactly on a threshold, keep prior label.\n\n4. **Safe Concurrency and State Discipline**\n\n   * Ingest concurrently using a thread-safe queue.\n   * Node and incident-edge updates must be lock-scoped per node; no global locks.\n   * Memory for active graph + trie must stay within implementation limits (no fixed cap required by this prompt).\n\n---\n\n### Constraints\n\n* Average per-article update (entity extraction + local edge updates) is ≤ O(log N) with respect to the number of nodes N, excluding full propagation passes.\n* Fuzzy matching must canonicalize at least 90% of single-character spelling variants for entities listed above.\n* Sentiment propagation must converge within ≤ 20 iterations using the rule above.\n* Outputs must be deterministic for identical input order.\n\n---\n\n### Function Signature\n\n```python\ndef analyze_financial_news(data_stream: list[str]) -> dict[str, list[str]]:\n    \"\"\"Extract canonical entities and final sentiments from multilingual financial articles.\"\"\"\n    pass\n```\n\n---\n\n### Sample Input\n\n```python\ndata_stream = [\n    \"Según los últimos informes, Apple Inc. (AAPL) amplía operaciones en Asia.\",\n    \"Los analistas muestran sentimientos positivos sobre el Nasdaq Composite en Nueva York.\",\n    \"Industry experts claim NAZDAQ could be a typographical variation referencing Nasdaq.\"\n]\n```\n\n### Why this yields the expected labels\n\n* Article 1 contains “amplía” → base positive.\n* Article 2 contains “positivos” → base positive.\n* Article 3 has no sentiment keywords; it links to Article 2 only via an alias edge (“NAZDAQ” ↔ “Nasdaq”), which does not transfer sentiment → remains neutral after propagation.\n\n### Sample Output\n\n```python\n{\n    \"Company\": [\"Apple Inc.\"],\n    \"Stock Symbol\": [\"AAPL\"],\n    \"Market Index\": [\"Nasdaq Composite\"],\n    \"Sentiment\": [\"positive\", \"positive\", \"neutral\"]\n}\n```\n\n---\n\n### Expected Output Format\n\nReturn a dictionary with at least these keys and list values:\n\n1. \"Company\" — canonical company names found.\n2. \"Stock Symbol\" — canonical tickers found.\n3. \"Market Index\" — canonical index names found.\n4. \"Sentiment\" — final labels per article in input order after propagation.\n\nStarter Code:\n```python\nimport threading\nimport queue\nimport re\nfrom itertools import combinations\nfrom typing import Dict, List, Optional\n\ndef analyze_financial_news(data_stream: List[str]) -> Dict[str, List[str]]:\n    pass\n```\n"
+        }
+      ]
+    }
+  ],
+  "reasoning": {
+    "effort": "minimal"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 4096
+}

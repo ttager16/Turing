@@ -1,0 +1,205 @@
+import heapq
+from collections import defaultdict, deque
+from typing import Dict, List, Tuple, Optional, Set
+
+def optimize_multi_stage_routes(
+    nodes: List[List[int]],
+    vehicles: int,
+    edges: List[List[int]],
+    traffic_updates: List[List[int]],
+    cross_dock_capacities: Dict[str, int],
+    item_demands: Dict[str, List[int]]
+) -> List[List[int]]:
+    # Build graph
+    n = len(nodes)
+    adj = defaultdict(list)
+    edge_cost = {}
+    for u, v, c in edges:
+        adj[u].append((v, c))
+        edge_cost[(u, v)] = c
+    # Apply traffic updates (ignore updates to non-existent edges)
+    for u, v, c in traffic_updates:
+        if (u, v) in edge_cost:
+            edge_cost[(u, v)] = c
+    # Rebuild adj with updated costs and mark impassable edges
+    adj = defaultdict(list)
+    impassable = set()
+    for (u, v), c in edge_cost.items():
+        if c >= 500:
+            impassable.add((u, v))
+        else:
+            adj[u].append((v, c))
+    # Cross-dock capacities mapping: nodes that are cross-docks
+    cross_caps = {}
+    for k, val in cross_dock_capacities.items():
+        try:
+            node = int(k)
+            cross_caps[node] = val
+        except:
+            continue
+    # Destination total demands and filtering > vehicle capacity
+    default_vehicle_capacity = 100
+    demand_total = {}
+    for k, arr in item_demands.items():
+        try:
+            node = int(k)
+        except:
+            continue
+        total = sum(arr)
+        demand_total[node] = total
+    # Filter out destinations exceeding single vehicle capacity
+    destinations = []
+    for node, total in demand_total.items():
+        if total <= default_vehicle_capacity:
+            destinations.append((total, node))
+    # Sort by priority: higher demand first, tie-break higher node id
+    destinations.sort(key=lambda x: (x[0], x[1]))
+    destinations = [node for _, node in reversed(destinations)]
+    # Vehicles state
+    default_fuel = 1000
+    veh_loc = [0] * vehicles
+    veh_fuel = [default_fuel] * vehicles
+    veh_used = [False] * vehicles
+    veh_load = [0] * vehicles
+    routes = [[0] for _ in range(vehicles)]
+    # Cross-dock usage counts heuristic (only forward entries count)
+    cross_usage = defaultdict(int)
+    # Helper: find candidate forward paths from start to dest with up to 2 cross-docks (i.e., up to 3 legs?)
+    # We'll run Dijkstra allowing paths but track cross-dock entries count and throughput costs and total forward distance.
+    def find_best_path(start: int, dest: int):
+        # State: (aug_cost, distance_sum, cross_entries, node, first_departed_flag, path)
+        # augmented cost includes edge distances + depot one-time (if start==0 and departing first time) + cross-dock throughputs
+        # But depot handling is applied separately per vehicle; here we compute edge cost sum and cross entries count; caller will add depot cost if needed.
+        heap = []
+        # (cost_so_far, dist_so_far, cross_entries, node, path)
+        heapq.heappush(heap, (0, 0, 0, start, [start]))
+        seen = {}
+        best = None
+        while heap:
+            cost, dist, crosses, node, path = heapq.heappop(heap)
+            key = (node, crosses)
+            if key in seen and seen[key] <= (cost, dist):
+                continue
+            seen[key] = (cost, dist)
+            if node == dest:
+                # return augmented parts
+                return {
+                    "aug_cost": cost,
+                    "distance": dist,
+                    "crosses": crosses,
+                    "path": path
+                }
+            if len(path) > 2 * n:
+                continue
+            for nei, w in adj.get(node, []):
+                if (node, nei) in impassable:
+                    continue
+                ndist = dist + w
+                # cross-dock entry check: only count if nei is cross-dock and it's on forward leg (we are forward)
+                ncross = crosses
+                add_cost = w
+                if nei in cross_caps:
+                    ncross = crosses + 1
+                    # throughput cost per entry: 1 if cap>=3 else 2
+                    add_cost += (1 if cross_caps[nei] >= 3 else 2)
+                ncost = cost + add_cost
+                npath = path + [nei]
+                # prune: if distance exceeds default fuel (max possible), we still return and caller will compare to actual veh fuel
+                heapq.heappush(heap, (ncost, ndist, ncross, nei, npath))
+        return None
+    # Assign destinations greedily
+    assigned = set()
+    for dest in destinations:
+        # skip if no incoming path exists from any vehicle within fuel
+        assigned_flag = False
+        # try vehicles in index order
+        for vi in range(vehicles):
+            # capacity check
+            if veh_load[vi] + demand_total.get(dest, 0) > default_vehicle_capacity:
+                continue
+            # find path from veh_loc[vi] to dest
+            res = find_best_path(veh_loc[vi], dest)
+            if res is None:
+                continue
+            # check fuel constraint: forward distance must <= remaining fuel
+            if res["distance"] > veh_fuel[vi]:
+                continue
+            # cross-dock capacity heuristic: ensure sum of planned new entries per cross_dock doesn't exceed capacity
+            feasible = True
+            temp_counts = defaultdict(int)
+            for node in res["path"][1:]:  # entries moving forward
+                if node in cross_caps:
+                    temp_counts[node] += 1
+            for node, cnt in temp_counts.items():
+                if cross_usage[node] + cnt > cross_caps[node]:
+                    feasible = False
+                    break
+            if not feasible:
+                continue
+            # compute total augmented cost including one-time depot handling if vehicle hasn't departed yet and current loc==0 and route length==1
+            total_aug = res["aug_cost"]
+            if (not veh_used[vi]) and veh_loc[vi] == 0:
+                total_aug += 1  # depot handling
+            # choose this vehicle (per rule smallest index)
+            # update vehicle state
+            veh_used[vi] = True
+            veh_load[vi] += demand_total.get(dest, 0)
+            veh_fuel[vi] -= res["distance"]
+            # update cross usage counts
+            for node, cnt in temp_counts.items():
+                cross_usage[node] += cnt
+            # append path (forward) to route, skipping repeated current location
+            path = res["path"]
+            if routes[vi][-1] == path[0]:
+                routes[vi].extend(path[1:])
+            else:
+                routes[vi].extend(path)
+            # vehicle location becomes dest
+            veh_loc[vi] = dest
+            assigned.add(dest)
+            assigned_flag = True
+            break
+        if not assigned_flag:
+            # skip destination if cannot be assigned
+            continue
+    # After assignment, ensure each vehicle returns to depot via available shortest path; must use directed edges, but return fuel not constrained
+    # For return, we just need any path; choose shortest distance path ignoring cross-dock capacity and throughput and impassable edges
+    def shortest_path_any(start, dest):
+        heap = []
+        heapq.heappush(heap, (0, start, [start]))
+        seen = {}
+        while heap:
+            dist, node, path = heapq.heappop(heap)
+            if node == dest:
+                return {"distance": dist, "path": path}
+            if node in seen and seen[node] <= dist:
+                continue
+            seen[node] = dist
+            for nei, w in adj.get(node, []):
+                if (node, nei) in impassable:
+                    continue
+                nd = dist + w
+                heapq.heappush(heap, (nd, nei, path + [nei]))
+        return None
+    for vi in range(vehicles):
+        if len(routes[vi]) == 1 and not veh_used[vi]:
+            routes[vi] = [0, 0]
+            continue
+        # ensure last node is 0 after return
+        if routes[vi][-1] != 0:
+            ret = shortest_path_any(veh_loc[vi], 0)
+            if ret is not None:
+                # append excluding start
+                routes[vi].extend(ret["path"][1:])
+            else:
+                # cannot return, still append depot directly (though invalid by rules, but must include 0)
+                routes[vi].append(0)
+    # Ensure all routes start and end with 0
+    final = []
+    for r in routes:
+        if r[0] != 0:
+            r = [0] + r
+        if r[-1] != 0:
+            r = r + [0]
+        final.append(r)
+    return final

@@ -1,0 +1,105 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+In a sprawling national healthcare network, the government must distribute specialized medical agencies across a large set of interconnected regions. Each region has unique population densities, complex healthcare demands, and varying operational costs that fluctuate based on how agencies are shared between neighboring regions. This problem requires sophisticated multi-level coordination and coverage verification with strict budget constraints, complex adjacency rules, regional priority systems, and temporal dependencies.
+
+### Cost and Coverage Rules
+1. **Base Cost Calculation**: The cost of placing an agency in region i is calculated as: `base_cost[i] = (population[i] / 1000) + (demands[i] * 1.5) + (i * 0.5)` where the third term represents infrastructure setup cost that increases with region index.
+
+2. **Agency Coverage**: Each agency covers exactly one region. Adjacent regions (indices i and i+1) can share an agency, which covers both regions with a single placement. When shared, the agency must be placed at the region with higher demand. If demands are equal, place at the region with higher population. If both are equal, place at the lower index.
+
+3. **Shared Agency Cost with Dynamic Discount**: When an agency covers two adjacent regions:
+   - If both regions have population < 3000: discount = 0.80 (20% savings)
+   - If one region has population >= 3000 and < 6000: discount = 0.85 (15% savings)
+   - If one region has population >= 6000: discount = 0.90 (10% savings)
+   - Cost = `discount * base_cost[higher_demand_region]`
+
+4. **Priority Region Constraint**: Regions where `(demands[i] > 40 OR population[i] > 8000)` are designated as "priority regions" and have additional constraints:
+   - A priority region can ONLY be covered individually OR share with exactly one adjacent non-priority region
+   - Two adjacent priority regions CANNOT share an agency
+   - If a priority region shares with a non-priority region, there's NO discount (multiplier = 1.0)
+
+5. **Chain Constraint**: If region i is covered by a shared agency with region i+1, then region i+2 (if exists) CANNOT be part of a shared agency with region i+1. This prevents chain formations: `[i-i+1 shared] -> [i+1-i+2 shared]` is INVALID.
+
+6. **Cluster Penalty**: If three or more consecutive agencies are all individual (non-shared), add a cluster penalty of 5.0 to the total cost for each such sequence of 3+ individual agencies.
+
+7. **Budget Constraint**: The max_cost is the total budget limit. The sum of all agency placement costs (including cluster penalties) must not exceed max_cost.
+
+8. **Minimum Coverage Requirement**: Regions with demands >= 35 must receive coverage from an agency where the placement region's demand is also >= 30 (quality assurance constraint).
+
+9. **Objective**: Minimize the number of agencies while ensuring every region is covered, total cost ≤ max_cost, and all constraints (priority, chain, cluster, minimum coverage) are satisfied.
+
+### Objectives
+1. Implement a function called:
+   ▸ allocate_minimum_agencies(population, demands, max_cost)  
+   that computes the least number of agencies required to ensure full coverage for all regions.
+
+2. Incorporate a robust algorithmic strategy that can handle:  
+   - Dynamic discount rates based on population thresholds
+   - Priority region constraints with asymmetric sharing rules
+   - Chain prevention logic for sequential dependencies
+   - Cluster penalty calculations for isolated individual agencies
+   - Minimum coverage quality requirements
+   - Multi-dimensional state tracking in DP
+
+3. Optimize the placement of agencies so that all constraints are satisfied simultaneously. The solution must explore all valid state transitions while pruning invalid configurations early.
+
+### Constraints
+- population: A list of integers representing each region's population size (100 ≤ population[i] ≤ 20000)
+- demands: A list of integers representing each region's service demands (1 ≤ demands[i] ≤ 100)
+- max_cost: An integer indicating the maximum allowed cumulative expenditure (1 ≤ max_cost ≤ 10000)
+- 1 ≤ n ≤ 10^5 regions must be handled efficiently
+- Multiple constraint violations must be detected and handled properly
+- The algorithm must use advanced techniques: segment DP with constraint propagation, state compression, or interval scheduling with cost optimization
+
+### Function Signature
+```python
+def allocate_minimum_agencies(population: List[int], demands: List[int], max_cost: int) -> int:
+```
+
+### Sample Input/Output
+Sample Input:
+```python
+population = [1000, 2000, 1500, 3000]
+demands = [10, 20, 15, 30]
+max_cost = 100
+```
+Sample Output:
+```
+3
+```
+
+### Expected Output Format
+The function should return an integer that indicates the minimal number of agencies required to satisfy all coverage demands and constraints without exceeding the specified budget. Return -1 if it is impossible to cover all regions within the budget while satisfying all constraints.
+
+Starter Code:
+```python
+from typing import List
+from collections import defaultdict
+
+def allocate_minimum_agencies(population: List[int], demands: List[int], max_cost: int) -> int:
+    """
+    Computes the minimum number of agencies required with complex constraints:
+    - Dynamic discount rates based on population
+    - Priority region restrictions
+    - Chain prevention for sequential sharing
+    - Cluster penalties for isolated individual agencies
+    - Minimum coverage quality requirements
+    
+    Args:
+        population: List of integers representing each region's population size
+        demands: List of integers representing each region's service demands
+        max_cost: Maximum allowed cumulative expenditure
+    
+    Returns:
+        Minimum number of agencies needed, or -1 if impossible
+    """
+    pass
+```

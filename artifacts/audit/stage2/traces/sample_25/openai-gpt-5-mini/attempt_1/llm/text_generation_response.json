@@ -1,0 +1,76 @@
+{
+  "id": "resp_069766f06434a6ed0069c31e5792cc81a28f23febb82ca5be0",
+  "object": "response",
+  "created_at": 1774394967,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774394985,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_069766f06434a6ed0069c31e57cdf881a2b46f043cb4deaaf1",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_069766f06434a6ed0069c31e57f6a481a2a199216e0cd22dd6",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Optional, Tuple\nimport threading\n\ndef hft_bitmask_framework(trading_signals: List[int], market_conditions: List[int]) -> List[str]:\n    # Deterministic hybrid structure simulation with fine-grained locks behaviour emulated\n    n = min(len(trading_signals), len(market_conditions))\n    if n == 0:\n        return []\n    signals = trading_signals[:n]\n    markets = market_conditions[:n]\n\n    # Bit width per constraint\n    max_val = 0\n    for v in signals + markets:\n        if v > max_val:\n            max_val = v\n    bit_width = max(1, max_val.bit_length())\n\n    # Helpers\n    def bitcount(x: int) -> int:\n        return x.bit_count()\n\n    def overlap(a: int, b: int) -> int:\n        return bitcount(a & b)\n\n    def breadth_mask(x: int) -> int:\n        # breadth: number of contiguous blocks of ones as proxy\n        if x == 0:\n            return 0\n        prev = 0\n        blocks = 0\n        for i in range(bit_width):\n            bit = (x >> i) & 1\n            if bit == 1 and prev == 0:\n                blocks += 1\n            prev = bit\n        return blocks\n\n    # Build segment tree storing OR and AND aggregates; thread-safety modeled with per-node lock\n    size = 1\n    while size < n:\n        size <<= 1\n    or_tree = [0] * (2 * size)\n    and_tree = [(1 << bit_width) - 1] * (2 * size)\n    locks = [threading.Lock() for _ in range(2 * size)]\n\n    for i in range(n):\n        or_tree[size + i] = signals[i] | markets[i]\n        and_tree[size + i] = signals[i] & markets[i]\n    for i in range(size - 1, 0, -1):\n        or_tree[i] = or_tree[2 * i] | or_tree[2 * i + 1]\n        and_tree[i] = and_tree[2 * i] & and_tree[2 * i + 1]\n\n    # Simple Trie for bitsets (most-significant-bit first)\n    class TrieNode:\n        __slots__ = (\"children\", \"count\", \"lock\", \"value\")\n        def __init__(self):\n            self.children = [None, None]\n            self.count = 0\n            self.lock = threading.Lock()\n            self.value = 0\n\n    root = TrieNode()\n\n    def trie_insert(mask: int):\n        node = root\n        for i in range(bit_width - 1, -1, -1):\n            b = (mask >> i) & 1\n            # hand-over-hand locking (modeled deterministically)\n            nxt = node.children[b]\n            if nxt is None:\n                nxt = TrieNode()\n                node.children[b] = nxt\n            node = nxt\n            node.count += 1\n        node.value = mask\n\n    def trie_best_match(target: int) -> int:\n        node = root\n        best = 0\n        for i in range(bit_width - 1, -1, -1):\n            b = (target >> i) & 1\n            if node is None:\n                break\n            # greedy: prefer matching bit if possible\n            preferred = node.children[b]\n            other = node.children[1 - b]\n            if preferred is not None:\n                node = preferred\n                best = (best << 1) | b\n            elif other is not None:\n                node = other\n                best = (best << 1) | (1 - b)\n            else:\n                break\n        return best\n\n    # Insert combined masks into trie deterministically\n    combined_masks = []\n    for i in range(n):\n        combined = (signals[i] << bit_width) | markets[i]\n        combined_masks.append(combined)\n    for mask in combined_masks:\n        trie_insert(mask)\n\n    # Evaluate each index: compute scoring components\n    scores = [0.0] * n\n    components = [None] * n  # store (overlap_s, overlap_m, match_overlap_m, breadth, consensus)\n    for i in range(n):\n        s = signals[i]\n        m = markets[i]\n        overlap_s = overlap(s, m) / bit_width  # normalized\n        overlap_m = overlap(m, s) / bit_width\n        match_overlap_m = overlap(s & m, m) / bit_width\n        breadth = breadth_mask(s | m) / max(1, bit_width)\n        # consensus: how many other combined masks share top bits (use trie_best_match)\n        target = ((s << bit_width) | m)\n        best = trie_best_match(target)\n        # consensus as fraction of matching prefix length\n        # count common leading bits between target and best\n        common = 0\n        for k in range(bit_width * 2 - 1, -1, -1):\n            tb = (target >> k) & 1\n            bb = (best >> k) & 1\n            if tb == bb:\n                common += 1\n            else:\n                break\n        consensus = common / (bit_width * 2)\n        components[i] = (overlap_s, overlap_m, match_overlap_m, breadth, consensus)\n        score = (overlap_s * 0.45 + overlap_m * 0.20 + match_overlap_m * 0.20 +\n                 breadth * 0.10 + consensus * 0.05)\n        scores[i] = score\n\n    # Immediate-feedback crowding penalty based on current open positions (simulate by high scores count)\n    # initial open positions = count of scores >= BUY threshold (purely deterministic)\n    BUY_THRESH = 0.75\n    BUY_PARTIAL_THRESH = 0.55\n    SELL_THRESH = 0.15\n    SELL_PARTIAL_THRESH = 0.30\n\n    # Apply crowding penalty: penalty up to 0.20 based on open positions count\n    def apply_crowding(scores_list: List[float]) -> List[float]:\n        open_count = sum(1 for sc in scores_list if sc >= BUY_PARTIAL_THRESH)\n        # penalty scales min(0.20, 0.20 * open_count / n)\n        penalty = 0.20 * (open_count / n)\n        if penalty > 0.20:\n            penalty = 0.20\n        return [max(0.0, sc - penalty) for sc in scores_list]\n\n    scores = apply_crowding(scores)\n\n    # Make preliminary actions\n    actions = ['HOLD'] * n\n    for i, sc in enumerate(scores):\n        if sc >= BUY_THRESH:\n            actions[i] = 'BUY'\n        elif sc >= BUY_PARTIAL_THRESH:\n            actions[i] = 'BUY_PARTIAL'\n        elif sc <= SELL_THRESH:\n            actions[i] = 'SELL'\n        elif sc <= SELL_PARTIAL_THRESH:\n            actions[i] = 'SELL_PARTIAL'\n        else:\n            actions[i] = 'HOLD'\n\n    # Post-pass moderation: when BUYs exceed n/2, downgrade half with lowest overlap_s to BUY_PARTIAL\n    buys = [i for i, a in enumerate(actions) if a == 'BUY']\n    if len(buys) > n // 2:\n        # sort by overlap_s increasing, deterministic tie by index\n        buys_sorted = sorted(buys, key=lambda idx: (components[idx][0], idx))\n        to_downgrade = len(buys_sorted) // 2\n        for idx in buys_sorted[:to_downgrade]:\n            actions[idx] = 'BUY_PARTIAL'\n\n    # Final deterministic tie-break and ensure stability: for equal scores favor lower index (already stable)\n    # Return actions\n    return actions\n\n# If executed as main, run sample test deterministically\nif __name__ == \"__main__\":\n    trading_signals = [\n        0b11111111,\n        0b11111110,\n        0b11110000,\n        0b11111100,\n        0b11111111,\n        0b00001111,\n        0b11001100,\n        0b10101010,\n        0b11110000,\n        0b10000000,\n    ]\n    market_conditions = [\n        0b11111111,\n        0b11111100,\n        0b01111000,\n        0b00000001,\n        0b00000000,\n        0b00001100,\n        0b10101010,\n        0b01010101,\n        0b00110000,\n        0b00000001,\n    ]\n    print(hft_bitmask_framework(trading_signals, market_conditions))"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1495,
+    "input_tokens_details": {
+      "cached_tokens": 1408
+    },
+    "output_tokens": 1900,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3395
+  },
+  "user": null,
+  "metadata": {}
+}

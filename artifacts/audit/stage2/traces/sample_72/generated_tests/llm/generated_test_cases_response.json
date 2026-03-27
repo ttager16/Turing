@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6NscQExB0nwz7zGnBkgk4ZfSgh9",
+  "object": "chat.completion",
+  "created": 1774398456,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[{\\\"customer_id\\\": \\\"A1\\\", \\\"amount\\\": 100.0, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1700000000, \\\"linked_accounts\\\": [\\\"B2\\\"]}, {\\\"customer_id\\\": \\\"B2\\\", \\\"amount\\\": 110.0, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1700000050, \\\"linked_accounts\\\": [\\\"C3\\\"]}, {\\\"customer_id\\\": \\\"C3\\\", \\\"amount\\\": 120.0, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1700000100, \\\"linked_accounts\\\": [\\\"A1\\\"]}, {\\\"customer_id\\\": \\\"D4\\\", \\\"amount\\\": 50.0, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1700000200, \\\"linked_accounts\\\": [\\\"E5\\\"]}, {\\\"customer_id\\\": \\\"E5\\\", \\\"amount\\\": 55.0, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1700000250, \\\"linked_accounts\\\": [\\\"D4\\\"]}]\",\"{\\\"A1\\\": [{\\\"amount\\\": 90, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1690000000, \\\"linked_accounts\\\": []}, {\\\"amount\\\": 95, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1690003600, \\\"linked_accounts\\\": []}], \\\"B2\\\": [{\\\"amount\\\": 100, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1690007200, \\\"linked_accounts\\\": []}], \\\"C3\\\": [{\\\"amount\\\": 80, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1690010800, \\\"linked_accounts\\\": []}, {\\\"amount\\\": 85, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1690014400, \\\"linked_accounts\\\": []}], \\\"D4\\\": [{\\\"amount\\\": 40, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1690018000, \\\"linked_accounts\\\": []}], \\\"E5\\\": [{\\\"amount\\\": 45, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1690021600, \\\"linked_accounts\\\": []} }\"], \"focus\":\"Cycle detection (3-cycle and 2-cycle) with DSU pruning; ensure cycles <=3 hops are flagged and unrelated components ignored.\"},{\"input_lines\":[\"[{\\\"customer_id\\\": \\\"Z1\\\", \\\"amount\\\": 150, \\\"location\\\": \\\"DE\\\", \\\"timestamp\\\": 1701000000, \\\"linked_accounts\\\": [\\\"Y2\\\"]}, {\\\"customer_id\\\": \\\"M2\\\", \\\"amount\\\": 10, \\\"location\\\": \\\"DE\\\", \\\"timestamp\\\": 1701000300, \\\"linked_accounts\\\": [\\\"N3\\\"]}]\",\"{\\\"Z1\\\": [{\\\"amount\\\": 100, \\\"location\\\": \\\"DE\\\", \\\"timestamp\\\": 1691000000, \\\"linked_accounts\\\": []}, {\\\"amount\\\": 100, \\\"location\\\": \\\"DE\\\", \\\"timestamp\\\": 1691003600, \\\"linked_accounts\\\": []}, {\\\"amount\\\": 100, \\\"location\\\": \\\"DE\\\", \\\"timestamp\\\": 1691007200, \\\"linked_accounts\\\": []}], \\\"M2\\\": [] }\"], \"focus\":\"Zero MAD historical case (identical past amounts) to trigger amount-outlier logic; also a customer with empty history to ensure amount checks are skipped.\"},{\"input_lines\":[\"[{\\\"customer_id\\\": \\\"H1\\\", \\\"amount\\\": 5, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1702000000, \\\"linked_accounts\\\": [\\\"K1\\\"]}, {\\\"customer_id\\\": \\\"H1\\\", \\\"amount\\\": 6, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1702000100, \\\"linked_accounts\\\": [\\\"K2\\\"]}, {\\\"customer_id\\\": \\\"H1\\\", \\\"amount\\\": 7, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1702000200, \\\"linked_accounts\\\": [\\\"K3\\\"]}, {\\\"customer_id\\\": \\\"H1\\\", \\\"amount\\\": 8, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1702000300, \\\"linked_accounts\\\": [\\\"K4\\\"]}, {\\\"customer_id\\\": \\\"H1\\\", \\\"amount\\\": 9, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1702000400, \\\"linked_accounts\\\": [\\\"K5\\\"]}, {\\\"customer_id\\\": \\\"H1\\\", \\\"amount\\\": 10, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1702000500, \\\"linked_accounts\\\": [\\\"K6\\\"]}, {\\\"customer_id\\\": \\\"O2\\\", \\\"amount\\\": 200, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1702000600, \\\"linked_accounts\\\": [\\\"P3\\\"]}]\",\"{\\\"H1\\\": [{\\\"amount\\\": 4, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1699000000, \\\"linked_accounts\\\": []}, {\\\"amount\\\": 5, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1699003600, \\\"linked_accounts\\\": []}], \\\"O2\\\": [{\\\"amount\\\": 190, \\\"location\\\": \\\"US\\\", \\\"timestamp\\\": 1699050000, \\\"linked_accounts\\\": []}], \\\"K1\\\": [], \\\"K2\\\": [], \\\"K3\\\": [], \\\"K4\\\": [], \\\"K5\\\": [], \\\"K6\\\": [], \\\"P3\\\": [] }\"], \"focus\":\"High-frequency burst: many transactions from same sender within one hour vs small 7-day historical rate; should flag the burst while leaving unrelated customers alone.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1958,
+    "completion_tokens": 3702,
+    "total_tokens": 5660,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2560,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

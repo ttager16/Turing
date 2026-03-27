@@ -1,0 +1,76 @@
+{
+  "id": "resp_06d33f759a3b63840069c31f4bfc548193b9059539dc51dc89",
+  "object": "response",
+  "created_at": 1774395212,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774395239,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_06d33f759a3b63840069c31f4c5e5c819381592ac0d6cd35d4",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_06d33f759a3b63840069c31f4c8e708193aa781091428dce10",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any\nfrom collections import defaultdict\nimport time\n\ndef fault_tolerant_patient_monitoring(\n    device_readings: List[Dict[str, Any]], \n    device_config: Dict[str, Any],\n    acceptable_ranges: Dict[str, List[float]]\n) -> Dict[str, Any]:\n    # Prepare outputs\n    ward_data: Dict[str, Any] = {}\n    device_status: Dict[str, Any] = {}\n    validation_failures: List[Dict[str, Any]] = []\n    critical_wards: List[str] = []\n    fault_recovery_log: List[Dict[str, Any]] = []\n    # timestamp: use max timestamp from readings or current time if none\n    if not device_readings:\n        return {\n            'ward_data': {},\n            'device_status': {},\n            'validation_failures': [],\n            'critical_wards': [],\n            'fault_recovery_log': [],\n            'timestamp': int(time.time())\n        }\n    ts = max(r.get('timestamp', int(time.time())) for r in device_readings)\n    # configs\n    roles = device_config.get('device_roles', {}) if device_config else {}\n    dev_metrics_cfg = device_config.get('device_metrics', {}) if device_config else {}\n    ward_requirements_cfg = device_config.get('ward_requirements', {}) if device_config else {}\n    default_min = 1\n    # organize readings by device and ward\n    readings_by_device = {}\n    wards_devices = defaultdict(list)\n    for r in device_readings:\n        did = r.get('device_id')\n        ward = r.get('ward')\n        readings_by_device[did] = r\n        if ward:\n            wards_devices[ward].append(did)\n    # Initialize device_status with devices seen in readings and configs\n    all_device_ids = set(list(readings_by_device.keys()) + list(roles.keys()) + list(dev_metrics_cfg.keys()))\n    for did in all_device_ids:\n        device_status[did] = {\n            'status': 'failed',\n            'role': roles.get(did, 'primary'),\n            'backup_activated': False,\n            'last_successful_reading': None\n        }\n    # per-ward aggregation helpers\n    ward_metric_values = defaultdict(lambda: defaultdict(list))\n    ward_active_devices = defaultdict(list)\n    ward_backup_activated = defaultdict(list)\n    ward_working_counts = defaultdict(int)\n    # Map primary->list of backups (from device_config roles and same metrics & ward)\n    ward_device_roles = defaultdict(lambda: {'primary': [], 'backup': []})\n    # build role lists by ward using readings or config\n    for did in all_device_ids:\n        # determine ward for device from readings, fallback to None\n        ward = readings_by_device.get(did, {}).get('ward')\n        role = roles.get(did, 'primary')\n        if ward:\n            ward_device_roles[ward][role].append(did)\n    # Validate each device reading\n    for did, r in readings_by_device.items():\n        ward = r.get('ward')\n        status = r.get('status', 'active')\n        metrics = r.get('metrics', {}) or {}\n        timestamp = r.get('timestamp', ts)\n        role = roles.get(did, 'primary')\n        if status != 'active':\n            # mark failed due to offline\n            device_status[did]['status'] = 'failed'\n            device_status[did]['role'] = role\n            device_status[did]['last_successful_reading'] = None\n            fault_recovery_log.append({\n                'event': 'device_offline',\n                'device_id': did,\n                'ward': ward,\n                'timestamp': timestamp\n            })\n            continue\n        # check metrics expected for device from config or infer from provided metrics\n        expected_metrics = dev_metrics_cfg.get(did, list(metrics.keys()))\n        any_valid = False\n        reasons = []\n        for m in expected_metrics:\n            if m not in metrics:\n                validation_failures.append({\n                    'device_id': did,\n                    'metric': m,\n                    'value': None,\n                    'reason': 'missing_data',\n                    'timestamp': timestamp\n                })\n                reasons.append(f'{m}_missing')\n                continue\n            val = metrics[m]\n            ar = acceptable_ranges.get(m)\n            if ar is None:\n                # if no acceptable range given, accept\n                valid = True\n            else:\n                try:\n                    valid = (ar[0] <= val <= ar[1])\n                except Exception:\n                    valid = False\n            if not valid:\n                validation_failures.append({\n                    'device_id': did,\n                    'metric': m,\n                    'value': val,\n                    'reason': 'out_of_range',\n                    'timestamp': timestamp\n                })\n                reasons.append(f'{m}_out_of_range')\n            else:\n                # valid reading -> include in ward aggregation\n                any_valid = True\n                ward_metric_values[ward][m].append(val)\n        if any_valid:\n            device_status[did]['status'] = 'working'\n            device_status[did]['role'] = role\n            device_status[did]['last_successful_reading'] = timestamp\n            ward_active_devices[ward].append(did)\n            ward_working_counts[ward] += 1\n        else:\n            device_status[did]['status'] = 'failed'\n            device_status[did]['role'] = role\n            device_status[did]['last_successful_reading'] = None\n            # log primary failure and attempt backup activation\n            if role == 'primary':\n                fault_recovery_log.append({\n                    'event': 'primary_device_failure',\n                    'device_id': did,\n                    'ward': ward,\n                    'reasons': reasons or ['unknown'],\n                    'timestamp': timestamp\n                })\n                # find backups in same ward that monitor overlapping metrics\n                backups = [b for b in ward_device_roles[ward]['backup']]\n                # If config didn't list backups, find any device in same ward with role backup\n                if not backups:\n                    backups = [d for d in all_device_ids if (readings_by_device.get(d, {}).get('ward') == ward and roles.get(d, 'primary') == 'backup')]\n                # activate suitable backup(s)\n                for b in backups:\n                    # if backup has working status already, mark activated\n                    rb = readings_by_device.get(b)\n                    if not rb:\n                        continue\n                    # check if backup had any valid metrics (we already processed b maybe after; ensure backup is working)\n                    if device_status.get(b, {}).get('status') == 'working':\n                        device_status[b]['backup_activated'] = True\n                        ward_backup_activated[ward].append(b)\n                        fault_recovery_log.append({\n                            'event': 'backup_activation',\n                            'primary_device': did,\n                            'backup_device': b,\n                            'ward': ward,\n                            'timestamp': timestamp\n                        })\n                        break\n    # Build ward_data\n    for ward, metrics_map in ward_metric_values.items():\n        agg = {}\n        for m, vals in metrics_map.items():\n            if vals:\n                agg[m] = sum(vals) / len(vals)\n        working = ward_working_counts.get(ward, 0)\n        req = ward_requirements_cfg.get(ward, default_min)\n        if working > req:\n            dq = 'high'\n        elif working == req:\n            dq = 'medium'\n        else:\n            dq = 'low'\n        active_devices = ward_active_devices.get(ward, [])\n        backup_activated = list(dict.fromkeys(ward_backup_activated.get(ward, [])))\n        ward_data[ward] = {\n            'aggregated_metrics': agg if agg else {},\n            'working_device_count': working,\n            'active_devices': active_devices,\n            'backup_devices_activated': backup_activated,\n            'data_quality': dq\n        }\n        if working < req:\n            critical_wards.append(ward)\n            fault_recovery_log.append({\n                'event': 'critical_ward_detected',\n                'ward': ward,\n                'working_devices': working,\n                'required': req,\n                'timestamp': ts\n            })\n    # Include wards that had devices but no working devices -> ward_data None\n    # find wards mentioned in readings\n    for ward in wards_devices.keys():\n        if ward not in ward_data:\n            ward_data[ward] = None\n            req = ward_requirements_cfg.get(ward, default_min)\n            working = ward_working_counts.get(ward, 0)\n            if working < req:\n                critical_wards.append(ward)\n                fault_recovery_log.append({\n                    'event': 'critical_ward_detected',\n                    'ward': ward,\n                    'working_devices': working,\n                    'required': req,\n                    'timestamp': ts\n                })\n    # Ensure device_status contains all devices mentioned in config but not in readings\n    for did in roles.keys():\n        if did not in device_status:\n            device_status[did] = {\n                'status': 'failed',\n                'role': roles.get(did, 'primary'),\n                'backup_activated': False,\n                'last_successful_reading': None\n            }\n    # Remove duplicates in critical_wards\n    critical_wards = list(dict.fromkeys(critical_wards))\n    return {\n        'ward_data': ward_data,\n        'device_status': device_status,\n        'validation_failures': validation_failures,\n        'critical_wards': critical_wards,\n        'fault_recovery_log': fault_recovery_log,\n        'timestamp': ts\n    }"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2098,
+    "input_tokens_details": {
+      "cached_tokens": 2048
+    },
+    "output_tokens": 2010,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4108
+  },
+  "user": null,
+  "metadata": {}
+}

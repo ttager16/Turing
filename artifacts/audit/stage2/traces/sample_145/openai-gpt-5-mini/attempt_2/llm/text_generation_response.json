@@ -1,0 +1,76 @@
+{
+  "id": "resp_04ee985d07154de70069c343eb578881a2b67501a7d80e3963",
+  "object": "response",
+  "created_at": 1774404587,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774404606,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_04ee985d07154de70069c343ebef3c81a2bb8fb104367a879a",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_04ee985d07154de70069c343ec4f1c81a2becf02e5542bee3c",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List, Tuple, Set, Optional\nimport heapq\n\ndef optimize_delivery_route(\n    graph: Dict[str, List[List[float]]],\n    fuel_stations: List[int],\n    vehicle_capacity: float,\n    fuel_consumption: float,\n    start: int,\n    destination: int,\n    inspections: List[int]\n) -> List[int]:\n    # Normalize graph keys to integers\n    int_graph = {}\n    for k, v in graph.items():\n        try:\n            ik = int(k)\n        except:\n            ik = int(float(k))\n        int_graph[ik] = [(int(dest), float(dist)) for dest, dist in v]\n\n    stations = set(fuel_stations)\n    inspections_set = set(inspections)\n\n    # Initial fuel is full\n    start_fuel = float(vehicle_capacity)\n\n    # State: (total_distance, node, remaining_fuel, inspections_done_bitmask)\n    # Map inspection nodes to bit positions\n    inspection_list = sorted(list(inspections_set))\n    inspect_index = {n: i for i, n in enumerate(inspection_list)}\n    all_inspected_mask = (1 << len(inspection_list)) - 1\n\n    # Priority queue\n    heap = []\n    # Start inspections mask: if start is an inspection and counts as done immediately\n    start_mask = 0\n    if start in inspect_index:\n        start_mask |= 1 << inspect_index[start]\n    # push (distance, node, remaining_fuel, inspections_mask)\n    heapq.heappush(heap, (0.0, start, start_fuel, start_mask))\n\n    # visited: (node, inspections_mask, floored_remaining_fuel_rounded) -> best distance\n    # To keep state manageable, quantize fuel to small epsilon, say 0.1 units\n    FUEL_EPS = 0.1\n    def quant_fuel(f):\n        return round(f / FUEL_EPS)  # integer\n\n    visited = dict()  # key -> distance\n    # parent to reconstruct: key -> (prev_key, prev_node)\n    parent = dict()\n\n    while heap:\n        dist, node, fuel, mask = heapq.heappop(heap)\n        key = (node, mask, quant_fuel(fuel))\n        prev_best = visited.get(key)\n        if prev_best is not None and dist > prev_best + 1e-9:\n            continue\n        visited[key] = dist\n\n        # If at destination and all inspections done -> reconstruct path\n        if node == destination and mask == all_inspected_mask:\n            # reconstruct\n            path = []\n            cur = key\n            while cur in parent or cur == key:\n                n, m, qf = cur\n                path.append(n)\n                if cur in parent:\n                    cur = parent[cur]\n                else:\n                    break\n            path.reverse()\n            return path\n\n        # Optionally refuel at current city if station exists: we allow refuel to full\n        # Also consider not refueling\n        possible_refuels = []\n        if node in stations:\n            # refuel to full\n            if fuel < vehicle_capacity - 1e-9:\n                possible_refuels.append(vehicle_capacity)\n        # always include current fuel (no refuel)\n        possible_refuels.append(fuel)\n\n        for fuel_after_refuel in possible_refuels:\n            # If refueled, update mask if inspection at same city counts upon stopping\n            mask_after_refuel = mask\n            if node in inspect_index:\n                mask_after_refuel |= 1 << inspect_index[node]\n\n            # Explore outgoing edges\n            for (nbr, d) in int_graph.get(node, []):\n                required = fuel_consumption * d\n                if required <= fuel_after_refuel + 1e-9:\n                    new_fuel = fuel_after_refuel - required\n                    new_mask = mask_after_refuel\n                    # Arriving at nbr may or may not trigger inspection immediately\n                    if nbr in inspect_index:\n                        new_mask |= 1 << inspect_index[nbr]\n\n                    new_dist = dist + d\n                    new_key = (nbr, new_mask, quant_fuel(new_fuel))\n                    prev = visited.get(new_key)\n                    if prev is None or new_dist + 1e-9 < prev:\n                        visited[new_key] = new_dist\n                        parent[new_key] = (node, mask, quant_fuel(fuel_after_refuel))\n                        # parent key points to the state before taking the edge:\n                        # (node, mask_after_refuel, quant_fuel(fuel_after_refuel))\n                        # But we stored as (node, mask, quant_fuel(fuel_after_refuel)) where mask is before refuel.\n                        # To allow consistent backtrack, better store exact parent key:\n                        parent[new_key] = (node, mask_after_refuel, quant_fuel(fuel_after_refuel))\n                        heapq.heappush(heap, (new_dist, nbr, new_fuel, new_mask))\n\n    return []"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1599,
+    "input_tokens_details": {
+      "cached_tokens": 1536
+    },
+    "output_tokens": 1060,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2659
+  },
+  "user": null,
+  "metadata": {}
+}

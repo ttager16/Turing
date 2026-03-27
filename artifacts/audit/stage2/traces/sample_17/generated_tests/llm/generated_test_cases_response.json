@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5JHKkSRtQ639rKsFLHqJou2aTK1",
+  "object": "chat.completion",
+  "created": 1774394327,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[15, 14, 18, 16, 20]\",\"17\",\"[0,1,2,3,4]\",\"{}\",\"{}\",\"{}\",\"{}\",\"12\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"0.0\",\"0.0\"],\"focus\":\"All depots offline (should return -1) — tests handling of empty/disabled sets and early-exit behavior.\"},{\"input_lines\":[\"[48, 52, 49, 51]\",\"50\",\"{}\",\"[3]\",\"[1,4,5,3]\",\"[[0,23],[0,23],[0,23],[0,23]]\",\"[100,60,80,40]\",\"10\",\"[0]\",\"[\\\"A\\\",\\\"H\\\",\\\"H\\\",\\\"A\\\"]\",\"\\\"H\\\"\",\"{}\",\"{}\",\"{}\",\"0.0\",\"0.0\"],\"focus\":\"Tie in distance resolved by priority and index; service-type filtering and some depots excluded by weather/offline/zero-capacity.\"},{\"input_lines\":[\"[0, 2, 5, 3, 1]\",\"0\",\"[3]\",\"[0]\",\"{}\",\"{}\",\"[10,10,10,10,10]\",\"0\",\"[2]\",\"{}\",\"{}\",\"{}\",\"[\\\"Z1\\\",\\\"Z2\\\",\\\"Z1\\\",\\\"Z1\\\",\\\"Z1\\\"]\",\"[\\\"Z1\\\"]\",\"[5,5,4,3,2]\",\"2\"],\"focus\":\"Format-sensitive mix: zero-distance depot with zero capacity, zone filtering, weather/offline exclusions, and strict budget — ensures correct fallback to next valid depot.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2209,
+    "completion_tokens": 3631,
+    "total_tokens": 5840,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3264,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

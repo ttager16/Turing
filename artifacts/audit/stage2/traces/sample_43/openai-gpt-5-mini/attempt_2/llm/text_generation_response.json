@@ -1,0 +1,76 @@
+{
+  "id": "resp_0001bbce68f683c00069c3245cc4f0819e8b2a907fb060b6f2",
+  "object": "response",
+  "created_at": 1774396508,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774396535,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0001bbce68f683c00069c3245d3dec819ea2e5cc72ee9e09c8",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0001bbce68f683c00069c3245d8b4c819ebcded9341f201a68",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import logging\nfrom typing import Dict, List, Union\n\ndef optimize_drone_routes(\n    drones: List[Dict],\n    destinations: List[Dict],\n    weather_data: Dict,\n    traffic_data: Dict\n) -> Dict[str, List[Union[str, Dict]]]:\n    # Prepare outputs\n    result = {d['id']: [] for d in (drones or [])}\n    if not drones:\n        return {}\n    if not destinations:\n        return result\n\n    # Helpers\n    def fuel_required_for(priority, workload):\n        return 20.0 * (1.0 + (priority - 1) * 0.15) * (1.0 + workload * 0.1)\n\n    # Environmental constraints\n    current_wind = weather_data.get('current', {}).get('wind_speed', 0.0)\n    forecast = weather_data.get('forecast', [])\n    restricted_now = set(weather_data.get('current', {}).get('restricted_zones', []))\n\n    hub_connectivity = traffic_data.get('hub_connectivity') or {}\n    # available hubs not in current restricted zones\n    available_hubs = [h for h in hub_connectivity.keys() if h not in restricted_now]\n    if available_hubs:\n        # select hub with most connections, tie by name\n        max_conn = max((len(hub_connectivity[h]) for h in available_hubs), default=0)\n        hubs_with_max = sorted([h for h in available_hubs if len(hub_connectivity[h]) == max_conn])\n        selected_hub = hubs_with_max[0] if hubs_with_max else None\n    else:\n        selected_hub = None\n\n    # traffic congestion levels across lanes\n    congestion_levels = [lane.get('congestion_level', '').lower() for lane in traffic_data.get('air_lanes', [])]\n    traffic_limits_one = any(c in ('high', 'medium') for c in congestion_levels)\n\n    # Preprocess drones state\n    drones_state = {}\n    for d in drones:\n        did = d['id']\n        fuel_level = float(d.get('fuel_level', 0.0))\n        max_fuel = float(d.get('max_fuel', 0.0))\n        wt = float(d.get('wind_tolerance', 0.0))\n        # grounded if current wind > tolerance + 3.0\n        grounded = current_wind > (wt + 3.0)\n        # forecast limit: if any forecast wind > tolerance then limited to 1 delivery\n        forecast_limit = any(f.get('wind_speed', 0.0) > wt for f in forecast)\n        drones_state[did] = {\n            'id': did,\n            'fuel_level': fuel_level,\n            'max_fuel': max_fuel,\n            'wind_tolerance': wt,\n            'grounded': grounded,\n            'forecast_limit': forecast_limit,\n            'workload': 0,\n            'assigned': [],\n            'refueled': False\n        }\n\n    # If all grounded -> return all empty\n    if all(s['grounded'] for s in drones_state.values()):\n        return result\n\n    # Sort destinations by priority asc then penalty desc within same priority\n    def dest_sort_key(dest):\n        p = dest.get('priority', 99)\n        return (p, -dest.get('penalty', 0))\n    sorted_dest = sorted(destinations, key=dest_sort_key)\n\n    # Main loop\n    for dest in sorted_dest:\n        dest_id = dest['id']\n        priority = dest.get('priority', 3)\n        # Determine per-destination traffic/forecast limiting\n        # traffic_limits_one is global\n        # For each drone, Exception applies if forecast_limit AND traffic_limits_one\n        # Step 1: Filter operational drones with fuel capability\n        candidates = []\n        for s in drones_state.values():\n            if s['grounded']:\n                continue\n            if s['fuel_level'] <= 0 and s['max_fuel'] <= 0:\n                continue\n            # compute required fuel based on current workload (before assignment)\n            fr = fuel_required_for(priority, s['workload'])\n            if (s['fuel_level'] >= fr) or (s['max_fuel'] >= fr):\n                candidates.append(s)\n        if not candidates:\n            continue\n\n        # Step 2: Filter by workload\n        min_workload = min(c['workload'] for c in candidates)\n        if priority in (1, 2):\n            candidates = [c for c in candidates if c['workload'] <= min_workload + 1]\n        else:\n            candidates = [c for c in candidates if c['workload'] == min_workload]\n        if not candidates:\n            continue\n\n        # Step 3: Categorize by refueling need (Standard Case only)\n        needing_refuel = []\n        not_needing_refuel = []\n        for c in candidates:\n            fuel_percentage = (c['fuel_level'] / c['max_fuel'] * 100.0) if c['max_fuel'] > 0 else 0.0\n            fr = fuel_required_for(priority, c['workload'])\n            needs = (fuel_percentage <= 60.0) or (c['fuel_level'] < fr)\n            if needs:\n                needing_refuel.append(c)\n            else:\n                not_needing_refuel.append(c)\n\n        # Step 4: Select best drone based on priority rules\n        def sort_min(lst, keyfunc):\n            return sorted(lst, key=keyfunc)[0]\n\n        selected = None\n        if priority == 1:\n            if needing_refuel:\n                # key = (-wind_tolerance, -fuel_percentage, drone_id) minimal => more negative first so use tuple\n                def k(c):\n                    fp = (c['fuel_level'] / c['max_fuel'] * 100.0) if c['max_fuel'] > 0 else 0.0\n                    return (-c['wind_tolerance'], -fp, c['id'])\n                selected = sort_min(needing_refuel, k)\n            else:\n                def k(c):\n                    return (-c['fuel_level'], c['id'])\n                selected = sort_min(candidates, k)\n        elif priority == 2:\n            if needing_refuel:\n                def k(c):\n                    fp = (c['fuel_level'] / c['max_fuel'] * 100.0) if c['max_fuel'] > 0 else 0.0\n                    return (fp, c['id'])\n                selected = sort_min(needing_refuel, k)\n            else:\n                def k(c):\n                    return (-c['fuel_level'], c['id'])\n                selected = sort_min(candidates, k)\n        else:\n            if not_needing_refuel:\n                def k(c):\n                    return (-c['fuel_level'], c['id'])\n                selected = sort_min(not_needing_refuel, k)\n            else:\n                def k(c):\n                    return (-c['fuel_level'], c['id'])\n                selected = sort_min(needing_refuel, k)\n\n        if not selected:\n            continue\n\n        # Before assignment, evaluate refueling decision (Exception or Standard)\n        s = selected\n        exception_case = (s['forecast_limit'] and traffic_limits_one)\n        fuel_percentage = (s['fuel_level'] / s['max_fuel'] * 100.0) if s['max_fuel'] > 0 else 0.0\n        fr = fuel_required_for(priority, s['workload'])\n        will_refuel = False\n        if exception_case:\n            if s['fuel_level'] < fr:\n                will_refuel = True\n            elif abs(fuel_percentage - 50.0) < 1e-9:\n                will_refuel = False\n            elif fuel_percentage < 50.0:\n                will_refuel = True\n            elif fuel_percentage <= 60.0:\n                will_refuel = True\n            else:\n                will_refuel = False\n        else:\n            if (fuel_percentage <= 60.0) or (s['fuel_level'] < fr):\n                will_refuel = True\n            else:\n                will_refuel = False\n\n        # If will_refuel but no hubs available, only allow if sufficient without refuel\n        if will_refuel and not selected_hub:\n            if s['fuel_level'] < fr:\n                # cannot perform delivery\n                continue\n            else:\n                will_refuel = False\n\n        # Also enforce per-drone limits: if forecast_limit then max 1 delivery\n        # If traffic_limits_one then max 1 delivery for all\n        per_drone_limit = 1 if (s['forecast_limit'] or traffic_limits_one) else None\n        if per_drone_limit is not None and s['workload'] >= per_drone_limit:\n            continue\n\n        # Final check fuel sufficiency post-refuel decision\n        if will_refuel:\n            # Refuel at selected_hub (already ensured exists)\n            s['fuel_level'] = s['max_fuel']\n            s['refueled'] = True\n            # add hub stop if not already present\n            # Only add refuel stop at start of route (before first delivery)\n            if not s['assigned']:\n                if selected_hub:\n                    result[s['id']].append({'hub': selected_hub, 'refuel': True})\n        # After possible refuel, ensure fuel still enough\n        fr = fuel_required_for(priority, s['workload'])\n        if s['fuel_level'] < fr:\n            continue\n\n        # Assign destination\n        result[s['id']].append(dest_id)\n        s['assigned'].append(dest_id)\n        # reduce fuel\n        s['fuel_level'] -= fr\n        if s['fuel_level'] < 0:\n            s['fuel_level'] = 0.0\n        s['workload'] += 1\n\n    # Ensure all drones present in result\n    for did in drones_state.keys():\n        if did not in result:\n            result[did] = []\n\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2328,
+    "input_tokens_details": {
+      "cached_tokens": 2304
+    },
+    "output_tokens": 2133,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4461
+  },
+  "user": null,
+  "metadata": {}
+}

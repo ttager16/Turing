@@ -1,0 +1,181 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        [
+          "init",
+          "AAPL",
+          [
+            100.0,
+            105.0,
+            110.0
+          ]
+        ],
+        [
+          "init",
+          "MSFT",
+          [
+            50.0,
+            55.0,
+            60.0
+          ]
+        ],
+        [
+          "update",
+          "AAPL",
+          2,
+          115.1234
+        ],
+        [
+          "update",
+          "AAPL",
+          2,
+          117.8766
+        ],
+        [
+          "update",
+          "MSFT",
+          1,
+          56.5
+        ],
+        [
+          "rollback",
+          "AAPL",
+          1,
+          2
+        ],
+        [
+          "query",
+          "AAPL",
+          "average",
+          2,
+          2
+        ],
+        [
+          "query",
+          "AAPL",
+          "volatility",
+          0,
+          2
+        ],
+        [
+          "snapshot",
+          "AAPL"
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[\"init\", \"AAPL\", [100.0, 105.0, 110.0]], [\"init\", \"MSFT\", [50.0, 55.0, 60.0]], [\"update\", \"AAPL\", 2, 115.1234], [\"update\", \"AAPL\", 2, 117.8766], [\"update\", \"MSFT\", 1, 56.5], [\"rollback\", \"AAPL\", 1, 2], [\"query\", \"AAPL\", \"average\", 2, 2], [\"query\", \"AAPL\", \"volatility\", 0, 2], [\"snapshot\", \"AAPL\"]]"
+    ],
+    "focus": "multiple updates to same day, targeted rollback by day, precision-sensitive average/volatility, and snapshot reflecting only active prices"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        [
+          "init",
+          "GOOG",
+          [
+            1500.0,
+            1510.5
+          ]
+        ],
+        [
+          "update",
+          "GOOG",
+          1,
+          1505.25
+        ],
+        [
+          "rollback",
+          "GOOG",
+          0
+        ],
+        [
+          "rollback",
+          "GOOG",
+          2
+        ],
+        [
+          "rollback",
+          "GOOG",
+          1
+        ],
+        [
+          "query",
+          "GOOG",
+          "sum",
+          0,
+          1
+        ],
+        [
+          "query",
+          "GOOG",
+          "average",
+          1,
+          0
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[\"init\", \"GOOG\", [1500.0, 1510.5]], [\"update\", \"GOOG\", 1, 1505.25], [\"rollback\", \"GOOG\", 0], [\"rollback\", \"GOOG\", 2], [\"rollback\", \"GOOG\", 1], [\"query\", \"GOOG\", \"sum\", 0, 1], [\"query\", \"GOOG\", \"average\", 1, 0]]"
+    ],
+    "focus": "invalid rollback step (0), rollback exceeding history, then valid default-day rollback, and a reversed-range query to trigger range validation"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        [
+          "init",
+          "X",
+          [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        ],
+        [
+          "update",
+          "X",
+          2,
+          1.0000001
+        ],
+        [
+          "query",
+          "X",
+          "volatility",
+          0,
+          3
+        ],
+        [
+          "query",
+          "X",
+          "max",
+          0,
+          3
+        ],
+        [
+          "update",
+          "Y",
+          0,
+          5.0
+        ],
+        [
+          "query",
+          "Y",
+          "sum",
+          0,
+          0
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[\"init\", \"X\", [1.0000, 1.0000, 1.0000, 1.0000]], [\"update\", \"X\", 2, 1.0000001], [\"query\", \"X\", \"volatility\", 0, 3], [\"query\", \"X\", \"max\", 0, 3], [\"update\", \"Y\", 0, 5.0], [\"query\", \"Y\", \"sum\", 0, 0]]"
+    ],
+    "focus": "very small precision change to test rounding and volatility stability; plus operations against an uninitialized ticker to validate invalid-ticker errors"
+  }
+]

@@ -1,0 +1,125 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### **Problem Statement**
+
+A telecommunications company operates a **dynamic communication network** modeled as an **undirected weighted graph**, where nodes represent routers and edges represent bidirectional links with associated monitoring costs.
+
+Some links are marked as **priority links**, which must always be directly monitored.
+At any point, the network’s monitored links must form an **edge dominating set** covering all active links with minimum total monitoring cost.
+
+The network evolves through operations that add or remove links, query current monitoring requirements, or **roll back** to a previous state.
+
+### **Requirements**
+
+The system must process a list of network operations that dynamically modify the communication graph or query its monitoring requirements. Each operation affects or inspects the network state according to the following rules:
+
+1. **Add Link (`ADD u v c p`)**
+Add an undirected link between routers `u` and `v` with monitoring cost `c` and priority flag `p` (`p = 1` if priority, `0` otherwise).
+If the edge already exists, its attributes are updated.
+
+2. **Remove Link (`REMOVE u v`)**
+Remove the link between routers `u` and `v`.
+If it does not exist, the network becomes invalid until the next successful modification.
+
+3. **Query (`QUERY`)**
+Compute the **minimum total monitoring cost** required to ensure that every existing link is covered by at least one monitored link, under the following conditions:
+
+   * Each monitored link directly covers itself and all other links sharing an endpoint with it.
+   * All **priority links** must be part of the monitored set.
+   * The goal is to minimize the total monitoring cost of the selected links.
+   * If the network is invalid, return `-1`.
+   * When no edges exist, return `0`.
+
+4. **Rollback (`ROLLBACK k`)**
+Restore the network to the state **immediately after** the *k-th* operation.
+If `k` is not a valid index (e.g., out of range), the system becomes invalid.
+
+### **Behavioral Rules**
+
+* The system begins with no edges and is valid.
+* Once invalid, it remains invalid until a subsequent valid modification (such as a valid `ADD` or `REMOVE`).
+* A link connecting a router to itself (`u == v`) immediately invalidates the network.
+* The result of every `QUERY` operation must reflect the network’s state at that exact point in the sequence, considering all prior operations and possible rollbacks.
+
+### **Efficiency and Reasoning Expectations**
+
+* The solution must handle **dynamic sequences of operations efficiently** across both small and large inputs.
+* Implementations should demonstrate **reasoning efficiency** by reusing existing structure (e.g., adjacency relationships) instead of recomputing from scratch on every query.
+* The design should maintain **consistent performance and correctness** even as the number of operations grows, showing awareness of shared structure between states.
+* **Efficiency of reasoning** is part of correctness: redundant recomputation ignoring existing structure may be considered suboptimal.
+* For small networks (≤ 20 links), compute the exact minimum cost.
+* For larger networks, deterministic heuristics that preserve correctness and consistency are acceptable.
+* Implementations must rely solely on standard Python libraries; use of external packages is not allowed.
+
+### **Correctness Criteria**
+
+For each valid query:
+
+1. The monitored set must satisfy the **edge domination property** — every existing link is either selected or shares at least one endpoint with a selected link.
+2. All priority links must appear in the monitored set.
+3. Results must be optimal for small networks and deterministically consistent for larger ones.
+4. If a valid configuration is impossible (e.g., due to invalid state), return `-1`.
+5. When no edges exist, return `0`.
+6. Outputs must be **deterministic** for identical inputs and operation sequences.
+
+### **Output**
+
+Return a list of integers — one for each `QUERY` operation — representing the minimum total monitoring cost (or `-1` where applicable).
+
+### **Function Signature**
+
+```python
+def process_network_operations(n: int, operations: list[list[str]]) -> list[int]:
+"""
+Processes a batch of network modification operations and queries on an evolving graph.
+
+Parameters:
+n (int): Number of routers (graph nodes).
+operations (list[list[str]]): List of operations. Each operation can be:
+- ["ADD", u, v, c, p] # Add or update a link
+- ["REMOVE", u, v] # Remove an existing link
+- ["QUERY"] # Compute the current minimum monitoring cost
+- ["ROLLBACK", k] # Restore network to state after k-th operation
+
+Returns:
+list[int]: Results for each QUERY operation in order.
+"""
+pass
+```
+
+### Sample Input
+
+```python
+n = 5
+operations = [
+            ["ADD", "1", "2", "3", "0"],
+            ["ADD", "2", "3", "2", "1"],
+            ["QUERY"],
+            ["ADD", "3", "4", "4", "0"],
+            ["QUERY"],
+            ["REMOVE", "1", "5"],
+            ["QUERY"],
+            ["ROLLBACK", "4"],
+            ["QUERY"],
+            ["ADD", "4", "5", "1", "0"],
+            ["QUERY"]
+]
+```
+
+### Sample Output
+
+```python
+[2, 2, -1, 2, 3]
+```
+
+Starter Code:
+```python
+def process_network_operations(n: int, operations: list[list[str]]) -> list[int]:
+```

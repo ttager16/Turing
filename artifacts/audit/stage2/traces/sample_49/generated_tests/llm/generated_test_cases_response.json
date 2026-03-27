@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN60zWWzTV5bQSWOgmSZqrDgcPsie",
+  "object": "chat.completion",
+  "created": 1774397037,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[{\\\"id\\\": 0, \\\"capacity\\\": 120, \\\"base_cost\\\": 1.5, \\\"efficiency_factor\\\": 1.0}, {\\\"id\\\": 1, \\\"capacity\\\": 100, \\\"base_cost\\\": 1.5, \\\"efficiency_factor\\\": 1.0}, {\\\"id\\\": 2, \\\"capacity\\\": 80, \\\"base_cost\\\": 1.5, \\\"efficiency_factor\\\": 1.0}]\",\n        \"[{\\\"id\\\": 0, \\\"demand\\\": 60, \\\"priority_level\\\": 1}, {\\\"id\\\": 1, \\\"demand\\\": 80, \\\"priority_level\\\": 2}, {\\\"id\\\": 2, \\\"demand\\\": 40, \\\"priority_level\\\": 1}, {\\\"id\\\": 3, \\\"demand\\\": 20, \\\"priority_level\\\": 3}]\",\n        \"[[25.0, 30.0, 25.0, 28.0], [25.0, 28.0, 27.0, 28.0], [26.0, 35.0, 24.0, 29.0]]\",\n        \"[[0, 24], [12, 36], [24, 48], [0, 72]]\"\n      ],\n      \"focus\": \"Multiple distribution centers with tied transportation costs and mixed priorities; tests tie-breaking, capacity tracking, and urgency weighting with large max time span.\"\n    },\n    {\n      \"input_lines\": [\n        \"[{\\\"id\\\": 0, \\\"capacity\\\": 150, \\\"base_cost\\\": 0.5, \\\"efficiency_factor\\\": 1.5}]\",\n        \"[{\\\"id\\\": 0, \\\"demand\\\": 50, \\\"priority_level\\\": 1}, {\\\"id\\\": 1, \\\"demand\\\": 50, \\\"priority_level\\\": 1}, {\\\"id\\\": 2, \\\"demand\\\": 50, \\\"priority_level\\\": 1}]\",\n        \"[[20.0, 20.0, 20.0]]\",\n        \"[[10, 11], [11, 12], [12, 13]]\"\n      ],\n      \"focus\": \"Single distribution center with demands exactly matching capacity and very tight time windows (minimal time span); tests midpoint scheduling and small urgency weighting.\"\n    },\n    {\n      \"input_lines\": [\n        \"[{\\\"id\\\": 0, \\\"capacity\\\": 100, \\\"base_cost\\\": 2.0, \\\"efficiency_factor\\\": 1.0}, {\\\"id\\\": 1, \\\"capacity\\\": 80, \\\"base_cost\\\": 2.0, \\\"efficiency_factor\\\": 1.0}]\",\n        \"[{\\\"id\\\": 0, \\\"demand\\\": 40, \\\"priority_level\\\": 2}, {\\\"id\\\": 1, \\\"demand\\\": 40, \\\"priority_level\\\": 1}, {\\\"id\\\": 2, \\\"demand\\\": 40, \\\"priority_level\\\": 3}, {\\\"id\\\": 3, \\\"demand\\\": 40, \\\"priority_level\\\": 2}, {\\\"id\\\": 4, \\\"demand\\\": 40, \\\"priority_level\\\": 1}]\",\n        \"[[30.0, 30.0, 30.0, 30.0, 30.0], [30.0, 30.0, 30.0, 30.0, 30.0]]\",\n        \"[[0, 48], [0, 48], [12, 36], [0, 24], [24, 72]]\"\n      ],\n      \"focus\": \"Total demand exceeds total capacity; identical costs across centers to force priority-based selection and leave unassigned destinations when capacity runs out.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3027,
+    "completion_tokens": 3127,
+    "total_tokens": 6154,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2304,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

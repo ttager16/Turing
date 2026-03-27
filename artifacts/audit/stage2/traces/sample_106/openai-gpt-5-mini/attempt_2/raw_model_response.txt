@@ -1,0 +1,295 @@
+import math
+from typing import List, Dict, Any, Tuple, Optional
+
+def optimize_ride_matching(driver_profiles: List[Dict], passenger_requests: List[Dict], 
+                         service_zones: List[Dict], temporal_constraints: Dict) -> Dict[str, Any]:
+    # Validation helpers
+    if not isinstance(passenger_requests, list) or len(passenger_requests) == 0:
+        return {"error": "No passenger requests provided"}
+    zone_map = {}
+    for z in service_zones:
+        zid = z.get("zone_id")
+        zb = z.get("zone_boundaries", {})
+        if zb.get("min_x") is None or zb.get("max_x") is None or zb.get("min_y") is None or zb.get("max_y") is None:
+            return {"error": f"Invalid zone boundaries for zone {zid}"}
+        if zb["min_x"] >= zb["max_x"] or zb["min_y"] >= zb["max_y"]:
+            return {"error": f"Invalid zone boundaries for zone {zid}"}
+        zone_map[zid] = z
+    # temporal constraints validation
+    peak_hours = temporal_constraints.get("peak_hours", [])
+    for ph in peak_hours:
+        if ph.get("start_time") is None or ph.get("end_time") is None or ph["start_time"] >= ph["end_time"]:
+            return {"error": "Invalid peak hours configuration"}
+    # drivers validation
+    driver_map = {}
+    for d in driver_profiles:
+        did = d.get("driver_id")
+        if d.get("availability_start") is None or d.get("availability_end") is None:
+            return {"error": f"Invalid driver availability window for driver {did}"}
+        if d["availability_start"] >= d["availability_end"]:
+            return {"error": f"Invalid driver availability window for driver {did}"}
+        loc = d.get("current_location", {})
+        x = loc.get("x"); y = loc.get("y")
+        if x is None or y is None or not (0 <= x <= 2000) or not (0 <= y <= 2000):
+            return {"error": f"Invalid coordinates for driver {did}"}
+        cap = d.get("vehicle_capacity")
+        cur = d.get("current_passenger_count")
+        if cur is None or cap is None or cur > cap:
+            return {"error": f"Current passenger count exceeds vehicle capacity for driver {did}"}
+        sz = d.get("service_zones")
+        if not isinstance(sz, list) or len(sz) == 0:
+            return {"error": f"Driver {did} has no valid service zones"}
+        driver_map[did] = d
+    # passengers validation
+    for p in passenger_requests:
+        pid = p.get("passenger_id")
+        rt = p.get("request_time")
+        mwt = p.get("max_wait_time")
+        if rt is None or rt < 0 or rt > 1440 or mwt is None or mwt <= 0:
+            return {"error": f"Invalid passenger request time for passenger {pid}"}
+        gs = p.get("group_size")
+        if gs is None or gs <= 0 or gs > 4:
+            return {"error": f"Invalid group size for passenger {pid}"}
+        sz = p.get("service_zone")
+        if sz not in zone_map:
+            return {"error": f"Invalid service zone reference for passenger {pid}"}
+    # maintenance filtering
+    current_time = temporal_constraints.get("current_system_time", 0)
+    maintenance = temporal_constraints.get("maintenance_windows", [])
+    maintenance_zones = set()
+    for m in maintenance:
+        mid = m.get("zone_id")
+        if mid is None: continue
+        st = m.get("start_time"); et = m.get("end_time")
+        if st is None or et is None: continue
+        if st <= current_time < et:
+            maintenance_zones.add(mid)
+    # Build availability lists
+    # Count passengers per zone (by declared service_zone) and available drivers per zone
+    passengers_in_zone = {}
+    for p in passenger_requests:
+        zid = p["service_zone"]
+        passengers_in_zone[zid] = passengers_in_zone.get(zid, 0) + 1
+    available_drivers_in_zone = {}
+    for d in driver_profiles:
+        remaining = d["vehicle_capacity"] - d["current_passenger_count"]
+        if remaining <= 0: continue
+        for zid in d["service_zones"]:
+            available_drivers_in_zone[zid] = available_drivers_in_zone.get(zid, 0) + 1
+    surge_threshold = temporal_constraints.get("surge_threshold", 2.0)
+    surge_zones = []
+    passenger_driver_ratio = {}
+    for zid, pcount in passengers_in_zone.items():
+        dcount = available_drivers_in_zone.get(zid, 0)
+        if dcount == 0:
+            ratio = float('inf')
+        else:
+            ratio = pcount / dcount
+        passenger_driver_ratio[zid] = ratio
+        if ratio > surge_threshold:
+            surge_zones.append(zid)
+    # Build candidate edges with scores
+    # We'll index drivers and passengers lists for matrix
+    drivers = [d for d in driver_profiles]
+    passengers = [p for p in passenger_requests]
+    driver_index = {d["driver_id"]: i for i, d in enumerate(drivers)}
+    passenger_index = {p["passenger_id"]: i for i, p in enumerate(passengers)}
+    n = max(len(drivers), len(passengers))
+    # initialize weight matrix (square) for Hungarian: we want maximize, implement by negating to minimize
+    # Use large negative for impossible
+    INF_NEG = -10**9
+    weight = [[INF_NEG]*n for _ in range(n)]
+    edge_details = {}  # (i,j) -> details
+    for i, d in enumerate(drivers):
+        did = d["driver_id"]
+        d_x = d["current_location"]["x"]; d_y = d["current_location"]["y"]
+        d_avail_s = d["availability_start"]; d_avail_e = d["availability_end"]
+        remaining_cap = d["vehicle_capacity"] - d["current_passenger_count"]
+        for j, p in enumerate(passengers):
+            pid = p["passenger_id"]
+            # Check service zone available and not under maintenance
+            zid = p["service_zone"]
+            if zid in maintenance_zones:
+                continue
+            if zid not in d["service_zones"]:
+                continue
+            # capacity
+            if p["group_size"] > remaining_cap:
+                continue
+            # time overlap
+            req_t = p["request_time"]; mwt = p["max_wait_time"]
+            overlap_start = max(d_avail_s, req_t)
+            overlap_end = min(d_avail_e, req_t + mwt)
+            overlap_duration = overlap_end - overlap_start
+            if overlap_duration <= 0:
+                continue
+            # pickup location within zone boundaries
+            zone = zone_map.get(zid)
+            zb = zone["zone_boundaries"]
+            px = p["pickup_location"]["x"]; py = p["pickup_location"]["y"]
+            if not (zb["min_x"] <= px <= zb["max_x"] and zb["min_y"] <= py <= zb["max_y"]):
+                continue
+            # distance constraint
+            dx = px - d_x; dy = py - d_y
+            dist = math.hypot(dx, dy)
+            if dist > zone["max_pickup_distance"]:
+                continue
+            # compute components
+            base_distance_cost = dist
+            time_window_overlap_bonus = (overlap_duration / mwt) * 100.0
+            priority_weight = (6 - p["priority_level"]) * 15
+            zone_efficiency_factor = (1.0 / zone["congestion_level"]) * 20.0
+            capacity_utilization = (d["current_passenger_count"] / d["vehicle_capacity"]) * 10.0 if d["vehicle_capacity"]>0 else 0.0
+            score = base_distance_cost + (time_window_overlap_bonus * priority_weight) + (zone_efficiency_factor * capacity_utilization)
+            # surge adjustment
+            ratio = passenger_driver_ratio.get(zid, 0)
+            if ratio > surge_threshold:
+                score = score * 0.85
+            # deterministic tie-breaker: slightly favor lower driver_id by adding tiny epsilon based on inverse driver id
+            score += (1e-6) * (1000 - did)
+            weight[i][j] = score
+            edge_details[(i,j)] = {
+                "driver": d, "passenger": p, "pickup_distance": dist, "raw_score": score, "zone": zid,
+                "overlap_duration": overlap_duration
+            }
+    # Hungarian algorithm (maximize). Convert to minimization by subtracting from max
+    # Prepare cost matrix
+    # For impossible edges, set large cost
+    max_score = 0.0
+    for i in range(n):
+        for j in range(n):
+            if weight[i][j] != INF_NEG and weight[i][j] > max_score:
+                max_score = weight[i][j]
+    # If max_score is 0, set to 1 to avoid zero
+    if max_score == 0:
+        max_score = 1.0
+    cost = [[0]*n for _ in range(n)]
+    LARGE = 10**6
+    for i in range(n):
+        for j in range(n):
+            if weight[i][j] == INF_NEG:
+                cost[i][j] = LARGE
+            else:
+                cost[i][j] = int(round((max_score - weight[i][j]) * 1000))  # scaled integer
+    # Implementation of Hungarian for square matrix
+    def hungarian(a):
+        n = len(a)
+        m = len(a[0])
+        u = [0]*(n+1)
+        v = [0]*(m+1)
+        p = [0]*(m+1)
+        way = [0]*(m+1)
+        for i in range(1, n+1):
+            p[0] = i
+            j0 = 0
+            minv = [10**12]*(m+1)
+            used = [False]*(m+1)
+            while True:
+                used[j0] = True
+                i0 = p[j0]
+                delta = 10**12
+                j1 = 0
+                for j in range(1, m+1):
+                    if used[j]: continue
+                    cur = a[i0-1][j-1]-u[i0]-v[j]
+                    if cur < minv[j]:
+                        minv[j] = cur
+                        way[j] = j0
+                    if minv[j] < delta:
+                        delta = minv[j]; j1 = j
+                for j in range(0, m+1):
+                    if used[j]:
+                        u[p[j]] += delta
+                        v[j] -= delta
+                    else:
+                        minv[j] -= delta
+                j0 = j1
+                if p[j0] == 0:
+                    break
+            while True:
+                j1 = way[j0]
+                p[j0] = p[j1]
+                j0 = j1
+                if j0 == 0:
+                    break
+        # p[j] = i matched
+        match = [-1]*n  # match[i]=j
+        for j in range(1, m+1):
+            if p[j] != 0 and p[j]-1 < n and j-1 < m:
+                match[p[j]-1] = j-1
+        return match
+    # Ensure square matrix dimensions n x n
+    assign = hungarian(cost)
+    successful_matches = []
+    matched_passengers = set()
+    matched_drivers = set()
+    for i, j in enumerate(assign):
+        if j is None or j == -1: continue
+        if (i,j) not in edge_details: continue
+        details = edge_details[(i,j)]
+        d = details["driver"]; p = details["passenger"]
+        did = d["driver_id"]; pid = p["passenger_id"]
+        matched_passengers.add(pid)
+        matched_drivers.add(did)
+        dist = details["pickup_distance"]
+        # estimated times
+        travel_time_to_pickup = int(math.floor(dist / 30.0))
+        est_pickup_time = p["request_time"] + travel_time_to_pickup
+        # pickup to destination distance
+        dx = p["destination_location"]["x"] - p["pickup_location"]["x"]
+        dy = p["destination_location"]["y"] - p["pickup_location"]["y"]
+        dest_dist = math.hypot(dx, dy)
+        est_travel_time = int(math.floor(dest_dist / 40.0))
+        # match_quality_score use stored raw_score but remove small tie epsilon
+        score = details["raw_score"]
+        score = round(score - (1e-6)*(1000 - did), 2)
+        successful_matches.append({
+            "driver_id": did,
+            "passenger_id": pid,
+            "pickup_distance": round(dist, 2),
+            "match_quality_score": round(score, 2),
+            "estimated_pickup_time": est_pickup_time,
+            "estimated_travel_time": est_travel_time,
+            "service_zone": details["zone"]
+        })
+    # System metrics
+    total_matches = len(successful_matches)
+    wait_times = []
+    for m in successful_matches:
+        pid = m["passenger_id"]
+        p = next((pp for pp in passengers if pp["passenger_id"]==pid), None)
+        if p:
+            wait = m["estimated_pickup_time"] - p["request_time"]
+            if wait < 0: wait = 0
+            wait_times.append(wait)
+    avg_wait = round(sum(wait_times)/len(wait_times),2) if wait_times else 0.0
+    avg_quality = round(sum(m["match_quality_score"] for m in successful_matches)/total_matches,2) if total_matches>0 else 0.0
+    # zone utilization rates
+    zone_util = {}
+    matches_in_zone = {}
+    for z in zone_map.keys():
+        matches_in_zone[z] = 0
+    for m in successful_matches:
+        matches_in_zone[m["service_zone"]] = matches_in_zone.get(m["service_zone"],0) + 1
+    for zid in zone_map.keys():
+        avail = available_drivers_in_zone.get(zid,0)
+        reqs = passengers_in_zone.get(zid,0)
+        denom = min(avail, reqs) if min(avail, reqs) > 0 else 0
+        if denom == 0:
+            zone_util[zid] = 0.0
+        else:
+            zone_util[zid] = round(matches_in_zone.get(zid,0) / denom, 2)
+    unmatched_passengers = [p["passenger_id"] for p in passengers if p["passenger_id"] not in matched_passengers]
+    available_drivers = [d["driver_id"] for d in drivers if d["driver_id"] not in matched_drivers and (d["vehicle_capacity"] - d["current_passenger_count"])>0]
+    return {
+        "successful_matches": sorted(successful_matches, key=lambda x: (x["driver_id"], x["passenger_id"])),
+        "system_efficiency_metrics": {
+            "total_matches": total_matches,
+            "average_wait_time": avg_wait,
+            "average_match_quality": avg_quality,
+            "zone_utilization_rates": zone_util
+        },
+        "unmatched_passengers": unmatched_passengers,
+        "available_drivers": available_drivers,
+        "surge_zones": surge_zones
+    }

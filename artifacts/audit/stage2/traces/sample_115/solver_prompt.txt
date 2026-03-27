@@ -1,0 +1,285 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement  
+
+A logistics conglomerate operates a **multi‑commodity supply network** with **time‑dependent routes**, **capacity limits**, **per‑unit costs**, and **commodity‑conflict rules**.  
+The goal is to compute a **globally optimal routing plan** that  
+
+* **minimises total transportation cost**,  
+* **maximises aggregate throughput**, and  
+* **respects every edge's availability window, capacity, and incompatibility constraints**.  
+
+**Multi-Objective Optimization Strategy**: Use **lexicographic ordering**:  
+1. **Primary objective**: Maximize throughput (route as much demand as possible)  
+2. **Secondary objective**: Among all maximum-throughput solutions, minimize total cost  
+
+This approach prioritizes fulfilling demand first, then optimizes for cost efficiency. The algorithm routes commodities using successive shortest paths (minimizing cost per unit) while respecting capacity constraints, naturally achieving lexicographic optimality.
+
+Brute‑force enumeration is infeasible due to exponential growth in nodes, time steps, and commodities.  
+The solution must **internally expand** the base graph into a **time‑layered multi‑commodity network**, track residual capacities efficiently (e.g., hash maps, dictionaries, or segment trees for O(log n) updates), and solve a **min‑cost multi‑commodity flow** using **built‑in concurrency** (`concurrent.futures.ThreadPoolExecutor` only). **No external libraries allowed.**
+
+**Note on Data Structures**: "Segment trees or equivalent" means any structure supporting efficient capacity updates:
+- **Simple approach**: Hash maps/dictionaries (O(1) per edge) – sufficient for most cases
+- **Advanced approach**: Segment trees or Fenwick trees (O(log n)) – only if time-based range queries needed
+- Implementation choice depends on specific capacity tracking requirements
+
+---
+
+### Objectives  
+
+1. **Time‑Layered Graph Expansion**  
+   * Discretise the planning horizon into `T` time steps.  
+   * For each base edge, generate **stateful edges** `(u,t) → (v,t')` active only within its time windows.  
+   * Each stateful edge includes:  
+     – residual capacity (shared across commodities),  
+     – per‑unit cost (may vary by commodity and time),  
+     – set of **forbidden commodity pairs**.  
+
+2. **Multi‑Commodity Min‑Cost Flow with Concurrency**  
+   * Extend successive shortest‑path or capacity‑scaling to **multiple commodities**.  
+   * Enforce **commodity‑conflict constraints** (no two incompatible commodities share the same stateful edge).  
+   * Parallelise flow augmentation using **only `ThreadPoolExecutor`**.  
+
+3. **Global Optimisation & Robustness**  
+   * **Objective function**: Lexicographic optimization  
+     – Primary: Maximize throughput = Σ(achieved flows)  
+     – Secondary: Minimize total cost = Σ(flow × edge_cost) + holding_costs  
+   * **Implementation approach**: Successive shortest-path algorithm naturally achieves this by routing maximum flow at minimum cost per augmentation.  
+   * Handle **negative costs**, **dynamic obstructions**, **flow‑dependent capacity**, and **priority preemption**.
+
+---
+
+### Constraints  
+
+| Item | Limit |
+|------|-------|
+| Nodes (base graph) | ≤ 10 000 |
+| Base edges | ≤ 50 000 |
+| Time steps (`T`) | ≤ 200 |
+| Commodities | ≤ 30 |
+| External libraries | **None** (only Python standard library) |
+| Concurrency | `concurrent.futures.ThreadPoolExecutor` only |
+
+---
+
+### **Advanced & Rare Edge Cases (Must Be Handled Correctly)**  
+
+1. **Cyclic Time Windows**: An edge has multiple disjoint time windows: `[1,3] ∪ [7,9]`. Flow entering at `t=2` **cannot** exit at `t=8` unless re‑entered via holding.  
+2. **Zero‑Duration Instantaneous Edges**: `time_window=[5,5]` → edge usable **only at exact time `t=5`**.  
+3. **Self‑Conflicting Commodities**: `[c,c]` in `forbidden_pairs` → **at most one unit** of `c` per stateful edge.  
+4. **Transitive Conflict Chains**: `A↔B`, `B↔C` → `A` and `C` cannot share edge. Precompute transitive closure.  
+5. **Negative Costs with Capacity Limits**: Edge has `cost = -5.0`. Use potential reduction or cycle canceling to avoid infinite loops.  
+6. **Partial Edge Obstruction Mid‑Window**: At `t=7`, edge becomes **permanently blocked**. Flow in transit at `t=6` must complete.  
+7. **Holding Nodes with Cost & Capacity**: Goods can **wait** at nodes, but waiting incurs **per‑timestep cost** and consumes **storage capacity**.  
+8. **Commodity Merging/Splitting**: A commodity can **split** into multiple paths and **merge** later.  
+9. **Priority‑Based Preemption**: High‑priority commodity is **routed first** before lower‑priority commodities. Commodities with higher `priority` value get access to capacity before those with lower priority. No preemption penalties in this implementation—priority simply determines routing order.  
+10. **Time‑Reversible Edges**: Edge allows reverse flow in `[t1,t2]` with different cost/capacity.  
+11. **Integer vs Fractional Flows**: When demand and all capacities are integers, return **integer flows**. When demand is fractional (e.g., 3.7), return **float flows**. The function adapts based on input types.  
+12. **Graph with Isolated Time Islands**: Some nodes reachable only in `[t=50,55]`. Avoid infeasible path searches.  
+13. **Race Condition in Concurrent Augmentation**: Two threads augment overlapping stateful edges → capacity oversubscribed. Use **fine‑grained locking per (edge, time)**.
+
+---
+
+### Function Signature  
+
+```python
+from typing import List, Dict, Optional
+
+def optimize_logistics_network(
+    nodes: List[int],
+    base_edges: Dict[str, List[dict]],
+    commodities: List[dict],
+    time_horizon: int,
+    holding_rules: Optional[List[dict]] = None,
+    dynamic_obstructions: Optional[List[dict]] = None  # List of {"u": int, "v": int, "block_time": int}
+) -> Dict[str, any]:
+    """
+    Returns a dictionary with keys:
+        "paths": Dict[str, List[List[int]]]  - commodity_id (as string) → list of node‑sequences (paths)
+        "flows": Dict[str, float]            - commodity_id (as string) → achieved flow (int or float)
+        "cost": float                        - total cost including transport and holding
+        "throughput": float                  - sum of achieved flows
+    
+    Optimization objectives (lexicographic order):
+        1. Maximize throughput (primary) - route as much demand as possible
+        2. Minimize cost (secondary) - among maximum-throughput solutions, choose lowest cost
+    
+    Note: All return values wrapped in a JSON-compatible dictionary.
+          Commodity IDs are returned as strings for JSON compatibility.
+          Input demands & capacities determine if flows are int or float.
+    """
+```
+
+> **All inputs are plain `dict`s and `list`s. No dataclasses. No helper functions.**
+> 
+> **Multi-Objective Clarification**: The function implicitly optimizes for both objectives by using min-cost max-flow algorithms (e.g., successive shortest paths with Bellman-Ford or Dijkstra). Each flow augmentation finds the cheapest path, so maximum throughput is achieved at minimum total cost.
+
+---
+
+### Input Dictionary Schemas  
+
+#### `base_edges` → Dict[str, List[dict]]
+Keys are **string** representations of node IDs (e.g., `"0"`, `"1"`).
+Each value is a list of edge dictionaries:
+
+```python
+{
+    "to": int,
+    "capacity": int,                               # edge capacity (fixed)
+    "cost": float,                                 # per-unit cost (fixed)
+    "time_windows": List[List[int]],               # list of [start, end] inclusive
+    "forbidden_pairs": List[List[int]],            # list of [c1, c2] with c1 < c2
+    "reverse_edge": Optional[dict] = None,         # bidirectional link (optional)
+    "obstruction_time": Optional[int] = None       # permanent block at this time (edge-specific)
+}
+```
+
+#### `dynamic_obstructions` → Optional[List[dict]]
+List of obstruction dictionaries (JSON-compatible):
+```python
+{
+    "u": int,           # source node
+    "v": int,           # destination node
+    "block_time": int   # time when edge becomes permanently blocked
+}
+```
+
+**Note on Obstructions**: An edge can be obstructed in two ways:
+- **Edge-specific**: via `obstruction_time` field in the edge definition
+- **Global**: via `dynamic_obstructions` list parameter
+- If both are specified for the same edge, the **earlier** obstruction time takes precedence
+
+#### `commodities` → List of `dict`  
+```python
+{
+    "id": int,
+    "source": int,
+    "sink": int,
+    "demand": float,                    # can be int or float
+    "priority": int = 0,                # higher value = routed first (default 0)
+    "max_split": int = 1                # max number of paths
+}
+```
+
+#### `holding_rules` → Optional List of `dict`  
+```python
+{
+    "node": int,
+    "capacity": int,              # max units stored per time
+    "cost_per_unit_per_time": float
+}
+```
+
+---
+
+### **Sample Input**
+
+```python
+nodes = [0, 1, 2, 3]
+
+base_edges = {
+    "0": [
+        {
+            "to": 1,
+            "capacity": 10,
+            "cost": 2.0,
+            "time_windows": [[0, 1]],
+            "forbidden_pairs": [],
+            "obstruction_time": None
+        },
+        {
+            "to": 2,
+            "capacity": 5,
+            "cost": 1.0,
+            "time_windows": [[1, 2]],
+            "forbidden_pairs": [],
+            "obstruction_time": None
+        }
+    ],
+    "1": [
+        {
+            "to": 3,
+            "capacity": 8,
+            "cost": 3.0,
+            "time_windows": [[1, 3]],
+            "forbidden_pairs": [],
+            "obstruction_time": None
+        }
+    ],
+    "2": [
+        {
+            "to": 3,
+            "capacity": 6,
+            "cost": 4.0,
+            "time_windows": [[2, 4]],
+            "forbidden_pairs": [],
+            "obstruction_time": None
+        }
+    ]
+}
+
+commodities = [
+    {"id": 0, "source": 0, "sink": 3, "demand": 7.0, "priority": 0, "max_split": 1},
+    {"id": 1, "source": 0, "sink": 3, "demand": 4.0, "priority": 0, "max_split": 1}
+]
+
+time_horizon = 5
+holding_rules = None
+dynamic_obstructions = None
+```
+
+---
+
+### **Sample Output**
+
+```python
+{
+    "paths": {
+        "0": [[0, 1, 3]],
+        "1": [[0, 2, 3]]
+    },
+    "flows": {"0": 7.0, "1": 4.0},
+    "cost": 55.0,
+    "throughput": 11.0
+}
+```
+
+---
+
+### **Verification of Sample Output**
+
+| Commodity | Path | Flow | Route Cost | Time Feasibility |
+|---------|------|------|------------|------------------|
+| 0       | [0,1,3] | 7.0 | 7 × (2.0 + 3.0) = **35.0** | `0→1` at `t=0 or 1`, `1→3` at `t=1,2,3` → valid |
+| 1       | [0,2,3] | 4.0 | 4 × (1.0 + 4.0) = **20.0** | `0→2` at `t=1 or 2`, `2→3` at `t=2,3,4` → valid |
+
+**Total cost** = 35.0 + 20.0 = **55.0**  
+**Throughput** = 7.0 + 4.0 = **11.0**  
+**No holding, no conflicts, no obstructions** → **correct and optimal**
+
+**Note**: Flows shown as floats (7.0, 4.0) but could be integers (7, 4) since all inputs are integers. Implementation adapts based on input types.
+
+Starter Code:
+```python
+from typing import List, Dict, Optional
+from collections import defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+
+
+def optimize_logistics_network(
+    nodes: List[int],
+    base_edges: Dict[str, List[dict]],
+    commodities: List[dict],
+    time_horizon: int,
+    holding_rules: Optional[List[dict]] = None,
+    dynamic_obstructions: Optional[List[dict]] = None
+) -> Dict[str, any]:
+```

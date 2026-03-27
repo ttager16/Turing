@@ -1,0 +1,76 @@
+{
+  "id": "resp_013caba3c10da3e50069c33c47dfcc81a2b064a0059164fe22",
+  "object": "response",
+  "created_at": 1774402631,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774402652,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_013caba3c10da3e50069c33c484a0c81a2bd6d850c2152da6e",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_013caba3c10da3e50069c33c48754c81a28eab387f793df905",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List, Any, Union\nimport math\nimport ast\nimport types\n\ndef compute_multi_stage_mst(\n    graphs: List[Dict[str, List[List[Any]]]]\n) -> List[Union[List[List[str]], Dict[str, str]]]:\n    def canonical_edge(a, b):\n        return (a, b) if a <= b else (b, a)\n\n    def parse_lambda(expr):\n        # safe eval for \"lambda s: ...\" returning a callable\n        try:\n            node = ast.parse(expr, mode='eval')\n            # Only allow lambda expressions\n            if not isinstance(node.body, ast.Lambda):\n                return None\n            code = compile(node, '<string>', 'eval')\n            fn = eval(code, {})\n            if not callable(fn):\n                return None\n            return fn\n        except Exception:\n            return None\n\n    results = []\n    for graph in graphs:\n        # Validate special keys\n        state = graph.get(\"_state\", {})\n        constraints = graph.get(\"_constraints\", {})\n        required_edges_raw = constraints.get(\"required_edges\", [])\n        forbidden_edges_raw = constraints.get(\"forbidden_edges\", [])\n        degree_limits = constraints.get(\"degree_limits\", {})\n        phase_blocklist_raw = constraints.get(\"phase_blocklist\", [])\n        round_cost_to = constraints.get(\"round_cost_to\", 6)\n\n        # collect nodes (string-labeled nodes only)\n        nodes = [k for k in graph.keys() if not k.startswith(\"_\")]\n        nodes_set = set(nodes)\n\n        # helper to canonicalize lists of edges\n        def canon_list(edge):\n            if len(edge) >= 2:\n                return canonical_edge(str(edge[0]), str(edge[1]))\n            return None\n\n        required_edges = []\n        for e in required_edges_raw:\n            c = canon_list(e)\n            if c: required_edges.append(c)\n        forbidden_edges = set()\n        for e in forbidden_edges_raw:\n            c = canon_list(e)\n            if c: forbidden_edges.add(c)\n        phase_blocklist = set()\n        for e in phase_blocklist_raw:\n            c = canon_list(e)\n            if c: phase_blocklist.add(c)\n\n        # check required vs forbidden conflict\n        for e in required_edges:\n            if e in forbidden_edges:\n                results = [{\"error\": \"Required edge is forbidden\"}]\n                return results\n\n        # build edge list evaluating label functions\n        edge_map = {}  # (u,v) -> list of label expr strings (from one side)\n        for u in nodes:\n            adj = graph.get(u, [])\n            for item in adj:\n                if not isinstance(item, list) or len(item) < 2:\n                    continue\n                v = str(item[0])\n                expr = item[1]\n                if u == v:\n                    continue\n                e = canonical_edge(str(u), v)\n                edge_map.setdefault(e, []).append(expr)\n\n        evaluated_edges = []\n        for e, exprs in edge_map.items():\n            if e in forbidden_edges or e in phase_blocklist:\n                continue\n            cost = None\n            # try each expr until one yields valid numeric\n            for expr in exprs:\n                if not isinstance(expr, str):\n                    continue\n                fn = parse_lambda(expr)\n                if fn is None:\n                    continue\n                try:\n                    val = fn(state)\n                    if val is None:\n                        continue\n                    if isinstance(val, bool):\n                        # allow bool as number? treat as numeric\n                        val = float(val)\n                    if not isinstance(val, (int, float)):\n                        continue\n                    if not math.isfinite(val):\n                        continue\n                    cost = float(val)\n                    break\n                except Exception:\n                    continue\n            if cost is None:\n                continue\n            rounded = round(cost, round_cost_to)\n            evaluated_edges.append((rounded, e[0], e[1], cost, e))\n\n        if not evaluated_edges:\n            return [{\"error\": \"No valid edges available\"}]\n\n        # sort edges deterministically by (rounded_cost, u, v)\n        evaluated_edges.sort(key=lambda x: (x[0], x[1], x[2]))\n\n        # union-find\n        parent = {}\n        rank = {}\n        deg = {n: 0 for n in nodes_set}\n\n        def find(x):\n            parent.setdefault(x, x)\n            if parent[x] != x:\n                parent[x] = find(parent[x])\n            return parent[x]\n\n        def union(x, y):\n            rx = find(x); ry = find(y)\n            if rx == ry:\n                return False\n            if rank.get(rx, 0) < rank.get(ry, 0):\n                parent[rx] = ry\n            else:\n                parent[ry] = rx\n                if rank.get(rx, 0) == rank.get(ry, 0):\n                    rank[rx] = rank.get(rx, 0) + 1\n            return True\n\n        # add required edges first, checking cycles and degree limits\n        chosen = set()\n        # check cycles among required edges\n        temp_parent = {}\n        def temp_find(x):\n            temp_parent.setdefault(x, x)\n            if temp_parent[x] != x:\n                temp_parent[x] = temp_find(temp_parent[x])\n            return temp_parent[x]\n        def temp_union(x,y):\n            rx=temp_find(x); ry=temp_find(y)\n            if rx==ry:\n                return False\n            temp_parent[ry]=rx\n            return True\n\n        for e in required_edges:\n            u, v = e\n            if u not in nodes_set or v not in nodes_set:\n                # treat as invalid edge leading to infeasibility\n                return [{\"error\": \"Required edges form a cycle\"}]\n            if not temp_union(u, v):\n                return [{\"error\": \"Required edges form a cycle\"}]\n\n        # check degree limits feasibility baseline: required edges degrees must not exceed limits\n        for e in required_edges:\n            u, v = e\n            deg[u] = deg.get(u, 0) + 1\n            deg[v] = deg.get(v, 0) + 1\n            chosen.add(e)\n            union(u, v)\n        for node, limit in degree_limits.items():\n            node = str(node)\n            if node in deg and limit is not None:\n                if deg[node] > limit:\n                    return [{\"error\": \"Degree limit infeasible\"}]\n\n        # Now attempt to build MST/forest greedily using deterministic Kruskal while respecting:\n        # - cannot add forbidden or phase_blocklist edges (already filtered)\n        # - must not violate degree limits\n        # - must avoid cycles (unless connecting components needed? cycles not allowed)\n        for rounded, u, v, cost, e in evaluated_edges:\n            if e in chosen:\n                continue\n            # skip if would form cycle\n            if find(u) == find(v):\n                continue\n            # check degree limits if any\n            du = deg.get(u,0)\n            dv = deg.get(v,0)\n            lim_u = degree_limits.get(u, None)\n            lim_v = degree_limits.get(v, None)\n            if lim_u is not None and du + 1 > lim_u:\n                continue\n            if lim_v is not None and dv + 1 > lim_v:\n                continue\n            # accept edge\n            union(u, v)\n            deg[u] = du + 1\n            deg[v] = dv + 1\n            chosen.add(e)\n\n        # After processing, ensure degree limits globally feasible: check if any node's degree > limit\n        for node, limit in degree_limits.items():\n            node = str(node)\n            if limit is not None and deg.get(node,0) > limit:\n                return [{\"error\": \"Degree limit infeasible\"}]\n\n        # Build result list: must produce minimum spanning forest covering all nodes (string-labeled)\n        # Note: if graph disconnected, we've produced forest via Kruskal\n        # Prepare output as sorted list of [u,v] strings per edge, canonical form\n        out_edges = [ [u, v] for (u, v) in chosen ]\n        # ensure canonical order inside edge\n        out_edges = [ [str(a), str(b)] if a<=b else [str(b), str(a)] for a,b in out_edges ]\n        # lexicographically sort edges\n        out_edges.sort()\n        results.append(out_edges)\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1559,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1769,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3328
+  },
+  "user": null,
+  "metadata": {}
+}

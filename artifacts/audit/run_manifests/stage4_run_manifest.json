@@ -1,0 +1,50 @@
+{
+  "stage": "manual-audit",
+  "jsonl_path": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+  "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\outputs\\sample_requirements_analysis\\guideline_audit.xlsx",
+  "stage2_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\outputs\\sample_efficacy_analysis",
+  "stage3_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\outputs\\dataset_analysis",
+  "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\outputs\\manual_audit",
+  "review_input": "",
+  "max_total": 26,
+  "bucket_targets": {
+    "contradictions": 8,
+    "disagreement": 8,
+    "redundancy": 6,
+    "baseline": 4
+  },
+  "selected_indices": [
+    4,
+    5,
+    12,
+    17,
+    69,
+    74,
+    82,
+    98,
+    111,
+    113,
+    117,
+    124,
+    2,
+    7,
+    14,
+    27,
+    51,
+    68,
+    144,
+    152,
+    20,
+    26,
+    32,
+    45,
+    104,
+    145
+  ],
+  "selected_buckets": {
+    "baseline": 4,
+    "contradiction": 8,
+    "disagreement": 8,
+    "redundancy": 6
+  }
+}

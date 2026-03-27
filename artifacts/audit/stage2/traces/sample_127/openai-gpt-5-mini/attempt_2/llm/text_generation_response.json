@@ -1,0 +1,76 @@
+{
+  "id": "resp_00cecffda93dfaf60069c33c47e20c819fa91fdfb15644f1ab",
+  "object": "response",
+  "created_at": 1774402631,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774402652,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_00cecffda93dfaf60069c33c485e6c819f96682bdde5c35ad6",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_00cecffda93dfaf60069c33c488d58819fbb742414bea24050",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List, Any, Union\nimport math\nimport ast\n\ndef compute_multi_stage_mst(\n    graphs: List[Dict[str, List[List[Any]]]]\n) -> List[Union[List[List[str]], Dict[str, str]]]:\n    def canonical(e):\n        a, b = e\n        return (a, b) if a <= b else (b, a)\n\n    def eval_label(fn_str, state):\n        try:\n            # Secure eval: parse lambda and compile AST to code object\n            node = ast.parse(fn_str, mode='eval')\n            # Only allow lambda expressions\n            if not isinstance(node.body, ast.Lambda):\n                return None\n            code = compile(node, '<string>', 'eval')\n            fn = eval(code, {})\n            res = fn(state)\n            if not (isinstance(res, (int, float)) and math.isfinite(res)):\n                return None\n            return float(res)\n        except Exception:\n            return None\n\n    results = []\n    for graph in graphs:\n        # Validate specials\n        state = graph.get(\"_state\", {})\n        constraints = graph.get(\"_constraints\", {})\n        required = [tuple(x) for x in constraints.get(\"required_edges\", [])]\n        forbidden = [tuple(x) for x in constraints.get(\"forbidden_edges\", [])]\n        degree_limits = {k: v for k, v in constraints.get(\"degree_limits\", {}).items()}\n        phase_block = [tuple(x) for x in constraints.get(\"phase_blocklist\", [])]\n        round_to = constraints.get(\"round_cost_to\", 6)\n\n        # collect nodes (string-labeled)\n        nodes = set()\n        edges_raw = {}\n        for u, adj in graph.items():\n            if u in (\"_state\", \"_constraints\"):\n                continue\n            nodes.add(u)\n            for item in adj:\n                if not isinstance(item, list) or len(item) != 2:\n                    continue\n                v, fn_str = item\n                nodes.add(v)\n                e = canonical((u, v))\n                # store only one label per undirected edge per occurrence list: collect as list\n                edges_raw.setdefault(e, []).append(fn_str)\n\n        # sanitize required/forbidden/blocklist into canonical\n        required = [canonical(tuple(e)) for e in required]\n        forbidden = [canonical(tuple(e)) for e in forbidden]\n        phase_block = [canonical(tuple(e)) for e in phase_block]\n\n        # check required vs forbidden conflict\n        for e in required:\n            if e in forbidden or e in phase_block:\n                results.append([{\"error\": \"Required edge is forbidden\"}])\n                break\n        else:\n            # build evaluated edge costs: for each undirected edge, try each label function string in its list until one valid\n            evaluated = {}\n            for e, fns in edges_raw.items():\n                u, v = e\n                if u == v:\n                    continue\n                if e in forbidden or e in phase_block:\n                    continue\n                cost = None\n                for fn_str in fns:\n                    val = eval_label(fn_str, state)\n                    if val is not None:\n                        cost = val\n                        break\n                if cost is None:\n                    continue\n                evaluated[e] = round(cost, round_to)\n\n            if not evaluated:\n                results.append([{\"error\": \"No valid edges available\"}])\n                continue\n\n            # Prepare required edges must be present in evaluated\n            for e in required:\n                if e not in evaluated:\n                    # required edge absent (maybe forbidden or missing label)\n                    results.append([{\"error\": \"Required edge is forbidden\"}])\n                    break\n            else:\n                # Check if required edges form a cycle among themselves\n                parent = {}\n                def find(x):\n                    parent.setdefault(x, x)\n                    while parent[x] != x:\n                        parent[x] = parent[parent[x]]\n                        x = parent[x]\n                    return x\n                def union(x, y):\n                    rx, ry = find(x), find(y)\n                    if rx == ry:\n                        return False\n                    parent[rx] = ry\n                    return True\n\n                cycle_found = False\n                for u, v in required:\n                    if u == v:\n                        cycle_found = True\n                        break\n                    if not union(u, v):\n                        cycle_found = True\n                        break\n                if cycle_found:\n                    results.append([{\"error\": \"Required edges form a cycle\"}])\n                    continue\n\n                # Start Kruskal deterministic: include required edges first (respecting degree limits), then sort rest\n                # Initialize union-find and degrees\n                uf_parent = {}\n                def uf_find(x):\n                    uf_parent.setdefault(x, x)\n                    while uf_parent[x] != x:\n                        uf_parent[x] = uf_parent[uf_parent[x]]\n                        x = uf_parent[x]\n                    return x\n                def uf_union(x, y):\n                    rx, ry = uf_find(x), uf_find(y)\n                    if rx == ry:\n                        return False\n                    uf_parent[rx] = ry\n                    return True\n\n                degrees = {n:0 for n in nodes}\n                included = set()\n                feasible = True\n\n                # Include required edges\n                for e in sorted(required):\n                    u, v = e\n                    if u == v:\n                        feasible = False\n                        break\n                    # check degree limits\n                    if (u in degree_limits and degrees.get(u,0)+1 > degree_limits[u]) or (v in degree_limits and degrees.get(v,0)+1 > degree_limits[v]):\n                        feasible = False\n                        break\n                    uf_union(u, v)\n                    degrees[u] = degrees.get(u,0)+1\n                    degrees[v] = degrees.get(v,0)+1\n                    included.add(e)\n\n                if not feasible:\n                    results.append([{\"error\": \"Degree limit infeasible\"}])\n                    continue\n\n                # Prepare remaining edges list excluding included and forbidden\n                remaining = []\n                for e, cost in evaluated.items():\n                    if e in included:\n                        continue\n                    remaining.append((cost, e[0], e[1], e))\n                # sort deterministically by (cost, u, v)\n                remaining.sort(key=lambda x: (x[0], x[1], x[2]))\n\n                # Kruskal: add if connects components and respects degree limits\n                for cost, u, v, e in remaining:\n                    if e in included:\n                        continue\n                    if u == v:\n                        continue\n                    if uf_find(u) != uf_find(v):\n                        if (u in degree_limits and degrees.get(u,0)+1 > degree_limits[u]) or (v in degree_limits and degrees.get(v,0)+1 > degree_limits[v]):\n                            continue\n                        uf_union(u, v)\n                        degrees[u] = degrees.get(u,0)+1\n                        degrees[v] = degrees.get(v,0)+1\n                        included.add(e)\n\n                # After processing, ensure degree limits allow spanning forest: check whether any node's degree exceeds (done). Also ensure if degree_limits make impossible to connect components when required empty? Need to verify if infeasible: if some components cannot be connected due to degree limits, detect by attempting to connect remaining possible edges but none can connect components -> then it's fine because we produce minimum spanning forest; but spec says if degree limits make spanning structure impossible return error.\n                # Determine desired is a spanning forest covering all nodes; it's always a forest. They only want error if degree limits make spanning structure impossible. That applies if some required edges forced degrees beyond limits (checked) or if isolated node cannot have any incident edges and yet must be connected? The spec: \"If degree limits make the spanning structure impossible\" interpret as when any node's degree limit is zero but node has neighbors and cannot be connected to any edge? To be strict: if after algorithm there exists an edge in required impossible handled; otherwise accept forest.\n                # However sample expects forest if disconnected. So accept included as final.\n\n                if not included:\n                    results.append([{\"error\": \"No valid edges available\"}])\n                    continue\n\n                # Prepare output sorted lexicographically list of [u,v] strings\n                out = [list(e) for e in included]\n                out = [sorted(pair) for pair in out]  # ensure canonical order inside\n                out = [tuple(p) for p in out]\n                out = sorted(out, key=lambda x: (x[0], x[1]))\n                out = [[a, b] for a, b in out]\n                results.append(out)\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1559,
+    "input_tokens_details": {
+      "cached_tokens": 1536
+    },
+    "output_tokens": 1791,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3350
+  },
+  "user": null,
+  "metadata": {}
+}

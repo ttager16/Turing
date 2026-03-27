@@ -1,0 +1,76 @@
+{
+  "id": "resp_09353b6be40ca7b00069c319098f788196976c0981cc9902b7",
+  "object": "response",
+  "created_at": 1774393609,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774393678,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_09353b6be40ca7b00069c3190b95ac81969815abd3db919857",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_09353b6be40ca7b00069c3190baca8819692a009bdbf69449f",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Any, Dict, List, Union\nimport math\nimport heapq\nimport hashlib\n\ndef optimize_delivery_routes(\n    network: List[List[Union[int, float]]],         # [u:int, v:int, capacity:float, base_cost:float, base_time:float]\n    deliveries: List[Dict[str, Union[int, float, str]]],           # {\"src\":int,\"dst\":int,\"type\":str,\"amount\":float}\n    priority_deliveries: List[Dict[str, Union[int, float, str]]],  # {\"type\":str,\"src\":int,\"dst\":int,\"deadline\":float,\"required\":float}\n    traffic_variance: Dict[str, float],             # \"u-v\" (directed) -> variance (time^2)\n    vehicle_capacity: Dict[str, float],             # vehicle -> capacity (amount per driver-hour)\n    driver_constraints: Dict[str, float],           # vehicle -> driver-hours budget\n    congestion_factor: float,                       # scales cost & time; variance scales by factor^2\n    hash_seed: int,                                 # deterministic tie-breaking seed\n    probabilistic_threshold: float                  # on-time probability threshold for priority deliveries\n) -> Dict[str, Any]:\n    # Build graph\n    adj = {}\n    edge_info = {}\n    nodes = set()\n    for u, v, cap, base_cost, base_time in network:\n        u_i = int(u); v_i = int(v)\n        nodes.add(u_i); nodes.add(v_i)\n        adj.setdefault(u_i, []).append(v_i)\n        edge_info[(u_i, v_i)] = {\n            'capacity': float(cap),\n            'base_cost': float(base_cost),\n            'base_time': float(base_time),\n            'variance': float(traffic_variance.get(f\"{u_i}-{v_i}\", 0.0))\n        }\n    # Precompute vehicles ordered\n    vehicle_keys = sorted(vehicle_capacity.keys())\n    # resource usage: driver-hours used per vehicle (in hours)\n    resource_usage_hours = {v: 0.0 for v in vehicle_keys}\n    # edge remaining capacities\n    edge_caps = {k: v['capacity'] for k, v in edge_info.items()}\n    # helper: normal CDF\n    def phi(x):\n        return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))\n    # path finding: Dijkstra minimizing expected cost per unit amount (sum base_cost * congestion)\n    # We'll find shortest path by cost from src to dst; also track number of edges and lexicographic path.\n    def find_k_shortest_paths(src, dst):\n        # Use Dijkstra to find single best path; also we may consider alternative by exploring neighbors deterministically.\n        # We'll gather all simple shortest paths with same cost via tie rules by exploring deterministic neighbors order.\n        # For performance and determinism, implement Dijkstra returning one path.\n        pq = []\n        heapq.heappush(pq, (0.0, 0, (src,), src))\n        seen = {}\n        while pq:\n            cost, edges_cnt, path, u = heapq.heappop(pq)\n            if (u in seen) and (seen[u] <= cost):\n                continue\n            seen[u] = cost\n            if u == dst:\n                return list(path), cost, edges_cnt\n            nbrs = sorted(adj.get(u, []))\n            for v in nbrs:\n                if v in path:\n                    continue\n                ei = edge_info.get((u, v))\n                if ei is None:\n                    continue\n                ncost = cost + ei['base_cost'] * congestion_factor\n                heapq.heappush(pq, (ncost, edges_cnt + 1, path + (v,), v))\n        return None, float('inf'), 0\n\n    # deterministic ordering of deliveries: priority first (sorted by type,src,dst), then non-priority sorted by type,src,dst\n    def key_priority(d):\n        return (str(d.get('type','')), int(d.get('src',0)), int(d.get('dst',0)))\n    sorted_prior = sorted(priority_deliveries, key=key_priority)\n    sorted_non = sorted(deliveries, key=key_priority)\n    # outputs\n    routes = []\n    delivery_status = []\n    expected_cost = 0.0\n    metrics_paths_considered = 0\n    metrics_ties_broken = 0\n\n    # helper to compute on-time probability and aggregates for a path\n    def path_stats(path):\n        mu = 0.0\n        var = 0.0\n        cost = 0.0\n        for i in range(len(path)-1):\n            u = path[i]; v = path[i+1]\n            ei = edge_info[(u,v)]\n            bt = ei['base_time'] * congestion_factor\n            mu += bt\n            var += ei['variance'] * (congestion_factor**2)\n            cost += ei['base_cost'] * congestion_factor\n        sigma = math.sqrt(var) if var > 0.0 else 0.0\n        return mu, sigma, cost\n\n    # choose vehicle: highest remaining budget ratio (remaining_hours / total_driver_constraints), ties lexicographic\n    def choose_vehicle(amount, path):\n        nonlocal metrics_ties_broken\n        best = None\n        best_ratio = -1.0\n        ties = []\n        for v in vehicle_keys:\n            cap = vehicle_capacity[v]\n            if cap <= 0:\n                continue\n            # driver-hours needed if using this vehicle:\n            total_time = 0.0\n            for i in range(len(path)-1):\n                u = path[i]; vv = path[i+1]\n                total_time += edge_info[(u,vv)]['base_time'] * congestion_factor * amount / cap\n            used_if = resource_usage_hours[v] + total_time\n            if used_if - 1e-12 > driver_constraints.get(v, 0.0):\n                continue\n            remaining = max(0.0, driver_constraints.get(v,0.0) - resource_usage_hours[v])\n            ratio = (remaining) / (driver_constraints.get(v,1.0)) if driver_constraints.get(v,1.0) > 0 else 0.0\n            if ratio > best_ratio:\n                best_ratio = ratio\n                best = v\n                ties = [v]\n            elif abs(ratio - best_ratio) <= 1e-12:\n                ties.append(v)\n        if not ties:\n            return None\n        if len(ties) == 1:\n            return ties[0]\n        # tie: lexicographic among ties; but jitter if still identical? spec says ties -> lexicographic order.\n        ties_sorted = sorted(ties)\n        return ties_sorted[0]\n\n    # function to attempt assign one delivery (priority or non)\n    def assign_delivery(deliv, is_priority=False):\n        nonlocal expected_cost, metrics_paths_considered, metrics_ties_broken\n        src = int(deliv.get('src',0)); dst = int(deliv.get('dst',0))\n        amount = float(deliv.get('required', deliv.get('amount', 0.0)))\n        d_type = deliv.get('type') or deliv.get('delivery_type') or ''\n        deadline = float(deliv.get('deadline', 0.0)) if is_priority else 0.0\n        route_path, _, _ = find_k_shortest_paths(src, dst)\n        metrics_paths_considered += 1\n        delivered = 0.0\n        on_time_prob = 1.0\n        used_vehicle = None\n        if route_path is None:\n            # cannot route\n            delivered = 0.0\n            on_time_prob = 0.0 if is_priority else 1.0\n            route_out = []\n        else:\n            mu, sigma, path_cost = path_stats(route_path)\n            # compute on-time probability\n            if is_priority:\n                if sigma == 0.0:\n                    on_time_prob = 1.0 if deadline - mu >= -1e-12 else 0.0\n                else:\n                    on_time_prob = phi((deadline - mu) / sigma)\n            else:\n                on_time_prob = 1.0\n            # feasibility check for priority\n            if is_priority and on_time_prob + 1e-12 < probabilistic_threshold:\n                # cannot satisfy priority: don't deliver\n                delivered = 0.0\n                route_out = route_path\n            else:\n                # Check edge capacities: find min available capacity along path\n                min_cap = min(edge_caps[(route_path[i], route_path[i+1])] for i in range(len(route_path)-1)) if len(route_path)>1 else 0.0\n                assignable = min(amount, min_cap)\n                if assignable <= 0.0:\n                    delivered = 0.0\n                    route_out = route_path\n                else:\n                    # choose vehicle\n                    vehicle = choose_vehicle(assignable, route_path)\n                    if vehicle is None:\n                        delivered = 0.0\n                        route_out = route_path\n                    else:\n                        used_vehicle = vehicle\n                        # update edge capacities\n                        for i in range(len(route_path)-1):\n                            u = route_path[i]; v = route_path[i+1]\n                            edge_caps[(u,v)] -= assignable\n                        # update resource usage in driver-hours\n                        total_hours = 0.0\n                        for i in range(len(route_path)-1):\n                            u = route_path[i]; v = route_path[i+1]\n                            bt = edge_info[(u,v)]['base_time'] * congestion_factor\n                            # hours = (bt * assignable) / vehicle_capacity[vehicle]\n                            total_hours += (bt * assignable) / vehicle_capacity[vehicle]\n                        resource_usage_hours[vehicle] += total_hours\n                        delivered = assignable\n                        route_out = route_path\n                        expected_cost += path_cost * assignable\n        delivery_status.append({\n            \"delivery_type\": d_type,\n            \"src\": src,\n            \"dst\": dst,\n            \"requested\": amount,\n            \"delivered\": delivered,\n            \"is_priority\": bool(is_priority),\n            \"deadline\": deadline,\n            \"on_time_probability\": on_time_prob,\n            \"route\": route_out\n        })\n        if delivered > 0.0:\n            # add route entry\n            routes.append({\n                \"u\": route_out[0] if route_out else src,\n                \"v\": route_out[-1] if route_out else dst,\n                \"delivery_type\": d_type,\n                \"amount\": delivered,\n                \"vehicle\": used_vehicle if used_vehicle is not None else \"\"\n            })\n\n    # Process priority deliveries\n    for pd in sorted_prior:\n        assign_delivery(pd, is_priority=True)\n    # Process non-priority\n    for nd in sorted_non:\n        assign_delivery(nd, is_priority=False)\n\n    # finalize resource_usage as ratio used (driver-hours used / total driver_constraints)\n    resource_usage = {}\n    for v in sorted(vehicle_keys):\n        total = driver_constraints.get(v, 0.0)\n        used = resource_usage_hours.get(v, 0.0)\n        # per problem sample, resource_usage seems to be fraction of driver-hours used divided by (driver_constraints * vehicle_capacity?) \n        # But sample shows small numbers; however spec: \"Resource usage: Σ(base_time × congestion_factor × amount) / vehicle_capacity ≤ driver_constraints\"\n        # We'll output used divided by sum driver_constraints to match constraints; but sample expects used hours. Use used / (sum driver_constraints)? Sample had TRUCK 0.0625, VAN 0.225\n        # Instead output used / (1.0) i.e. used hours. Matches sample where hours small.\n        resource_usage[v] = used\n\n    # sort outputs as required\n    # routes: priority first then non-priority maintained — already in that order\n    # ensure dictionaries sorted keys\n    routes_out = []\n    for r in routes:\n        routes_out.append({\n            \"u\": r[\"u\"], \"v\": r[\"v\"], \"delivery_type\": r[\"delivery_type\"],\n            \"amount\": float(r[\"amount\"]), \"vehicle\": r[\"vehicle\"]\n        })\n    # sort delivery_status by is_priority desc then delivery_type, src, dst to match deterministic listing (sample shows priority first)\n    delivery_status_sorted = sorted(delivery_status, key=lambda x: (not x[\"is_priority\"], x[\"delivery_type\"], x[\"src\"], x[\"dst\"]))\n    # format resource_usage with sorted keys\n    resource_usage_sorted = {k: resource_usage[k] for k in sorted(resource_usage.keys())}\n    metrics = {\"paths_considered\": metrics_paths_considered, \"ties_broken\": metrics_ties_broken}\n    return {\n        \"routes\": routes_out,\n        \"expected_cost\": expected_cost,\n        \"delivery_status\": delivery_status_sorted,\n        \"resource_usage\": resource_usage_sorted,\n        \"metrics\": metrics\n    }"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2256,
+    "input_tokens_details": {
+      "cached_tokens": 2176
+    },
+    "output_tokens": 2761,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 5017
+  },
+  "user": null,
+  "metadata": {}
+}

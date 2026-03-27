@@ -1,0 +1,96 @@
+def manage_traffic_graph(
+    city_map: Dict[str, Dict[str, int]],
+    updates: List[List],
+    start: str,
+    end: str
+) -> List[str]:
+    # Validate updates parameter presence and type
+    if updates is None or not isinstance(updates, list):
+        return []
+    # If city_map missing
+    if city_map is None:
+        return []
+    # If both empty
+    if (not city_map) and (not updates):
+        return []
+    # Work on a deep copy (shallow dicts)
+    graph: Dict[str, Dict[str, int]] = {}
+    for u, nbrs in (city_map.items() if city_map else []):
+        if not isinstance(nbrs, dict):
+            return []
+        graph[u] = dict(nbrs)
+    # Apply updates (ordered, last-write-wins)
+    for upd in updates:
+        if not isinstance(upd, list) or len(upd) != 3:
+            return []
+        u, v, w = upd
+        if not isinstance(u, str) or not isinstance(v, str):
+            return []
+        if not isinstance(w, int) or w < 0:
+            return []
+        if u not in graph:
+            graph[u] = {}
+        if v not in graph:
+            # ensure node exists even if isolated
+            graph.setdefault(v, {})
+        # set edge (u,v) to weight w (0 means closed but kept)
+        graph[u][v] = w
+    # If initial empty but updates created nodes, graph okay
+    # Check for self-loops anywhere
+    for u, nbrs in graph.items():
+        if u in nbrs:
+            return []
+    # Ensure start and end exist
+    if start not in graph or end not in graph:
+        return []
+    # Build list of open outgoing edges for sink determination
+    def open_out_neighbors(node):
+        return [v for v, wt in graph.get(node, {}).items() if wt > 0]
+    # Precompute sink set after updates: nodes with no open outgoing edges
+    sinks = set()
+    for node in graph:
+        if not open_out_neighbors(node):
+            sinks.add(node)
+    # Dijkstra with tie-breaking: cost, hops, path lexicographic
+    # State in heap: (total_cost, hops, path_tuple, current_node)
+    start_state = (0, 0, (start,), start)
+    heap = [start_state]
+    # best maps node -> best seen tuple (cost, hops, path_tuple)
+    best = {start: (0, 0, (start,))}
+    while heap:
+        cost, hops, path_t, u = heapq.heappop(heap)
+        # If popped state worse than recorded best, skip
+        if best.get(u) != (cost, hops, path_t):
+            continue
+        if u == end:
+            return list(path_t)
+        # Explore neighbors
+        for v, wt in graph.get(u, {}).items():
+            if wt == 0:
+                continue  # closed
+            add = wt
+            # If entering a sink that's not the end, add penalty to this incoming edge cost
+            if v in sinks and v != end:
+                add += SINK_PENALTY
+            new_cost = cost + add
+            new_hops = hops + 1
+            new_path = path_t + (v,)
+            candidate = (new_cost, new_hops, new_path)
+            prev = best.get(v)
+            better = False
+            if prev is None:
+                better = True
+            else:
+                # compare lex ordering: prefer lower cost, then fewer hops, then lexicographically smaller path
+                if new_cost < prev[0]:
+                    better = True
+                elif new_cost == prev[0]:
+                    if new_hops < prev[1]:
+                        better = True
+                    elif new_hops == prev[1]:
+                        if new_path < prev[2]:
+                            better = True
+            if better:
+                best[v] = candidate
+                heapq.heappush(heap, (new_cost, new_hops, new_path, v))
+    return []

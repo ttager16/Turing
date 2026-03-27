@@ -1,0 +1,76 @@
+{
+  "id": "resp_0d5be7f49e9910f00069c345dcdfb08193b2a8493a2e24016b",
+  "object": "response",
+  "created_at": 1774405084,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774405099,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0d5be7f49e9910f00069c345dd36b8819385d0f3c300691e5c",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0d5be7f49e9910f00069c345dd81588193bb433928bc352fca",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any\nfrom collections import defaultdict\nimport math\n\ndef optimize_rehearsal_schedule(\n    actor_availability: List[List],\n    scene_requirements: List[Dict[str, Any]],\n    historical_data: Dict[str, List[int]],\n    role_mapping: Dict[str, Dict[str, float]],\n    transport_times: Dict[str, int],\n    buffer_intervals: int,\n    rehearsal_capacity: Dict[str, int]\n) -> Dict[str, Dict[str, List[str]]]:\n    # Prepare actor sets and availability map\n    actors = [entry[0] for entry in actor_availability]\n    avail_map = {entry[0]: set(entry[1]) for entry in actor_availability}\n    # Compute P_available from historical data (average)\n    p_avail = {}\n    for a in actors:\n        hist = historical_data.get(a, [])\n        if hist:\n            p_avail[a] = sum(hist) / len(hist)\n        else:\n            p_avail[a] = 0.5\n    # role fit default\n    def role_fit(a, r):\n        return role_mapping.get(a, {}).get(r, 1.0)\n    # transport time lookup symmetric\n    def transport(a, b):\n        if a == b:\n            return 0\n        k1 = f\"{a}-{b}\"\n        k2 = f\"{b}-{a}\"\n        return transport_times.get(k1, transport_times.get(k2, 5))  # default medium travel 5\n    # Sort actors by name for tie-breaker index\n    sorted_actors = sorted(actors)\n    idx_map = {a: i for i, a in enumerate(sorted_actors)}\n    # Build scene list sorted by time\n    scenes = sorted(scene_requirements, key=lambda x: x['time_slot'])\n    # Initialize assignments\n    assignments = {s['scene_id']: {role: [] for role in s['roles'].keys()} for s in scenes}\n    # Track per actor assigned scenes (list of time_slots)\n    actor_assigned_times = {a: [] for a in actors}\n    actor_assigned_count = {a: 0 for a in actors}\n    # Helper to check buffer feasibility\n    def can_assign_actor(a, scene_time):\n        if actor_assigned_count[a] >= rehearsal_capacity.get(a, math.inf):\n            return False\n        for t in actor_assigned_times[a]:\n            if abs(t - scene_time) <= buffer_intervals:\n                return False\n        return True\n    # For each scene, for each role slot, pick best actor greedily\n    for scene in scenes:\n        sid = scene['scene_id']\n        tslot = scene['time_slot']\n        # Precompute candidate actors available at that time and feasible by buffer/capacity\n        candidates = [a for a in actors if tslot in avail_map.get(a, set()) and can_assign_actor(a, tslot)]\n        # For computing C_travel for a candidate we consider already assigned actors to this scene\n        for role, count_needed in scene['roles'].items():\n            for _ in range(count_needed):\n                best_score = None\n                best_actor = None\n                for a in candidates:\n                    if a in sum([assignments[sid][r] for r in assignments[sid]], []):\n                        # already assigned to a role in this scene (one role per scene)\n                        continue\n                    # compute components\n                    P_available = p_avail.get(a, 0.0)\n                    W_role_fit = role_fit(a, role)\n                    U_workload = actor_assigned_count[a] / max(1, rehearsal_capacity.get(a, 1))\n                    # compute average travel cost among actors already assigned to this scene plus this actor\n                    current_assigned = sum([assignments[sid][r] for r in assignments[sid]], [])\n                    travel_costs = []\n                    for other in current_assigned + [a]:\n                        for other2 in current_assigned + [a]:\n                            if other < other2:\n                                travel_costs.append(transport(other, other2))\n                    C_travel = (sum(travel_costs) / len(travel_costs)) if travel_costs else 0.0\n                    P_name = 0.001 * idx_map.get(a, 0)\n                    score = 2.0 * P_available + 1.5 * W_role_fit - 0.3 * U_workload - 0.1 * C_travel - P_name\n                    # Only consider if actor still feasible (capacity/buffer) — already checked candidates initial, but capacity may change within loop\n                    if actor_assigned_count[a] >= rehearsal_capacity.get(a, math.inf):\n                        continue\n                    if not can_assign_actor(a, tslot):\n                        continue\n                    if best_score is None or score > best_score:\n                        best_score = score\n                        best_actor = a\n                if best_actor:\n                    assignments[sid][role].append(best_actor)\n                    actor_assigned_times[best_actor].append(tslot)\n                    actor_assigned_count[best_actor] += 1\n                    # remove from candidates if reached capacity or cannot take more at same scene\n                    if actor_assigned_count[best_actor] >= rehearsal_capacity.get(best_actor, math.inf):\n                        if best_actor in candidates:\n                            candidates.remove(best_actor)\n                else:\n                    # cannot fill this slot; leave empty\n                    pass\n    return assignments"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2591,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1152,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3743
+  },
+  "user": null,
+  "metadata": {}
+}

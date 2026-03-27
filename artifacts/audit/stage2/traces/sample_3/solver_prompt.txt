@@ -1,0 +1,128 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+A mobile application development company is building a real-time augmented reality gaming platform that requires ultra-fast multiplication of large integers for complex signal processing calculations. The application must perform thousands of large integer multiplications per second while maintaining optimal battery efficiency and memory usage on mobile devices with varying computational capabilities.
+
+You are tasked with implementing an advanced FFT-based integer multiplication algorithm that leverages mathematical optimizations specifically designed for mobile architectures. The system must handle large integer operations efficiently while providing deterministic results for consistent gameplay mechanics across different devices.
+
+## Core Requirements
+
+Your solution must implement a **pure Python** FFT-based multiplication algorithm (no external libraries) that processes large integers and returns precise multiplication results. The algorithm should utilize Number Theoretic Transform (NTT) principles with carefully selected modular arithmetic to ensure both speed and accuracy.
+
+### Key Operational Constraints
+
+1. **Input Size Constraints**: Each integer input must be between 50 and 200 digits in length
+2. **Precision Requirements**: All calculations must maintain exact integer precision with zero rounding errors
+3. **Memory Efficiency**: Algorithm must use O(n log n) space complexity where n is the maximum digit count
+4. **Modular Arithmetic**: Use prime modulus 998244353 for NTT operations with primitive root 3
+5. **Deterministic Output**: Algorithm must produce identical results for identical inputs across all executions
+
+### Advanced Algorithmic Requirements
+
+The FFT implementation must incorporate a multi-stage optimization approach:
+
+**Stage 1: Integer Preprocessing**
+- Convert input integers to base-10000 representation for optimal digit grouping
+- Pad shorter numbers with leading zeros to match the longer number's length
+- Ensure total length is a power of 2 for efficient FFT processing
+
+**Stage 2: Number Theoretic Transform**
+- Apply forward NTT using modulus 998244353 and primitive root 3
+- Perform pointwise multiplication in the frequency domain
+- Apply inverse NTT to obtain the convolution result
+
+**Stage 3: Carry Propagation**
+- Process carries from the least significant to the most significant digits
+- Handle overflow using the formula: `new_digit = (current_digit + carry) % 10000`
+- Propagate carry: `carry = (current_digit + carry) // 10000`
+
+The algorithm must also implement modular exponentiation for computing NTT roots:
+**Modular Power Formula**: `pow(base, exponent, modulus)` where exponent follows the pattern `(modulus - 1) // (2^k)` for appropriate k values.
+
+## Function Signature
+
+```python
+def fft_multiply_large_integers(num1_str, num2_str, optimization_level):
+    """
+    Multiplies two large integers using optimized FFT-based algorithm.
+    
+    Returns: String representation of the multiplication result
+    """
+    pass
+```
+
+## Input Specifications
+
+**num1_str**: String representation of the first large integer (50-200 digits, no leading zeros except for "0")
+**num2_str**: String representation of the second large integer (50-200 digits, no leading zeros except for "0")  
+**optimization_level**: Integer specifying algorithm optimization mode (1=basic, 2=intermediate, 3=advanced)
+
+## Output Specification
+
+Return a string containing the exact multiplication result with no leading zeros (except for result "0").
+
+Example return: "12345678901234567890123456789012345678901234567890"
+
+## Constraint Requirements
+
+**Input Validation**: Return {"error" : "Invalid integer string format"} if either input string contains non-digit characters or has leading zeros (except "0")
+**Length Validation**: Return {"error" : "Integer length out of range"} if either input has fewer than 50 or more than 200 digits (except single digit "0", which is exempt from minimum length)
+**Optimization Level**: Return {"error" : "Invalid optimization level"} if optimization_level is not 1, 2, or 3
+**Empty Input**: Return {"error" : "Empty string provided"} if either input string is empty or None
+**Zero Handling**: Single digit "0" is exempt from the 50-digit minimum requirement and treated as valid input
+**Modulus Validation**: Return {"error" : "NTT modulus calculation failed"} if any modular arithmetic operation produces invalid results
+For any other input parameter violation, return {"error": "Input is not valid"}
+
+## Sample Input/Output
+
+**Input:**
+```python
+num1_str = "12345678901234567890123456789012345678901234567890123456789012345678901234567890"
+num2_str = "98765432109876543210987654321098765432109876543210987654321098765432109876543210"
+optimization_level = 2
+```
+
+**Expected Output:**
+```python
+"1219326311370217952261850327338667885945115073915636335923676116445578859929878986434993786160646167367779295611949397448712086533622923332237463801111263526900"
+```
+
+## Implementation Guidelines
+
+**NTT Root Calculation**: Use primitive root 3 with modulus 998244353, where nth roots are computed as `pow(3, (998244353-1)//n, 998244353)`
+**Base Conversion**: Convert decimal strings to base-10000 arrays using: `digits = [int(num_str[i:i+4]) for i in range(len(num_str)-4, -1, -4)]`
+**Padding Strategy**: Extend both number arrays to the next power of 2 length using zero-padding
+**Pointwise Multiplication**: In frequency domain, multiply corresponding elements: `result[i] = (a_fft[i] * b_fft[i]) % 998244353`
+**Carry Propagation**: Process from least to most significant: `carry, digits[i] = divmod(digits[i] + carry, 10000)`
+**Optimization Levels**: 
+  - Level 1: Basic NTT without optimizations
+  - Level 2: Include bit-reversal optimization for FFT
+  - Level 3: Add cache-friendly memory access patterns and reduce modular operations
+
+**Result Formatting**: Convert final digit array back to decimal string, removing any leading zeros except when result is "0"
+
+## Algorithm Flow
+
+1. **Base Conversion**: Transform decimal strings to base-10000 integer arrays
+2. **Length Normalization**: Pad arrays to the next power of 2 and ensure equal length
+3. **Forward NTT**: Apply Number Theoretic Transform to both arrays using modulus 998244353
+4. **Frequency Domain Multiplication**: Perform pointwise multiplication of transformed arrays
+5. **Inverse NTT**: Transform result back to time domain
+6. **Carry Processing**: Handle digit carries from least to most significant positions
+7. **Result Construction**: Convert processed array back to decimal string format
+8. **Final Validation**: Ensure no leading zeros in the result string
+
+The algorithm must handle edge cases, including multiplication by zero, equal-length inputs, and maximum-length inputs, while maintaining O(n log n) time complexity where n represents the digit count of the larger input number.
+
+Starter Code:
+```python
+def fft_multiply_large_integers(num1_str, num2_str, optimization_level):
+```

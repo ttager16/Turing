@@ -1,0 +1,130 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+In the high-frequency trading sector, a Python developer is tasked with designing a next-generation real-time analytics tool to manage and analyze a dynamic portfolio of stock symbols. Unlike traditional single-stream monitoring, this system must handle compound queries across multiple symbols, each with continuously fluctuating stock prices and various aggregation needs. The solution should employ advanced data structures (e.g., Segment Trees or Treaps) to concurrently track minimum and maximum prices per symbol, efficiently compute partial sums, and perform snapshot merges of related symbols-all while maintaining strict time and memory efficiency to accommodate millions of operations. By integrating multi-step reasoning and stateful interactions among different symbols, the developer must ensure minimal latency and maximal throughput under high-volume trading conditions.
+
+
+#### Objectives
+
+1. Create a unified data structure capable of:
+   * Inserting a stock price for a specific symbol in O(log n) or better time.
+   * Removing the most recent price while preserving aggregated historical data.
+   * Providing real-time minimum and maximum stock prices across individual symbols, as well as globally.
+   * Performing snapshot merges of related symbols to derive extended market insights.
+2. Support multi-dimensional queries, including compound checks (e.g., finding the min of one symbol while simultaneously computing the max of another), and interval-based aggregations (e.g., partial sum).
+3. Design the solution to handle complex corner cases such as interleaved updates across symbols, disjoint symbol sets, and simultaneous push/pop bursts.
+4. Optimize memory usage and ensure determinism across operations, without using brute-force recomputation.
+
+
+#### Constraints
+
+- The solution must be implemented in pure Python (no external libraries allowed).
+- Stock prices are integers in the range [-10^9, 10^9].
+- Operations include insertion, removal, multi-symbol min/max queries, range-based computations, and cluster merges.
+- Deterministic routing policy:
+  * The active symbol starts at ID 0.
+  * ['merge_clusters', None] creates a new symbol (next available ID) as a deep snapshot of the active symbol but does not switch the active symbol.
+  * The first subsequent ['push', price] after a merge is routed to the new symbol (one-shot redirect).
+  * ['pop', None] targets the most recently pushed-to symbol (MRU). if none, use the active symbol.
+- Deep snapshot semantics: After merge, source and new symbols are independent, subsequent pushes/pops to one must not affect the other.
+- Multiple occurrences of a symbol’s min/max must be handled so that popping one occurrence does not change that symbol’s get_min (or get_max) until the last occurrence is removed.
+- Global get_min(None) / get_max(None) must reflect the exact current state over all symbols. If lazy heaps are used, stale entries must not leak into answers.
+- ['range_sum', s] returns the sum of values that existed in symbol s at the time of its most recent merge event involving s, if s has never merged, return the sum of all values ever pushed so far to s. This baseline is analytic-only and does not decrease due to later pops.
+- On an empty symbol, pop returns None and get_min/get_max return None without raising exceptions.
+- If the operations list is empty ([]), the function must immediately return an empty list [].
+- Each operation must be a list of exactly two elements, e.g., ['push', 100] or ['get_max', None].
+   If any operation fails this format, return [].
+- The first element (operation name) must be a valid string in:
+   {"push", "pop", "get_min", "get_max", "merge_clusters", "range_sum"}.
+   If any operation name is invalid, return [].
+- For ['push', price]:
+   * price must be an integer within the range [-10^9, 10^9], otherwise return [].
+- For ['get_min' | 'get_max' | 'range_sum', x]:
+   * x must be either None or a non-negative integer (symbol ID), otherwise return [].
+- If the operations list contains invalid data types (e.g., dict, or string instead of list), return [].
+- If any invalid condition is encountered during validation or execution, the entire output must be [].
+
+
+#### Function Signature
+
+```python
+from typing import List, Optional, Any
+
+def real_time_stock_stack(operations: List[List[Any]]) -> List[Optional[int]]:
+    """
+    Implements a multi-layer real-time analytics system supporting various operations:
+    - ['push', price]: Insert a new stock price for the routed symbol (see policy in Constraints).
+    - ['pop', None]: Remove the most recently added price from the MRU-routed symbol.
+    - ['get_min', symbol_id]: Retrieve the current minimum price for the given symbol,
+                              or global minimum if symbol_id is None.
+    - ['get_max', symbol_id]: Retrieve the current maximum price for the given symbol,
+                              or global maximum if symbol_id is None.
+    - ['merge_clusters', None]: Create a new symbol as a deep snapshot of the active symbol.
+    - ['range_sum', symbol_id]: Return the sum defined by the range-sum baseline rule (see Constraints).
+
+    Validation rules:
+    - If operations == [] -> return []
+    - If any operation is invalid (wrong format, type, or range) -> return []
+    - Only the operations listed above are valid.
+    - The function must not mutate the input list.
+    """
+    pass
+```
+
+
+#### Sample Input:
+
+```
+operations = [
+    ['push', 100],
+    ['push', 250],
+    ['get_max', None],
+    ['push', 80],
+    ['merge_clusters', None],
+    ['get_min', None],
+    ['pop', None],
+    ['push', 300],
+    ['get_min', 1],
+    ['get_max', 0],
+    ['range_sum', 0],
+    ['pop', None],
+    ['get_max', None]
+]
+```
+
+
+#### Expected Output:
+
+```
+[None, None, 250, None, None, 80, None, None, 80, 250, 430, None, 250]
+```
+
+
+#### Description of the Expected Output
+
+1. "push" and "pop" operations yield None since they do not return a value.
+2. "get_max(None)" returns 250 after pushing 100 and 250.
+3. "merge_clusters" creates a new symbol (ID=1) as a deep snapshot of symbol 0.
+4. "get_min(None)" returns 80, the global minimum.
+5. The post-merge "push" (300) routes to the new symbol (ID=1).
+6. "range_sum(0)" returns 430, the sum of prices in symbol 0 at its last merge snapshot.
+7. The final "get_max(None)" returns 250 after pops and updates.
+8. If operations are empty, malformed, or contains invalid data, the output must be [].
+
+Starter Code:
+```python
+from typing import List, Optional, Any
+import heapq
+
+
+def real_time_stock_stack(operations: List[List[Any]]) -> List[Optional[int]]:
+    pass
+```

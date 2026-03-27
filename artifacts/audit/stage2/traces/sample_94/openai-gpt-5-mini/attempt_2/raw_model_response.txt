@@ -1,0 +1,107 @@
+from typing import List
+
+class TrieNode:
+    __slots__ = ("children", "count", "end_count")
+    def __init__(self):
+        self.children = {}
+        self.count = 0      # number of words that pass through this node
+        self.end_count = 0  # number of words that end at this node
+
+class Trie:
+    def __init__(self):
+        self.root = TrieNode()
+
+    def insert(self, word: str):
+        if word == "":
+            return
+        node = self.root
+        node.count += 1
+        for ch in word:
+            if ch not in node.children:
+                node.children[ch] = TrieNode()
+            node = node.children[ch]
+            node.count += 1
+        node.end_count += 1
+
+    def delete(self, word: str):
+        if word == "":
+            return
+        # First, verify the word exists (end_count > 0) to decide whether to decrement
+        node = self.root
+        stack = [node]
+        for ch in word:
+            if ch not in node.children:
+                return  # word not present; do nothing
+            node = node.children[ch]
+            stack.append(node)
+        if stack[-1].end_count == 0:
+            return  # word not present
+        # Decrement counts along path
+        stack[-1].end_count -= 1
+        for n in stack:
+            n.count -= 1
+        # Clean up nodes with count == 0 to keep structure tidy
+        node = self.root
+        for ch in word:
+            child = node.children.get(ch)
+            if child and child.count == 0:
+                # remove child and all downstream nodes
+                del node.children[ch]
+                return
+            node = child
+
+    def search_longest_prefix(self, prefix: str) -> str:
+        if prefix == "":
+            return ""
+        node = self.root
+        matched = []
+        for ch in prefix:
+            if ch not in node.children:
+                break
+            node = node.children[ch]
+            matched.append(ch)
+        return "".join(matched)
+
+def _is_valid_word(s):
+    if not isinstance(s, str):
+        return False
+    if len(s) > 50 or len(s) < 0:
+        return False
+    for ch in s:
+        if ch < 'a' or ch > 'z':
+            return False
+    return True
+
+def manage_trie_concurrently(operations: List[List[str]]) -> List[str]:
+    if operations is None:
+        return []
+    if not isinstance(operations, list):
+        return []
+    if len(operations) == 0:
+        return []
+    trie = Trie()
+    results: List[str] = []
+    for op in operations:
+        if (not isinstance(op, list)) or len(op) != 2:
+            return []
+        name, arg = op[0], op[1]
+        if not isinstance(name, str):
+            return []
+        if name not in ("insert", "delete", "search"):
+            return []
+        if not isinstance(arg, str):
+            return []
+        if len(arg) > 50 or len(arg) < 0:
+            return []
+        # empty string allowed but must be lowercase letters check: empty is allowed per constraints
+        if arg != "" and not arg.isalpha():
+            return []
+        if arg != "" and not arg.islower():
+            return []
+        if name == "insert":
+            trie.insert(arg)
+        elif name == "delete":
+            trie.delete(arg)
+        else:  # search
+            results.append(trie.search_longest_prefix(arg))
+    return results

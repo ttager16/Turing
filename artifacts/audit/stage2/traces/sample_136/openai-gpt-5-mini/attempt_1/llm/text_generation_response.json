@@ -1,0 +1,76 @@
+{
+  "id": "resp_0df4ecaf33c11daa0069c33f83f3e8819f8755528777d806b4",
+  "object": "response",
+  "created_at": 1774403459,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774403471,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0df4ecaf33c11daa0069c33f844964819fa7ea6c3ad2ffdacb",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0df4ecaf33c11daa0069c33f84925c819f9b78dcda4e425616",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List, Tuple, Any\nimport heapq\n\ndef compute_multilayer_min_cost_route(\n    layered_graph: Dict[str, List[Dict[str, Any]]],\n    vehicle_type: str,\n    start_node: int,\n    end_node: int,\n    current_time: int,\n    environment_state: Dict[str, Any],\n    concurrency_tracker: Dict[str, int]\n) -> List[int]:\n    start = str(start_node)\n    end = str(end_node)\n    # Helper to check time window\n    def time_allowed(windows):\n        if not windows:\n            return True\n        for w in windows:\n            if len(w) >= 2:\n                if w[0] <= current_time <= w[1]:\n                    return True\n        return False\n    # Helper to check capacity\n    def capacity_allowed(u, v, cap):\n        key = f\"{u},{v}\"\n        used = concurrency_tracker.get(key, 0)\n        return used < cap\n    # Helper to compute cost with environmental multipliers\n    def edge_cost(attrs):\n        cost = attrs.get('base_cost', 0)\n        env_limits = attrs.get('env_limits', {}) or {}\n        multiplier = 1.0\n        for k, v in env_limits.items():\n            if k in environment_state and environment_state.get(k) == v and v:\n                multiplier *= 2.0\n        return cost * multiplier\n    # Dijkstra\n    pq = [(0.0, start, None)]  # cost, node, prev\n    dist = {start: 0.0}\n    prev = {start: None}\n    visited = set()\n    while pq:\n        cost_u, u, _ = heapq.heappop(pq)\n        if u in visited:\n            continue\n        visited.add(u)\n        if u == end:\n            break\n        neighbors = layered_graph.get(u, [])\n        for edge in neighbors:\n            if not isinstance(edge, (list, tuple)) or len(edge) < 2:\n                continue\n            v = str(edge[0])\n            attrs = edge[1] or {}\n            # vehicle access\n            va = attrs.get('vehicle_access', []) or []\n            if vehicle_type not in va:\n                continue\n            # time windows\n            if not time_allowed(attrs.get('time_windows', [])):\n                continue\n            # capacity\n            cap = attrs.get('capacity', 0)\n            if cap < 0:\n                continue\n            if not capacity_allowed(u, v, cap):\n                continue\n            c = edge_cost(attrs)\n            new_cost = cost_u + c\n            if v not in dist or new_cost < dist[v]:\n                dist[v] = new_cost\n                prev[v] = u\n                heapq.heappush(pq, (new_cost, v, u))\n    if end not in dist:\n        return []\n    # reconstruct path\n    path = []\n    cur = end\n    while cur is not None:\n        path.append(int(cur))\n        cur = prev.get(cur)\n    path.reverse()\n    return path"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1855,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 659,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2514
+  },
+  "user": null,
+  "metadata": {}
+}

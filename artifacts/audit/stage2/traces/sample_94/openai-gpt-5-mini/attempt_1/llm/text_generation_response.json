@@ -1,0 +1,76 @@
+{
+  "id": "resp_01e06273a8c8a4880069c332700884819097f4dfcc95dfc185",
+  "object": "response",
+  "created_at": 1774400112,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774400121,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_01e06273a8c8a4880069c3327059ac8190ab9d88ef12be9e21",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_01e06273a8c8a4880069c3327091d881908773cfdcca35a03c",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\n\nclass TrieNode:\n    __slots__ = ('children', 'count', 'end_count')\n    def __init__(self):\n        self.children = {}  # char -> TrieNode\n        self.count = 0      # number of words that pass through this node (including those ending here)\n        self.end_count = 0  # number of words that end exactly at this node\n\nclass Trie:\n    def __init__(self):\n        self.root = TrieNode()\n\n    def insert(self, word: str):\n        if word == \"\":\n            return\n        node = self.root\n        node.count += 1\n        for ch in word:\n            if ch not in node.children:\n                node.children[ch] = TrieNode()\n            node = node.children[ch]\n            node.count += 1\n        node.end_count += 1\n\n    def delete(self, word: str):\n        if word == \"\":\n            return\n        # first check existence: follow path, ensure counts sufficient\n        node = self.root\n        path = [node]\n        for ch in word:\n            if ch not in node.children:\n                return  # word not present; do nothing\n            node = node.children[ch]\n            path.append((ch, node))\n        # if end_count == 0 then word not present\n        if path[-1][1].end_count == 0:\n            return\n        # decrement along path\n        self.root.count -= 1\n        for ch, nd in path[1:]:\n            nd.count -= 1\n        path[-1][1].end_count -= 1\n        # clean up nodes that have count==0 to keep structure tidy\n        # iterate from end backwards\n        for i in range(len(path)-1, 0, -1):\n            ch, nd = path[i]\n            if nd.count == 0:\n                parent = path[i-1]\n                if isinstance(parent, tuple):\n                    parent = parent[1]\n                else:\n                    parent = parent\n                # parent is node\n                # remove child\n                if ch in parent.children:\n                    del parent.children[ch]\n            else:\n                break\n\n    def search_longest_prefix(self, prefix: str) -> str:\n        if prefix == \"\":\n            return \"\"\n        node = self.root\n        matched = []\n        for ch in prefix:\n            if ch in node.children:\n                node = node.children[ch]\n                matched.append(ch)\n            else:\n                break\n        return \"\".join(matched)\n\ndef validate_operations(operations):\n    if not isinstance(operations, list):\n        return False\n    for op in operations:\n        if not isinstance(op, list) or len(op) != 2:\n            return False\n        name, arg = op\n        if not isinstance(name, str) or name not in (\"insert\", \"delete\", \"search\"):\n            return False\n        if not isinstance(arg, str):\n            return False\n        if len(arg) > 50 or len(arg) < 0:\n            return False\n        # empty string allowed; but characters must be a-z\n        if arg != \"\" and not all('a' <= c <= 'z' for c in arg):\n            return False\n    return True\n\ndef manage_trie_concurrently(operations: List[List[str]]) -> List[str]:\n    if operations == []:\n        return []\n    if not validate_operations(operations):\n        return []\n    trie = Trie()\n    results = []\n    for name, arg in operations:\n        if name == 'insert':\n            trie.insert(arg)\n        elif name == 'delete':\n            trie.delete(arg)\n        else:  # search\n            results.append(trie.search_longest_prefix(arg))\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1105,
+    "input_tokens_details": {
+      "cached_tokens": 1024
+    },
+    "output_tokens": 787,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1892
+  },
+  "user": null,
+  "metadata": {}
+}

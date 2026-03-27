@@ -1,0 +1,76 @@
+{
+  "id": "resp_0668ff86e3b6caf80069c3298e787481a28617ba3fe6737639",
+  "object": "response",
+  "created_at": 1774397838,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774397855,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0668ff86e3b6caf80069c3298eef1881a28c48d913e611e51c",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0668ff86e3b6caf80069c3298f151881a292f55779e352ed9c",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Tuple, Optional, Any\nimport random\nimport time\n\n# We'll implement a randomized balanced BST (Treap) with persistence via operation log to allow rollback.\n# Each node stores key (price), priority, left/right, size, max_key (for quick range queries), and metadata.\n# All operations run in expected O(log n). Bulk insert uses several inserts.\n# Rollback reverts last k mutating operations by replaying inverse operations stored in history.\n\nclass Node:\n    __slots__ = ('key','prio','left','right','size','max_key','last_update_ts','volume','risk')\n    def __init__(self, key: float):\n        self.key = key\n        self.prio = random.randrange(1 << 30)\n        self.left = None\n        self.right = None\n        self.size = 1\n        self.max_key = key\n        # metadata\n        self.last_update_ts = time.time()\n        self.volume = 0.0\n        self.risk = 0.0\n\ndef _size(n: Optional[Node]) -> int:\n    return n.size if n else 0\n\ndef _max_key(n: Optional[Node]) -> Optional[float]:\n    return n.max_key if n else None\n\ndef _pull(n: Node):\n    n.size = 1 + _size(n.left) + _size(n.right)\n    n.max_key = n.key\n    if n.left and n.left.max_key > n.max_key:\n        n.max_key = n.left.max_key\n    if n.right and n.right.max_key > n.max_key:\n        n.max_key = n.right.max_key\n\ndef _clone(n: Optional[Node]) -> Optional[Node]:\n    if n is None: return None\n    c = Node(n.key)\n    c.prio = n.prio\n    c.left = n.left\n    c.right = n.right\n    c.size = n.size\n    c.max_key = n.max_key\n    c.last_update_ts = n.last_update_ts\n    c.volume = n.volume\n    c.risk = n.risk\n    return c\n\ndef _split(root: Optional[Node], key: float):\n    if root is None:\n        return (None, None)\n    root = _clone(root)\n    if key < root.key:\n        left, right = _split(root.left, key)\n        root.left = right\n        _pull(root)\n        return (left, root)\n    else:\n        left, right = _split(root.right, key)\n        root.right = left\n        _pull(root)\n        return (root, right)\n\ndef _merge(a: Optional[Node], b: Optional[Node]) -> Optional[Node]:\n    if a is None: return b\n    if b is None: return a\n    if a.prio > b.prio:\n        a = _clone(a)\n        a.right = _merge(a.right, b)\n        _pull(a)\n        return a\n    else:\n        b = _clone(b)\n        b.left = _merge(a, b.left)\n        _pull(b)\n        return b\n\ndef _exists(root: Optional[Node], key: float) -> bool:\n    cur = root\n    while cur:\n        if key == cur.key: return True\n        if key < cur.key:\n            cur = cur.left\n        else:\n            cur = cur.right\n    return False\n\ndef _insert(root: Optional[Node], node: Node) -> Optional[Node]:\n    if root is None:\n        return node\n    if node.prio > root.prio:\n        left, right = _split(root, node.key)\n        node.left = left\n        node.right = right\n        _pull(node)\n        return node\n    root = _clone(root)\n    if node.key < root.key:\n        root.left = _insert(root.left, node)\n    elif node.key > root.key:\n        root.right = _insert(root.right, node)\n    else:\n        # duplicate keys: replace metadata and timestamp\n        root.last_update_ts = time.time()\n    _pull(root)\n    return root\n\ndef _erase(root: Optional[Node], key: float) -> Optional[Node]:\n    if root is None: return None\n    root = _clone(root)\n    if key == root.key:\n        res = _merge(root.left, root.right)\n        return res\n    elif key < root.key:\n        root.left = _erase(root.left, key)\n    else:\n        root.right = _erase(root.right, key)\n    _pull(root)\n    return root\n\ndef _max_le(root: Optional[Node], value: float) -> Optional[float]:\n    # find maximum key <= value\n    cur = root\n    res = None\n    while cur:\n        if cur.key <= value:\n            if res is None or cur.key > res:\n                res = cur.key\n            # also maybe right subtree has larger <= value\n            cur = cur.right\n        else:\n            cur = cur.left\n    return res\n\ndef update_and_query_stock_tree(operations: List[Tuple[str, int]]) -> List[Optional[float]]:\n    random.seed(123456)\n    root: Optional[Node] = None\n    out: List[Optional[float]] = []\n    # history stack stores tuples describing inverse operations to allow rollback\n    # We store entries only for mutating ops. Each entry is a callable snapshot via lambdas: we store the previous root.\n    history: List[Optional[Node]] = []\n    for op in operations:\n        typ = op[0]\n        if typ == 'insert':\n            val = float(op[1])\n            history.append(root)  # save previous state for rollback\n            if not _exists(root, val):\n                node = Node(val)\n                node.last_update_ts = time.time()\n                node.volume = 1.0\n                node.risk = 0.0\n                root = _insert(root, node)\n            else:\n                # update metadata timestamp\n                # perform an update path by erasing and re-inserting to update clone path\n                root = _erase(root, val)\n                node = Node(val)\n                node.last_update_ts = time.time()\n                node.volume = 1.0\n                root = _insert(root, node)\n            out.append(None)\n        elif typ == 'delete':\n            val = float(op[1])\n            history.append(root)\n            if _exists(root, val):\n                root = _erase(root, val)\n            out.append(None)\n        elif typ == 'bulk_insert':\n            # interpret integer as center value; insert a small batch around it\n            center = float(op[1])\n            history.append(root)\n            # create a deterministic set around center, including center and +/- offsets\n            offsets = [-2, -1, 0, 1, 2]\n            for d in offsets:\n                v = center + d\n                if not _exists(root, v):\n                    node = Node(v)\n                    node.last_update_ts = time.time()\n                    node.volume = 1.0 + abs(d)\n                    node.risk = max(0.0, 1.0 - abs(d)*0.1)\n                    root = _insert(root, node)\n                else:\n                    # refresh metadata\n                    root = _erase(root, v)\n                    node = Node(v)\n                    node.last_update_ts = time.time()\n                    node.volume = 1.0 + abs(d)\n                    node.risk = max(0.0, 1.0 - abs(d)*0.1)\n                    root = _insert(root, node)\n            out.append(None)\n        elif typ == 'rollback':\n            # rollback last k mutating ops. op[1] is number of operations to revert.\n            k = int(op[1])\n            # find last k mutating changes in history (history saves state before each mutating op)\n            # If k >= len(history): revert to empty (None)\n            target_index = len(history) - k\n            if target_index < 0:\n                root = None\n                history = []\n            else:\n                root = history[target_index]\n                history = history[:target_index]\n            out.append(None)\n        elif typ == 'query':\n            val = float(op[1])\n            res = _max_le(root, val)\n            out.append(res)\n        else:\n            # unknown op: ignore\n            out.append(None)\n    return out"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 993,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1779,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2772
+  },
+  "user": null,
+  "metadata": {}
+}

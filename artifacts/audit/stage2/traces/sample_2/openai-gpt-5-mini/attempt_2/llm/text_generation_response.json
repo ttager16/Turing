@@ -1,0 +1,76 @@
+{
+  "id": "resp_0a782f18c3f759c60069c31752d3308194a35445884300e5e3",
+  "object": "response",
+  "created_at": 1774393170,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774393222,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0a782f18c3f759c60069c3175329a88194882f29330d2f6e72",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0a782f18c3f759c60069c3175388548194b41eff1826125952",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from collections import defaultdict, deque\nfrom typing import List, Tuple\n\ndef main(num_variables: int, clauses: List[List[int]], compute_backbone: bool,\n         query_literals_for_closure: List[int], identify_equivalence_classes: bool,\n         identify_opposition_classes: bool, extract_conflict_core: bool,\n         compute_scc_outdegrees: bool, max_backbone_tests: int) -> dict:\n\n    # Validation\n    if not (20 <= num_variables <= 350):\n        return {\"error\": \"Number of variables must be between 20 and 350 inclusive\"}\n    if not (15 <= len(clauses) <= 1200):\n        return {\"error\": \"Number of clauses must be between 15 and 1200 inclusive\"}\n    seen_clauses = set()\n    vars_in_clauses = set()\n    for c in clauses:\n        if not (isinstance(c, list) and len(c) == 2 and isinstance(c[0], int) and isinstance(c[1], int)):\n            return {\"error\": \"Each clause must contain exactly 2 distinct integers representing literals\"}\n        a, b = c\n        if a == 0 or b == 0 or not (1 <= abs(a) <= num_variables) or not (1 <= abs(b) <= num_variables):\n            return {\"error\": \"Each literal must be non-zero with absolute value between 1 and num_variables inclusive\"}\n        if a == b:\n            return {\"error\": \"Each clause must contain exactly 2 distinct integers representing literals\"}\n        if a == -b:\n            return {\"error\": \"Clause cannot contain both x and -x for any variable x\"}\n        tpl = (a, b)\n        if tpl in seen_clauses:\n            return {\"error\": \"No two clauses in the input can be identical\"}\n        seen_clauses.add(tpl)\n        vars_in_clauses.add(abs(a)); vars_in_clauses.add(abs(b))\n    if len(vars_in_clauses) < 12:\n        return {\"error\": \"At least 12 distinct variables must appear across all clauses\"}\n    if not (0 <= len(query_literals_for_closure) <= 10):\n        return {\"error\": \"Query literals list length must be between 0 and 10 inclusive\"}\n    qset = set()\n    for q in query_literals_for_closure:\n        if q == 0 or not (1 <= abs(q) <= num_variables):\n            return {\"error\": \"Each query literal must have absolute value between 1 and num_variables inclusive\"}\n        if q in qset:\n            return {\"error\": \"Query literals must not contain duplicates\"}\n        if -q in qset:\n            return {\"error\": \"Query literals must not contain both x and -x for any variable x\"}\n        qset.add(q)\n    if not (0 <= max_backbone_tests <= num_variables):\n        return {\"error\": \"Maximum backbone tests must be between 0 and num_variables inclusive\"}\n    if compute_backbone and max_backbone_tests < 1:\n        return {\"error\": \"When compute_backbone is true, max_backbone_tests must be at least 1\"}\n\n    # Helpers for indexing literals to nodes: map literal L to node index\n    # positive literal x -> index 2*(x-1); negative -x -> index 2*(x-1)+1\n    def lit_to_node(lit: int) -> int:\n        v = abs(lit)\n        base = 2 * (v - 1)\n        return base if lit > 0 else base + 1\n\n    def node_to_lit(node: int) -> int:\n        var = node // 2 + 1\n        return var if node % 2 == 0 else -var\n\n    total_nodes = 2 * num_variables\n\n    # Build implication graph\n    def build_graph(clauses_list: List[Tuple[int,int]]):\n        g = [[] for _ in range(total_nodes)]\n        gt = [[] for _ in range(total_nodes)]\n        edge_to_clause = dict()  # (u,v) -> clause index (first occurrence)\n        for idx, (a, b) in enumerate(clauses_list):\n            na = lit_to_node(-a)\n            bnode = lit_to_node(b)\n            g[na].append(bnode)\n            gt[bnode].append(na)\n            edge_to_clause[(na, bnode)] = idx\n\n            nb = lit_to_node(-b)\n            anode = lit_to_node(a)\n            g[nb].append(anode)\n            gt[anode].append(nb)\n            edge_to_clause[(nb, anode)] = idx\n        return g, gt, edge_to_clause\n\n    clauses_tuples = [tuple(c) for c in clauses]\n    graph, graph_t, edge_to_clause = build_graph(clauses_tuples)\n\n    # Kosaraju\n    visited = [False]*total_nodes\n    order = []\n\n    def dfs1(u):\n        visited[u] = True\n        for v in graph[u]:\n            if not visited[v]:\n                dfs1(v)\n        order.append(u)\n\n    for i in range(total_nodes):\n        if not visited[i]:\n            dfs1(i)\n\n    comp = [-1]*total_nodes\n    cur_comp = 0\n\n    def dfs2(u, cid):\n        comp[u] = cid\n        for v in graph_t[u]:\n            if comp[v] == -1:\n                dfs2(v, cid)\n\n    for u in reversed(order):\n        if comp[u] == -1:\n            dfs2(u, cur_comp)\n            cur_comp += 1\n\n    num_sccs = cur_comp\n    scc_sizes = [0]*num_sccs\n    for cidx in comp:\n        scc_sizes[cidx] += 1\n    largest_scc = max(scc_sizes) if scc_sizes else 0\n    average_scc = round(sum(scc_sizes)/len(scc_sizes), 2) if scc_sizes else 0.0\n\n    # Check satisfiable\n    conflicting_vars = []\n    for var in range(1, num_variables+1):\n        p = comp[lit_to_node(var)]\n        n = comp[lit_to_node(-var)]\n        if p == n:\n            conflicting_vars.append(var)\n    satisfiable = (len(conflicting_vars) == 0)\n\n    # scc_indices mapping\n    scc_indices = {}\n    for node in range(total_nodes):\n        lit = node_to_lit(node)\n        scc_indices[str(lit)] = comp[node]\n\n    # Assignment if satisfiable using rule: if comp[pos] > comp[neg] -> true\n    assignment = []\n    if satisfiable:\n        for var in range(1, num_variables+1):\n            p = comp[lit_to_node(var)]\n            n = comp[lit_to_node(-var)]\n            if p > n:\n                assignment.append(var)\n            else:\n                assignment.append(-var)\n    else:\n        assignment = []\n\n    # Compute backbone\n    backbone_literals = []\n    if compute_backbone and satisfiable:\n        # initial assignment mapping\n        assigned = {var: (assignment[var-1] > 0) for var in range(1, num_variables+1)}\n        tested = 0\n        for var in range(1, num_variables+1):\n            if tested >= max_backbone_tests:\n                break\n            # try flipping var: add unit clause forcing opposite value\n            forced_lit = -var if assigned[var] else var\n            # build augmented clauses\n            augmented = clauses_tuples + [(forced_lit, forced_lit)]\n            g2, gt2, _ = build_graph(augmented)\n            # run kosaraju on g2\n            visited2 = [False]*total_nodes\n            order2 = []\n            def dfs1b(u):\n                visited2[u] = True\n                for v in g2[u]:\n                    if not visited2[v]:\n                        dfs1b(v)\n                order2.append(u)\n            for i in range(total_nodes):\n                if not visited2[i]:\n                    dfs1b(i)\n            comp2 = [-1]*total_nodes\n            cid = 0\n            def dfs2b(u, idd):\n                comp2[u] = idd\n                for v in gt2[u]:\n                    if comp2[v] == -1:\n                        dfs2b(v, idd)\n            for u in reversed(order2):\n                if comp2[u] == -1:\n                    dfs2b(u, cid)\n                    cid += 1\n            conflict = False\n            for v in range(1, num_variables+1):\n                if comp2[lit_to_node(v)] == comp2[lit_to_node(-v)]:\n                    conflict = True\n                    break\n            if conflict:\n                # forced literal is opposite of forced_lit (since forced_lit caused contradiction), so original assignment literal is backbone\n                original_lit = var if assigned[var] else -var\n                backbone_literals.append(original_lit)\n            tested += 1\n        backbone_literals.sort(key=lambda x: (abs(x), x<0))\n    else:\n        backbone_literals = []\n\n    backbone_size = len(backbone_literals)\n\n    # Implication closures\n    implication_closures = {}\n    if query_literals_for_closure:\n        for q in query_literals_for_closure:\n            start = lit_to_node(q)\n            stack = [start]\n            vis = [False]*total_nodes\n            vis[start] = True\n            res = []\n            while stack:\n                u = stack.pop()\n                res.append(node_to_lit(u))\n                for v in graph[u]:\n                    if not vis[v]:\n                        vis[v] = True\n                        stack.append(v)\n            # sort by abs, negative before positive for same var\n            res_sorted = sorted(set(res), key=lambda lit: (abs(lit), 0 if lit<0 else 1))\n            implication_closures[str(q)] = res_sorted\n    else:\n        implication_closures = {}\n\n    # Equivalence classes: variables whose pos and pos of other are in same SCC\n    equivalence_classes = []\n    if identify_equivalence_classes and satisfiable:\n        comp_to_posvars = defaultdict(list)\n        for var in range(1, num_variables+1):\n            comp_pos = comp[lit_to_node(var)]\n            comp_to_posvars[comp_pos].append(var)\n        for members in comp_to_posvars.values():\n            if len(members) >= 2:\n                equivalence_classes.append(sorted(members))\n        equivalence_classes.sort(key=lambda lst: lst[0])\n    else:\n        equivalence_classes = []\n\n    equivalence_class_count = len(equivalence_classes)\n\n    # Opposition classes: pos x and neg y in same SCC => x opp y\n    opposition_pairs = set()\n    if identify_opposition_classes and satisfiable:\n        for x in range(1, num_variables+1):\n            for y in range(x+1, num_variables+1):\n                if comp[lit_to_node(x)] == comp[lit_to_node(-y)] and comp[lit_to_node(y)] == comp[lit_to_node(-x)]:\n                    opposition_pairs.add((x, y))\n        opposition_classes = [list(p) for p in sorted(opposition_pairs, key=lambda t: t[0])]\n    else:\n        opposition_classes = []\n\n    opposition_class_count = len(opposition_classes)\n\n    # Conflict core if unsatisfiable\n    conflict_core = []\n    conflict_core_size = 0\n    if not satisfiable and extract_conflict_core:\n        # pick first conflicting variable, BFS from pos node to neg node on implication graph\n        var = conflicting_vars[0]\n        src = lit_to_node(var)\n        dst = lit_to_node(-var)\n        prev = [-1]*total_nodes\n        q = deque([src])\n        visited_b = [False]*total_nodes\n        visited_b[src] = True\n        found = False\n        while q:\n            u = q.popleft()\n            if u == dst:\n                found = True\n                break\n            for v in graph[u]:\n                if not visited_b[v]:\n                    visited_b[v] = True\n                    prev[v] = u\n                    q.append(v)\n        if found:\n            path_nodes = []\n            cur = dst\n            while cur != -1:\n                path_nodes.append(cur)\n                if cur == src:\n                    break\n                cur = prev[cur]\n            path_nodes = list(reversed(path_nodes))\n            # collect edges\n            edges = []\n            for i in range(len(path_nodes)-1):\n                edges.append((path_nodes[i], path_nodes[i+1]))\n            used_clause_idxs = []\n            for e in edges:\n                if e in edge_to_clause:\n                    used_clause_idxs.append(edge_to_clause[e])\n            used_clause_idxs = sorted(set(used_clause_idxs))\n            conflict_core = [clauses[idx] for idx in used_clause_idxs]\n            conflict_core_size = len(conflict_core)\n        else:\n            conflict_core = []\n            conflict_core_size = 0\n    else:\n        conflict_core = []\n        conflict_core_size = 0\n\n    # SCC out-degrees and sinks\n    scc_outdegrees = []\n    sink_scc_indices = []\n    if compute_scc_outdegrees:\n        outdeg = [0]*num_sccs\n        for u in range(total_nodes):\n            for v in graph[u]:\n                if comp[u] != comp[v]:\n                    outdeg[comp[u]] += 1\n        scc_outdegrees = outdeg\n        sink_scc_indices = sorted([i for i, d in enumerate(outdeg) if d == 0])\n    else:\n        scc_outdegrees = []\n        sink_scc_indices = []\n\n    sink_scc_count = len(sink_scc_indices)\n\n    result = {\n        \"satisfiable\": satisfiable,\n        \"assignment\": assignment,\n        \"num_sccs\": num_sccs,\n        \"total_nodes\": total_nodes,\n        \"total_edges\": 2*len(clauses),\n        \"largest_scc_size\": largest_scc,\n        \"average_scc_size\": average_scc,\n        \"scc_indices\": scc_indices,\n        \"backbone_literals\": backbone_literals,\n        \"backbone_size\": backbone_size,\n        \"implication_closures\": implication_closures,\n        \"equivalence_classes\": equivalence_classes,\n        \"equivalence_class_count\": equivalence_class_count,\n        \"opposition_classes\": opposition_classes,\n        \"opposition_class_count\": opposition_class_count,\n        \"conflicting_variables\": conflicting_vars,\n        \"conflict_core\": conflict_core,\n        \"conflict_core_size\": conflict_core_size,\n        \"scc_outdegrees\": scc_outdegrees,\n        \"sink_scc_indices\": sink_scc_indices,\n        \"sink_scc_count\": sink_scc_count\n    }\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 3542,
+    "input_tokens_details": {
+      "cached_tokens": 2816
+    },
+    "output_tokens": 3138,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 6680
+  },
+  "user": null,
+  "metadata": {}
+}

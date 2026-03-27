@@ -1,0 +1,157 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Context
+A city’s infrastructure management team needs to optimize resource allocation across multiple utility layers such as electricity, water, and telecommunications.  
+These connections are represented as a **layered multi-graph**, where each node represents a station or hub, and each edge carries information about capacity and time-based cost.
+
+Some sub-structures—called **forbidden motifs**—represent unsafe or environmentally harmful configurations that must be strictly avoided.  
+Your task is to find a **minimum-cost valid node matching** while respecting all constraints and excluding forbidden motifs.
+
+---
+
+### Objectives
+1. **Multi-Graph Handling:**  
+   Process a layered multi-graph where edges may carry multiple attributes like capacity, time cost, and pollution factor.
+
+2. **Forbidden Motif Avoidance (Strict Priority):**  
+   - A forbidden motif is considered **matched** if **any** of its `node_constraints` or `edge_constraints` apply to a given node or edge.  
+   - Such nodes/edges must be **excluded from matching**.
+
+3. **Min-Cost Matching (After Filtering):**  
+   - After filtering forbidden motifs, find a **maximal matching** (largest possible number of disjoint node pairs).  
+   - Among possible maximal matchings, choose the one with the **minimum total cost**.  
+   - Cost for an edge is defined as the **average of its `time_cost.day` and `time_cost.night` values** (if both exist), or the available one if only one is provided.
+
+4. **Dynamic Update Handling:**  
+   If a node or edge is removed (due to forbidden constraints or maintenance), ensure remaining matches stay valid.  
+   No concurrency handling or live updates are required.
+
+---
+
+### Constraints
+- Number of nodes ≤ 20,000  
+- Number of edges ≤ 100,000  
+- Node IDs are integers ≥ 1  
+- All costs and capacities are positive/negative
+- Forbidden motifs contain only **attribute-based conditions**  
+- No external libraries allowed  
+
+---
+
+### Input Format
+- **graph:** A dictionary mapping each node ID to its adjacency list.  
+  Each adjacency entry is `[neighbor_id, attributes]`, where `attributes` include any of:  
+  - `"capacity_peak"`, `"capacity_offpeak"`, `"time_cost"`, `"pollution_factor"`, `"layer"`, `"maintenance_mode"`
+
+- **forbidden_patterns:** A list of dictionaries.  
+  Each pattern may include:
+  ```json
+  {
+    "substructure_id": "env_breach_cycle",
+    "node_constraints": [{"maintenance_mode": true}],
+    "edge_constraints": [{"pollution_factor": {"min": 1.0, "max": 2.0}}]
+  }
+````
+
+---
+
+### Output Format
+
+Return a list of node pairs (2-element lists), representing valid, non-conflicting matches that:
+
+* Avoid forbidden motifs,
+* Respect all node/edge attribute filters,
+* Minimize total cost based on time attributes.
+
+Example:
+
+```json
+[[1, 2], [3, 4]]
+```
+
+---
+
+### Cost Evaluation
+
+```text
+edge_cost = (time_cost["day"] + time_cost["night"]) / 2
+```
+
+If only one exists, use that value.
+
+---
+
+### Edge Case Rules
+
+1. Empty graph → return `[]`
+2. All edges forbidden → return `[]`
+3. Ties in cost → break by lexicographic order of node IDs
+4. Forbidden motif has higher priority than cost optimization.
+
+---
+
+### Function Signature
+
+```python
+def optimize_resource_allocation(graph: dict, forbidden_patterns: list) -> list:
+    pass
+```
+
+---
+
+**Input:**
+
+```json
+{
+  "graph": {
+    "1": [[2, {"capacity_peak": 50, "capacity_offpeak": 60, "time_cost": {"day": 5, "night": 3}, "layer": 0}]],
+    "2": [[1, {"capacity_peak": 50, "capacity_offpeak": 60, "time_cost": {"day": 5, "night": 3}, "layer": 0}]],
+    "3": [[4, {"capacity_peak": 100, "capacity_offpeak": 120, "time_cost": {"day": 6, "night": 4}, "layer": 1, "pollution_factor": 1.8}]],
+    "4": [[3, {"capacity_peak": 100, "capacity_offpeak": 120, "time_cost": {"day": 6, "night": 4}, "layer": 1, "pollution_factor": 1.8}]],
+    "5": [[6, {"capacity_peak": 40, "capacity_offpeak": 60, "time_cost": {"day": 2, "night": 1}, "layer": 2, "pollution_factor": 0.7}]],
+    "6": [[5, {"capacity_peak": 40, "capacity_offpeak": 60, "time_cost": {"day": 2, "night": 1}, "layer": 2, "pollution_factor": 0.7}]]
+  },
+  "forbidden_patterns": [
+    {
+      "substructure_id": "env_filter",
+      "edge_constraints": [{"pollution_factor": {"min": 1.0, "max": 2.0}}]
+    }
+  ]
+}
+```
+
+**Expected Output:**
+
+```json
+[[1, 2], [5, 6]]
+```
+
+**Explanation:**
+
+* Edge `[3, 4]` is excluded since its `pollution_factor = 1.8` violates the forbidden motif range `[1.0, 2.0]`.
+* The valid, non-conflicting edges are `[1, 2]` (avg cost = 4) and `[5, 6]` (avg cost = 1.5).
+* Result is a **maximal matching with minimal cost** → `[[1, 2], [5, 6]]`.
+
+---
+
+### Scaffolding Code
+
+```python
+def main():
+    graph = {}
+    forbidden_patterns = []
+    result = optimize_resource_allocation(graph, forbidden_patterns)
+    print(result)
+```
+
+Starter Code:
+```python
+def optimize_resource_allocation(graph: dict, forbidden_patterns: list) -> list:
+```

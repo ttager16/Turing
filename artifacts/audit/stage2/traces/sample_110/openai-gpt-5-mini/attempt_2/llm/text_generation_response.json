@@ -1,0 +1,76 @@
+{
+  "id": "resp_02d98241ae12e0f50069c3378912ac81928a4aa2fc7e29d61f",
+  "object": "response",
+  "created_at": 1774401417,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774401546,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_02d98241ae12e0f50069c3378ae94081928488ff7af90f6bf2",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_02d98241ae12e0f50069c3378c077881928c5fa22738ed0d28",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "def optimize_resource_allocation(graph: dict, forbidden_patterns: list) -> list:\n    # Helper to check node constraints: node_attrs is dict\n    def node_matches_constraints(node_attrs, constraints):\n        for cond in constraints:\n            match = True\n            for k, v in cond.items():\n                if k not in node_attrs:\n                    match = False\n                    break\n                av = node_attrs[k]\n                # if v is dict with min/max\n                if isinstance(v, dict):\n                    mn = v.get(\"min\", float(\"-inf\"))\n                    mx = v.get(\"max\", float(\"inf\"))\n                    try:\n                        if not (mn <= av <= mx):\n                            match = False\n                            break\n                    except Exception:\n                        match = False\n                        break\n                else:\n                    if av != v:\n                        match = False\n                        break\n            if match:\n                return True\n        return False\n\n    # Helper to check edge constraints: edge_attrs is dict\n    def edge_matches_constraints(edge_attrs, constraints):\n        for cond in constraints:\n            match = True\n            for k, v in cond.items():\n                if k not in edge_attrs:\n                    match = False\n                    break\n                av = edge_attrs[k]\n                if isinstance(v, dict):\n                    mn = v.get(\"min\", float(\"-inf\"))\n                    mx = v.get(\"max\", float(\"inf\"))\n                    try:\n                        if not (mn <= av <= mx):\n                            match = False\n                            break\n                    except Exception:\n                        match = False\n                        break\n                else:\n                    if av != v:\n                        match = False\n                        break\n            if match:\n                return True\n        return False\n\n    if not graph:\n        return []\n\n    # Build node attribute lookup: graph adjacency entries may not include node-level attrs explicitly.\n    # We consider node constraints apply if any adjacency entry's attributes match (interpreting node attrs as adjacency attrs lacking neighbor-specific keys).\n    # But typical node attributes may be absent; we'll treat node-level matches only if node has an 'attributes' dict under a special key; since not specified, assume none.\n    node_forbidden = set()\n    edge_forbidden = set()  # store frozenset({u,v}) with possible multiple edges keyed by (min(u,v),max(u,v),index) but adjacency likely symmetric single edge\n    # Preprocess forbidden patterns into lists\n    node_constraints_list = []\n    edge_constraints_list = []\n    for pat in forbidden_patterns:\n        node_constraints_list.extend(pat.get(\"node_constraints\", []))\n        edge_constraints_list.extend(pat.get(\"edge_constraints\", []))\n\n    # Iterate edges, decide forbidden edges and mark nodes if node constraints matched (not typical here)\n    # Also compute cost for allowed edges\n    edges = []  # tuples (u, v, cost)\n    seen_pairs = set()\n    for u_str, adj in graph.items():\n        try:\n            u = int(u_str)\n        except:\n            u = u_str\n        for entry in adj:\n            if not isinstance(entry, list) and not isinstance(entry, tuple):\n                continue\n            if len(entry) < 2:\n                continue\n            v = entry[0]\n            attrs = entry[1] or {}\n            try:\n                v_int = int(v)\n            except:\n                v_int = v\n            a_u = u\n            a_v = v_int\n            key = (min(a_u, a_v), max(a_u, a_v))\n            # Avoid duplicate processing if symmetric adjacency\n            if key in seen_pairs:\n                continue\n            seen_pairs.add(key)\n            # Check edge constraints\n            forbidden_edge = False\n            if edge_constraints_list:\n                if edge_matches_constraints(attrs, edge_constraints_list):\n                    forbidden_edge = True\n            # Check node constraints: we don't have node attrs; however if node constraints are present, we check if any adjacency attribute matches them and then mark node forbidden.\n            if node_constraints_list:\n                if node_matches_constraints(attrs, node_constraints_list):\n                    node_forbidden.add(a_u)\n                    node_forbidden.add(a_v)\n            if forbidden_edge:\n                edge_forbidden.add(key)\n                continue\n            # compute cost\n            tc = attrs.get(\"time_cost\", {})\n            cost = None\n            if isinstance(tc, dict):\n                day = tc.get(\"day\", None)\n                night = tc.get(\"night\", None)\n                if day is not None and night is not None:\n                    cost = (day + night) / 2.0\n                elif day is not None:\n                    cost = float(day)\n                elif night is not None:\n                    cost = float(night)\n            # If no time_cost, skip edge (cannot compute cost)\n            if cost is None:\n                continue\n            edges.append((a_u, a_v, cost))\n\n    # Filter edges touching forbidden nodes or forbidden edges\n    filtered_edges = []\n    for u, v, c in edges:\n        key = (min(u, v), max(u, v))\n        if key in edge_forbidden:\n            continue\n        if u in node_forbidden or v in node_forbidden:\n            continue\n        filtered_edges.append((u, v, c))\n\n    if not filtered_edges:\n        return []\n\n    # Build graph for matching: as general graph maximum cardinality minimum weight matching.\n    # We'll use greedy augmenting with sorting by cost to produce maximal matching with minimum total cost among maximal matchings heuristically.\n    # Given constraints and no external libs, implement greedy: sort edges by cost ascending, break ties by lex order, and add if both endpoints free.\n    # This yields maximal matching not necessarily maximum cardinality in all graphs, but works for many; to improve, attempt greedy twice: once by cost, once by degree-aware tie-breaking, choose better cardinality then cost.\n    def greedy_match(edge_list):\n        matched = set()\n        result = []\n        for u, v, c in edge_list:\n            if u in matched or v in matched:\n                continue\n            matched.add(u)\n            matched.add(v)\n            a, b = sorted((u, v))\n            result.append([a, b])\n        return result\n\n    # Prepare sorting key\n    def edge_sort_key(e):\n        u, v, c = e\n        a, b = sorted((u, v))\n        return (c, a, b)\n\n    edges_sorted = sorted(filtered_edges, key=edge_sort_key)\n    matching1 = greedy_match(edges_sorted)\n\n    # Alternative: sort by (cost, min(deg)) to try get larger matching\n    deg = {}\n    for u, v, _ in filtered_edges:\n        deg[u] = deg.get(u, 0) + 1\n        deg[v] = deg.get(v, 0) + 1\n    def edge_sort_key2(e):\n        u, v, c = e\n        a, b = sorted((u, v))\n        mindeg = min(deg.get(u, 0), deg.get(v, 0))\n        return (c, -mindeg, a, b)\n    edges_sorted2 = sorted(filtered_edges, key=edge_sort_key2)\n    matching2 = greedy_match(edges_sorted2)\n\n    # Choose maximal by size, then by total cost, then lex order\n    def total_cost(match):\n        s = 0.0\n        for a, b in match:\n            # find cost\n            for u, v, c in filtered_edges:\n                if (u == a and v == b) or (u == b and v == a):\n                    s += c\n                    break\n        return s\n\n    candidates = [matching1, matching2]\n    # Ensure each sorted pairs lex order\n    for m in candidates:\n        for p in m:\n            p.sort()\n    # Select best\n    best = None\n    for m in candidates:\n        if best is None:\n            best = m\n            continue\n        if len(m) > len(best):\n            best = m\n        elif len(m) == len(best):\n            tc_m = total_cost(m)\n            tc_b = total_cost(best)\n            if abs(tc_m - tc_b) > 1e-9:\n                if tc_m < tc_b:\n                    best = m\n            else:\n                # tie-break lex\n                if sorted(m) < sorted(best):\n                    best = m\n    if best is None:\n        return []\n    # final sort pairs lexicographically by first then second to have deterministic output\n    best_sorted = sorted([sorted(p) for p in best], key=lambda x: (x[0], x[1]))\n    return best_sorted\n\nif __name__ == \"__main__\":\n    def main():\n        graph = {\n          \"1\": [[2, {\"capacity_peak\": 50, \"capacity_offpeak\": 60, \"time_cost\": {\"day\": 5, \"night\": 3}, \"layer\": 0}]],\n          \"2\": [[1, {\"capacity_peak\": 50, \"capacity_offpeak\": 60, \"time_cost\": {\"day\": 5, \"night\": 3}, \"layer\": 0}]],\n          \"3\": [[4, {\"capacity_peak\": 100, \"capacity_offpeak\": 120, \"time_cost\": {\"day\": 6, \"night\": 4}, \"layer\": 1, \"pollution_factor\": 1.8}]],\n          \"4\": [[3, {\"capacity_peak\": 100, \"capacity_offpeak\": 120, \"time_cost\": {\"day\": 6, \"night\": 4}, \"layer\": 1, \"pollution_factor\": 1.8}]],\n          \"5\": [[6, {\"capacity_peak\": 40, \"capacity_offpeak\": 60, \"time_cost\": {\"day\": 2, \"night\": 1}, \"layer\": 2, \"pollution_factor\": 0.7}]],\n          \"6\": [[5, {\"capacity_peak\": 40, \"capacity_offpeak\": 60, \"time_cost\": {\"day\": 2, \"night\": 1}, \"layer\": 2, \"pollution_factor\": 0.7}]]\n        }\n        forbidden_patterns = [\n            {\n              \"substructure_id\": \"env_filter\",\n              \"edge_constraints\": [{\"pollution_factor\": {\"min\": 1.0, \"max\": 2.0}}]\n            }\n        ]\n        print(optimize_resource_allocation(graph, forbidden_patterns))\n    main()"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1405,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2200,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3605
+  },
+  "user": null,
+  "metadata": {}
+}

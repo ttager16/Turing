@@ -1,0 +1,243 @@
+from decimal import Decimal, getcontext, ROUND_HALF_UP
+from fractions import Fraction
+import math
+
+INT64_MIN = -(1 << 63)
+INT64_MAX = (1 << 63) - 1
+
+def _half_up_round(value):
+    # value is float or Decimal
+    d = Decimal(value)
+    return int(d.to_integral_value(rounding=ROUND_HALF_UP))
+
+def _check_int(x):
+    return isinstance(x, int)
+
+def process_stock_movements(n: int, operations: list) -> dict:
+    # Input validation
+    if not isinstance(n, int) or n <= 0:
+        return {'error': "n must be a positive integer"}
+    if not isinstance(operations, list):
+        return {'error': "operations must be a list"}
+    # init array zeros 1-based index handling
+    arr = [0] * (n + 1)  # ignore index 0
+    # history of atomic updates: id -> dict {L,R,delta,active}
+    updates = {}  # id: (L,R,delta,active)
+    next_id = 1
+    results = []
+    audit = []
+    # summary counters
+    num_updates = 0
+    num_queries = 0
+    num_reverses = 0
+    num_batches = 0
+
+    def apply_update(L, R, delta):
+        # apply and check bounds
+        for i in range(L, R + 1):
+            arr[i] += delta
+            if arr[i] < INT64_MIN or arr[i] > INT64_MAX:
+                return False
+        return True
+
+    # helper compute aggregates on arr[L:R]
+    def aggregate(mode, L, R):
+        seg = arr[L:R+1]
+        if not seg:
+            return 0
+        if mode == 'sum':
+            s = sum(seg)
+            return s
+        if mode == 'min':
+            return min(seg)
+        if mode == 'max':
+            return max(seg)
+        if mode == 'mean':
+            s = sum(seg)
+            mean = Decimal(s) / Decimal(len(seg))
+            return int(mean.to_integral_value(rounding=ROUND_HALF_UP))
+        if mode == 'var':
+            # population variance
+            nseg = len(seg)
+            s = sum(seg)
+            mean = Decimal(s) / Decimal(nseg)
+            vsum = Decimal(0)
+            for v in seg:
+                diff = Decimal(v) - mean
+                vsum += diff * diff
+            var = vsum / Decimal(nseg)
+            return int(var.to_integral_value(rounding=ROUND_HALF_UP))
+        if mode == 'unique':
+            return len(set(seg))
+        if mode == 'rms':
+            nseg = len(seg)
+            vsum = Decimal(0)
+            for v in seg:
+                vsum += Decimal(v) * Decimal(v)
+            mean_sq = vsum / Decimal(nseg)
+            rms = mean_sq.sqrt()
+            return int(rms.to_integral_value(rounding=ROUND_HALF_UP))
+        if mode == 'trend':
+            # slope of least squares for y vs x (x are actual indices)
+            m = len(seg)
+            # x are actual positions L..R (1-based), but problem says indices use 1-based positions.
+            # Use actual indices.
+            xs = list(range(L, R+1))
+            ys = seg
+            npoints = m
+            sumx = sum(xs)
+            sumy = sum(ys)
+            sumxx = sum(x*x for x in xs)
+            sumxy = sum(x*y for x,y in zip(xs, ys))
+            denom = npoints * sumxx - sumx * sumx
+            if denom == 0:
+                slope = Decimal(0)
+            else:
+                slope = Decimal(npoints * sumxy - sumx * sumy) / Decimal(denom)
+            # scale by 1000
+            slope_scaled = slope * Decimal(1000)
+            return int(slope_scaled.to_integral_value(rounding=ROUND_HALF_UP))
+        return 0
+
+    # process operations
+    for idx, op in enumerate(operations, start=1):
+        if not isinstance(op, list):
+            return {'error': f"operation at index {idx} must be a list"}
+        if not op:
+            return {'error': f"operation at index {idx} has invalid type or argument count"}
+        typ = op[0]
+        if typ == 'update':
+            if len(op) != 4:
+                return {'error': f"operation at index {idx} has invalid type or argument count"}
+            _, L, R, delta = op
+            if not (_check_int(L) and _check_int(R)):
+                return {'error': f"operation indices out of bounds at op {idx}: L={L}, R={R}"}
+            if not _check_int(delta):
+                return {'error': f"delta at op {idx} must be an integer"}
+            if L < 1 or R > n or L > R:
+                return {'error': f"operation indices out of bounds at op {idx}: L={L}, R={R}"}
+            # apply
+            ok = apply_update(L, R, delta)
+            if not ok:
+                return {'error': f"cumulative value out of range after op {idx}"}
+            updates[next_id] = {'L': L, 'R': R, 'delta': delta, 'active': True}
+            next_id += 1
+            num_updates += 1
+            audit.append({'op_idx': idx, 'type': 'update', 'args': [L, R, delta], 'result': None, 'affected_range': [L, R]})
+        elif typ == 'query':
+            if len(op) != 4:
+                return {'error': f"operation at index {idx} has invalid type or argument count"}
+            _, mode, L, R = op
+            if mode not in {'sum','min','max','mean','var','unique','rms','trend'}:
+                return {'error': f"query mode not supported at op {idx}"}
+            if not (_check_int(L) and _check_int(R)):
+                return {'error': f"operation indices out of bounds at op {idx}: L={L}, R={R}"}
+            if L < 1 or R > n or L > R:
+                return {'error': f"operation indices out of bounds at op {idx}: L={L}, R={R}"}
+            try:
+                val = aggregate(mode, L, R)
+            except Exception:
+                return {'error': f"unknown error at op {idx}"}
+            # check int64 bounds
+            if isinstance(val, int):
+                if val < INT64_MIN or val > INT64_MAX:
+                    return {'error': f"cumulative value out of range after op {idx}"}
+            results.append(val)
+            num_queries += 1
+            audit.append({'op_idx': idx, 'type': 'query', 'args': [mode, L, R], 'result': val, 'affected_range': [L, R]})
+        elif typ == 'reverse':
+            if len(op) != 2:
+                return {'error': f"operation at index {idx} has invalid type or argument count"}
+            _, opid = op
+            if not _check_int(opid) or opid <= 0:
+                return {'error': "operation id must be a positive integer"}
+            if opid not in updates or not updates[opid]['active']:
+                return {'error': f"reverse references non-existent or already reversed op id {opid}"}
+            # apply inverse
+            L = updates[opid]['L']; R = updates[opid]['R']; delta = updates[opid]['delta']
+            ok = apply_update(L, R, -delta)
+            if not ok:
+                return {'error': f"cumulative value out of range after op {idx}"}
+            updates[opid]['active'] = False
+            num_reverses += 1
+            audit.append({'op_idx': idx, 'type': 'reverse', 'args': [opid], 'result': None, 'affected_range': [L, R]})
+        elif typ == 'batch_update':
+            if len(op) != 2:
+                return {'error': f"operation at index {idx} has invalid type or argument count"}
+            _, subs = op
+            if not isinstance(subs, list):
+                return {'error': f"operation at index {idx} has invalid type or argument count"}
+            if len(subs) > 100:
+                return {'error': f"batch_update at op {idx} exceeds max batch size"}
+            # validate all subs first
+            for s in subs:
+                if not (isinstance(s, list) and len(s) == 3):
+                    return {'error': f"operation at index {idx} has invalid type or argument count"}
+                L, R, delta = s
+                if not (_check_int(L) and _check_int(R)):
+                    return {'error': f"operation indices out of bounds at op {idx}: L={L}, R={R}"}
+                if not _check_int(delta):
+                    return {'error': f"delta at op {idx} must be an integer"}
+                if L < 1 or R > n or L > R:
+                    return {'error': f"operation indices out of bounds at op {idx}: L={L}, R={R}"}
+            # apply all sequentially; track to rollback on failure
+            applied_ids = []
+            for s in subs:
+                L, R, delta = s
+                ok = apply_update(L, R, delta)
+                if not ok:
+                    # rollback applied ones
+                    for aid in applied_ids:
+                        ud = updates[aid]
+                        apply_update(ud['L'], ud['R'], -ud['delta'])
+                        updates[aid]['active'] = False
+                    return {'error': f"cumulative value out of range after op {idx}"}
+                updates[next_id] = {'L': L, 'R': R, 'delta': delta, 'active': True}
+                applied_ids.append(next_id)
+                next_id += 1
+                num_updates += 1
+            num_batches += 1
+            audit.append({'op_idx': idx, 'type': 'batch_update', 'args': [[list(s) for s in subs]], 'result': None, 'affected_range': [[s[0], s[1]] for s in subs]})
+        elif typ == 'conditional':
+            if len(op) != 4:
+                return {'error': f"operation at index {idx} has invalid type or argument count"}
+            _, L, R, threshold = op
+            if not (_check_int(L) and _check_int(R)):
+                return {'error': f"operation indices out of bounds at op {idx}: L={L}, R={R}"}
+            if not _check_int(threshold):
+                return {'error': f"conditional query at op {idx} requires integer threshold"}
+            if L < 1 or R > n or L > R:
+                return {'error': f"operation indices out of bounds at op {idx}: L={L}, R={R}"}
+            s = sum(arr[L:R+1])
+            val = s if s > threshold else 0
+            if val < INT64_MIN or val > INT64_MAX:
+                return {'error': f"cumulative value out of range after op {idx}"}
+            results.append(val)
+            num_queries += 1
+            audit.append({'op_idx': idx, 'type': 'conditional', 'args': [L, R, threshold], 'result': val, 'affected_range': [L, R]})
+        else:
+            return {'error': f"operation type not supported at op {idx}"}
+
+    # final summary
+    try:
+        final_vals = arr[1:]
+        final_sum = sum(final_vals)
+        final_min = min(final_vals) if final_vals else 0
+        final_max = max(final_vals) if final_vals else 0
+        final_unique = len(set(final_vals))
+    except Exception:
+        return {'error': "unknown error at op {i}"}
+    # check final bounds
+    if final_sum < INT64_MIN or final_sum > INT64_MAX:
+        return {'error': f"cumulative value out of range after op {len(operations)}"}
+    summary = {
+        'num_updates': num_updates,
+        'num_queries': num_queries,
+        'num_reverses': num_reverses,
+        'num_batches': num_batches,
+        'final_sum': final_sum,
+        'final_min': final_min,
+        'final_max': final_max,
+        'final_unique': final_unique
+    }
+    return {'results': results, 'audit': audit, 'summary': summary}

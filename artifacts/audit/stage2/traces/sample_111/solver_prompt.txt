@@ -1,0 +1,139 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+# Interactive Max-Flow Simulator Prompt
+
+## Real-World Narrative:
+The University Mathematics Department is creating an interactive Python-based tool to teach graduate students the fundamentals of network flow through the max-flow problem. The tool aims to provide an engaging platform for visualizing dynamically generated directed graphs, enabling students to adjust edge capacities and observe real-time updates to flow distributions. By integrating a step-by-step exploration of the Ford-Fulkerson algorithm, the tool will help students understand how augmenting paths are selected and how maximum flow is achieved. Detailed explanations accompanying each step will clarify the algorithm’s mechanics, flow conservation, and capacity constraints, fostering a deep understanding of network flow concepts in an educational setting.
+
+## Objectives:
+1. **Max-Flow Computation**  
+   Implement a module to compute the maximum flow in a directed graph from a source to a sink, ensuring accurate handling of edge capacities and flow conservation.
+
+2. **Dynamic Graph Manipulation**  
+   Support operations to add, remove, or modify edge capacities in real-time, with immediate updates to the flow distribution and visualization to reflect changes.
+
+3. **Algorithm Step-Through**  
+   Provide an interactive interface for stepping through the Ford-Fulkerson algorithm, allowing students to pause, rewind, or fast-forward through augmenting path selections and flow updates, with visual feedback on residual graphs.
+
+4. **Flow Visualization and Analytics**  
+   Display real-time flow values per edge, total maximum flow, and residual capacities. Highlight augmenting paths and bottleneck capacities during each iteration.
+
+5. **Detailed Explanations**  
+   Include concise explanations (<200 words each) for each algorithm step, addressing flow updates, capacity constraints, and edge cases (e.g., zero-capacity edges, unreachable sinks, or multiple augmenting paths).
+
+## Constraints:
+- The tool must be written in Python without external libraries for graph or visualization (e.g., use Tkinter or text-based output).  
+- It must handle graphs with up to 100 nodes and 500 edges efficiently.  
+- The implementation should use the Edmonds-Karp algorithm (BFS-based Ford-Fulkerson) with O(V * E²) time complexity, where V is the number of vertices and E is the number of edges.  
+- Explanations must be clear, concise (<200 words), and educational, covering key concepts like bottleneck capacity and flow conservation.  
+
+## Advanced Edge Case Constraints:
+1. **Anti-Parallel Edges (Bidirectional Flow)**  
+   The algorithm must correctly handle graphs with anti-parallel edges (edges going in both directions between the same pair of nodes). The implementation should maintain separate flow values for each direction and properly update the residual graph to avoid conflicts. Example: If edges (u→v, capacity 10) and (v→u, capacity 5) both exist, the algorithm must treat them independently and ensure flow conservation holds for both directions.
+
+2. **Backward Edge Utilization in Residual Graphs**  
+   The implementation must demonstrate correct handling of scenarios where optimal flow requires extensive use of backward edges in the residual graph. This occurs when initially selected augmenting paths are suboptimal and the algorithm must "undo" previous flow decisions by routing flow backward to find better paths. Test cases should include graphs where the naive greedy approach fails without proper residual graph management.
+
+3. **Tie-Breaking with Multiple Equal-Capacity Paths**  
+   The algorithm must handle graphs with exponentially many augmenting paths of equal capacity without degradation in performance or correctness. When multiple paths have identical bottleneck capacities, the BFS-based path selection should be deterministic and consistent. The implementation should efficiently resolve ties and demonstrate that the final maximum flow value is independent of the specific path selection order, while the number of iterations may vary.
+
+## Function Signature:
+```python
+def max_flow_simulator(graph: Dict[str, List[Dict[str, int]]], source: int, sink: int) -> Dict:
+    """
+    graph: A dictionary of node (as string) -> list of dictionaries with "neighbor" and "capacity" keys
+    source: Integer representing the source node
+    sink: Integer representing the sink node
+    Returns: A dictionary containing flow allocations, total flow, edge flows, residual capacities,
+             algorithm steps, and explanations.
+    """
+    pass
+```
+
+## Sample Input/Output:
+
+### Sample Input:
+```python
+graph = {
+    "0": [{"neighbor": 1, "capacity": 10}, {"neighbor": 2, "capacity": 5}],
+    "1": [{"neighbor": 2, "capacity": 2}, {"neighbor": 3, "capacity": 5}],
+    "2": [{"neighbor": 3, "capacity": 8}],
+    "3": []
+}
+source = 0
+sink = 3
+result = max_flow_simulator(graph, source, sink)
+```
+
+### Expected Output:
+The function returns a dictionary with the results of the max-flow computation using the Ford-Fulkerson algorithm. For the sample input, the returned dictionary is:
+
+```python
+{
+    "total_flow": 8,
+    "edge_flows": {
+        "0->1": {"flow": 5, "residual_capacity": 5},
+        "0->2": {"flow": 3, "residual_capacity": 2},
+        "1->2": {"flow": 0, "residual_capacity": 2},
+        "1->3": {"flow": 5, "residual_capacity": 0},
+        "2->3": {"flow": 3, "residual_capacity": 5}
+    },
+    "algorithm_steps": [
+        {
+            "step": 1,
+            "path": [{"from": 0, "to": 1}, {"from": 1, "to": 3}],
+            "bottleneck": 5,
+            "flow_increase": 5,
+            "residual_edges": [
+                {"from": 0, "to": 1, "residual": 5},
+                {"from": 0, "to": 2, "residual": 5},
+                {"from": 1, "to": 2, "residual": 2},
+                {"from": 2, "to": 3, "residual": 8}
+            ]
+        },
+        {
+            "step": 2,
+            "path": [{"from": 0, "to": 2}, {"from": 2, "to": 3}],
+            "bottleneck": 3,
+            "flow_increase": 3,
+            "residual_edges": [
+                {"from": 0, "to": 1, "residual": 5},
+                {"from": 0, "to": 2, "residual": 2},
+                {"from": 1, "to": 2, "residual": 2},
+                {"from": 1, "to": 3, "residual": 0},
+                {"from": 2, "to": 3, "residual": 5}
+            ]
+        }
+    ],
+    "explanations": [
+        "Step 1: Selected augmenting path 0→1→3 with bottleneck capacity 5 (min of 10, 5). Increased flow by 5 units. Updated residual capacities: 0→1 (5), 1→3 (0). Total flow: 5.",
+        "Step 2: Selected augmenting path 0→2→3 with bottleneck capacity 3 (min of 5, 8). Increased flow by 3 units. Updated residual capacities: 0→2 (2), 2→3 (5). Total flow: 8. No further augmenting paths exist."
+    ]
+}
+```
+
+### Expected Output Format:
+The function returns a dictionary with:
+- **total_flow**: Total maximum flow from source to sink.
+- **edge_flows**: Dictionary mapping edge strings "from->to" to dictionaries containing flow and residual capacity.
+- **algorithm_steps**: List of steps, each with step number, augmenting path (as list of dictionaries with "from" and "to" keys), bottleneck capacity, flow increase, and residual edges (as list of dictionaries with "from", "to", and "residual" keys).
+- **explanations**: List of step explanations (<200 words each), covering path selection, bottleneck, and flow updates.
+
+The dictionary supports visualization in an interactive environment (e.g., text-based or Tkinter), displaying flow values, residual graphs, and step-through details in real-time.
+
+Starter Code:
+```python
+from typing import Dict, List
+from collections import deque, defaultdict
+
+
+def max_flow_simulator(graph: Dict[int, List[Dict[str, int]]], source: int, sink: int) -> Dict:
+    pass
+```

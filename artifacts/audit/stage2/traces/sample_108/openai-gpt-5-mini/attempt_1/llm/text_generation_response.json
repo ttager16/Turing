@@ -1,0 +1,76 @@
+{
+  "id": "resp_0c0443b53718f6610069c336f91298819096911dc6414d95e3",
+  "object": "response",
+  "created_at": 1774401273,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774401289,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0c0443b53718f6610069c336f96cb881909047e26b9a042e91",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0c0443b53718f6610069c336f9a18c81908aa12dd9a837a0de",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Tuple\n\ndef calculate_total_cost(\n        demand_schedule: List[float],\n        usines: List[Dict[str, Any]],\n        on_off_schedule: List[List[bool]]\n) -> float:\n    T = len(demand_schedule)\n    if T != len(on_off_schedule):\n        return float('inf')\n    M = len(usines)\n    for row in on_off_schedule:\n        if len(row) != M:\n            return float('inf')\n    # Preprocess ramping curves: sort by steps\n    ramp_maps = []\n    for u in usines:\n        rc = sorted(u.get('ramping_curve', []), key=lambda x: x[0])\n        ramp_maps.append(rc)\n    # check T_on / T_off constraints by scanning transitions\n    # compute for each plant its consecutive on/off counters across time\n    cons_on = [[0]*M for _ in range(T)]\n    cons_off = [[0]*M for _ in range(T)]\n    for i in range(M):\n        for t in range(T):\n            on = on_off_schedule[t][i]\n            if on:\n                cons_on[t][i] = 1 + (cons_on[t-1][i] if t>0 else 0)\n                cons_off[t][i] = 0\n            else:\n                cons_off[t][i] = 1 + (cons_off[t-1][i] if t>0 else 0)\n                cons_on[t][i] = 0\n    # Verify T_on / T_off: when a start event occurs at time t (on and previous off), must remain on for T_on\n    for i,u in enumerate(usines):\n        T_on = u.get('t_on', 0)\n        T_off = u.get('t_off', 0)\n        for t in range(T):\n            prev_on = on_off_schedule[t-1][i] if t>0 else False\n            cur_on = on_off_schedule[t][i]\n            if cur_on and not prev_on:\n                # started at t: must have cons_on at least T_on from t through t+T_on-1\n                if T_on > 0:\n                    end = t + T_on - 1\n                    if end >= T:\n                        return float('inf')\n                    for tt in range(t, end+1):\n                        if not on_off_schedule[tt][i]:\n                            return float('inf')\n            if not cur_on and prev_on:\n                # stopped at t: must have cons_off at least T_off from t through t+T_off-1\n                if T_off > 0:\n                    end = t + T_off - 1\n                    if end >= T:\n                        return float('inf')\n                    for tt in range(t, end+1):\n                        if on_off_schedule[tt][i]:\n                            return float('inf')\n    total_cost = 0.0\n    # For each time, determine available plants, their p_min and effective p_max based on cons_on\n    for t in range(T):\n        demand = demand_schedule[t]\n        # collect available plants\n        avail = []\n        for i,u in enumerate(usines):\n            if on_off_schedule[t][i]:\n                # determine consecutive on up to t\n                k = cons_on[t][i]\n                # find ramp entry with largest steps <= k\n                eff_pmax = u.get('p_max', 0)\n                rc = ramp_maps[i]\n                chosen = None\n                for steps, val in rc:\n                    if steps <= k:\n                        chosen = val\n                    else:\n                        break\n                if chosen is not None:\n                    eff_pmax = min(eff_pmax, chosen)\n                else:\n                    # if no entry with steps<=k, then before first entry, no capacity? assume 0\n                    # but reasonable to treat as 0 effective max\n                    eff_pmax = 0\n                p_min = u.get('p_min', 0)\n                # if eff_pmax < p_min -> infeasible if on\n                if eff_pmax + 1e-9 < p_min:\n                    return float('inf')\n                avail.append((u.get('cost_per_kwh', 0), i, p_min, eff_pmax))\n        # Economic dispatch: sort by cost ascending\n        avail.sort(key=lambda x: x[0])\n        remaining = demand\n        production = [0.0]*M\n        # First ensure sum of p_min of selected on plants could be <= demand; but must assign >= p_min to any on plant\n        # We must assign at least p_min to each on plant.\n        total_pmin = sum(item[2] for item in avail)\n        total_pmax = sum(item[3] for item in avail)\n        # If demand not in [total_pmin..total_pmax] -> infeasible\n        if remaining + 1e-9 < total_pmin or remaining > total_pmax + 1e-9:\n            return float('inf')\n        # Start by assigning p_min to all on plants\n        for cost,i,pmin,pmax in avail:\n            production[i] = pmin\n            remaining -= pmin\n        # Then allocate remaining to cheapest first up to p_max\n        for cost,i,pmin,pmax in avail:\n            if remaining <= 1e-9:\n                break\n            headroom = pmax - production[i]\n            add = min(headroom, remaining)\n            production[i] += add\n            remaining -= add\n        if abs(remaining) > 1e-6:\n            return float('inf')\n        # compute cost\n        for cost,i,_,_ in avail:\n            total_cost += production[i] * cost\n    return total_cost"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1477,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1223,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2700
+  },
+  "user": null,
+  "metadata": {}
+}

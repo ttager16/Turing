@@ -1,0 +1,167 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+A financial technology company processes a lot of stock market transactions in real-time and needs to efficiently compute range sum queries and handle frequent price updates. The system requires implementing a Fenwick Tree (Binary Indexed Tree) to support rapid prefix sum calculations and point updates on stock price data, enabling quick response times for analytical queries.
+
+You need to implement a comprehensive Fenwick Tree system that handles stock price data with efficient range queries, point updates, and robust error handling for invalid operations.
+
+#### Objectives:
+1. **Fenwick Tree Implementation:**
+   - Implement a complete Fenwick Tree (Binary Indexed Tree) using pure Python
+   - Support efficient prefix sum queries in O(log n) time complexity
+   - Handle point updates (single element modifications) in O(log n) time complexity
+   - Implement range sum queries between any two indices efficiently
+
+2. **Stock Price Data Management:**
+   - Handle stock price arrays with precise decimal calculations
+   - Support negative price changes and corrections
+   - Process batch updates efficiently without compromising query performance
+
+3. **Advanced Query Operations:**
+   - Implement range sum queries for any valid index range
+   - Support prefix sum calculations from index 0 to any given position
+   - Handle edge cases like empty ranges and boundary conditions
+   - Provide accurate results for overlapping query ranges
+
+4. **Robust Error Handling:**
+   - Validate input types and ranges with specific error messages
+   - Handle out-of-bounds access attempts gracefully
+   - Prevent invalid tree modifications that could corrupt the data structure
+   - Ensure all operations maintain tree consistency
+
+
+## Function Signature
+```python
+def fenwick_tree_stock_analyzer(prices, operations):
+    """
+    Implement a Fenwick Tree for stock price analysis with support for updates and range queries.
+    Returns: List of float results for each query operation or error dictionary
+    """
+    pass
+```
+
+## Input Specifications
+**prices**: List of initial stock prices
+- Type: List of numeric values (int or float)
+- Range: Positive values only (> 0)
+- Precision: Up to 2 decimal places for float values
+- Size: Maximum allowed (1-50000)
+
+**operations**: List of operation lists
+- Type: List of lists representing operations
+- Valid operation formats:
+  - ["update", index, new_value]: Update price at index to new_value
+    - index: Integer (0 to len(prices)-1)
+    - new_value: Positive numeric value (int or float)
+  - ["prefix_sum", index]: Get sum from index 0 to index (inclusive)
+    - index: Integer (0 to len(prices)-1)
+  - ["range_sum", start, end]: Get sum from start to end (inclusive)
+    - start: Integer (0 to len(prices)-1)
+    - end: Integer (start to len(prices)-1)
+
+## Output Specification
+Return a list of float values representing the results of query operations only. Update operations should not contribute to the result list. All floating-point results should maintain precision up to 2 decimal places.
+
+```python
+[result1, result2, result3, ...]  # List of query results
+```
+
+## Constraint Requirements
+* **Input Type Validation**: Return {"error": "Prices must be a list of numeric values"} if prices is not a list
+* **Numeric Value Validation**: Return {"error": "All price values must be numeric"} if prices contains non-numeric values
+* **Empty Array Validation**: Return {"error": "Price array cannot be empty"} if prices list is empty
+* **Negative Price Validation**: Return {"error": "Stock prices cannot be negative"} if any price value is negative or zero
+* **Operations Type Validation**: Return {"error": "Operations must be a list of lists"} if operations is not a list or contains non-list elements
+* **Operation Format Validation**: Return {"error": "Invalid operation format"} if any operation list has incorrect structure
+* **Index Bounds Validation**: Return {"error": "Index out of bounds"} if any index is outside valid array bounds
+* **Range Validation**: Return {"error": "Invalid range: start index cannot be greater than end index"} if start > end in range_sum operations
+* **Update Value Validation**: Return {"error": "Update value must be positive numeric"} if new_value in update operations is not positive numeric
+* For any other input parameter violation, return {"error": "Input is not valid"}
+
+#### Sample Input/Output
+
+##### Input:
+```python
+prices = [10.50, 5.25, 8.75, 12.00, 6.50, 9.25]
+operations = [
+    ["prefix_sum", 3],
+    ["range_sum", 1, 4],
+    ["update", 2, 15.00],
+    ["prefix_sum", 3],
+    ["range_sum", 1, 4],
+    ["range_sum", 0, 5]
+]
+```
+
+##### Expected Output:
+```python
+[36.5, 32.5, 42.75, 38.75, 58.5]
+```
+
+##### Explanation:
+Initial prices: [10.50, 5.25, 8.75, 12.00, 6.50, 9.25]
+- prefix_sum(3): Sum from index 0 to 3 = 10.50 + 5.25 + 8.75 + 12.00 = 36.5
+- range_sum(1, 4): Sum from index 1 to 4 = 5.25 + 8.75 + 12.00 + 6.50 = 32.5
+- update(2, 15.00): Change index 2 from 8.75 to 15.00
+- prefix_sum(3): Sum from index 0 to 3 = 10.50 + 5.25 + 15.00 + 12.00 = 42.75
+- range_sum(1, 4): Sum from index 1 to 4 = 5.25 + 15.00 + 12.00 + 6.50 = 38.75
+- range_sum(0, 5): Sum from index 0 to 5 = 10.50 + 5.25 + 15.00 + 12.00 + 6.50 + 9.25 = 58.5
+
+#### Error Handling Examples:
+```python
+fenwick_tree_stock_analyzer("not a list", [])
+```
+Should return: `{"error": "Prices must be a list of numeric values"}`
+
+```python
+fenwick_tree_stock_analyzer([10.50, "invalid", 8.75], [])
+```
+Should return: `{"error": "All price values must be numeric"}`
+
+```python
+fenwick_tree_stock_analyzer([10.50, -5.25, 8.75], [])
+```
+Should return: `{"error": "Stock prices cannot be negative"}`
+
+```python
+fenwick_tree_stock_analyzer([], [])
+```
+Should return: `{"error": "Price array cannot be empty"}`
+
+```python
+fenwick_tree_stock_analyzer([10.50, 5.25], [["range_sum", 3, 1]])
+```
+Should return: `{"error": "Invalid range: start index cannot be greater than end index"}`
+
+```python
+fenwick_tree_stock_analyzer([10.50, 5.25], [["prefix_sum", 5]])
+```
+Should return: `{"error": "Index out of bounds"}`
+
+#### Additional Requirements:
+1. **Tree Construction**: Build the Fenwick Tree efficiently during initialization with O(n log n) complexity
+2. **Operation Processing**: Process operations sequentially, maintaining tree consistency after each update
+3. **Boundary Handling**: Correctly handle edge cases like single-element arrays and full-range queries  
+4. **Precision Maintenance**: Ensure floating-point arithmetic doesn't introduce significant rounding errors
+5. **Validation Timing**: Perform input validation before any tree operations begin
+6. **Result Accuracy**: All query results must be mathematically correct within floating-point precision limits
+
+#### Performance Considerations:
+- Each update operation should complete in O(log n) time
+- Each query operation should complete in O(log n) time
+- Tree initialization should not exceed O(n log n) time complexity
+- Support efficient batch processing of multiple operations without rebuilding the tree
+
+Starter Code:
+```python
+def fenwick_tree_stock_analyzer(prices, operations):
+    pass
+```

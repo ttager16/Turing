@@ -1,0 +1,181 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+Develop a comprehensive Python-based distributed configuration management and diffing system for cloud infrastructure compliance auditing. This system serves as a critical component for cybersecurity platforms that require real-time detection of unauthorized changes across thousands of microservices. The framework must implement multi-format configuration parsing (JSON, YAML, XML), dependency graph analysis with transitive impact tracking, and generate detailed compliance reports for security audits while maintaining deterministic behavior and sub-second performance for large-scale deployments.
+
+## Problem Description
+
+The system analyzes configuration changes across distributed microservices using custom parsers and graph algorithms. The framework must implement:
+
+### Core Features
+
+1. **Multi-Format Configuration Parsing**: Custom parsers for JSON, YAML, and XML without external libraries
+2. **Dependency Graph Management**: Track service dependencies and calculate transitive impacts
+3. **Dual-Level Change Detection**: Both line-by-line and structural (field-level) difference analysis
+4. **Topological Processing**: Process services in dependency order for accurate impact propagation
+5. **Compliance Report Generation**: Human-readable reports with dependency impact annotations
+6. **Deterministic Output**: Alphabetically sorted services and consistent traversal order
+7. **Large-Scale Support**: Handle thousands of services with complex dependency graphs
+8. **Real-time Monitoring**: Efficient processing for continuous compliance verification
+9. **Impact Analysis**: Calculate which services are transitively affected by configuration changes
+10. **JSON-Serializable Output**: All inputs and outputs must be valid JSON-serializable types
+
+### Required Dictionary Keys
+
+The main function must return a dictionary with these exact keys:
+- `report`: List of human-readable change messages with dependency impacts
+- `summary`: Statistics dictionary with total_services, affected_services, total_changes, services_with_dependents
+- `affected_services`: List of service identifiers that have configuration changes
+- `impact_analysis`: Dictionary mapping changed services to their transitively affected dependents
+
+## Function Signature
+
+```python
+def string_diff_algorithm(
+    baseline_files: Dict[str, str],
+    current_files: Dict[str, str],
+    dependencies: List[List[str]]
+) -> Dict[str, Any]:
+    """
+    Distributed configuration diffing system with dependency impact analysis.
+    
+    Parameters:
+        baseline_files (Dict[str, str]): Service identifiers mapped to baseline configuration strings
+        current_files (Dict[str, str]): Service identifiers mapped to current configuration strings
+        dependencies (List[List[str]]): Dependency pairs as [dependent, dependency] where dependent depends on dependency
+    
+    Returns:
+        dict: Dictionary with compliance report, statistics, affected services, and impact analysis
+    """
+    pass
+```
+
+## Constraints
+
+1. **Libraries**: Only standard Python libraries allowed: json, re, typing
+2. **Format Detection**: Detect JSON by leading '{' or '[', XML by leading '<', default to YAML otherwise
+3. **JSON Parsing**: Use json.loads() with fallback to empty dict on JSONDecodeError
+4. **YAML Parser Implementation**: Custom parser using stack-based approach with (dict, indent_level) tuples
+5. **YAML Indentation**: Calculate indentation as len(line) - len(line.lstrip()), track nesting via stack
+6. **YAML Value Types**: Parse 'true'/'false' to bool, 'null' to None, digits to int, decimals to float, quoted strings without quotes
+7. **XML Parser Implementation**: Custom recursive parser handling nested elements, attributes, and self-closing tags
+8. **XML Attributes**: Extract using regex pattern r'(\w+)=(["\'])([^"\']*)\2' and merge with children dict
+9. **XML Declaration Removal**: Strip <?xml...?> declarations using regex before parsing
+10. **Configuration Flattening**: Convert nested dicts to dot-notation paths (e.g., {"a": {"b": 1}} -> {"a.b": 1})
+11. **List Handling**: Convert list values to string representation when flattening
+12. **Change Types**: Detect 'added' (old None, new exists), 'removed' (old exists, new None), 'modified' (both exist, different)
+13. **Line Comparison**: Compare raw strings line-by-line using split('\n'), track line numbers (1-indexed). Store line values using .strip() applied
+14. **Line Change Types**: Detect 'modified' (baseline_line and current_line both truthy and different), 'removed' (baseline_line truthy, current_line falsy), 'added' (baseline_line falsy, current_line truthy)
+15. **Line Change Reporting**: Only include line changes of type 'modified' in the report. Do NOT report 'added' or 'removed' line-level changes
+16. **Dependency Graph Structure**: Maintain graph dict (node -> dependents list) and reverse_graph dict (node -> dependencies list)
+17. **Transitive Dependents**: Use BFS with sorted queue additions to find all nodes affected by changes
+18. **Topological Sort**: Sort nodes by in-degree, process with queue, sort queue items and ready dependents for determinism
+19. **Service Iteration Order**: Sort all_services alphabetically before iteration to ensure deterministic affected_services list
+20. **Report Format - Line Changes**: "{service}: Line {num} changed from '{old}' to '{new}'; {impact}" where {old} and {new} are stripped line content
+21. **Report Format - Field Changes**: "{service}: '{field}' changed from '{old}' to '{new}'; {impact}"
+22. **Report Format - New Fields**: "{service}: New field '{field}' = '{new}'; ensures forward compatibility."
+23. **Report Format - Removed Fields**: "{service}: Field '{field}' removed (was '{old}'); {impact}"
+24. **Dependency Impact Messages**: Use "re-check needed for {immediate_dependent}." if dependents exist, else "no further dependents."
+25. **Report Generation Order**: Process services in topological order, then add services not in dependency graph sorted alphabetically
+26. **Report Priority**: Include only line-level 'modified' type changes first, then structural changes for each service
+27. **Impact Analysis Population**: Only include services in impact_analysis if they have non-empty transitive_dependents list
+28. **Summary Statistics**: Count total_services from union of baseline and current keys, affected_services from changes detected, total_changes includes both line 'modified' changes and all structural changes
+29. **Empty Input Handling**: Return empty report list and zero counts for empty baseline_files and current_files
+30. **Circular Dependency Handling**: BFS with visited set prevents infinite loops in get_transitive_dependents
+31. **Deterministic Sorting**: Apply sorted() to nodes, queue initialization, and dependent additions in all graph algorithms
+32. **Output Structure**: Return dict with keys 'report' (list), 'summary' (dict), 'affected_services' (list), 'impact_analysis' (dict), all JSON-serializable
+33. **Empty XML Tag Handling**: Empty XML tags like `<empty></empty>` parse to empty string `''` (not None), which counts as an existing value for change detection
+34. **Line Stripping in Report**: When creating report messages, use the stripped line content (apply .strip() to old_line and new_line) for cleaner output
+
+
+## Sample Input
+
+```python
+baseline_files = {
+    "serviceA": "<service>\n  <host>10.0.0.1</host>\n  <port>8080</port>\n</service>",
+    "serviceB": "{\n    \"apiVersion\": \"v1\",\n    \"endpoint\": \"/data\"\n}",
+    "serviceC": "server:\n  address: 192.168.1.1\n  features:\n    caching: true\n"
+}
+current_files = {
+    "serviceA": "<service>\n  <host>10.0.0.2</host>\n  <port>8080</port>\n</service>",
+    "serviceB": "{\n    \"apiVersion\": \"v2\",\n    \"endpoint\": \"/data\",\n    \"extra\": \"param\"\n}",
+    "serviceC": "server:\n  address: 192.168.1.1\n  features:\n    caching: false\n"
+}
+dependencies = [
+    ["serviceA", "serviceB"],
+    ["serviceB", "serviceC"]
+]
+```
+
+## Sample Output
+
+```python
+{
+    "report": [
+        "serviceC: Line 4 changed from 'caching: true' to 'caching: false'; re-check needed for serviceB.",
+        "serviceC: 'server.features.caching' changed from 'True' to 'False'; re-check needed for serviceB.",
+        "serviceB: Line 2 changed from '\"apiVersion\": \"v1\",' to '\"apiVersion\": \"v2\",'; re-check needed for serviceA.",
+        "serviceB: Line 3 changed from '\"endpoint\": \"/data\"' to '\"endpoint\": \"/data\",'; re-check needed for serviceA.",
+        "serviceB: Line 4 changed from '}' to '\"extra\": \"param\"'; re-check needed for serviceA.",
+        "serviceB: 'apiVersion' changed from 'v1' to 'v2'; re-check needed for serviceA.",
+        "serviceB: New field 'extra' = 'param'; ensures forward compatibility.",
+        "serviceA: Line 2 changed from '<host>10.0.0.1</host>' to '<host>10.0.0.2</host>'; no further dependents.",
+        "serviceA: 'service.host' changed from '10.0.0.1' to '10.0.0.2'; no further dependents."
+    ],
+    "summary": {
+        "total_services": 3,
+        "affected_services": 3,
+        "total_changes": 10,
+        "services_with_dependents": 2
+    },
+    "affected_services": [
+        "serviceA",
+        "serviceB",
+        "serviceC"
+    ],
+    "impact_analysis": {
+        "serviceB": [
+            "serviceA"
+        ],
+        "serviceC": [
+            "serviceB",
+            "serviceA"
+        ]
+    }
+}
+```
+
+## Output Format
+
+- Return value: Dictionary with exact keys as specified
+- `report`: List of strings, each describing a configuration change with dependency impact
+- `summary`: Dictionary with integer counts for total_services, affected_services, total_changes, services_with_dependents
+- `affected_services`: List of service identifier strings in alphabetically sorted order
+- `impact_analysis`: Dictionary mapping service identifiers to lists of transitively affected dependent identifiers
+- All values must be JSON-serializable (no tuples, sets, or custom objects)
+- Empty baseline or current treated as empty string for that service
+- Services in current but not baseline are compared against empty baseline
+- Services in baseline but not current are compared against empty current
+
+Starter Code:
+```python
+from typing import Dict, List, Tuple, Any, Optional
+import json
+import re
+
+
+def string_diff_algorithm(
+    baseline_files: Dict[str, str],
+    current_files: Dict[str, str],
+    dependencies: List[List[str]]
+) -> Dict[str, Any]:
+    pass
+```

@@ -1,0 +1,173 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+Develop a comprehensive Python-based multi-tier logistics network optimization system that implements advanced flow optimization algorithms for complex distribution networks. This framework serves as a critical component for logistics companies that need to maximize throughput while minimizing transportation costs across multiple distribution centers. The system must implement DFS-based flow algorithms with dynamic capacity management to achieve optimal routing solutions, identify bottleneck nodes, and provide detailed network performance analytics essential for operational decision-making in peak demand scenarios.
+
+## Problem Description
+
+The system analyzes logistics networks represented as directed graphs with weighted edges, where each edge has both capacity (maximum flow) and cost (transportation cost). The framework must implement:
+
+### Core Features
+
+1. **Layered Graph Construction**: Build multi-layer network topology with automatic layer assignment
+2. **Flow Optimization**: Compute maximum flow with minimum cost using augmenting path algorithms
+3. **Network Analytics**: Calculate comprehensive metrics including capacity utilization, cost efficiency, and bottleneck analysis
+
+## Function Signature
+
+```python
+def optimize_logistics_network(graph_input: dict) -> dict:
+    """
+    Multi-tier logistics network optimization with flow analysis.
+    
+    Parameters:
+        graph_input (dict): Dictionary containing:
+            - 'graph' (dict): Maps node_id (str) to list of [neighbor, capacity, cost] edges
+            - 'source' (int, optional): Source node id (default: 0)
+            - 'sink' (int, optional): Sink node id (default: max node)
+            - 'analyze_all_paths' (bool, optional): Whether to analyze alternative paths (default: False)
+    
+    Returns:
+        dict: Dictionary with optimal path, throughput, costs, layers, and comprehensive metrics
+    """
+    pass
+```
+
+## Constraints
+
+1. **Libraries**: Only standard Python libraries allowed: collections module with deque and defaultdict
+2. **Graph Input Format**: Input dictionary must have 'graph' key mapping string node IDs to edge lists, where each edge contains exactly three elements: neighbor ID, capacity, and cost
+3. **Node Representation**: Nodes are integers internally; graph dictionary keys are strings that convert to integers
+4. **Input Validation**: Input validation should cover several error scenarios and return a dict such as {"error": message}. Return "Invalid input format" when the provided data lacks the 'graph' key; "Graph data must be a dictionary" if the 'graph' value is not a dictionary; "Graph data must map string node IDs to lists of edges" when any key is not a string or any value is not a list, ensuring structural consistency. If the source node is missing from the integer-converted keys, return "Source node not found in graph", and similarly, "Sink node not found in graph" if a sink is given but absent in those keys. Lastly, return "analyze_all_paths must be a boolean" when the analyze_all_paths argument is not a boolean value
+5. **Default Values**: Source defaults to 0 when not provided; sink defaults to maximum node ID including all edge neighbors when not provided
+6. **Layer Assignment**: Assign nodes to layers using BFS-based topological ordering; calculate in-degree for each node and start with zero in-degree nodes as sources
+7. **Fallback Source Selection**: When no nodes have zero in-degree, use minimum node ID as starting source for layer assignment
+8. **Layer Processing Rules**: Initialize BFS queue with source-layer pairs; update node to maximum layer if visited multiple times; place unreachable nodes one layer beyond current maximum
+9. **Cycle Handling**: Implement safeguards to prevent infinite loops when processing graphs with cycles; use iteration limits (e.g., nodes squared) and layer growth constraints (e.g., skip if layer increase exceeds node count); only add neighbors to queue if new layer is reasonable (e.g., less than nodes times two) and would result in a higher layer assignment than current
+10. **Layers Format**: Output layers as dictionary with string layer numbers as keys, mapping to sorted integer node ID lists
+11. **Flow Algorithm**: Implement Ford-Fulkerson method with DFS-based augmenting path search to find maximum total flow through the network
+12. **Residual Graph**: Maintain residual graph as nested dictionaries storing capacity and cost for each directed edge
+13. **Path Finding**: Use depth-first search with visited tracking to find paths from source to sink; return path and minimum capacity bottleneck
+14. **Residual Updates**: Reduce forward edge capacity by flow amount; remove edges with zero capacity; add reverse edges with flow capacity and negated edge cost (not path cost)
+15. **Path Selection**: In each Ford-Fulkerson iteration, collect all possible augmenting paths with their flows and costs; sort by flow descending then cost ascending; choose highest-ranked path to augment; the optimal_path returned is the single augmenting path selected across all iterations that had the largest flow value (i.e., the augmenting path with the maximum bottleneck capacity); if multiple paths have the same flow, select the one with the lowest cost; track this path's flow value separately for metrics calculations
+16. **Empty Results**: Return empty path list and zero throughput when no augmenting paths exist
+17. **Cost Aggregation**: Calculate total cost by summing edge costs along optimal path using original graph costs, not residual values or flow-weighted costs
+18. **Bottleneck Nodes**: Identify minimum edge capacity on optimal path; list source nodes of all edges matching this minimum
+19. **Metrics Structure**: Include exactly 10 metric keys: capacity_utilization_percent, cost_efficiency_ratio, path_length, avg_edge_capacity, flow_efficiency_percent, network_density, cost_per_hop, bottleneck_severity_percent, path_resilience_score, layer_distribution
+20. **Capacity Utilization**: Calculate optimal path flow multiplied by edge count divided by total path capacity as percentage; use the flow amount that went through the optimal_path (not max_throughput); round to 2 decimals; use 0.0 for empty or zero-capacity paths
+21. **Cost Efficiency**: Compute max_throughput divided by total_cost (i.e., max_throughput / total_cost); round to 4 decimals; return None for zero-cost paths or when source equals sink
+22. **Path Length**: Count edges in optimal path as number of nodes minus one; return 0 for empty or single-node paths
+23. **Average Edge Capacity**: Calculate mean of all edge capacities on path; round to 2 decimals; use 0.0 for empty edge lists
+24. **Flow Efficiency**: Express optimal path flow as percentage of theoretical maximum (minimum edge capacity on that path); use the flow amount that went through the optimal_path (not max_throughput); round to 2 decimals; use 0.0 when no bottleneck exists
+25. **Network Density**: Compute ratio of total graph edges to total nodes; round to 2 decimals; use 0.0 for empty graphs
+26. **Cost Per Hop**: Divide total cost by path length; round to 2 decimals; use 0.0 for zero-length paths
+27. **Bottleneck Severity**: Calculate how much minimum capacity restricts flow relative to average capacity as percentage; round to 2 decimals; use 0.0 for uniform or empty capacities
+28. **Path Resilience**: Count total feasible paths found via exhaustive search when analyze_all_paths enabled; this counts all viable paths from source to sink; set to 0 otherwise
+29. **Layer Distribution**: Provide dictionary with minimum, maximum, and average nodes per layer; round average to 2 decimals; use 0/0.0 for empty layer sets
+30. **Alternative Paths**: When analyze_all_paths enabled, perform exhaustive DFS with backtracking starting from infinite capacity and zero cost; include up to 5 paths with their routes, capacities, and costs; sort paths by cost ascending before limiting to top 5
+
+## Sample Input
+
+```python
+graph_input = {
+    "graph": {
+        "0": [[1, 5, 2], [2, 10, 5]],
+        "1": [[5, 4, 3], [4, 5, 3]],
+        "2": [[3, 8, 2]],
+        "3": [[6, 6, 6], [4, 2, 2]],
+        "4": [[5, 5, 1]],
+        "5": [[7, 8, 4]],
+        "6": [[7, 7, 2]],
+        "7": []
+    },
+    "source": 0,
+    "sink": 7,
+    "analyze_all_paths": True
+}
+```
+
+## Sample Output
+
+```python
+{
+    'optimal_path': [0, 2, 3, 6, 7],
+    'max_throughput': 13,
+    'total_cost': 15,
+    'layers': {
+        '0': [0],
+        '1': [1, 2],
+        '2': [3],
+        '3': [4, 6],
+        '4': [5],
+        '5': [7]
+    },
+    'num_layers': 6,
+    'bottleneck_nodes': [3],
+    'metrics': {
+        'capacity_utilization_percent': 77.42,
+        'cost_efficiency_ratio': 0.8667,
+        'path_length': 4,
+        'avg_edge_capacity': 7.75,
+        'flow_efficiency_percent': 100.0,
+        'network_density': 1.25,
+        'cost_per_hop': 3.75,
+        'bottleneck_severity_percent': 22.58,
+        'path_resilience_score': 4,
+        'layer_distribution': {
+            'min_nodes_per_layer': 1,
+            'max_nodes_per_layer': 2,
+            'avg_nodes_per_layer': 1.33
+        }
+    },
+    'alternative_paths': [
+        {
+            'path': [0, 1, 5, 7],
+            'capacity': 4,
+            'cost': 9
+        },
+        {
+            'path': [0, 1, 4, 5, 7],
+            'capacity': 5,
+            'cost': 10
+        },
+        {
+            'path': [0, 2, 3, 4, 5, 7],
+            'capacity': 2,
+            'cost': 14
+        },
+        {
+            'path': [0, 2, 3, 6, 7],
+            'capacity': 6,
+            'cost': 15
+        }
+    ]
+}
+```
+
+## Output Format
+
+- `optimal_path`: List of node IDs for the augmenting path with largest flow; ties broken by lowest cost
+- `max_throughput`: Total maximum flow (sum of all augmenting path flows)
+- `total_cost`: Sum of edge costs on optimal_path
+- `layers`: Dictionary mapping string layer numbers to sorted node ID lists
+- `num_layers`: Count of distinct layers
+- `bottleneck_nodes`: Node IDs where edge capacity equals minimum on optimal_path
+- `metrics`: Dictionary with 10 metrics (see constraints 19-29)
+- `alternative_paths`: (Optional) Up to 5 paths sorted by cost ascending when analyze_all_paths is True
+
+Starter Code:
+```python
+from collections import deque, defaultdict
+
+
+def optimize_logistics_network(graph_input: dict) -> dict:
+    pass
+```

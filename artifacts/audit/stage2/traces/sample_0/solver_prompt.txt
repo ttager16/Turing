@@ -1,0 +1,170 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+EcoLogistics operates a multi-region delivery network requiring sophisticated route selection under logical, capacity, emissions, and budgetary constraints. Implement a three-stage optimization system: (1) 2-SAT satisfiability with SCC decomposition, (2) exhaustive or greedy route selection with pruning, (3) iterative post-processing refinement with convergence tracking.
+
+---
+
+#### Objectives:
+
+1. 2-SAT Satisfiability via Strongly Connected Components: Build implication graph from clauses (A ∨ B). Use Tarjan's or Kosaraju's SCC algorithm for satisfiability check. Detect forced assignments from closure (cost ≤ 0) and zero-capacity prohibition (capacity ≤ 0).
+
+2. Exhaustive Search for Small Problems: For ≤18 free variables after applying prohibitions, enumerate all 2^k assignments. For each satisfiable assignment, validate regional constraints and compute tie-breakers (TB1-TB6). Track pruning_operations count (assignments skipped due to early constraint violations).
+
+3. Greedy Heuristic for Large Problems: For >18 free variables, use deterministic greedy guided by clause_coverage_score / adjusted_weighted_cost ratio. Apply reserved-key parameters (__greedy_seed__, __beam_width__) for deterministic exploration. Track greedy_iterations and feasibility_checks.
+
+4. Post-Processing Refinement with Convergence: After obtaining initial solution, iteratively attempt to remove redundant routes while preserving satisfiability and constraints. Each iteration: sort candidates by descending adjusted weighted cost, test removal, apply tie-breaker comparison. Track refinement_iterations, routes_removed, converged (boolean).
+
+5. Multi-Constraint Validation with Tolerances: Check regional capacity (≥ min − ε), emissions (≤ max + ε), route count (≥ min), budget (raw costs ≤ limit + ε), dominance caps, pair incompatibility, mandatory/forbidden routes, emissions intensity, raw-cost share, min distinct per region. Apply epsilon_cost (default 1e-3) for tie-breaking, epsilon_constraints (default 1e-9) for feasibility.
+
+6. Tie-Breaking with Statistical Metrics: When comparing solutions with equal adjusted cost (within epsilon_cost), apply strict order: TB1 (lowest adjusted cost), TB2 (fewer routes), TB3 (lower raw cost), TB4 (higher total capacity), TB5 (lexicographically smaller), TB6 (lower regional capacity variance if __balance_penalty_lambda__ > 0).
+
+7. Output with Algorithmic Metrics: Return Dict with 'selected_routes' (sorted list), 'total_adjusted_cost', 'total_raw_cost', 'algorithm_metrics' (pruning_operations, greedy_iterations, feasibility_checks, refinement_iterations, routes_removed, converged).
+
+---
+
+#### Calculation Formulas:
+
+- base_weighted_cost(route) = raw_cost(route) / max(capacity(route), 1.0)
+- adjusted_weighted_cost(route) = base_weighted_cost(route) × (1.0 + route_penalty_factors.get(route, 0.0))
+- total_adjusted_cost = Σ(adjusted_weighted_cost(route)) over selected routes
+- clause_coverage_score(route) = count of unsatisfied clauses that become satisfied by selecting route
+- greedy_selection_score(route) = clause_coverage_score(route) / adjusted_weighted_cost(route)
+- regional_capacity_variance = Var({capacity_selected(r) for all regions r})
+  where Var(X) = (1/n) Σ(x_i - mean)² for X = {x_1, ..., x_n}
+
+Tolerances:
+- epsilon_cost: default 1e-3, for adjusted cost equality in tie-breaking
+- epsilon_constraints: default 1e-9, for feasibility comparisons
+
+---
+
+#### Constraints:
+
+- Standard library only: no numpy, networkx, scipy.
+- Route closure: cost ≤ 0.0 ⇒ route forced FALSE in 2-SAT.
+- Zero-capacity prohibition: selected routes must have capacity > 0.0.
+- Regional requirements per region r:
+  - capacity_selected(r) ≥ region_min_capacity.get(r, 0.0) − epsilon_constraints
+  - emissions_selected(r) ≤ region_max_emissions.get(r, +∞) + epsilon_constraints
+  - route_count_selected(r) ≥ region_min_route_count.get(r, 0)
+- Budget on raw costs: Σ raw_cost ≤ total_budget + epsilon_constraints (if total_budget > 0).
+- Output: 'selected_routes' sorted lexicographically; Dict format with metrics.
+
+Intra-region diversity (hard rule): if region has ≥3 open positive-capacity candidates and region_min_route_count[r] ≥ 2, select at least 2 distinct routes.
+
+Reserved-key config (optional via route_penalty_factors):
+- __dominance_share_cap__: float ∈ (0,1], capacity share per route ≤ cap × total (default 1.0).
+- __max_emissions_intensity__: float ≥ 0, emissions/capacity per region (default +∞).
+- __balance_penalty_lambda__: float ≥ 0, variance penalty in greedy scoring (default 0.0).
+- __regional_budgets__: JSON {region: float}, per-region raw cost limits.
+- __mandatory_routes__ / __forbidden_routes__: JSON lists of route names.
+- __pair_incompatibility_threshold__: float ≥ 0, same-region pair capacity sum cap (default +∞).
+- __min_distinct_routes_per_region__: JSON {region: int}, min distinct selected.
+- __max_raw_cost_share__: float ∈ (0,1], raw cost per route ≤ share × regional total (default 1.0).
+- __greedy_seed__: int, deterministic ordering seed (default 0).
+- __beam_width__: int ≥ 1, parallel exploration width in greedy (default 1).
+- __epsilon_cost__, __epsilon_constraints__: override default tolerances.
+
+---
+
+#### Function Signature
+
+```python
+from typing import List, Dict, Any
+import json
+
+def optimize_routes(
+    variables: List[str],
+    clauses: List[List[str]],
+    real_time_data: List[List[Any]],
+    route_capacities: Dict[str, float] = None,
+    route_emissions: Dict[str, float] = None,
+    route_regions: Dict[str, str] = None,
+    region_min_capacity: Dict[str, float] = None,
+    region_max_emissions: Dict[str, float] = None,
+    route_penalty_factors: Dict[str, float] = None,
+    total_budget: float = 0.0,
+    region_min_route_count: Dict[str, int] = None
+) -> Dict[str, Any]:
+    pass
+    Returns Dict with:
+    - 'selected_routes': List[str] (sorted)
+    - 'total_adjusted_cost': float
+    - 'total_raw_cost': float
+    - 'algorithm_metrics': Dict with keys:
+        - 'pruning_operations': int
+        - 'greedy_iterations': int
+        - 'feasibility_checks': int
+        - 'refinement_iterations': int
+        - 'routes_removed': int
+        - 'converged': bool
+    
+    Return empty dict {} if infeasible.
+    """
+    pass
+```
+
+---
+
+#### Sample Input/Output
+
+Input:
+```python
+variables = ["Route1", "Route2", "Route3"]
+clauses = [["Route1", "Route2"], ["Route2", "Route3"]]
+real_time_data = [["Route1", 10.0], ["Route2", 20.0], ["Route3", 15.0]]
+route_capacities = {"Route1": 100.0, "Route2": 50.0, "Route3": 75.0}
+route_emissions = {"Route1": 5.0, "Route2": 3.0, "Route3": 4.0}
+route_regions = {"Route1": "North", "Route2": "North", "Route3": "South"}
+region_min_capacity = {"North": 50.0, "South": 0.0}
+region_max_emissions = {"North": 10.0, "South": 10.0}
+route_penalty_factors = {"Route2": 0.5}
+total_budget = 30.0
+region_min_route_count = {"North": 1}
+```
+
+Output:
+```python
+{
+    'selected_routes': ['Route1', 'Route3'],
+    'total_adjusted_cost': 0.3,
+    'total_raw_cost': 25.0,
+    'algorithm_metrics': {
+        'pruning_operations': 2,
+        'greedy_iterations': 0,
+        'feasibility_checks': 4,
+        'refinement_iterations': 1,
+        'routes_removed': 0,
+        'converged': True
+    }
+}
+```
+
+Starter Code:
+```python
+from typing import List, Dict, Any
+import json
+def optimize_routes(
+    variables: List[str],
+    clauses: List[List[str]],
+    real_time_data: List[List[Any]],
+    route_capacities: Dict[str, float] = None,
+    route_emissions: Dict[str, float] = None,
+    route_regions: Dict[str, str] = None,
+    region_min_capacity: Dict[str, float] = None,
+    region_max_emissions: Dict[str, float] = None,
+    route_penalty_factors: Dict[str, float] = None,
+    total_budget: float = 0.0,
+    region_min_route_count: Dict[str, int] = None
+) -> Dict[str, Any]:
+    pass
+```

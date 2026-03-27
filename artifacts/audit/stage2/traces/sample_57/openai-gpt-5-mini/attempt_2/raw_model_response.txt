@@ -1,0 +1,428 @@
+from typing import Any, Dict, List, Optional, Tuple
+import math
+import copy
+
+def _zeros(m, n):
+    return [[0.0]*n for _ in range(m)]
+
+def _eye(n):
+    I = _zeros(n, n)
+    for i in range(n):
+        I[i][i] = 1.0
+    return I
+
+def _matmul(A, B):
+    if not A or not B: return []
+    m = len(A); p = len(A[0]); n = len(B[0])
+    C = _zeros(m, n)
+    for i in range(m):
+        for k in range(p):
+            aik = A[i][k]
+            if aik == 0.0: continue
+            for j in range(n):
+                C[i][j] += aik * B[k][j]
+    return C
+
+def _transpose(A):
+    if not A: return []
+    return [list(col) for col in zip(*A)]
+
+def _frobenius_norm(A):
+    s = 0.0
+    for row in A:
+        for v in row:
+            s += v*v
+    return math.sqrt(s)
+
+def _sub(A,B):
+    if not A or not B: return []
+    m = len(A); n = len(A[0])
+    C = _zeros(m,n)
+    for i in range(m):
+        for j in range(n):
+            C[i][j] = A[i][j] - B[i][j]
+    return C
+
+def _max_abs_lower_triangle(A):
+    if not A: return 0.0
+    m = len(A); n = len(A[0])
+    mx = 0.0
+    for i in range(m):
+        for j in range(min(i,n)):
+            v = abs(A[i][j])
+            if v > mx: mx = v
+    return mx
+
+def _round_mat(A, dp):
+    if A == []: return []
+    return [[round(v, dp) for v in row] for row in A]
+
+def _copy(A):
+    return copy.deepcopy(A)
+
+def _is_close(a,b,eps):
+    return abs(a-b) <= eps
+
+def _householder_qr(A, tol_rank=1e-12, diag_sign='nonnegative'):
+    # returns Q,R,rank
+    m = len(A)
+    n = len(A[0]) if m>0 else 0
+    if m==0 or n==0:
+        return [], [], 0
+    # Copy A into R
+    R = _copy(A)
+    Q = _eye(m)
+    rank = 0
+    for k in range(min(m,n)):
+        # compute norm of column k from k..m-1
+        sigma = 0.0
+        for i in range(k,m):
+            sigma += R[i][k]*R[i][k]
+        sigma = math.sqrt(sigma)
+        if sigma <= tol_rank:
+            # zero column, continue
+            # ensure column k below diag is zeroed
+            for i in range(k+1,m):
+                R[i][k] = 0.0
+            continue
+        # Householder vector
+        x0 = R[k][k]
+        sign = 1.0
+        if diag_sign == 'nonnegative':
+            if x0 < 0: sign = -1.0
+            else: sign = 1.0
+        else:
+            if x0 >= 0: sign = 1.0
+            else: sign = -1.0
+        alpha = -sign * sigma
+        # v = x - alpha*e1
+        v = [0.0]*m
+        v[k] = R[k][k] - alpha
+        for i in range(k+1,m):
+            v[i] = R[i][k]
+        # beta = v^T v
+        beta = 0.0
+        for i in range(k,m):
+            beta += v[i]*v[i]
+        if beta == 0.0:
+            continue
+        # apply to R: R = (I - 2 vv^T / beta) R
+        for j in range(k, n):
+            s = 0.0
+            for i in range(k,m):
+                s += v[i]*R[i][j]
+            s = (2.0*s)/beta
+            for i in range(k,m):
+                R[i][j] -= s * v[i]
+        # apply to Q: Q = Q (I - 2 vv^T / beta)
+        for i in range(m):
+            s = 0.0
+            for t in range(k,m):
+                s += Q[i][t]*v[t]
+            s = (2.0*s)/beta
+            for t in range(k,m):
+                Q[i][t] -= s * v[t]
+        rank += 1
+        # enforce exact zeros for stability
+        for i in range(k+1,m):
+            R[i][k] = 0.0
+    # enforce sign rule on diagonal of R: make diagonal nonnegative if requested
+    for i in range(min(m,n)):
+        if R[i][i] < 0.0 and diag_sign == 'nonnegative':
+            # flip column i of R and column i of Q
+            for j in range(n):
+                R[i][j] = -R[i][j]
+            for j in range(m):
+                Q[j][i] = -Q[j][i]
+    return Q, R, rank
+
+def _compute_metrics(Q,R,A,rank_tol):
+    # orth_error_2: ||Q^T Q - I||_2 approximated by spectral norm via power iteration on symmetric
+    m = len(Q)
+    if m==0:
+        return {'orth_error_2':0.0,'recon_rel_fro':0.0,'lower_triangle_max':0.0,'rank_estimate':0}
+    QtQ = _matmul(_transpose(Q), Q)
+    # subtract I
+    for i in range(len(QtQ)):
+        QtQ[i][i] -= 1.0
+    # approximate spectral norm of QtQ by power iteration
+    # convert to vector
+    n = len(QtQ)
+    b = [1.0]*n
+    # normalize
+    bn = math.sqrt(sum(x*x for x in b))
+    if bn==0: bn=1.0
+    b = [x/bn for x in b]
+    it = 8
+    for _ in range(it):
+        # y = A b
+        y = [0.0]*n
+        for i in range(n):
+            s = 0.0
+            row = QtQ[i]
+            for j in range(n):
+                s += row[j]*b[j]
+            y[i]=s
+        yn = math.sqrt(sum(x*x for x in y))
+        if yn==0:
+            break
+        b = [x/yn for x in y]
+    # Rayleigh quotient
+    Ab = [0.0]*n
+    for i in range(n):
+        s = 0.0
+        for j in range(n):
+            s += QtQ[i][j]*b[j]
+        Ab[i]=s
+    num = sum(b[i]*Ab[i] for i in range(n))
+    orth_err = abs(num)
+    # reconstruction error
+    AR = _matmul(Q, R)
+    diff = _sub(A, AR)
+    fro_diff = _frobenius_norm(diff)
+    fro_A = _frobenius_norm(A)
+    recon_rel = 0.0 if fro_A==0 else fro_diff / fro_A
+    lower_max = _max_abs_lower_triangle(R)
+    # rank estimate based on diagonal magnitude
+    rank_est = 0
+    diag = [abs(R[i][i]) for i in range(min(len(R), len(R[0])))]
+    for d in diag:
+        if d > rank_tol:
+            rank_est += 1
+    return {'orth_error_2': orth_err, 'recon_rel_fro': recon_rel, 'lower_triangle_max': lower_max, 'rank_estimate': rank_est}
+
+def qr_incremental_driver(steps: List[Dict[str, Any]],
+                          options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    opts = {
+        'round_dp': 4,
+        'diag_sign': 'nonnegative',
+        'reorth_epsilon': 5e-4,
+        'lower_tol': 1e-6,
+        'rank_tol': 1e-10,
+        'max_full_refactor': True
+    }
+    if options:
+        opts.update(options)
+    round_dp = opts['round_dp']
+    diag_sign = opts['diag_sign']
+    reorth_eps = opts['reorth_epsilon']
+    lower_tol = opts['lower_tol']
+    rank_tol = opts['rank_tol']
+    # state
+    state = {
+        'A': None,
+        'Q': None,
+        'R': None,
+        'rank': 0
+    }
+    checkpoint = None
+    transcript_steps = []
+    # used for equivalence checks: store final rounded Q,R per path index
+    path_results = []
+    # helper to record step
+    def record_step(entry):
+        transcript_steps.append(entry)
+    # helper to build fresh from matrix
+    def build_fresh(A):
+        Q,R,rank = _householder_qr(A, tol_rank=rank_tol, diag_sign=diag_sign)
+        return Q,R,rank
+    # iterate steps
+    for step in steps:
+        op = step.get('op')
+        entry: Dict[str, Any] = {}
+        entry['op'] = op
+        entry['reason'] = ''
+        entry['dirty_ranges_in'] = []
+        entry['recompute_from'] = None
+        entry['reused_prefix_cols'] = 0
+        entry['full_refactor'] = False
+        entry['flags'] = {'reorthogonalized': False,'checkpoint_used': False,'rollback': False,'reset': False}
+        entry['sign_convention_ok'] = True
+        entry['metrics'] = {'orth_error_2':0.0,'recon_rel_fro':0.0,'lower_triangle_max':0.0,'rank_estimate':0}
+        entry['Q'] = []
+        entry['R'] = []
+        entry['shape'] = [0,0]
+        if op == 'reset':
+            # clear state and mark
+            state = {'A': None,'Q': None,'R': None,'rank':0}
+            checkpoint = None
+            entry['reason'] = 'reset'
+            entry['flags']['reset'] = True
+            entry['shape'] = [0,0]
+            entry['full_refactor'] = False
+            record_step(entry)
+            continue
+        if op == 'set_matrix':
+            A_in = step.get('matrix', [])
+            # normalize to float matrix
+            A = [[float(x) for x in row] for row in A_in] if A_in else []
+            m = len(A); n = len(A[0]) if m>0 else 0
+            entry['shape'] = [m,n]
+            # Detect changes vs state['A']
+            dirty = []
+            recompute_from = None
+            reused = 0
+            full_refactor = False
+            reason = 'normal'
+            # if no prior matrix or shapes differ => fresh
+            if state['A'] is None or len(state['A'])==0:
+                # fresh build if matrix nonempty
+                if m==0 or n==0:
+                    # empty
+                    state['A'] = A
+                    state['Q'] = []
+                    state['R'] = []
+                    state['rank'] = 0
+                    full_refactor = False
+                    reason = 'fresh' if (m>0 and n>0) else 'empty'
+                    recompute_from = 0 if (m>0 and n>0) else None
+                    dirty = [[0,n]] if (m>0 and n>0) else []
+                else:
+                    full_refactor = True
+                    reason = 'fresh'
+                    recompute_from = 0
+                    dirty = [[0,n]]
+            else:
+                # compare entries to find first differing column
+                Aprev = state['A']
+                m0 = len(Aprev); n0 = len(Aprev[0]) if m0>0 else 0
+                if m!=m0 or n!=n0:
+                    full_refactor = True
+                    reason = 'shape change'
+                    recompute_from = 0
+                    dirty = [[0,n]]
+                else:
+                    # find first column index where any entry differs beyond rounding tolerance
+                    first_diff = None
+                    for j in range(n):
+                        col_diff = False
+                        for i in range(m):
+                            if not _is_close(A[i][j], Aprev[i][j], 1e-12):
+                                col_diff = True
+                                break
+                        if col_diff:
+                            first_diff = j
+                            break
+                    if first_diff is None:
+                        # identical
+                        dirty = []
+                        recompute_from = None
+                        reused = n
+                        full_refactor = False
+                        reason = 'identical'
+                    else:
+                        recompute_from = first_diff
+                        dirty = [[first_diff, n]]
+                        reused = first_diff
+                        full_refactor = False
+                        reason = 'normal'
+            entry['dirty_ranges_in'] = dirty
+            entry['recompute_from'] = recompute_from
+            entry['reused_prefix_cols'] = reused
+            entry['full_refactor'] = full_refactor
+            entry['reason'] = reason
+            # attempt update: if full_refactor or recompute_from==0 do fresh build
+            rollback_happened = False
+            used_checkpoint = False
+            try:
+                if full_refactor:
+                    if m==0 or n==0:
+                        Q = []
+                        R = []
+                        rank = 0
+                    else:
+                        Q,R,rank = build_fresh(A)
+                    state['A'] = _copy(A)
+                    state['Q'] = Q
+                    state['R'] = R
+                    state['rank'] = rank
+                elif recompute_from is None:
+                    # nothing changed -> reuse
+                    Q = state['Q']
+                    R = state['R']
+                    rank = state['rank']
+                else:
+                    # incremental: simple strategy: rebuild from recompute_from column onward using whole matrix
+                    # For robustness and determinism, we rebuild entire factorization but may claim reused prefix
+                    # However to honor reuse, if reused>0 we will take leading reused columns from previous Q,R
+                    # then re-factor remaining by fresh QR of remaining columns of A projected orthogonally.
+                    if reused == 0:
+                        # rebuild fresh for determinism
+                        Qnew,Rnew,rank = build_fresh(A)
+                        state['A'] = _copy(A)
+                        state['Q'] = Qnew
+                        state['R'] = Rnew
+                    else:
+                        # reuse prefix columns: take first reused columns of Q and R
+                        # compute residual columns and orthonormalize remaining via Gram-Schmidt against reused Qprefix
+                        Qprefix = [row[:reused] for row in state['Q']] if state['Q'] else []
+                        Rprefix_top = [row[:reused] for row in state['R']] if state['R'] else []
+                        # start with A projected: compute residuals = A[:,reused:]
+                        cols = n - reused
+                        if cols<=0:
+                            Qnew = state['Q']
+                            Rnew = state['R']
+                            rank = state['rank']
+                        else:
+                            # Build orthonormal basis for remaining columns by modified Gram-Schmidt against Qprefix
+                            # Start with residual matrix B = A[:,reused:]
+                            B = [[A[i][j] for j in range(reused,n)] for i in range(m)]
+                            # subtract projection onto Qprefix
+                            if Qprefix:
+                                Qt_prefix = _transpose(Qprefix)
+                                # proj = Qprefix * (Qprefix^T * B)
+                                tmp = _matmul(Qt_prefix, B)  # small
+                                proj = _matmul(Qprefix, tmp)
+                                for i in range(m):
+                                    for j in range(cols):
+                                        B[i][j] -= proj[i][j]
+                            # now do QR on B
+                            if all(all(abs(v) < 1e-16 for v in row) for row in B):
+                                # nothing new; keep prefix
+                                Qnew = Qprefix
+                                # R combine
+                                Rnew = _zeros(reused, n)
+                                # reconstruct Rnew properly: take old R
+                                Rnew = _copy(state['R'])
+                                rank = state['rank']
+                            else:
+                                Qb, Rb, rankb = _householder_qr(B, tol_rank=rank_tol, diag_sign=diag_sign)
+                                # combine Q = [Qprefix Qb] ; R assembled
+                                if Qprefix:
+                                    # pad Qb to m x k
+                                    Qnew = [qrow + brow for qrow,brow in zip(Qprefix, Qb)]
+                                else:
+                                    Qnew = Qb
+                                # assemble R: top-left reuse R_prefix (reused x reused), top-right new projection coefficients
+                                Rnew = _zeros(n, n)
+                                # fill upper blocks: first reused rows from old R
+                                if state['R']:
+                                    for i in range(len(state['R'])):
+                                        for j in range(len(state['R'][0])):
+                                            if i < reused:
+                                                Rnew[i][j] = state['R'][i][j]
+                                # fill new block: compute R coefficients between prefix and B: R12 = Qprefix^T * A[:,reused:]
+                                if Qprefix:
+                                    Qt_prefix = _transpose(Qprefix)
+                                    R12 = _matmul(Qt_prefix, [[A[i][j] for j in range(reused,n)] for i in range(m)])
+                                    for i in range(reused):
+                                        for j in range(reused, n):
+                                            Rnew[i][j] = R12[i][j-reused]
+                                # fill bottom-right with Rb
+                                for i in range(len(Rb)):
+                                    for j in range(len(Rb[0])):
+                                        Rnew[reused+i][reused+j] = Rb[i][j]
+                                rank = reused + rankb
+                            state['A'] = _copy(A)
+                            state['Q'] = Qnew
+                            state['R'] = Rnew
+                # compute metrics and check sign convention
+                Qc = state['Q'] if state['Q'] else []
+                Rc = state['R'] if state['R'] else []
+                metrics = _compute_metrics(Qc, Rc, A, rank_tol)
+                entry['metrics'] = metrics
+                # check sign rule on diagonal
+                sign_ok = True
+                for i in range(min(len(Rc), len(Rc[0]))):
+                    if diag_sign == 'nonnegative' and Rc[i][i] < -1e-12:
+                        sign_ok = False

@@ -1,0 +1,76 @@
+{
+  "id": "resp_0411305f410e10050069c322c98afc819fa8a0bbc5e8aabbc9",
+  "object": "response",
+  "created_at": 1774396105,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774396151,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0411305f410e10050069c322c9d3d0819fb1cd8e913cf7aa96",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0411305f410e10050069c322ca1234819f9e7269a8bad1874a",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Set\nfrom collections import defaultdict, deque\n\n# Simple segment tree for amounts (supports append and approximate percentile upper-bound)\nclass SegmentTree:\n    def __init__(self, capacity=1000):\n        self.capacity = max(1, capacity)\n        self.size = 0\n        # store amounts in a list for deterministic approximate percentile via bucketization\n        self.buckets = [0] * self.capacity\n        self.counts = [0] * self.capacity\n        self.total = 0\n\n    def _bucket_index(self, amount):\n        # deterministic mapping: logarithmic bucketing to cover wide ranges\n        # amounts normalized into capacity slots\n        import math\n        if amount <= 0:\n            return 0\n        exp = min(self.capacity - 1, int(math.log1p(amount) * 10))\n        return exp\n\n    def add(self, amount):\n        idx = self._bucket_index(amount)\n        self.counts[idx] += 1\n        self.total += 1\n        # maintain a representative max in bucket\n        self.buckets[idx] = max(self.buckets[idx], amount)\n        self.size += 1\n\n    def approx_upper_percentile(self, pct=0.9):\n        # return an approximate upper-bound for percentile (non-decreasing)\n        if self.total == 0:\n            return 0.0\n        target = max(1, int(self.total * pct))\n        s = 0\n        # scan buckets from high to low to get upper bound\n        for i in range(self.capacity - 1, -1, -1):\n            s += self.counts[i]\n            if s >= target:\n                return float(max(5000.0, self.buckets[i])) if self.buckets[i] > 0 else 5000.0\n        return 5000.0\n\ndef detect_fraudulent_activity(transaction_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:\n    if not transaction_data:\n        return []\n\n    # Build graph nodes and edges\n    nodes = {}  # account -> metadata\n    outgoing = defaultdict(list)  # sender -> list of edge indices\n    incoming = defaultdict(list)  # receiver -> list of edge indices\n    edges = []  # store edge dicts with index\n    seg = SegmentTree(capacity=1000)\n\n    # preserve original transactions\n    for tx in transaction_data:\n        amount = float(tx.get(\"amount\", 0.0))\n        seg.add(amount)\n\n    # helper to get account_type\n    def acct_type(tx_acct_type):\n        if not tx_acct_type:\n            return \"unknown\"\n        return tx_acct_type.lower()\n\n    # Build node metadata by scanning transactions in input order\n    for idx, tx in enumerate(transaction_data):\n        sid = tx.get(\"sender\")\n        rid = tx.get(\"receiver\")\n        amt = float(tx.get(\"amount\", 0.0))\n        ts = int(tx.get(\"timestamp\", 0))\n        region = tx.get(\"region\", None)\n        s_at = acct_type(tx.get(\"account_type\"))  # apply to both sender/receiver when creating nodes\n\n        for acc in (sid, rid):\n            if acc not in nodes:\n                nodes[acc] = {\n                    \"transaction_count\": 0,\n                    \"cumulative_amount\": 0.0,\n                    \"regions\": set(),\n                    \"connected\": set(),\n                    \"last_timestamp\": None,\n                    \"account_type\": s_at if acc in (sid, rid) else \"unknown\",\n                    \"incoming\": [],\n                    \"outgoing\": []\n                }\n        # update sender node\n        sn = nodes[sid]\n        sn[\"transaction_count\"] += 1\n        sn[\"cumulative_amount\"] += amt\n        if region:\n            sn[\"regions\"].add(region)\n        if rid:\n            sn[\"connected\"].add(rid)\n        sn[\"last_timestamp\"] = ts\n        sn[\"outgoing\"].append(idx)\n        # update receiver node\n        rn = nodes[rid]\n        rn[\"transaction_count\"] += 1\n        rn[\"cumulative_amount\"] += amt\n        if region:\n            rn[\"regions\"].add(region)\n        if sid:\n            rn[\"connected\"].add(sid)\n        rn[\"last_timestamp\"] = ts\n        rn[\"incoming\"].append(idx)\n\n        edge = {\n            \"idx\": idx,\n            \"transaction\": tx,\n            \"sender\": sid,\n            \"receiver\": rid,\n            \"amount\": amt,\n            \"timestamp\": ts,\n            \"region\": region,\n            \"account_type\": acct_type(tx.get(\"account_type\")),\n            \"S\": 0.0,\n            \"flags\": set()\n        }\n        edges.append(edge)\n        outgoing[sid].append(idx)\n        incoming[rid].append(idx)\n\n    # Compute node SI\n    for acc, meta in nodes.items():\n        SI = 0.0\n        if meta[\"transaction_count\"] > 10:\n            SI += 0.30\n        if meta[\"cumulative_amount\"] > 50000:\n            SI += 0.40\n        if len(meta[\"regions\"]) > 2:\n            SI += 0.20\n        if len(meta[\"connected\"]) > 5:\n            SI += 0.10\n        at = meta.get(\"account_type\", \"unknown\")\n        if at in (\"business\", \"corporate\"):\n            SI += 0.05\n        if at == \"new\":\n            SI += 0.15\n        meta[\"SI\"] = min(1.0, SI)\n\n    # Edge scoring S\n    P90_est = seg.approx_upper_percentile(0.9)\n    for e in edges:\n        S = 0.0\n        amt = e[\"amount\"]\n        sender = nodes.get(e[\"sender\"])\n        receiver = nodes.get(e[\"receiver\"])\n        if amt > 15000:\n            S += 0.40\n        if amt > max(P90_est, 5000.0):\n            S += 0.30\n        # cross-region if region not in sender's regions\n        if e[\"region\"] and sender and e[\"region\"] not in sender[\"regions\"] and amt > 2000:\n            S += 0.20\n            e[\"flags\"].add(\"cross_region\")\n        # rapid gap since sender's last <180s\n        last_ts = sender.get(\"last_timestamp\") if sender else None\n        # estimate last timestamp prior: use previous outgoing timestamps if available\n        gap = None\n        if sender:\n            # determine last outgoing prior to this transaction by scanning outgoing edges indices\n            prior_ts = None\n            for oi in outgoing.get(e[\"sender\"], []):\n                if oi == e[\"idx\"]:\n                    break\n                t = transaction_data[oi].get(\"timestamp\", None)\n                if t is not None:\n                    prior_ts = t\n            if prior_ts is not None:\n                gap = e[\"timestamp\"] - prior_ts\n        if gap is not None and gap < 180 and amt > 1000:\n            S += 0.30\n            e[\"flags\"].add(\"rapid\")\n        # sender.SI and receiver.SI\n        if sender and receiver and sender.get(\"SI\", 0.0) > 0.5 and receiver.get(\"SI\", 0.0) > 0.5 and amt > 2000:\n            S += 0.40\n        if e[\"account_type\"] in (\"new\", \"business\") and amt > 5000:\n            S += 0.20\n        e[\"S\"] = min(1.0, S)\n\n    # Other detectors independent of S\n    flagged_indices = []\n    flagged_set = set()\n\n    # High-value general and business/new rules, temporal anomalies, rapid succession, chain detection\n    for e in edges:\n        idx = e[\"idx\"]\n        amt = e[\"amount\"]\n        ts = e[\"timestamp\"]\n        # High-value general\n        if amt > 10000:\n            flagged_set.add(idx)\n            e[\"flags\"].add(\"high_value\")\n        # Business / new account per-transaction\n        if e[\"account_type\"] in (\"business\", \"new\") and amt > 5000:\n            flagged_set.add(idx)\n            e[\"flags\"].add(\"acct_type_high\")\n        # temporal anomaly: gap <60s for amounts >2000 between consecutive transactions of same account\n        sender = e[\"sender\"]\n        prior_ts = None\n        for oi in outgoing.get(sender, []):\n            if oi == idx:\n                break\n            prior_ts = transaction_data[oi].get(\"timestamp\", None)\n        if prior_ts is not None:\n            gap = ts - prior_ts\n            if gap < 60 and amt > 2000:\n                flagged_set.add(idx)\n                e[\"flags\"].add(\"temporal_anomaly\")\n            elif gap < 180 and amt > 1000:\n                flagged_set.add(idx)\n                e[\"flags\"].add(\"rapid_succession\")\n        # cross-region two-tier: signal >2000 and direct flag >5000\n        if e[\"region\"] and sender:\n            if e[\"region\"] not in nodes[sender][\"regions\"] and amt > 2000:\n                e[\"flags\"].add(\"cross_region_signal\")\n                if amt > 5000:\n                    flagged_set.add(idx)\n                    e[\"flags\"].add(\"cross_region_flag\")\n        # chain transactions: after receiving funds, account sends where amount >5000 and exceeds at least one prior incoming\n        recv = e[\"receiver\"]\n        # check if receiver later sends a transaction in later edges with amount >5000 - detect when processing that later edge\n        # (we will detect chain by scanning edges for pattern)\n    # Chain detection: look for pattern incoming then outgoing by same account within dataset\n    # For each receiver, check if they have prior incoming and later outgoing exceeding prior incoming\n    for acc, meta in nodes.items():\n        inc_idxs = meta.get(\"incoming\", [])\n        out_idxs = meta.get(\"outgoing\", [])\n        if not inc_idxs or not out_idxs:\n            continue\n        # sort indices for temporal order (they are already in input order)\n        for oi in out_idxs:\n            out_tx = transaction_data[oi]\n            out_amt = float(out_tx.get(\"amount\", 0.0))\n            if out_amt <= 5000:\n                continue\n            # check if there exists an incoming with smaller or equal timestamp and amount less than out_amt\n            for ii in inc_idxs:\n                in_tx = transaction_data[ii]\n                if in_tx.get(\"timestamp\", 0) <= out_tx.get(\"timestamp\", 0):\n                    if float(in_tx.get(\"amount\", 0.0)) < out_amt:\n                        flagged_set.add(oi)\n                        edges[oi][\"flags\"].add(\"chain\")\n                        break\n\n    # Build directed graph for SCC detection using edges\n    G = defaultdict(list)\n    for e in edges:\n        G[e[\"sender\"]].append(e[\"receiver\"])\n\n    # Tarjan's SCC\n    index = {}\n    lowlink = {}\n    index_counter = [0]\n    stack = []\n    onstack = set()\n    SCCs = []\n\n    def strongconnect(v):\n        index[v] = index_counter[0]\n        lowlink[v] = index_counter[0]\n        index_counter[0] += 1\n        stack.append(v)\n        onstack.add(v)\n        for w in G.get(v, []):\n            if w not in index:\n                if len(index) - list(index.values()).count(None) > 1000000:\n                    pass\n                strongconnect(w)\n                lowlink[v] = min(lowlink[v], lowlink[w])\n            elif w in onstack:\n                lowlink[v] = min(lowlink[v], index[w])\n        if lowlink[v] == index[v]:\n            comp = []\n            while True:\n                w = stack.pop()\n                onstack.remove(w)\n                comp.append(w)\n                if w == v:\n                    break\n            SCCs.append(comp)\n\n    for v in list(G.keys()):\n        if v not in index:\n            strongconnect(v)\n\n    # Only analyze non-trivial SCCs size >1\n    candidate_edge_indices = set()\n    for comp in SCCs:\n        if len(comp) <= 1:\n            continue\n        # collect edges internal to SCC\n        internal_edges = []\n        for e in edges:\n            if e[\"sender\"] in comp and e[\"receiver\"] in comp:\n                internal_edges.append(e)\n        # For SCC, evaluate simple paths length <=3 using bounded-depth DP (recursion depth <=3)\n        # We'll find all simple paths up to length 3 among nodes in comp using DFS with depth limit\n        nodes_in_comp = set(comp)\n        # Precompute adjacency with edge objects\n        adj_edges = defaultdict(list)\n        for e in internal_edges:\n            adj_edges[e[\"sender\"]].append(e)\n\n        # DFS bounded depth\n        paths = []\n        def dfs_path(u, depth, visited, path_edges):\n            if depth == 0:\n                return\n            for e in adj_edges.get(u, []):\n                v = e[\"receiver\"]\n                if v in visited:\n                    continue\n                new_path = path_edges + [e]\n                paths.append(new_path)\n                visited.add(v)\n                dfs_path(v, depth - 1, visited, new_path)\n                visited.remove(v)\n\n        for node in nodes_in_comp:\n            dfs_path(node, 3, set([node]), [])\n\n        # Aggregate suspiciousness for paths using edges with S > 0.6\n        for p in paths:\n            agg_S = 0.0\n            for e in p:\n                agg_S += e[\"S\"]\n            agg_S = agg_S / max(1, len(p))\n            if agg_S > 0.6:\n                for e in p:\n                    candidate_edge_indices.add(e[\"idx\"])\n\n    # Also include edges with S > 0.6 irrespective of SCC paths\n    for e in edges:\n        if e[\"S\"] > 0.6:\n            candidate_edge_indices.add(e[\"idx\"])\n\n    # Combine flagged_set and candidate_edge_indices and keep input order\n    final_flagged = []\n    already = set()\n    for idx, tx in enumerate(transaction_data):\n        if idx in flagged_set or idx in candidate_edge_indices:\n            if idx in already:\n                continue\n            out_tx = dict(tx)  # preserve original\n            out_tx[\"fraudulent\"] = True\n            final_flagged.append(out_tx)\n            already.add(idx)\n\n    # De-duplicate while preserving input order already ensured\n    return final_flagged"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2101,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 3095,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 5196
+  },
+  "user": null,
+  "metadata": {}
+}

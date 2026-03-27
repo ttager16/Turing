@@ -1,0 +1,125 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Narrative:
+
+In the ultra-competitive realm of high-frequency trading (HFT), every nanosecond counts. Trading firms require a multi-layered decision engine that can update market data, evaluate multiple tiers of trading signals, and dynamically adjust positions in real-time. Your task is to build a Python-based system that combines advanced bitmask manipulations with sophisticated data structures (such as Segment Trees or Trie-like state trackers) to handle thousands of simultaneous signals, employing concurrent evaluations and non-trivial optimization to achieve both minimal latency and high scalability. This system should orchestrate signal processing, market condition tracking, and optimized trade executions in near-microsecond intervals, ensuring fault tolerance and thread safety under extreme load.
+
+### Problem Statement:
+
+You must design a robust, low-latency HFT framework that integrates complex bitmask encoding with advanced data structures to aggregate and interpret trading signals. These signals should be organized into a hierarchical structure, such as a Segment Tree or Trie, efficiently mapping composite market conditions against incoming real-time data. The system should execute trades based on multi-step logic that accounts not only for the current snapshot of conditions but also for incremental or partial updates reflecting rapidly shifting market states. Your framework must manage the following real-world complexities:
+
+1. **Distributed Signal Tracking:** Signals arrive from multiple trade matching engines, each requiring synchronization without stepping on one another.
+2. **Dynamic State Updates:** New signals and partial modifications must propagate through the chosen data structures Segment Tree and Trie.
+3. **Concurrent Optimization:** Multiple threads or processes should collaborate on the same data structures without conflicts, employing advanced locking or lock-free algorithms to avoid race conditions.
+4. **Immediate Feedback Loops:** The system should instantly re-calculate or adjust open positions if an internal state change invalidates a prior condition—requiring partial segment recalculations or subtree merges.
+
+#### Objectives:
+
+1. **Advanced Bitmask Integration:**
+
+   - Encode nuanced combinations of signals and market conditions using bitmasks, including partial flags for sub-conditions.
+   - Ensure this encoding can be quickly interpreted inside data structures like Segment Trees and Trie nodes.
+
+2. **Data Structure Fusion:**
+
+   - Establish a hybrid approach (e.g., Segment Tree + Trie) for storing bitmasks, enabling rapid compound queries and incremental updates.
+   - Implement a concurrency mechanism (such as a lock-free or fine-grained locked approach) to manage these structures seamlessly across many threads.
+   - Segment Tree operations—both updates and queries—must maintain thread safety by employing fine-grained locks at each node.
+   - Each Segment Tree node should retain OR and AND aggregates for its interval, supporting inclusive range queries [l, r].
+   - The Bitset Trie uses hand-over-hand locking during insertions to ensure robustness, and best-match lookups should tolerate locks, always prioritizing a greedy traversal along the target bit path when possible.
+
+3. **Non-Trivial Trade Execution Logic:**
+
+   - Dynamically evaluate multi-layered constraints (e.g., total outstanding orders, real-time market volatility adjustments, partial fill conditions).
+   - Incorporate a mini-optimizer that selects the most favorable positions or partial trades, using fresh signals in a multi-step calculation.
+
+4. **Robust Fault Tolerance:**
+
+   - Design an exception-handling layer that can detect concurrency lock-ups, partial updates that fail mid-operation, or invalid states in the structure.
+   - Recover gracefully when errors occur, preventing system-wide crashes while preserving valid trades.
+
+5. **Full Python Solution Required:**
+   - The framework must be written entirely in Python without external libraries.
+
+#### Constraints:
+
+- The bit width shall be inferred as 1 + msb_index(max(trading_signals ∪ market_conditions)), with a minimum of 1.
+- Inputs `trading_signals` and `market_conditions` shall be lists of non-negative integers; the effective length shall be `n = min(len(trading_signals), len(market_conditions))`.
+- Decision scoring shall weight components as: overlap_s 0.45, overlap_m 0.20, match_overlap_m 0.20, breadth 0.10, consensus 0.05.
+- Action thresholds shall be: BUY ≥ 0.75; BUY_PARTIAL ≥ 0.55; SELL ≤ 0.15; SELL_PARTIAL ≤ 0.30; otherwise HOLD.
+- An immediate-feedback crowding penalty shall reduce scores by up to 0.20 based on open position count.
+- A post-pass moderation step shall, when BUYs exceed n/2, downgrade half with the lowest overlap_s to BUY_PARTIAL.
+- The output must be consistent and repeatable for identical inputs.
+- Determinism: Results must not depend on wall-clock timing, randomness, or thread scheduling. Use stable tie-breakers (e.g., by index) and avoid time-based deadlines.
+
+#### Function Signature:
+
+```python
+def hft_bitmask_framework(trading_signals: List[int], market_conditions: List[int]) -> List[str]:
+    """
+    Build and manage an advanced data structure for tracking multi-layered
+    bitmasks in a high-frequency trading environment, returning a list of
+    recommended trade actions.
+    """
+    pass
+```
+
+#### Sample Input/Output:
+
+**Input:**
+
+```python
+trading_signals = [
+    0b11111111,
+    0b11111110,
+    0b11110000,
+    0b11111100,
+    0b11111111,
+    0b00001111,
+    0b11001100,
+    0b10101010,
+    0b11110000,
+    0b10000000,
+]
+market_conditions = [
+    0b11111111,
+    0b11111100,
+    0b01111000,
+    0b00000001,
+    0b00000000,
+    0b00001100,
+    0b10101010,
+    0b01010101,
+    0b00110000,
+    0b00000001,
+]
+```
+
+**Output:**
+
+```python
+['BUY', 'BUY', 'BUY_PARTIAL', 'HOLD', 'SELL', 'BUY_PARTIAL', 'BUY_PARTIAL', 'SELL_PARTIAL', 'HOLD', 'HOLD']
+```
+
+#### Expected Output Format:
+
+The output should be a list of strings, each representing a recommended trade action. Possible actions include 'BUY', 'SELL', 'HOLD', 'BUY_PARTIAL', and 'SELL_PARTIAL' reflecting an intersection of the advanced bitmask and data structure evaluations.
+
+Starter Code:
+```python
+from typing import List, Optional, Tuple
+import threading
+import time
+import os
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
+
+def hft_bitmask_framework(trading_signals: List[int], market_conditions: List[int]) -> List[str]:
+    ...
+```

@@ -1,0 +1,76 @@
+{
+  "id": "resp_071dcf54fc00dedb0069c33305350881a2ac7934659d75d33b",
+  "object": "response",
+  "created_at": 1774400261,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774400273,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_071dcf54fc00dedb0069c333057f6c81a2894719a2ae581a5e",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_071dcf54fc00dedb0069c33305d65081a2bf478f6548bc92ee",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from collections import defaultdict, deque\n\ndef get_shortest_paths(graph: dict, source: str, updates: list[list[str]]) -> dict:\n    # Validation helpers\n    def is_valid_id(x):\n        return isinstance(x, str) and x.isdigit()\n    if not isinstance(graph, dict) or not is_valid_id(source) or not isinstance(updates, list):\n        return {}\n    for k, neigh in graph.items():\n        if not is_valid_id(k) or not isinstance(neigh, list):\n            return {}\n        for v in neigh:\n            if not is_valid_id(v):\n                return {}\n    for op in updates:\n        if not isinstance(op, list) or len(op) != 3:\n            return {}\n        act, u, v = op\n        if act not in (\"activate\", \"deactivate\") or not is_valid_id(u) or not is_valid_id(v):\n            return {}\n    if graph == {} and updates == []:\n        return {}\n\n    # Build adjacency symmetric, deduplicate, ignore self-loops\n    adj = defaultdict(set)\n    for u, neigh in graph.items():\n        for v in neigh:\n            if u == v:\n                continue\n            adj[u].add(v)\n            adj[v].add(u)\n    # ensure nodes from graph keys exist even if empty\n    for u in list(graph.keys()):\n        if u not in adj:\n            adj[u] = set(adj[u])\n\n    # Include nodes from updates (ensure present)\n    for op in updates:\n        _, u, v = op\n        if u == v:\n            continue\n        if u not in adj:\n            adj[u] = set()\n        if v not in adj:\n            adj[v] = set()\n\n    # Apply batch atomically: collect changes then apply\n    # process each op: self-loops and duplicate activates/deactivates are no-ops\n    for act, u, v in updates:\n        if u == v:\n            continue\n        if act == \"activate\":\n            adj[u].add(v)\n            adj[v].add(u)\n        else:  # deactivate\n            adj[u].discard(v)\n            adj[v].discard(u)\n\n    # Convert neighbor sets to sorted lists for deterministic traversal\n    for u in list(adj.keys()):\n        adj[u] = sorted(adj[u])\n\n    # Initial BFS from source with deterministic ordering\n    nodes = sorted(adj.keys())\n    dist = {u: -1 for u in nodes}\n    parent = {}  # parent mapping for tree edges\n    if source not in adj:\n        # source may be isolated node added by validation; ensure included\n        adj[source] = []\n        dist[source] = 0\n        nodes = sorted(adj.keys())\n    # BFS\n    q = deque()\n    dist[source] = 0\n    q.append(source)\n    while q:\n        # process current frontier level by level with lexicographic order\n        # collect current level\n        level = []\n        while q:\n            level.append(q.popleft())\n        level.sort()\n        next_nodes = []\n        for u in level:\n            for v in adj[u]:\n                if dist.get(v, -1) == -1:\n                    dist[v] = dist[u] + 1\n                    parent[v] = u\n                    next_nodes.append(v)\n                elif dist[v] == dist[u] + 1:\n                    # tie: choose lexicographically smallest parent\n                    if v in parent:\n                        if u < parent[v]:\n                            parent[v] = u\n                    else:\n                        parent[v] = u\n        for x in sorted(next_nodes):\n            q.append(x)\n\n    # After BFS, dist and parent reflect distances after atomic updates\n    # Return dict mapping all nodes seen in graph or updates to distances sorted by node id\n    result = {u: dist.get(u, -1) for u in sorted(nodes)}\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1322,
+    "input_tokens_details": {
+      "cached_tokens": 1280
+    },
+    "output_tokens": 822,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2144
+  },
+  "user": null,
+  "metadata": {}
+}

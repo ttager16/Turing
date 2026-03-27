@@ -1,0 +1,204 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+
+
+You are tasked with creating a Python function to solve a 2D maze puzzle. The objective is to find the shortest path from a starting point `'@'` to a final exit marked as `<DF>`. The input and output grids will be represented as a **list of lists of strings**, where each inner list is a row and each string is the content of a single cell.
+
+
+
+The maze is complicated by a system of locked doors and keys. To pass through a specific door, the corresponding key must first be collected. Accordingly, we need to find the a route which requires minimum steps considering the steps to fetch keys (if needed) to unlock doors occuring in the path to the final exit.
+
+
+
+
+
+
+The maze contains the following cell contents:
+
+* `'#'`: An impassable wall.
+
+* `'.'`: A walkable, empty space.
+
+* `'@'`: The starting position of the player (this is considered step 0).
+
+* `<DF>`: The final destination or "Final Door". The path is complete upon reaching this cell and unlocking the door with <KF>.
+
+* `<K#>`: A key, where `#` is a unique integer identifier (e.g., `<K0>`, `<K1>`).
+
+* `<D#>`: A locked door, where `#` is an integer identifier. A door `<D#>` can only be passed through if the corresponding key `<K#>` has been collected.
+
+
+
+### Constraints:
+
+
+
+* The grid will be rectangular, with dimensions between 3x3 and 50x50. If violated, return a Value Error with text "invalid input : wrong grid dimensions". 
+
+* The number of unique key/door pairs will be between 0 and 10(exclusive). If violated, return a Value Error with text "invalid input : violates key/door pair rule" 
+
+* There will be exactly one starting position `'@'`.If violated, return a Value Error with text "invalid input : number of starting positions must exactly be one".
+
+* The input grid cannot have multiple elements on a single cell. therefore, "@" and "<K0>" at same cell is not possible. If violated, return a Value Error with text "invalid input : single cell cannot have multiple elements".
+
+* There will be exactly one final door `<DF>`.If violated, return a Value Error with text "invalid input : exactly one final door required".
+
+* For every door `<D#>` present in the maze, a corresponding key `<K#>` will also be present and vice versa. This includes the DF as well (ie a key KF must also exist). This implies that a key without a door or a door without a key must not exist in valid grid. If violated, return a Value Error with text "invalid input : unique door/key pair violated".
+
+* The maze is enclosed by walls from all directions. If violated, return a Value Error with text "invalid input : maze not enclosed by walls in all directions".
+
+* Each door must mandatorily be present between two walls on opposite sides (either up and down, or left and right). If violated, return a Value Error with text "invalid input : special door rule violated"
+* We cannot pass through a door unless we have its corresponding key. However, we can step on it even without a key.
+
+* A key is picked up by simply visiting it.
+
+
+### Function Signature:
+
+
+
+```python
+
+def solve_maze_path_to_exit(grid: List[List[str]]) -> List[Any]:
+
+"""
+
+Finds the shortest path from a start '@' to a final door '<DF>' in a maze
+
+with keys and doors, annotating the path with step numbers.
+
+
+
+Args:
+
+grid (list[list[str]]): A list of lists of strings representing the maze layout.
+
+
+
+Returns:
+
+A list containing the solved maze grid with numbered steps and the
+
+minimum number of steps, or [None, -1] if the maze is unsolvable.
+
+"""
+
+```
+
+
+
+### Sample Input/Output:
+
+
+
+**Sample Input:**
+
+
+
+Note that the input is now a `list[list[str]]`.
+
+
+
+```pythonpuzzle = [
+
+["#", "#", "#", "#", "#", "#", "#", "#", "#", "#", "#"],
+
+["#", "@", ".", ".", ".", ".", ".", "#", ".", ".", "#"],
+
+["#", "<KF>", ".", ".", ".", "#", ".", ".", ".", ".", "#"],
+
+["#", "#", "#", "#", ".", "#", "#", "#", "#", ".", "#"],
+
+["#", "<DF>", ".", "#", ".", "#", ".", ".", ".", ".", "#"],
+
+["#", ".", ".", "<D0>", ".", "#", "<K0>", ".", ".", ".", "#"],
+
+["#", "#", "#", "#", "#", "#", "#", "#", "#", "#", "#"]
+
+]
+
+```
+
+
+
+**Corresponding Sample Output:**
+
+
+
+The output is also a list containing two elements. The first elements is the modified input grid containing the appended path and the second element is the number of steps taken.
+
+
+
+```python
+
+[
+
+[
+
+["#", "#", "#", "#", "#", "#", "#", "#", "#", "#", "#"],
+
+["#", "@,0", ".", ".", ".,5,29", ".,6,28", ".,7,27", "#", ".", ".", "#"],
+
+["#", "<KF>,1", ".,2", ".,3", ".,4,30", "#", ".,8,26", ".,9,25", ".,10,24", ".,11,23", "#"],
+
+["#", "#", "#", "#", ".,31", "#", "#", "#", "#", ".,12,22", "#"],
+
+["#", "<DF>,37", ".", "#", ".,32", "#", ".,18", ".,19", ".,20", ".,13,21", "#"],
+
+["#", ".,36", ".,35", "<D0>,34", ".,33", "#", "<K0>,17", ".,16", ".,15", ".,14", "#"],
+
+["#", "#", "#", "#", "#", "#", "#", "#", "#", "#", "#"]
+
+], # The path is such that it first picks up the key <KF>, but then since, DF is locked behind D0, it first prioritizes picking up K0, which it later uses to unlock D0 and then finally uses the KF to unlock the DF
+
+37
+
+]
+
+```
+
+
+
+### Expected Output Format:
+
+
+
+The function must return a `list` containing two elements:
+
+
+
+1. **Solved Maze (`list[list[str]]` or `None`):**
+
+* If a solution exists, this is a **deep copy** of the grid, with the cells of the shortest path modified as follows:
+
+* Each cell in the path is marked with its step number, starting with **0** for the `'@'` position.
+
+* If a cell's string already contained an element (`'@'`, `<DF>`, `<K#>`, `.` etc.), the step number is **appended** to the string with a preceding comma (e.g., `"@,0,2"`, `"<K0>,4"`, `"<DF>,9,10"`).
+
+* If no path to the final door `<DF>` exists, this element must be `None`.
+
+
+
+2. **Minimum Steps (`int`):**
+
+* If a solution exists, this is an `integer` representing the length of the shortest path (the step number on which `<DF>` is reached).
+
+* If the puzzle is unsolvable, this value must be `-1`.
+
+Starter Code:
+```python
+from collections import deque
+import re
+from typing import List, Tuple, Optional
+
+def solve_maze_path_to_exit(grid: List[List[str]]) -> Tuple[Optional[List[List[str]]], int]:
+```

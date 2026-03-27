@@ -1,0 +1,206 @@
+def __init__(self,l,r):
+        self.l=l;self.r=r
+        self.left=None;self.right=None
+        self.sum=0;self.mx=0;self.mn=0
+
+def build(arr,l,r):
+    node=Node(l,r)
+    if l==r:
+        v=arr[l]
+        node.sum=v;node.mx=v;node.mn=v
+    else:
+        m=(l+r)//2
+        node.left=build(arr,l,m)
+        node.right=build(arr,m+1,r)
+        pull(node)
+    return node
+
+def pull(node):
+    node.sum = node.left.sum + node.right.sum
+    node.mx = node.left.mx if node.left.mx>node.right.mx else node.right.mx
+    node.mn = node.left.mn if node.left.mn<node.right.mn else node.right.mn
+
+def point_update(node,idx,newval):
+    if node.l==node.r:
+        n=Node(node.l,node.r)
+        n.sum=newval; n.mx=newval; n.mn=newval
+        return n
+    n=Node(node.l,node.r)
+    m=(node.l+node.r)//2
+    if idx<=m:
+        n.left=point_update(node.left,idx,newval)
+        n.right=node.right
+    else:
+        n.left=node.left
+        n.right=point_update(node.right,idx,newval)
+    pull(n)
+    return n
+
+def range_update_apply(node,l,r,func):
+    # func receives old val returns new val; apply to each point in [l,r]
+    if node.r<l or node.l>r:
+        return node
+    if node.l==node.r:
+        old = node.sum
+        newv = func(old)
+        n=Node(node.l,node.r)
+        n.sum=newv; n.mx=newv; n.mn=newv
+        return n
+    n=Node(node.l,node.r)
+    n.left=range_update_apply(node.left,l,r,func)
+    n.right=range_update_apply(node.right,l,r,func)
+    pull(n)
+    return n
+
+def range_query(node,l,r,mode):
+    if node is None or node.r<l or node.l>r:
+        if mode=='sum': return 0
+        if mode=='max': return -10**18
+        if mode=='min': return 10**18
+    if l<=node.l and node.r<=r:
+        if mode=='sum': return node.sum
+        if mode=='max': return node.mx
+        if mode=='min': return node.mn
+    a=range_query(node.left,l,r,mode)
+    b=range_query(node.right,l,r,mode)
+    if mode=='sum': return a+b
+    if mode=='max': return a if a>b else b
+    if mode=='min': return a if a<b else b
+
+class VersionedUF:
+    def __init__(self,n):
+        self.par=[i for i in range(n)]
+        self.size=[1]*n
+        self.lock=Lock()
+    def copy(self):
+        new=VersionedUF(0)
+        new.par=self.par[:]
+        new.size=self.size[:]
+        new.lock=Lock()
+        return new
+    def find(self,x):
+        while self.par[x]!=x:
+            x=self.par[x]
+        return x
+    def union(self,a,b):
+        ra=self.find(a); rb=self.find(b)
+        if ra==rb: return
+        if self.size[ra]<self.size[rb]:
+            ra,rb=rb,ra
+        self.par[rb]=ra
+        self.size[ra]+=self.size[rb]
+    def unlink(self,x):
+        rx=self.find(x)
+        if rx==x: return
+        # make x singleton
+        self.par[x]=x
+        self.size[x]=1
+        # decrease size of old root
+        self.size[rx]-=1
+
+def ultra_advanced_risk_analytics(initial_data: List[int], queries: List[List]) -> List[int]:
+    n=len(initial_data)
+    if n==0:
+        res=[]
+        for q in queries:
+            if q[0] in ("range_query","group_query","version_count"):
+                res.append(0)
+        return res
+    roots=[build(initial_data,0,n-1)]
+    ufs=[VersionedUF(n)]
+    outputs=[]
+    for q in queries:
+        typ=q[0]
+        if typ=="update":
+            idx=q[1]; newv=q[2]
+            if not (0<=idx<n):
+                # duplicate last
+                roots.append(roots[-1]); ufs.append(ufs[-1].copy())
+                continue
+            curuf=ufs[-1].copy()
+            root=roots[-1]
+            # find group
+            r=curuf.find(idx)
+            # collect members
+            members=[i for i in range(n) if curuf.find(i)==r]
+            old_x = range_query(root,idx,idx,'sum')
+            if old_x==0:
+                # skip cascade, just set idx
+                newroot=point_update(root,idx,newv)
+                roots.append(newroot); ufs.append(curuf)
+                continue
+            ratio_num=newv; ratio_den=old_x
+            def func_factory(i):
+                def f(old):
+                    if i==idx:
+                        return newv
+                    return (old * ratio_num)//ratio_den
+                return f
+            newroot=root
+            for i in members:
+                newroot=range_update_apply(newroot,i,i,func_factory(i))
+            roots.append(newroot); ufs.append(curuf)
+        elif typ=="range_query":
+            s=q[1]; e=q[2]; mode=q[3]; ver=q[4]
+            if not (0<=ver<len(roots)) or s>e or s<0 or e>=n:
+                outputs.append(0); continue
+            if mode=='avg':
+                total=range_query(roots[ver],s,e,'sum')
+                cnt=e-s+1
+                outputs.append(total//cnt)
+            else:
+                outputs.append(range_query(roots[ver],s,e, 'sum' if mode=='sum' else ('max' if mode=='max' else 'min')))
+        elif typ=="link":
+            i,j=q[1],q[2]
+            if not (0<=i<n and 0<=j<n):
+                roots.append(roots[-1]); ufs.append(ufs[-1].copy()); continue
+            if i==j:
+                roots.append(roots[-1]); ufs.append(ufs[-1].copy()); continue
+            curuf=ufs[-1].copy()
+            curuf.union(i,j)
+            roots.append(roots[-1]); ufs.append(curuf)
+        elif typ=="unlink":
+            i=q[1]
+            if not (0<=i<n):
+                roots.append(roots[-1]); ufs.append(ufs[-1].copy()); continue
+            curuf=ufs[-1].copy()
+            curuf.unlink(i)
+            roots.append(roots[-1]); ufs.append(curuf)
+        elif typ=="conditional_update":
+            s=q[1]; e=q[2]; cond=q[3]; threshold=q[4]
+            if cond=="between":
+                upper=q[5]; newv=q[6]
+            else:
+                newv=q[5]
+            if s>e or s<0 or e>=n:
+                roots.append(roots[-1]); ufs.append(ufs[-1].copy()); continue
+            root=roots[-1]
+            def cond_func(val):
+                if cond=="gt": return val>threshold
+                if cond=="lt": return val<threshold
+                if cond=="eq": return val==threshold
+                if cond=="between": return threshold<=val<=upper
+                return False
+            def func(old):
+                return newv if cond_func(old) else old
+            newroot=range_update_apply(root,s,e,func)
+            roots.append(newroot); ufs.append(ufs[-1].copy())
+        elif typ=="group_query":
+            idx=q[1]; ver=q[2]
+            if not (0<=ver<len(roots)) or not (0<=idx<n):
+                outputs.append(0); continue
+            # need group at that version
+            uf=ufs[ver]
+            root=roots[ver]
+            r=uf.find(idx)
+            members=[i for i in range(n) if uf.find(i)==r]
+            s=0
+            for i in members:
+                s+=range_query(root,i,i,'sum')
+            outputs.append(s)
+        elif typ=="version_count":
+            outputs.append(len(roots))
+        else:
+            # unknown -> ignore
+            pass
+    return outputs

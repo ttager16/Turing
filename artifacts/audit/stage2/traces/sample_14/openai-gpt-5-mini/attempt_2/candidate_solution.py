@@ -1,0 +1,187 @@
+def allocate_minimum_sessions(
+    departments: List[List[int]],   # each item: [capacity, synergy_group, resource_id]
+    conflicts: List[List[int]],     # each item: [dept_idx1, dept_idx2]
+    session_capacity: int
+) -> int:
+    """
+    Determines the minimum number of colloquium sessions needed to accommodate
+    all departments while respecting synergy groups, conflicts, and resource constraints.
+    """
+    n = len(departments)
+    # Build synergy groups: map group id >0 to list of dept indices; group 0 are singletons
+    synergy_map: Dict[int, List[int]] = defaultdict(list)
+    for i, (_, g, _) in enumerate(departments):
+        synergy_map[g].append(i)
+    # Create super-nodes: each synergy group becomes a node
+    # group_key: use unique keys for each group; group 0 may have multiple singletons -> treat each as own node
+    node_of: Dict[int, int] = {}  # dept idx -> node id
+    nodes: List[Dict] = []  # each node: {'members': [...], 'capacity': int, 'resources': set()}
+    node_id = 0
+    for g, members in synergy_map.items():
+        if g == 0:
+            # each member separate node
+            for m in members:
+                cap, _, res = departments[m]
+                if cap > session_capacity:
+                    return -1
+                nodes.append({'members':[m], 'capacity':cap, 'resources': set([res]) if res!=0 else set()})
+                node_of[m] = node_id
+                node_id += 1
+        else:
+            # group must be together
+            total = 0
+            resset = set()
+            for m in members:
+                cap, _, res = departments[m]
+                total += cap
+                if res != 0:
+                    resset.add(res)
+                node_of[m] = node_id
+            if total > session_capacity:
+                return -1
+            # check internal conflicts inside group
+            nodes.append({'members':members.copy(), 'capacity':total, 'resources':resset})
+            node_id += 1
+    m = len(nodes)
+    # Build conflict graph between nodes
+    adj: List[Set[int]] = [set() for _ in range(m)]
+    for a, b in conflicts:
+        if a<0 or a>=n or b<0 or b>=n:
+            continue
+        na = node_of[a]
+        nb = node_of[b]
+        if na == nb:
+            # conflict inside same synergy group -> impossible
+            return -1
+        adj[na].add(nb)
+        adj[nb].add(na)
+    # Also resource conflicts: departments sharing same resource cannot be scheduled in parallel sessions.
+    # That translates to: nodes that both require a resource r cannot be in different sessions at the same time: 
+    # Actually requirement: "Departments requiring the same specialized resource cannot be scheduled in parallel sessions."
+    # Interpreting as resource can be used in only one session at a time -> nodes that share a resource cannot be scheduled in same time slot across different sessions? 
+    # For coloring (sessions are time slots), it's standard: nodes that share resource cannot be in different sessions simultaneously -> they must be all in the same session? 
+    # More reasonable: resource cannot be used simultaneously across multiple sessions -> any two nodes that require same resource cannot be placed in two different sessions at same time, meaning they must be assigned to the same session if they both need it. So we must merge nodes that share a resource.
+    # Merge nodes that share a nonzero resource id.
+    res_to_nodes: Dict[int, List[int]] = defaultdict(list)
+    for idx, node in enumerate(nodes):
+        for r in node['resources']:
+            res_to_nodes[r].append(idx)
+    # If any resource group contains nodes that collectively exceed session capacity, impossible unless split, but resource forces together, so check and merge
+    parent = list(range(m))
+    def find(x):
+        while parent[x]!=x:
+            parent[x]=parent[parent[x]]
+            x=parent[x]
+        return x
+    def union(a,b):
+        ra, rb = find(a), find(b)
+        if ra==rb: return
+        parent[rb]=ra
+    for r, lst in res_to_nodes.items():
+        for i in range(1, len(lst)):
+            union(lst[0], lst[i])
+    # Build merged nodes
+    comp_members: Dict[int, Set[int]] = defaultdict(set)
+    for i in range(m):
+        comp_members[find(i)].add(i)
+    new_nodes: List[Dict] = []
+    old_to_new = {}
+    for comp in comp_members.values():
+        members_nodes = sorted(comp)
+        merged_members = []
+        cap_sum = 0
+        resset = set()
+        for ni in members_nodes:
+            merged_members.extend(nodes[ni]['members'])
+            cap_sum += nodes[ni]['capacity']
+            resset |= nodes[ni]['resources']
+        if cap_sum > session_capacity:
+            return -1
+        new_id = len(new_nodes)
+        for ni in members_nodes:
+            old_to_new[ni]=new_id
+        new_nodes.append({'members':merged_members, 'capacity':cap_sum, 'resources':resset})
+    # Rebuild adjacency for new nodes: conflicts between any constituent nodes propagate
+    M = len(new_nodes)
+    new_adj: List[Set[int]] = [set() for _ in range(M)]
+    for i in range(m):
+        for j in adj[i]:
+            ni = old_to_new[i]
+            nj = old_to_new[j]
+            if ni==nj:
+                # conflict inside merged -> impossible
+                return -1
+            new_adj[ni].add(nj)
+            new_adj[nj].add(ni)
+    # Now we need to partition new_nodes into minimum number of sessions (colors) such that:
+    # - No edge (conflict) inside same session
+    # - Sum capacities in a session <= session_capacity
+    # This is bin-packing with conflicts; small n (<=100) but search needed.
+    items = [{'id':i, 'cap':new_nodes[i]['capacity'], 'deg':len(new_adj[i])} for i in range(M)]
+    # Quick lower bound: max clique size w.r.t conflicts is lower bound for colors; but computing clique is hard; use max degree+1 and capacity sum bound
+    total_cap = sum(it['cap'] for it in items)
+    lb = max(1, (total_cap + session_capacity -1)//session_capacity)
+    # order nodes by descending capacity and degree
+    items.sort(key=lambda x:(-x['cap'], -x['deg']))
+    order = [it['id'] for it in items]
+    # Try increasing number of sessions from lb to M
+    # Backtracking: assign each node to a session ensuring capacity and no conflict with others in same session
+    def feasible(k):
+        caps = [0]*k
+        assigned = [-1]*M
+        members_in_session = [set() for _ in range(k)]
+        # adjacency set for quick check
+        def backtrack(idx):
+            if idx==len(order):
+                return True
+            node = order[idx]
+            cap = new_nodes[node]['capacity']
+            # try sessions in heuristic order: least used capacity first
+            sess_order = list(range(k))
+            sess_order.sort(key=lambda s: caps[s])
+            for s in sess_order:
+                if caps[s]+cap>session_capacity:
+                    continue
+                conflict = False
+                for other in members_in_session[s]:
+                    if other in new_adj[node]:
+                        conflict = True
+                        break
+                if conflict:
+                    continue
+                # assign
+                caps[s]+=cap
+                members_in_session[s].add(node)
+                assigned[node]=s
+                # forward checking: for any unassigned node whose cap can't fit in any remaining session, prune
+                ok = True
+                for j in range(idx+1, len(order)):
+                    nj = order[j]
+                    if assigned[nj]!=-1: continue
+                    fits_some = False
+                    for ss in range(k):
+                        if caps[ss]+new_nodes[nj]['capacity']<=session_capacity:
+                            # also ensure no conflicts with members
+                            conflict2=False
+                            for other in members_in_session[ss]:
+                                if other in new_adj[nj]:
+                                    conflict2=True
+                                    break
+                            if not conflict2:
+                                fits_some = True
+                                break
+                    if not fits_some:
+                        ok = False
+                        break
+                if ok and backtrack(idx+1):
+                    return True
+                # undo
+                caps[s]-=cap
+                members_in_session[s].remove(node)
+                assigned[node]=-1
+            return False
+        return backtrack(0)
+    for k in range(lb, M+1):
+        if feasible(k):
+            return k
+    return -1

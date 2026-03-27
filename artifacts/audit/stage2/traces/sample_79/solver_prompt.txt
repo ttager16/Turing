@@ -1,0 +1,118 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+In a multi-regional securities environment, your task is to design a meldable priority queue in Python that merges and processes concurrent buy and sell order streams from multiple exchanges. Each exchange emits a sequence of unit orders with varying priority levels. The system must seamlessly meld these streams, apply price-based matching where possible, and output a globally ordered list of remaining orders once all eligible trades are executed.
+
+
+### Objectives
+
+1. **Meldable Structure (from scratch):**
+   Implement a Leftist Heap or Pairing Heap with the operations insert, meld, peek_min, and pop_min.
+   Use a consistent comparator per heap (one for the buy heap, one for the sell heap) and a single final comparator for global ordering so that merged heaps preserve consistent internal ordering.
+   Each operation should maintain approximately logarithmic complexity:
+   * insert, pop_min: O(log n) expected
+   * meld: O(1) amortized (for Pairing Heap) or O(log n) (for Leftist Heap)
+2. **Deterministic Global Ordering:**
+   Define the global output ordering key as
+   "key = (priority ASC, side ('buy'<'sell'), price_aggressiveness, arrival_index ASC)"
+   where:
+   * Buys are more aggressive at higher prices (−price in key).
+   * Sells are more aggressive at lower prices (+price in key).
+   * A monotonically increasing arrival_index (assigned as orders are ingested across all streams) ensures deterministic tie-breaking.
+   * Side tie-break rule: 'buy' < 'sell' (i.e., when priority is equal, buys come before sells before considering price).
+   * Arrival index assignment: Orders are assigned a strictly increasing arrival_index by iterating through order_streams in order (outer loop over streams, inner loop over orders within each stream). This produces a deterministic, stream-major ingestion sequence.
+
+3. **Matching Rule (unit-volume):**
+   Each order is a list [priority, side, price] representing a unit-volume order.
+   Maintain two global meldable heaps:
+   * A buy heap (max-heap by price; tiebreak by priority ASC then arrival_index ASC).
+   * A sell heap (min-heap by price; tiebreak by priority ASC then arrival_index ASC).
+   Execute a trade whenever best_buy.price >= best_sell.price, remove one order from each side per match.
+   When no further crossing is possible (max(buy.price) < min(sell.price)), stop matching.
+   The remaining orders from both heaps are combined and returned in global priority order using the same key.
+   *Implementation note:* the buy heap may be represented as a min-heap by storing (-price, priority, arrival_index) so that peek_min and pop_min remain consistent with the required interface.
+
+4. **Meld Flow (single-writer):**
+   Each exchange stream is first ingested into its own heap (buy and sell heaps separately).
+   All per-stream buy heaps are then melded into one global buy heap, and all per-stream sell heaps are melded into one global sell heap.
+   Matching and updates occur in a single-writer phase (conceptual only, no multithreading required) to maintain atomic updates during merges and pops.
+
+
+### Constraints
+
+* Must be implemented in pure Python (no external libraries allowed).
+* Each order transition (submission, match, removal) must be consistent within the single-writer merge/match phase.
+* Edge Cases:
+  * Out-of-sequence arrivals across streams are permitted.
+  * Orders that cannot cross remain in the final list, sorted by the global key.
+* Each order entry must be a list of length 3, any malformed entry causes the function to return [] immediately. If order_streams itself or any stream is not a list, return [] immediately.
+* priority must be an integer, any non-integer or missing value causes the function to return [] immediately.
+* side must be exactly 'buy' or 'sell', any other value causes the function to return [] immediately.
+* price must be a non-negative number (float), negative value cause the function to return [] immediately.
+* When order_streams is anything other than a list, return [] immediately.
+* When any stream inside order_streams is not a list, return [] immediately.
+* An entirely empty input (no streams or all streams empty) results in [].
+* Any invalid container structure or wrong-level nesting triggers an immediate return [].
+* Matching ends once the buy and sell heaps no longer cross, if all orders are matched away, the function return [].
+* The final result is always a sorted list of [priority, side, price] entries following the global ordering key.
+
+### Function Signature
+
+```python
+def meldable_priority_queue(order_streams: List[List]) -> List:
+    """
+    Merges multiple order streams of [priority, side, price] unit orders,
+    performs matching (buy vs sell), and returns remaining orders in global priority order.
+    """
+```
+
+
+### Sample Input
+
+```python
+order_streams = [
+    [[10, 'buy', 105.2], [25, 'sell', 106.0], [5, 'buy', 103.5]],
+    [[8,  'buy', 101.0], [2,  'sell', 109.5]],
+    [[15, 'sell', 104.3], [1,  'buy', 108.0]],
+    [[20, 'buy', 102.0], [18, 'sell', 110.0]]
+]
+```
+
+
+### Expected Output
+
+```python
+[
+    [2, 'sell', 109.5],
+    [5, 'buy', 103.5],
+    [8, 'buy', 101.0],
+    [10, 'buy', 105.2],
+    [18, 'sell', 110.0],
+    [20, 'buy', 102.0],
+    [25, 'sell', 106.0]
+]
+```
+
+
+### Explanation
+
+* Best buy [1, 'buy', 108.0] and best sell [15, 'sell', 104.3] satisfy 108.0 >= 104.3, so one trade occurs both are removed.
+* The next best buy [10, 'buy', 105.2] vs best sell [25, 'sell', 106.0] does not cross (105.2 < 106.0), so matching halts.
+* The final output lists all remaining unmatched orders, sorted by (priority ASC, side tie-break, price aggressiveness, arrival_index).
+
+Starter Code:
+```python
+from typing import List
+from decimal import Decimal, InvalidOperation
+
+def meldable_priority_queue(order_streams: List[List]) -> List:
+    pass
+```

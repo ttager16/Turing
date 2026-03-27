@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6sqH0ugBJnUmkcNjqwviA7ilQbd",
+  "object": "chat.completion",
+  "created": 1774400376,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[[0, 1, 2, 3, 4]]\",\"[[0, 0, 0, 0, 0]]\",\"0\"],\"focus\":\"Single-row (1xN) increasing fertility with all zero water costs and zero budget — tests handling of budget=0 and linear movement.\"},{\"input_lines\":[\"[[1, 2, 9], [2, 3, 8], [1, 4, 7]]\",\"[[5, 1, 1], [1, 5, 1], [1, 1, 1]]\",\"12\"],\"focus\":\"Small 3x3 with multiple competing increasing paths and differing water costs — checks deterministic tie-breaking and correct budget-feasible selection among equal-length paths.\"},{\"input_lines\":[\"[[10]]\",\"[[11]]\",\"10\"],\"focus\":\"Single-cell where the only cell's water cost exceeds the budget — tests that the function returns 0 when no feasible start exists.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2217,
+    "completion_tokens": 2082,
+    "total_tokens": 4299,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1856,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

@@ -1,0 +1,217 @@
+from typing import List, Dict, Set, Tuple
+from collections import defaultdict, deque
+import itertools
+
+def allocate_minimum_workshops(
+    workshop_slots: List[List[int]],
+    student_preferences: List[List[int]]
+) -> int:
+    """
+    Determine the minimum count of scheduled workshops that accommodates all students
+    under complex, multi-campus constraints.
+
+    :param workshop_slots: A list of lists: [campus_id, timeslot_index, capacity, instructor_id]
+    :param student_preferences: A list of lists, each containing workshop indices a student can attend.
+    :return: Minimum number of workshops needed, or -1 if impossible.
+    Raises ValueError on malformed input.
+    """
+    # Validate inputs
+    if not isinstance(workshop_slots, list) or not isinstance(student_preferences, list):
+        raise ValueError("Inputs must be lists.")
+    m = len(workshop_slots)
+    n = len(student_preferences)
+    for i, w in enumerate(workshop_slots):
+        if not (isinstance(w, list) or isinstance(w, tuple)) or len(w) < 4:
+            raise ValueError(f"Workshop at index {i} malformed; expected [campus, timeslot, capacity, instructor].")
+        campus, timeslot, capacity, instructor = w[0], w[1], w[2], w[3]
+        if not isinstance(campus, int) or not isinstance(timeslot, int) or not isinstance(capacity, int) or not isinstance(instructor, int):
+            raise ValueError(f"Workshop at index {i} has invalid field types.")
+        if capacity < 0:
+            raise ValueError(f"Workshop at index {i} has negative capacity.")
+    for i, prefs in enumerate(student_preferences):
+        if not isinstance(prefs, list):
+            raise ValueError(f"Preferences for student {i} must be a list.")
+        if len(prefs) == 0:
+            # cannot assign this student
+            return -1
+        for p in prefs:
+            if not isinstance(p, int) or p < 0 or p >= m:
+                raise ValueError(f"Student {i} has invalid workshop index {p} in preferences.")
+    # Precompute constraints: instructors limit number of workshops before penalty.
+    # Problem asks to minimize number of workshops; instructors can only conduct finite number before cost.
+    # We'll enforce that an instructor cannot be assigned more workshops than total workshops (no extra limit given).
+    # But to model instructor overload constraint, we treat instructor cannot be scheduled for two workshops in same timeslot.
+    # Also students cannot be scheduled into overlapping timeslots in different campuses in consecutive timeslots if timeslots numeric adjacency.
+    # We'll implement:
+    # - Instructor cannot teach two workshops that have identical timeslot.
+    # - Student cannot be assigned to two workshops (only one needed) so it's fine.
+    # The core task: choose subset of workshops minimal such that every student has at least one preferred workshop in subset and capacities suffice.
+    # This is NP-hard (set cover with capacities). We'll solve by binary search on number k of workshops and check feasibility via flow.
+    # Build flow: source -> students (1) -> workshop nodes (capacity per workshop) -> sink.
+    # But only include workshops in candidate subset. Also enforce instructor-time conflicts: if subset includes two workshops with same instructor and same timeslot, that subset is invalid.
+    # We'll check all subsets of workshops of size up to m with combination if m small; otherwise binary search over k with checking possible combinations via heuristic selection (choose all subsets of size k is infeasible for large m).
+    # To keep solution practical and deterministic within constraints, if m <= 20 we can try combinations; else we use greedy selection + flow to attempt feasibility and treat as approximate; but requirement needs exact.
+    # We'll enforce exact for m <= 20; for larger m we'll attempt incremental greedy + local search; if fails return -1.
+
+    # Build helper: max flow (Dinic)
+    class Dinic:
+        def __init__(self, N):
+            self.N = N
+            self.adj = [[] for _ in range(N)]
+        def add_edge(self, u, v, cap):
+            self.adj[u].append([v, cap, len(self.adj[v])])
+            self.adj[v].append([u, 0, len(self.adj[u]) - 1])
+        def max_flow(self, s, t):
+            flow = 0
+            N = self.N
+            while True:
+                level = [-1]*N
+                q = deque([s]); level[s]=0
+                while q:
+                    u=q.popleft()
+                    for v, cap, _ in self.adj[u]:
+                        if cap>0 and level[v]<0:
+                            level[v]=level[u]+1
+                            q.append(v)
+                if level[t]<0: break
+                it = [0]*N
+                def dfs(u, f):
+                    if u==t: return f
+                    for i in range(it[u], len(self.adj[u])):
+                        v, cap, rev = self.adj[u][i]
+                        if cap>0 and level[v]==level[u]+1:
+                            ret = dfs(v, min(f, cap))
+                            if ret>0:
+                                self.adj[u][i][1]-=ret
+                                self.adj[v][rev][1]+=ret
+                                return ret
+                        it[u]+=1
+                    return 0
+                while True:
+                    pushed = dfs(s, 10**9)
+                    if pushed==0: break
+                    flow+=pushed
+            return flow
+
+    # Prepare workshop properties
+    workshops = []
+    for w in workshop_slots:
+        workshops.append({
+            'campus': w[0],
+            'timeslot': w[1],
+            'capacity': w[2],
+            'instructor': w[3]
+        })
+
+    # Function to check if a given subset (list of indices) is feasible
+    def subset_feasible(indices: List[int]) -> bool:
+        # Instructor-time conflict
+        seen_inst_time = set()
+        for idx in indices:
+            inst = workshops[idx]['instructor']
+            ts = workshops[idx]['timeslot']
+            key = (inst, ts)
+            if key in seen_inst_time:
+                return False
+            seen_inst_time.add(key)
+        # Build flow
+        S = 0
+        student_offset = 1
+        W_offset = student_offset + n
+        T = W_offset + len(indices)
+        din = Dinic(T+1)
+        # source->students
+        for si in range(n):
+            din.add_edge(S, student_offset+si, 1)
+        # workshops: capacities
+        idx_to_pos = {idx: i for i, idx in enumerate(indices)}
+        for idx in indices:
+            pos = idx_to_pos[idx]
+            cap = workshops[idx]['capacity']
+            if cap < 0:
+                return False
+            din.add_edge(W_offset+pos, T, cap)
+        # student->workshop edges if preference and workshop in subset
+        for si, prefs in enumerate(student_preferences):
+            added = False
+            for p in prefs:
+                if p in idx_to_pos:
+                    # Additional check: student cannot be assigned to workshop that conflicts with their other assigned? since only one assignment per student, ok
+                    din.add_edge(student_offset+si, W_offset+idx_to_pos[p], 1)
+                    added = True
+            if not added:
+                return False  # student has no available workshop in subset
+        maxf = din.max_flow(S, T)
+        return maxf == n
+
+    # For small m, try exact: iterate k from 1..m and check combinations
+    if m <= 20:
+        for k in range(1, m+1):
+            # prune by total capacity: sum capacities of best k workshops must be >= n
+            caps = sorted([w['capacity'] for w in workshops], reverse=True)
+            if sum(caps[:k]) < n:
+                continue
+            for comb in itertools.combinations(range(m), k):
+                if subset_feasible(list(comb)):
+                    return k
+        return -1
+
+    # For larger m, attempt heuristic: greedy set cover style with capacities, and then try to minimize by removing redundant workshops
+    # Greedy: pick workshop that covers most uncovered students (respecting instructor-time conflicts and capacity)
+    student_uncovered = set(range(n))
+    selected = set()
+    inst_time_selected = set()
+    remaining_caps = {}
+    # Precompute students per workshop (who prefer it)
+    students_per_work = defaultdict(set)
+    for si, prefs in enumerate(student_preferences):
+        for p in prefs:
+            students_per_work[p].add(si)
+    while student_uncovered:
+        best = None
+        best_score = -1
+        for idx in range(m):
+            if idx in selected:
+                continue
+            inst_time = (workshops[idx]['instructor'], workshops[idx]['timeslot'])
+            if inst_time in inst_time_selected:
+                continue
+            # effective coverage is min(capacity, number of uncovered who prefer it)
+            cover = len(students_per_work[idx] & student_uncovered)
+            score = min(cover, workshops[idx]['capacity'])
+            if score > best_score:
+                best_score = score
+                best = idx
+        if best is None or best_score <= 0:
+            return -1
+        selected.add(best)
+        inst_time_selected.add((workshops[best]['instructor'], workshops[best]['timeslot']))
+        remaining_caps[best] = workshops[best]['capacity']
+        # assign greedily (reduce uncovered)
+        covered = sorted(list(students_per_work[best] & student_uncovered))
+        for si in covered[:remaining_caps[best]]:
+            if si in student_uncovered:
+                student_uncovered.remove(si)
+    # Now selected is a feasible set? Need to check via flow to ensure capacities suffice across multiple workshops
+    sel_list = sorted(selected)
+    if not subset_feasible(sel_list):
+        # try adding more workshops up to m
+        for idx in range(m):
+            if idx in selected: continue
+            selected.add(idx)
+            if subset_feasible(sorted(selected)):
+                break
+        if not subset_feasible(sorted(selected)):
+            return -1
+    # minimize by trying to remove redundant workshops
+    sel_list = sorted(selected)
+    reduced = set(sel_list)
+    changed = True
+    while changed:
+        changed = False
+        for idx in list(reduced):
+            trial = sorted(reduced - {idx})
+            if trial and subset_feasible(trial):
+                reduced.remove(idx)
+                changed = True
+    return len(reduced)

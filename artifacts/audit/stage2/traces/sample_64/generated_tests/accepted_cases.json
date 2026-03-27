@@ -1,0 +1,12 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[{\"id\": 4, \"type\": \"residential\", \"coordinates\": [[0, 0], [2, 0], [2, 2], [0, 2]], \"resources\": {\"water\": {\"capacity\": 50, \"routes\": [[[1, 1], [2, 1]]]}, \"roads\": {\"density\": 1, \"connections\": [[[0, 1], [2, 1]]]}}}, {\"id\": 8, \"type\": \"residential\", \"coordinates\": [[2, 2], [4, 2], [4, 4], [2, 4]], \"resources\": {\"water\": {\"capacity\": 50, \"routes\": [[[2, 2], [4, 3]]]}, \"roads\": {\"density\": 0, \"connections\": []}}}]",
+    "output_text": "[{\"id\": 402, \"type\": \"residential\", \"coordinates\": [[0, 0], [2, 0], [2, 2], [0, 2], [2, 2], [4, 2], [4, 4], [2, 4]], \"resources\": {\"water\": {\"capacity\": 100, \"routes\": [[[1, 1], [2, 1]], [[2, 2], [4, 3]]]}, \"roads\": {\"density\": 1, \"connections\": [[[0, 1], [2, 1]]]}}}]"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[{\"id\": 1, \"type\": \"park\", \"coordinates\": [[0, 0], [3, 0], [3, 3], [0, 3]], \"resources\": {\"water\": {\"capacity\": 60, \"routes\": [], \"max_water_capacity\": 100}, \"roads\": {\"density\": 1, \"connections\": [[[1, 0], [2, 0]]]}}}, {\"id\": 2, \"type\": \"park\", \"coordinates\": [[2, 0], [5, 0], [5, 3], [2, 3]], \"resources\": {\"water\": {\"capacity\": 50, \"routes\": []}, \"roads\": {\"density\": 2, \"connections\": [[[3, 0], [4, 0]]]}}}, {\"id\": 3, \"type\": \"park\", \"coordinates\": [[4, 0], [7, 0], [7, 3], [4, 3]], \"resources\": {\"water\": {\"capacity\": 30, \"routes\": []}, \"roads\": {\"density\": 1, \"connections\": [[[5, 0], [6, 0]]]}}}]",
+    "output_text": "[{\"id\": 101, \"type\": \"park\", \"coordinates\": [[0, 0], [3, 0], [3, 3], [0, 3]], \"resources\": {\"water\": {\"capacity\": 60, \"routes\": [], \"max_water_capacity\": 100}, \"roads\": {\"density\": 1, \"connections\": [[[1, 0], [2, 0]]]}}}, {\"id\": 202, \"type\": \"park\", \"coordinates\": [[2, 0], [5, 0], [5, 3], [2, 3], [4, 0], [7, 0], [7, 3], [4, 3]], \"resources\": {\"water\": {\"capacity\": 80, \"routes\": []}, \"roads\": {\"density\": 3, \"connections\": [[[3, 0], [4, 0]], [[5, 0], [6, 0]]]}}}]"
+  }
+]

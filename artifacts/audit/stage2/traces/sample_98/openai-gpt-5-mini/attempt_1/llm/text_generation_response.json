@@ -1,0 +1,76 @@
+{
+  "id": "resp_00b93d44c338a9e60069c333a13e5881a3a0d91fdf773779d9",
+  "object": "response",
+  "created_at": 1774400417,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774400444,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_00b93d44c338a9e60069c333a1b9d481a3aeee7546cffa69fb",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_00b93d44c338a9e60069c333a1f3cc81a3b6383bf54ac60f03",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\nfrom array import array\n\ndef max_synergy_path(matrix: List[List[int]], water_costs: List[List[int]], budget: int) -> int:\n    R = len(matrix)\n    if R == 0:\n        return 0\n    C = len(matrix[0])\n    N = R * C\n    MAX_F = 10000\n    # Build buckets of positions by fertility\n    buckets = [[] for _ in range(MAX_F + 1)]\n    for r in range(R):\n        row = matrix[r]\n        for c in range(C):\n            f = row[c]\n            buckets[f].append((r, c))\n    # Arrays: use array module with suitable types\n    # length: unsigned short (H) up to 100000 fits in I as well; use I\n    length_arr = array('I', [0]) * N\n    total_cost_arr = array('I', [0]) * N\n    start_fert_arr = array('I', [0]) * N\n    start_r_arr = array('I', [0]) * N\n    start_c_arr = array('I', [0]) * N\n    hash1_arr = array('Q', [0]) * N\n    hash2_arr = array('Q', [0]) * N\n    last_r_arr = array('I', [0]) * N\n    last_c_arr = array('I', [0]) * N\n    # Initialization: no states yet. We'll treat length==0 as empty.\n    # Constants for hash\n    BASE1 = 911382323\n    BASE2 = 972663749\n    MASK = (1 << 64) - 1\n    # Neighbor order: Right, Left, Down, Up\n    neigh_d = [(0,1),(0,-1),(1,0),(-1,0)]\n    # Helper to index\n    def idx(r,c):\n        return r*C + c\n    # Process in nondecreasing fertility\n    for fert in range(MAX_F + 1):\n        bucket = buckets[fert]\n        if not bucket:\n            continue\n        # For deterministic processing within same fertility, sort by row then col\n        bucket.sort()\n        # First, for each cell, consider starting new path at cell\n        for (r,c) in bucket:\n            i = idx(r,c)\n            cost = water_costs[r][c]\n            if cost <= budget:\n                length_arr[i] = 1\n                total_cost_arr[i] = cost\n                start_fert_arr[i] = matrix[r][c]\n                start_r_arr[i] = r\n                start_c_arr[i] = c\n                x = r*C + c\n                h1 = ( (0 * BASE1) + (x + 1) ) & MASK\n                h2 = ( (0 * BASE2) + (x + 1) ) & MASK\n                hash1_arr[i] = h1\n                hash2_arr[i] = h2\n                last_r_arr[i] = r\n                last_c_arr[i] = c\n            else:\n                # leave as zero-length (infeasible)\n                length_arr[i] = 0\n                total_cost_arr[i] = 0\n                start_fert_arr[i] = 0\n                start_r_arr[i] = 0\n                start_c_arr[i] = 0\n                hash1_arr[i] = 0\n                hash2_arr[i] = 0\n                last_r_arr[i] = 0\n                last_c_arr[i] = 0\n        # Then, for each cell in bucket, relax from neighbors with lower fertility (since edges from lower to higher)\n        # We need to consider neighbors in fixed order when iterating, but relaxations come from neighbors with strictly lower fertility.\n        # For deterministic behavior, iterate cells in bucket sorted order and neighbors in fixed order.\n        for (r,c) in bucket:\n            i_to = idx(r,c)\n            fert_to = matrix[r][c]\n            cost_to = water_costs[r][c]\n            best_len = length_arr[i_to]\n            best_cost = total_cost_arr[i_to]\n            best_start_fert = start_fert_arr[i_to]\n            best_start_r = start_r_arr[i_to]\n            best_start_c = start_c_arr[i_to]\n            best_h1 = hash1_arr[i_to]\n            best_h2 = hash2_arr[i_to]\n            best_last_r = last_r_arr[i_to]\n            best_last_c = last_c_arr[i_to]\n            # Consider each neighbor as predecessor (neighbor must have strictly smaller fertility)\n            for dr,dc in neigh_d:\n                nr = r + dr\n                nc = c + dc\n                if not (0 <= nr < R and 0 <= nc < C):\n                    continue\n                if matrix[nr][nc] >= fert_to:\n                    continue\n                j = idx(nr,nc)\n                Lj = length_arr[j]\n                if Lj == 0:\n                    continue\n                Cj = total_cost_arr[j]\n                new_cost = Cj + cost_to\n                if new_cost > budget:\n                    continue\n                # Build candidate state S\n                new_L = Lj + 1\n                new_C = new_cost\n                new_start_fert = start_fert_arr[j]\n                new_start_r = start_r_arr[j]\n                new_start_c = start_c_arr[j]\n                # compute new hashes: take existing hash and append this cell id\n                x = r*C + c\n                h1j = hash1_arr[j]\n                h2j = hash2_arr[j]\n                new_h1 = ((h1j * BASE1) + (x + 1)) & MASK\n                new_h2 = ((h2j * BASE2) + (x + 1)) & MASK\n                new_last_r = r\n                new_last_c = c\n                # Compare candidate with current best using dominance rules\n                replace = False\n                if best_len == 0:\n                    replace = True\n                else:\n                    if new_L > best_len:\n                        replace = True\n                    elif new_L == best_len:\n                        if new_C < best_cost:\n                            replace = True\n                        elif new_C == best_cost:\n                            # compare tuple (start_fert, start_r, start_c, h1, h2, last_r, last_c)\n                            t1 = (new_start_fert, new_start_r, new_start_c, new_h1, new_h2, new_last_r, new_last_c)\n                            t2 = (best_start_fert, best_start_r, best_start_c, best_h1, best_h2, best_last_r, best_last_c)\n                            if t1 < t2:\n                                replace = True\n                if replace:\n                    best_len = new_L\n                    best_cost = new_C\n                    best_start_fert = new_start_fert\n                    best_start_r = new_start_r\n                    best_start_c = new_start_c\n                    best_h1 = new_h1\n                    best_h2 = new_h2\n                    best_last_r = new_last_r\n                    best_last_c = new_last_c\n                    # write back\n                    length_arr[i_to] = best_len\n                    total_cost_arr[i_to] = best_cost\n                    start_fert_arr[i_to] = best_start_fert\n                    start_r_arr[i_to] = best_start_r\n                    start_c_arr[i_to] = best_start_c\n                    hash1_arr[i_to] = best_h1\n                    hash2_arr[i_to] = best_h2\n                    last_r_arr[i_to] = best_last_r\n                    last_c_arr[i_to] = best_last_c\n    # After processing all, find best among all cells (undominated by the tie-breakers)\n    best_overall_len = 0\n    best_overall_cost = 0\n    best_overall_start_fert = 0\n    best_overall_start_r = 0\n    best_overall_start_c = 0\n    best_overall_h1 = 0\n    best_overall_h2 = 0\n    best_overall_last_r = 0\n    best_overall_last_c = 0\n    for r in range(R):\n        for c in range(C):\n            i = idx(r,c)\n            L = length_arr[i]\n            if L == 0:\n                continue\n            Cc = total_cost_arr[i]\n            sf = start_fert_arr[i]\n            sr = start_r_arr[i]\n            sc = start_c_arr[i]\n            h1 = hash1_arr[i]\n            h2 = hash2_arr[i]\n            lr = last_r_arr[i]\n            lc = last_c_arr[i]\n            replace = False\n            if best_overall_len == 0:\n                replace = True\n            else:\n                if L > best_overall_len:\n                    replace = True\n                elif L == best_overall_len:\n                    if Cc < best_overall_cost:\n                        replace = True\n                    elif Cc == best_overall_cost:\n                        t1 = (sf, sr, sc, h1, h2, lr, lc)\n                        t2 = (best_overall_start_fert, best_overall_start_r, best_overall_start_c, best_overall_h1, best_overall_h2, best_overall_last_r, best_overall_last_c)\n                        if t1 < t2:\n                            replace = True\n            if replace:\n                best_overall_len = L\n                best_overall_cost = Cc\n                best_overall_start_fert = sf\n                best_overall_start_r = sr\n                best_overall_start_c = sc\n                best_overall_h1 = h1\n                best_overall_h2 = h2\n                best_overall_last_r = lr\n                best_overall_last_c = lc\n    return int(best_overall_len)"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1952,
+    "input_tokens_details": {
+      "cached_tokens": 1920
+    },
+    "output_tokens": 2103,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4055
+  },
+  "user": null,
+  "metadata": {}
+}

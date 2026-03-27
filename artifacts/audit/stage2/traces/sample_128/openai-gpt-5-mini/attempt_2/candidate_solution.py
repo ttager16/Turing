@@ -1,0 +1,266 @@
+def determine_tree_centers(trees: List[Dict[str, Any]]) -> List[int]:
+    # We'll maintain disjoint-set of districts. Each district stores:
+    # nodes set, adjacency (edge weights), node_weights, capacities, active set.
+    n_d = len(trees)
+    parent = list(range(n_d))
+    alive = [True] * n_d  # whether district still root/exists
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    # Data per root district
+    nodes_map = {}
+    adj_map = {}
+    node_weights_map = {}
+    capacity_map = {}
+    active_map = {}
+
+    # Initialize
+    for idx, t in enumerate(trees):
+        nodes = list(t.get("nodes", []))
+        nodes_map[idx] = set(nodes)
+        adj = defaultdict(dict)
+        for u, v, w in t.get("edges", []):
+            adj[u][v] = w
+            adj[v][u] = w
+        adj_map[idx] = adj
+        nw = {int(k): int(v) for k, v in t.get("node_weights", {}).items()}
+        cap = {int(k): int(v) for k, v in t.get("capacity", {}).items()}
+        node_weights_map[idx] = dict(nw)
+        capacity_map[idx] = dict(cap)
+        active_map[idx] = set(nodes)  # initially all active; activation event may refer to already active
+
+    # Apply events sequentially for each district; merges affect global structures
+    # We'll process events per district in input order; merges refer to district indices of original list.
+    # When merging, we unify sets and combine maps, and add connecting edge.
+    for idx, t in enumerate(trees):
+        events = t.get("events", [])
+        for ev in events:
+            if not ev:
+                continue
+            typ = ev[0]
+            root_idx = find(idx)
+            if typ == "deactivate_node":
+                node = ev[1]
+                if node in active_map[root_idx]:
+                    active_map[root_idx].discard(node)
+            elif typ == "activate_node":
+                node = ev[1]
+                active_map[root_idx].add(node)
+                # ensure node exists in structures (if node absent, add)
+                if node not in nodes_map[root_idx]:
+                    nodes_map[root_idx].add(node)
+                    node_weights_map[root_idx].setdefault(node, 1)
+                    capacity_map[root_idx].setdefault(node, 1)
+                    # no edges unless events add them
+            elif typ == "update_road":
+                u, v, neww = ev[1], ev[2], ev[3]
+                # find which root contains this edge
+                # It should be in root_idx adjacency if both nodes present, else search other roots
+                r = root_idx
+                if u not in adj_map[r] or v not in adj_map[r][u]:
+                    # search all roots (small number of events relative)
+                    for r2 in range(n_d):
+                        if find(r2) != r2:
+                            continue
+                        if u in adj_map[r2] and v in adj_map[r2][u]:
+                            r = r2
+                            break
+                # update if present
+                if u in adj_map[r] and v in adj_map[r][u]:
+                    adj_map[r][u][v] = neww
+                    adj_map[r][v][u] = neww
+            elif typ == "merge":
+                # ["merge", district_index_to_merge, merge_node_in_this_district, merge_node_in_other_district, connecting_edge_weight]
+                other_idx, my_node, other_node, w = ev[1], ev[2], ev[3], ev[4]
+                r1 = find(idx)
+                r2 = find(other_idx)
+                if r1 == r2:
+                    # already merged
+                    continue
+                # We'll merge r2 into r1 (keep r1 as root)
+                # Combine nodes, adj, weights, capacities, active
+                # ensure nodes exist in maps
+                # attach edge between my_node and other_node
+                # union
+                parent[r2] = r1
+                alive[r2] = False
+
+                # combine nodes
+                for n in nodes_map.get(r2, ()):
+                    nodes_map[r1].add(n)
+                # combine node_weights and capacities: if conflict, keep existing r1 values; else set defaults
+                for k, v in node_weights_map.get(r2, {}).items():
+                    node_weights_map[r1].setdefault(k, v)
+                for k, v in capacity_map.get(r2, {}).items():
+                    capacity_map[r1].setdefault(k, v)
+                # combine active
+                for n in active_map.get(r2, set()):
+                    active_map[r1].add(n)
+                # combine adjacencies
+                adj1 = adj_map[r1]
+                adj2 = adj_map[r2]
+                for u, neigh in adj2.items():
+                    if u not in adj1:
+                        adj1[u] = dict()
+                    for v, wt in neigh.items():
+                        adj1[u][v] = wt
+                # add connecting edge
+                adj1.setdefault(my_node, {})[other_node] = w
+                adj1.setdefault(other_node, {})[my_node] = w
+                # ensure nodes present
+                nodes_map[r1].add(my_node)
+                nodes_map[r1].add(other_node)
+                node_weights_map[r1].setdefault(my_node, 1)
+                node_weights_map[r1].setdefault(other_node, 1)
+                capacity_map[r1].setdefault(my_node, 1)
+                capacity_map[r1].setdefault(other_node, 1)
+                # cleanup r2 maps to save memory
+                adj_map[r2] = {}
+                nodes_map[r2] = set()
+                node_weights_map[r2] = {}
+                capacity_map[r2] = {}
+                active_map[r2] = set()
+
+    # After all events, compute optimal hub per surviving district root.
+    # For each root, we must consider only active nodes in its component.
+    # F(h) = sum_{i in V_active} T_i * d(h,i) / C_h
+    # For each candidate hub h (must be a node in the component and have capacity), compute sum of weighted distances.
+    # Efficient approach: for tree, we can compute all pair distances via one BFS per hub would be expensive.
+    # But sizes up to 10k per tree and events limited; we can for each component run multi-source to compute distances from a node using Dijkstra since weights small.
+    # We'll compute for each root: for each node h in nodes_map[root], run Dijkstra over tree once per h.
+    # To optimize, we instead compute single all-pairs by performing one tree DP to get sum of weighted distances for one root then rerooting.
+    # Implement tree DP: choose arbitrary root r0; compute subtree sums of traffic and subtree weighted distances.
+    # Then reroot to obtain total weighted distance for every node.
+    # Note that deactivated nodes are excluded from sums/distances (they don't contribute T_i). But distances still computed over topology: deactivated nodes are "removed" meaning their incident edges removed too.
+    # So we must build adjacency restricted to active nodes only.
+    results = [-1] * n_d
+
+    # For each current root (find unique roots)
+    roots = set(find(i) for i in range(n_d))
+    for r in roots:
+        if not alive[r]:
+            continue
+        nodes = nodes_map.get(r, set())
+        if not nodes:
+            # empty component
+            # find original index that is this root: pick smallest original index mapping to r
+            for i in range(n_d):
+                if find(i) == r:
+                    results[i] = -1
+            continue
+        active_nodes = set(active_map.get(r, set()))
+        # If no active nodes, cannot place hub; choose -1 for all constituent original districts
+        if not active_nodes:
+            for i in range(n_d):
+                if find(i) == r:
+                    results[i] = -1
+            continue
+        # Build adjacency restricted to active nodes
+        full_adj = adj_map.get(r, {})
+        adj = defaultdict(list)
+        for u in full_adj:
+            if u not in active_nodes:
+                continue
+            for v, w in full_adj[u].items():
+                if v in active_nodes:
+                    adj[u].append((v, w))
+        # The resulting structure should be a forest; but constraints guarantee tree after merges; deactivations may split into forest.
+        # We'll process each connected active component separately: hub must be within that connected active component; but definition D is district after deactivations V_active, so distances between components are infinite -> cannot reach. But we treat each component separately: if active nodes form multiple components, hub computed per component but district hub must be in some component minimizing overall F(h). Since unreachable nodes excluded (they are inactive), so each component independent. We'll compute per connected component.
+        visited = set()
+        # Precompute traffic weights for active nodes
+        tw = node_weights_map.get(r, {})
+        capmap = capacity_map.get(r, {})
+        # For each connected component, compute weighted distances reroot DP
+        # We'll gather candidates with their F(h)
+        best_node = None
+        best_value = None
+
+        for start in list(active_nodes):
+            if start in visited:
+                continue
+            # BFS to get nodes in this active component and build parent tree for DP
+            comp_nodes = []
+            parent_node = {}
+            parent_edge_w = {}
+            stack = [start]
+            visited.add(start)
+            parent_node[start] = None
+            parent_edge_w[start] = 0
+            while stack:
+                u = stack.pop()
+                comp_nodes.append(u)
+                for v, w in adj.get(u, []):
+                    if v not in visited:
+                        visited.add(v)
+                        parent_node[v] = u
+                        parent_edge_w[v] = w
+                        stack.append(v)
+            # Build rooted tree at start. Compute subtree traffic sums and subtree dist sums.
+            subtree_T = {}
+            subtree_dist = {}
+            order = []
+            # post-order
+            q = comp_nodes[:]
+            # create children lists
+            children = defaultdict(list)
+            for v in comp_nodes:
+                p = parent_node.get(v)
+                if p is not None:
+                    children[p].append(v)
+            # get postorder via stack
+            st = [start]
+            post = []
+            while st:
+                u = st.pop()
+                post.append(u)
+                for c in children.get(u, []):
+                    st.append(c)
+            for u in reversed(post):
+                T_u = tw.get(u, 0)
+                sT = T_u
+                sDist = 0
+                for c in children.get(u, []):
+                    sT += subtree_T[c]
+                    w = parent_edge_w[c]
+                    sDist += subtree_dist[c] + subtree_T[c] * w
+                subtree_T[u] = sT
+                subtree_dist[u] = sDist
+            totalT = subtree_T[start]
+            # Now reroot to compute total weighted distance for every node in component
+            total_dist = {}
+            # DFS
+            stack2 = [start]
+            total_dist[start] = subtree_dist[start]
+            while stack2:
+                u = stack2.pop()
+                for c in children.get(u, []):
+                    w = parent_edge_w[c]
+                    # moving root from u to c:
+                    # total_dist[c] = total_dist[u] - subtree_T[c]*w + (totalT - subtree_T[c])*w
+                    total_dist[c] = total_dist[u] - subtree_T[c] * w + (totalT - subtree_T[c]) * w
+                    stack2.append(c)
+            # For each node in component, compute F(h) = total_dist[h] / C_h
+            for h in comp_nodes:
+                C = capmap.get(h, 1)
+                val = total_dist.get(h, 0) / C
+                # tie-breaker smallest node id
+                if best_value is None or val < best_value or (abs(val - best_value) < 1e-12 and h < best_node):
+                    best_value = val
+                    best_node = h
+
+        # assign best_node to all original indices mapping to this root; other merged-in districts entries -1
+        for i in range(n_d):
+            if find(i) == r:
+                results[i] = best_node if i == r else -1
+        # ensure root index r gets the hub
+        results[r] = best_node
+
+    # For any indices that were merged into others, ensure -1
+    for i in range(n_d):
+        if find(i) != i:
+            results[i] = -1
+    return results

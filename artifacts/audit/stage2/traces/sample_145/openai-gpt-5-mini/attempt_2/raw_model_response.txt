@@ -1,0 +1,115 @@
+from typing import Dict, List, Tuple, Set, Optional
+import heapq
+
+def optimize_delivery_route(
+    graph: Dict[str, List[List[float]]],
+    fuel_stations: List[int],
+    vehicle_capacity: float,
+    fuel_consumption: float,
+    start: int,
+    destination: int,
+    inspections: List[int]
+) -> List[int]:
+    # Normalize graph keys to integers
+    int_graph = {}
+    for k, v in graph.items():
+        try:
+            ik = int(k)
+        except:
+            ik = int(float(k))
+        int_graph[ik] = [(int(dest), float(dist)) for dest, dist in v]
+
+    stations = set(fuel_stations)
+    inspections_set = set(inspections)
+
+    # Initial fuel is full
+    start_fuel = float(vehicle_capacity)
+
+    # State: (total_distance, node, remaining_fuel, inspections_done_bitmask)
+    # Map inspection nodes to bit positions
+    inspection_list = sorted(list(inspections_set))
+    inspect_index = {n: i for i, n in enumerate(inspection_list)}
+    all_inspected_mask = (1 << len(inspection_list)) - 1
+
+    # Priority queue
+    heap = []
+    # Start inspections mask: if start is an inspection and counts as done immediately
+    start_mask = 0
+    if start in inspect_index:
+        start_mask |= 1 << inspect_index[start]
+    # push (distance, node, remaining_fuel, inspections_mask)
+    heapq.heappush(heap, (0.0, start, start_fuel, start_mask))
+
+    # visited: (node, inspections_mask, floored_remaining_fuel_rounded) -> best distance
+    # To keep state manageable, quantize fuel to small epsilon, say 0.1 units
+    FUEL_EPS = 0.1
+    def quant_fuel(f):
+        return round(f / FUEL_EPS)  # integer
+
+    visited = dict()  # key -> distance
+    # parent to reconstruct: key -> (prev_key, prev_node)
+    parent = dict()
+
+    while heap:
+        dist, node, fuel, mask = heapq.heappop(heap)
+        key = (node, mask, quant_fuel(fuel))
+        prev_best = visited.get(key)
+        if prev_best is not None and dist > prev_best + 1e-9:
+            continue
+        visited[key] = dist
+
+        # If at destination and all inspections done -> reconstruct path
+        if node == destination and mask == all_inspected_mask:
+            # reconstruct
+            path = []
+            cur = key
+            while cur in parent or cur == key:
+                n, m, qf = cur
+                path.append(n)
+                if cur in parent:
+                    cur = parent[cur]
+                else:
+                    break
+            path.reverse()
+            return path
+
+        # Optionally refuel at current city if station exists: we allow refuel to full
+        # Also consider not refueling
+        possible_refuels = []
+        if node in stations:
+            # refuel to full
+            if fuel < vehicle_capacity - 1e-9:
+                possible_refuels.append(vehicle_capacity)
+        # always include current fuel (no refuel)
+        possible_refuels.append(fuel)
+
+        for fuel_after_refuel in possible_refuels:
+            # If refueled, update mask if inspection at same city counts upon stopping
+            mask_after_refuel = mask
+            if node in inspect_index:
+                mask_after_refuel |= 1 << inspect_index[node]
+
+            # Explore outgoing edges
+            for (nbr, d) in int_graph.get(node, []):
+                required = fuel_consumption * d
+                if required <= fuel_after_refuel + 1e-9:
+                    new_fuel = fuel_after_refuel - required
+                    new_mask = mask_after_refuel
+                    # Arriving at nbr may or may not trigger inspection immediately
+                    if nbr in inspect_index:
+                        new_mask |= 1 << inspect_index[nbr]
+
+                    new_dist = dist + d
+                    new_key = (nbr, new_mask, quant_fuel(new_fuel))
+                    prev = visited.get(new_key)
+                    if prev is None or new_dist + 1e-9 < prev:
+                        visited[new_key] = new_dist
+                        parent[new_key] = (node, mask, quant_fuel(fuel_after_refuel))
+                        # parent key points to the state before taking the edge:
+                        # (node, mask_after_refuel, quant_fuel(fuel_after_refuel))
+                        # But we stored as (node, mask, quant_fuel(fuel_after_refuel)) where mask is before refuel.
+                        # To allow consistent backtrack, better store exact parent key:
+                        parent[new_key] = (node, mask_after_refuel, quant_fuel(fuel_after_refuel))
+                        heapq.heappush(heap, (new_dist, nbr, new_fuel, new_mask))
+
+    return []

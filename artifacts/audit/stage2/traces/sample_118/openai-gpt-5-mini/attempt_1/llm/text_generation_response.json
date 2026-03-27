@@ -1,0 +1,76 @@
+{
+  "id": "resp_0d75b65d99709a460069c339eccfe081a1b5f1d33f731e2e14",
+  "object": "response",
+  "created_at": 1774402028,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774402054,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0d75b65d99709a460069c339ed157881a1a0f44fdec0881b56",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0d75b65d99709a460069c339ed4ec481a1918daa05bf653815",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List\nfrom collections import deque\n\ndef optimize_water_flow(\n    graph: Dict[str, List[List]],\n    source: str,\n    target: str,\n    capacity_changes: List[List]\n) -> int:\n    # Validation: types\n    if graph == {} and capacity_changes == []:\n        return 0\n    if not isinstance(graph, dict):\n        return 0\n    for k, v in graph.items():\n        if not isinstance(k, str):\n            return 0\n        if not isinstance(v, list):\n            return 0\n        seen_nei = set()\n        for item in v:\n            if not isinstance(item, list) or len(item) != 2:\n                return 0\n            nei, cap = item\n            if not isinstance(nei, str) or nei == \"\":\n                return 0\n            if not isinstance(cap, int) or cap < 0:\n                return 0\n            if nei in seen_nei:\n                return 0\n            seen_nei.add(nei)\n\n    # Validate updates format\n    if not isinstance(capacity_changes, list):\n        return 0\n    for upd in capacity_changes:\n        if not isinstance(upd, list) or len(upd) != 3:\n            return 0\n        u, v, delta = upd\n        if not isinstance(u, str) or u == \"\" or not isinstance(v, str) or v == \"\":\n            return 0\n        if not isinstance(delta, int):\n            return 0\n        if u == v:\n            return 0\n\n    if not isinstance(source, str) or not isinstance(target, str):\n        return 0\n\n    # Build initial edge map (sum duplicates across different lists allowed? spec forbids duplicates within same list only.\n    # But duplicates across graph keys? graph keys are nodes; edges are from node to neighbor; duplicates checked per list above.\n    edges = {}  # (u,v) -> cap\n    nodes = set(graph.keys())\n    for u, lst in graph.items():\n        nodes.add(u)\n        for nei, cap in lst:\n            nodes.add(nei)\n            if cap == 0:\n                continue\n            key = (u, nei)\n            if key in edges:\n                # duplicate edge across entries -> invalid\n                return 0\n            edges[key] = cap\n\n    # Apply updates sequentially\n    for upd in capacity_changes:\n        u, v, delta = upd\n        # self-loop handled above\n        key = (u, v)\n        if key in edges:\n            newcap = edges[key] + delta\n            if newcap < 0:\n                return 0\n            if newcap == 0:\n                del edges[key]\n            else:\n                edges[key] = newcap\n        else:\n            if delta < 0:\n                return 0\n            if delta == 0:\n                pass\n            else:\n                edges[key] = delta\n        nodes.add(u); nodes.add(v)\n\n    # After updates, drop zero caps already handled. Check duplicates: edges dict keys unique so ok.\n    # But need to ensure no duplicate edges remain: edges dict ensures single.\n\n    # Ensure source and target present and path exists\n    if source not in nodes or target not in nodes:\n        return 0\n\n    # Build adjacency list for residual graph representation indices mapping\n    node_list = sorted(list(nodes), key=lambda x: x)  # lexicographic string order\n    idx = {n: i for i, n in enumerate(node_list)}\n    N = len(node_list)\n\n    # Build initial capacity adjacency mapping\n    adj_init = {i: {} for i in range(N)}  # i -> {j: cap}\n    for (u, v), cap in edges.items():\n        if cap == 0:\n            continue\n        ui = idx[u]; vi = idx[v]\n        if vi in adj_init[ui]:\n            return 0\n        adj_init[ui][vi] = cap\n\n    # Connectivity check: simple BFS on directed graph using existing positive edges, expanding neighbors in lexicographic order\n    def reachable():\n        s = idx[source]; t = idx[target]\n        q = deque([s])\n        vis = [False]*N\n        vis[s] = True\n        while q:\n            cur = q.popleft()\n            if cur == t:\n                return True\n            # neighbors in lexicographic order by node id string\n            neighs = sorted(adj_init[cur].keys(), key=lambda x: node_list[x])\n            for nb in neighs:\n                if not vis[nb]:\n                    vis[nb] = True\n                    q.append(nb)\n        return False\n\n    if not reachable():\n        return 0\n\n    # Implement Edmonds-Karp but with deterministic tie-breaking:\n    # For each augmentation, find augmenting path with maximum possible bottleneck? Requirement: when multiple augmenting paths have equal bottleneck, choose lexicographically smallest full path.\n    # To satisfy deterministic selection, perform BFS layered search that finds all shortest (in edges) paths? But requirement is choose among equal bottleneck capacities. Simpler: repeatedly find, via modified BFS that prefers neighbors in lexicographic order, the path with maximum bottleneck using a variant of widest path (maximin) with lexicographic tie-break.\n    # We'll implement a deterministic widest-path search using modified Dijkstra (by capacity descending), using buckets via capacities since capacities are ints but could be large. Use priority queue with (-bottleneck, path_as_list_of_strings) to tie-break lexicographically smallest path.\n    import heapq\n\n    def find_augmenting_path(res_cap):\n        # res_cap: dict u->{v:cap}\n        s = idx[source]; t = idx[target]\n        # maximin best cap to each node and corresponding lexicographically smallest path achieving it\n        best = [(-1, None) for _ in range(N)]  # (cap, path as list of node strings)\n        pq = []\n        start_path = [node_list[s]]\n        best[s] = (10**30, start_path)\n        heapq.heappush(pq, (-best[s][0], start_path, s))\n        while pq:\n            negcap, path, u = heapq.heappop(pq)\n            cap_u = -negcap\n            # prune if worse than recorded\n            if best[u][0] != cap_u or best[u][1] != path:\n                continue\n            if u == t:\n                return cap_u, path\n            # expand neighbors in lexicographic order of node ids\n            neighs = sorted(res_cap.get(u, {}).keys(), key=lambda x: node_list[x])\n            for v in neighs:\n                c = res_cap[u][v]\n                if c <= 0:\n                    continue\n                bott = cap_u if cap_u < c else c\n                newpath = path + [node_list[v]]\n                prev_cap, prev_path = best[v]\n                replace = False\n                if bott > prev_cap:\n                    replace = True\n                elif bott == prev_cap and prev_path is not None:\n                    # choose lexicographically smaller full path (compare lists of strings)\n                    if newpath < prev_path:\n                        replace = True\n                elif prev_path is None:\n                    replace = True\n                if replace:\n                    best[v] = (bott, newpath)\n                    heapq.heappush(pq, (-bott, newpath, v))\n        return 0, None\n\n    # Build residual capacities dict\n    res_cap = {}\n    for u in range(N):\n        res_cap[u] = {}\n    for u, mapping in adj_init.items():\n        for v, c in mapping.items():\n            res_cap[u][v] = c\n    # reverse edges implicit with 0 capacity initially\n    flow = 0\n    while True:\n        cap_path, path_nodes = find_augmenting_path(res_cap)\n        if cap_path == 0 or path_nodes is None:\n            break\n        # convert path_nodes to indices\n        path_idx = [idx[n] for n in path_nodes]\n        # apply augmentation\n        f = cap_path\n        # ensure f is int\n        if not isinstance(f, int):\n            f = int(f)\n        for i in range(len(path_idx)-1):\n            u = path_idx[i]; v = path_idx[i+1]\n            res_cap[u][v] = res_cap[u].get(v, 0) - f\n            if res_cap[u][v] == 0:\n                # keep zero edges in residual as per residual semantics (but zero treated non-traversable)\n                res_cap[u][v] = 0\n            # add reverse\n            res_cap[v][u] = res_cap[v].get(u, 0) + f\n        flow += f\n\n    return flow"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1689,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1875,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3564
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,76 @@
+{
+  "id": "resp_03783a9ea332b67f0069c33444048c819e8d65d11df75218ff",
+  "object": "response",
+  "created_at": 1774400580,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774400606,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_03783a9ea332b67f0069c33445e944819e9b3e32bb0379055a",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_03783a9ea332b67f0069c3344612bc819ea5189ce602747e62",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List\nimport heapq\n\ndef find_graph_center(graph: Dict[str, List[List[int]]]) -> int:\n    INF = 10**30\n    # Validate top-level\n    if not isinstance(graph, dict) or len(graph) == 0:\n        return -1\n    # parse node ids: keys must be strings that are integers\n    nodes = {}\n    try:\n        for k in graph.keys():\n            if not isinstance(k, str):\n                return -1\n            ik = int(k)  # may raise\n            nodes[k] = ik\n    except Exception:\n        return -1\n    # build undirected deduped adjacency: dict[int] -> dict[int]->weight\n    adjmap = {}\n    for k, ik in nodes.items():\n        adjmap.setdefault(ik, {})\n    try:\n        for k, neighs in graph.items():\n            u = nodes[k]\n            if not isinstance(neighs, list):\n                return -1\n            for item in neighs:\n                if (not isinstance(item, list)) or len(item) != 2:\n                    return -1\n                v_raw, w = item\n                # neighbor id must be int (not string); spec says neighbor IDs that are not integers invalid\n                if not isinstance(v_raw, int):\n                    return -1\n                if not isinstance(w, int) or w < 0:\n                    return -1\n                v = v_raw\n                # ignore self-loops\n                if v == u:\n                    continue\n                # add nodes if not present yet\n                if v not in adjmap:\n                    adjmap.setdefault(v, {})\n                # undirected: keep min weight for unordered pair\n                prev = adjmap[u].get(v)\n                if prev is None or w < prev:\n                    adjmap[u][v] = w\n                prev2 = adjmap[v].get(u)\n                if prev2 is None or w < prev2:\n                    adjmap[v][u] = w\n    except Exception:\n        return -1\n    # now have adjmap. gather all node ids as ints\n    all_nodes = sorted(adjmap.keys())\n    if len(all_nodes) == 0:\n        return -1\n    # iterative DFS to label components\n    comp_of = {}\n    comps = []\n    visited = set()\n    for s in all_nodes:\n        if s in visited:\n            continue\n        stack = [s]\n        comp_nodes = []\n        visited.add(s)\n        while stack:\n            u = stack.pop()\n            comp_nodes.append(u)\n            for v in adjmap.get(u, {}).keys():\n                if v not in visited:\n                    visited.add(v)\n                    stack.append(v)\n        comps.append(sorted(comp_nodes))\n        for v in comp_nodes:\n            comp_of[v] = len(comps)-1\n    # determine if all singletons\n    singleton_flags = [1 if len(c)==1 else 0 for c in comps]\n    all_singletons = all(singleton_flags)\n    # function: unweighted iterative DFS farthest heuristic\n    def unweighted_farthest(start, comp_set):\n        stack = [start]\n        parent = {start: None}\n        order = []\n        while stack:\n            u = stack.pop()\n            order.append(u)\n            for v in adjmap.get(u, {}).keys():\n                if v in comp_set and v not in parent:\n                    parent[v] = u\n                    stack.append(v)\n        if not order:\n            return start\n        return order[-1]\n    # Dijkstra\n    def dijkstra(src, comp_set):\n        dist = {v: INF for v in comp_set}\n        dist[src] = 0\n        h = [(0, src)]\n        while h:\n            d,u = heapq.heappop(h)\n            if d != dist[u]:\n                continue\n            for v,w in adjmap.get(u, {}).items():\n                if v not in comp_set:\n                    continue\n                nd = d + w\n                if nd < dist[v]:\n                    dist[v] = nd\n                    heapq.heappush(h, (nd, v))\n        return dist\n    # For each component (non-singleton unless all singletons), pick candidates and evaluate with pruning\n    best_global = None  # tuple (ecc, node_id)\n    for comp in comps:\n        comp_set = set(comp)\n        if len(comp) == 1 and not all_singletons:\n            continue\n        # candidates: farthest heuristic a,b from arbitrary s\n        s = comp[0]\n        a = unweighted_farthest(s, comp_set)\n        b = unweighted_farthest(a, comp_set)\n        # highest-degree node and smallest-ID node\n        deg_node = comp[0]\n        maxdeg = -1\n        for v in comp:\n            deg = len(adjmap.get(v, {}))\n            if deg > maxdeg or (deg == maxdeg and v < deg_node):\n                maxdeg = deg\n                deg_node = v\n        smallest = min(comp)\n        candidates = {a, b, deg_node, smallest}\n        # bounds init\n        LB = {v: 0 for v in comp}\n        UB = {v: INF for v in comp}\n        evaluated = {}\n        current_best_ecc = INF\n        best_in_comp = None  # (ecc,node)\n        # run Dijkstra from each candidate in sequence, updating bounds and pruning nodes\n        for src in candidates:\n            dist = dijkstra(src, comp_set)\n            evaluated[src] = dist\n            # update LB/UB: ecc(v) >= dist_max_from_src - (max dist from src to any) ??? Landmark bounds:\n            # For source s, we know ecc(v) >= max_u dist(s,u) - dist(s,v)\n            # and ecc(v) <= max_u dist(s,u) + dist(s,v)\n            maxd_s = 0\n            for u in comp:\n                d = dist[u]\n                if d < INF and d > maxd_s:\n                    maxd_s = d\n            for v in comp:\n                dv = dist[v]\n                if dv >= INF:\n                    # disconnected within comp shouldn't happen\n                    continue\n                lb = maxd_s - dv\n                if lb > LB[v]:\n                    LB[v] = lb\n                ub = maxd_s + dv\n                if ub < UB[v]:\n                    UB[v] = ub\n            # update best_in_comp from source itself (we can compute its exact eccentricity if we have distances to all nodes finite)\n            # eccentricity of src given current dist as exact if we have distances from src to all nodes (we do)\n            ecc_src = max(dist[u] for u in comp if dist[u] < INF)\n            if ecc_src < current_best_ecc or (ecc_src == current_best_ecc and (best_in_comp is None or src < best_in_comp[1])):\n                current_best_ecc = ecc_src\n                best_in_comp = (ecc_src, src)\n            # prune candidates: check other nodes whose LB >= current_best_ecc skip full evaluation\n        # Now consider remaining promising nodes: those with LB < current_best_ecc\n        # We'll evaluate by running Dijkstra from them as needed, but avoid re-running for already evaluated nodes.\n        # Sort nodes by LB ascending, tie by smaller id to find potentially better centers earlier.\n        remaining = sorted(comp, key=lambda x: (LB[x], x))\n        for v in remaining:\n            if v in evaluated:\n                # we can compute ecc from existing dist map\n                distv = evaluated[v]\n                eccv = max(distv[u] for u in comp if distv[u] < INF)\n                if eccv < current_best_ecc or (eccv == current_best_ecc and v < best_in_comp[1]):\n                    current_best_ecc = eccv\n                    best_in_comp = (eccv, v)\n                continue\n            if LB[v] >= current_best_ecc:\n                continue\n            distv = dijkstra(v, comp_set)\n            evaluated[v] = distv\n            eccv = max(distv[u] for u in comp if distv[u] < INF)\n            # update bounds using this source\n            maxd_v = max(distv[u] for u in comp if distv[u] < INF)\n            for x in comp:\n                dx = distv[x]\n                lb = maxd_v - dx\n                if lb > LB[x]:\n                    LB[x] = lb\n                ub = maxd_v + dx\n                if ub < UB[x]:\n                    UB[x] = ub\n            if eccv < current_best_ecc or (eccv == current_best_ecc and v < best_in_comp[1]):\n                current_best_ecc = eccv\n                best_in_comp = (eccv, v)\n        if best_in_comp is None:\n            continue\n        # compare globally\n        if best_global is None or best_in_comp[0] < best_global[0] or (best_in_comp[0] == best_global[0] and best_in_comp[1] < best_global[1]):\n            best_global = best_in_comp\n    # If no non-singleton components considered (all singletons), return smallest node id\n    if best_global is None:\n        return min(all_nodes)\n    return best_global[1]"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1368,
+    "input_tokens_details": {
+      "cached_tokens": 1280
+    },
+    "output_tokens": 1978,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3346
+  },
+  "user": null,
+  "metadata": {}
+}

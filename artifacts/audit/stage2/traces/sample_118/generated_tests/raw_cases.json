@@ -1,0 +1,110 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "A": [
+          [
+            "B",
+            5
+          ]
+        ],
+        "B": [
+          [
+            "C",
+            5
+          ]
+        ],
+        "C": []
+      },
+      "A",
+      "C",
+      [
+        [
+          "B",
+          "B",
+          1
+        ]
+      ]
+    ],
+    "input_lines": [
+      "{\"A\": [[\"B\", 5]], \"B\": [[\"C\", 5]], \"C\": []}",
+      "\"A\"",
+      "\"C\"",
+      "[[\"B\", \"B\", 1]]"
+    ],
+    "focus": "Self-loop in capacity_changes should trigger immediate return 0 (validation of updates)."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {},
+      "X",
+      "Y",
+      [
+        [
+          "X",
+          "Y",
+          -2
+        ]
+      ]
+    ],
+    "input_lines": [
+      "{}",
+      "\"X\"",
+      "\"Y\"",
+      "[[\"X\", \"Y\", -2]]"
+    ],
+    "focus": "Empty initial graph with a negative delta for a non-existent edge — edge-creation negative delta must cause immediate return 0."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "S": [
+          [
+            "A",
+            5
+          ],
+          [
+            "B",
+            5
+          ],
+          [
+            "C",
+            0
+          ]
+        ],
+        "A": [
+          [
+            "T",
+            3
+          ]
+        ],
+        "B": [
+          [
+            "T",
+            3
+          ]
+        ],
+        "C": [
+          [
+            "T",
+            10
+          ]
+        ],
+        "T": []
+      },
+      "S",
+      "T",
+      []
+    ],
+    "input_lines": [
+      "{\"S\": [[\"A\", 5], [\"B\", 5], [\"C\", 0]], \"A\": [[\"T\", 3]], \"B\": [[\"T\", 3]], \"C\": [[\"T\", 10]], \"T\": []}",
+      "\"S\"",
+      "\"T\"",
+      "[]"
+    ],
+    "focus": "Tie-breaking and format sensitivity: initial 0-capacity edge ignored; two equal-capacity S->A->T and S->B->T paths require lexicographic traversal and path tie-breaking."
+  }
+]

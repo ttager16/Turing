@@ -1,0 +1,64 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        9000,
+        9000,
+        2500
+      ],
+      [
+        50,
+        45,
+        10
+      ],
+      162
+    ],
+    "input_lines": [
+      "[9000, 9000, 2500]",
+      "[50, 45, 10]",
+      "162"
+    ],
+    "focus": "adjacent_priority_regions_no_sharing_priority_can_share_with_non_priority_but_no_discount"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        1500,
+        3000,
+        1500
+      ],
+      [
+        10,
+        30,
+        10
+      ],
+      59
+    ],
+    "input_lines": [
+      "[1500, 3000, 1500]",
+      "[10, 30, 10]",
+      "59"
+    ],
+    "focus": "chain_constraint_blocks_overlapping_shares_dynamic_discount_edge_case"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        20000
+      ],
+      [
+        100
+      ],
+      170
+    ],
+    "input_lines": [
+      "[20000]",
+      "[100]",
+      "170"
+    ],
+    "focus": "single_region_exact_budget_priority_boundary_values"
+  }
+]

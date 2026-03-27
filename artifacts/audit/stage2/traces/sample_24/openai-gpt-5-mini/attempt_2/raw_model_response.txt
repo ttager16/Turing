@@ -1,0 +1,344 @@
+from typing import List, Dict, Any
+import copy
+import math
+import itertools
+import statistics
+
+STATE_ENERGY = [0, 1, 3, 5]  # off, standby, active, peak
+
+def get_state(bitmask: int, i: int) -> int:
+    return (bitmask >> (i * 2)) & 0b11
+
+def set_state(bitmask: int, i: int, s: int) -> int:
+    mask = ~(0b11 << (i * 2)) & 0xFFFFFFFF
+    return (bitmask & mask) | ((s & 0b11) << (i * 2))
+
+def zone_energy(bitmask: int, device_count: int) -> int:
+    e = 0
+    for i in range(device_count):
+        e += STATE_ENERGY[get_state(bitmask, i)]
+    return e
+
+def transition_cost(zone_idx: int, device_idx: int, from_s: int, to_s: int, transition_cost_matrices: List[List[List[List[int]]]]) -> int:
+    try:
+        return transition_cost_matrices[zone_idx][device_idx][from_s][to_s]
+    except Exception:
+        # default fallback
+        if from_s == to_s:
+            return 0
+        diff = abs(from_s - to_s)
+        if diff == 1:
+            return 1
+        if diff == 2:
+            return 3
+        return 5
+
+def apply_cascading_requirements(current_states: List[int], device_counts: List[int], cascading_map: Dict[tuple, List[tuple]]):
+    # iterative fixed-point
+    changed = True
+    while changed:
+        changed = False
+        for (z_from, d_from), targets in cascading_map.items():
+            s_from = get_state(current_states[z_from], d_from)
+            for (z_to, d_to) in targets:
+                required = max(1, s_from - 1) if s_from > 0 else 0
+                if required > get_state(current_states[z_to], d_to):
+                    current_states[z_to] = set_state(current_states[z_to], d_to, required)
+                    changed = True
+    return current_states
+
+def check_zone_internal_conflicts(zone_idx: int, cfg: Dict[str, Any]) -> bool:
+    # priority devices exceeding zone quota possibility detection: basic check
+    # If sum of minimal priority energies > energy_quota -> conflict
+    device_count = cfg.get('device_count', 16)
+    priority = cfg.get('priority_devices', {})
+    total_min = 0
+    for k, v in priority.items():
+        di = int(k)
+        if di < 0 or di >= device_count:
+            continue
+        total_min += STATE_ENERGY[v]
+    if total_min > cfg.get('energy_quota', 2**30):
+        return True
+    # sync group conflicts within zone checked externally
+    return False
+
+def optimize_smart_city_energy(
+    zone_states: List[int],
+    zone_configs: List[Dict[str, Any]],
+    grid_segments: List[Dict[str, Any]],
+    inter_zone_deps: List[List[int]],
+    weather_conditions: Dict[str, Any],
+    global_energy_limit: int,
+    mutual_exclusion_groups: List[List[List[int]]],
+    synchronization_groups: List[List[List[int]]],
+    cascading_propagation: List[List[int]],
+    transition_cost_matrices: List[List[List[int]]]
+) -> List[int]:
+    # Basic validation per-zone
+    zone_count = len(zone_states)
+    device_counts = [cfg.get('device_count', 16) for cfg in zone_configs]
+    for idx, cfg in enumerate(zone_configs):
+        if check_zone_internal_conflicts(idx, cfg):
+            # return -1 for that zone index per spec
+            res = [zs for zs in zone_states]
+            res[idx] = -1
+            return res
+
+    # Build maps
+    cascading_map = {}
+    for fr, df, toz, dto in cascading_propagation:
+        key = (fr, df)
+        cascading_map.setdefault(key, []).append((toz, dto))
+
+    inter_map = {}  # (zone,dev) -> list of (zone_b, dev_b, min_state)
+    for za, da, zb, minb in inter_zone_deps:
+        inter_map.setdefault((za, da), []).append((zb, da, minb))
+
+    weather_temp = weather_conditions.get('temperature', -9999)
+    weather_thresh = weather_conditions.get('high_temp_threshold', 999999)
+    weather_devices = weather_conditions.get('devices_affected', [])
+
+    # Precompute synchronization groups mapping
+    sync_groups = []
+    for grp in synchronization_groups:
+        sync_groups.append([tuple(x) for x in grp])
+
+    # mutual exclusion groups as list of tuples
+    mex_groups = []
+    for grp in mutual_exclusion_groups:
+        mex_groups.append([tuple(x) for x in grp])
+
+    # Grid segments mapping
+    segment_map = []
+    for seg in grid_segments:
+        segment_map.append({
+            'zones': seg.get('zones_in_segment', []),
+            'capacity': seg.get('segment_capacity', 0),
+            'load_balance_required': seg.get('load_balance_required', False)
+        })
+
+    # Generate candidate states per zone heuristically: reduce domain to small set per zone to limit search
+    # For each device we allow states 0..3 but prune by priority and weather and dependencies min
+    per_zone_candidates = []
+    for z in range(zone_count):
+        dc = device_counts[z]
+        base = zone_states[z]
+        cfg = zone_configs[z] if z < len(zone_configs) else {}
+        priority = {int(k): v for k, v in cfg.get('priority_devices', {}).items()}
+        # Build candidate bitmasks by iterating combinations but limit combinations:
+        # For each device allow only a small set: {priority_min, current, 0, maybe 3 if mutual_exclusion etc.}
+        device_options = []
+        for d in range(dc):
+            opts = set([0, get_state(base, d), 1, 2, 3])
+            if d in priority:
+                opts.update([priority[d]])
+            # weather
+            if weather_temp >= weather_thresh and [z, d] in weather_devices:
+                opts = {s for s in opts if s >= 2} or {2}
+            # clamp to 0..3
+            opts = sorted(s for s in opts if 0 <= s <= 3)
+            # limit options length
+            if len(opts) > 3:
+                # prefer preserving current and priority and low-energy
+                cur = get_state(base, d)
+                choices = {cur}
+                if d in priority:
+                    choices.add(priority[d])
+                choices.update(sorted(opts)[:2])
+                opts = sorted(list(choices))[:3]
+            device_options.append(opts)
+        # Build product but limit total candidates per zone to e.g., 32
+        candidates = []
+        for comb in itertools.islice(itertools.product(*device_options), 0, 64):
+            bm = 0
+            for di, s in enumerate(comb):
+                bm = set_state(bm, di, s)
+            # enforce zone priority minima
+            ok = True
+            for d, minv in priority.items():
+                if get_state(bm, d) < minv:
+                    ok = False
+                    break
+            if not ok:
+                continue
+            candidates.append(bm)
+        if not candidates:
+            # must at least include current
+            candidates = [base]
+        per_zone_candidates.append(candidates)
+
+    # Global search with backtracking across zones with pruning
+    best_solution = None
+    best_obj = float('inf')
+    best_balance = float('inf')
+
+    # Helper to compute full metrics
+    def evaluate_solution(states: List[int]):
+        # apply cascading fixed point
+        states_cp = states[:]
+        states_cp = apply_cascading_requirements(states_cp, device_counts, cascading_map)
+        # enforce inter-zone dependencies
+        for (za, da), lst in inter_map.items():
+            if get_state(states_cp[za], da) > 0:
+                for zb, db, minb in lst:
+                    if get_state(states_cp[zb], db) < minb:
+                        return None  # invalid
+        # enforce synchronization groups final uniformity
+        for grp in sync_groups:
+            target = None
+            for (z, d) in grp:
+                if target is None:
+                    target = get_state(states_cp[z], d)
+                elif get_state(states_cp[z], d) != target:
+                    return None
+        # enforce mutual exclusion groups: at most one peak
+        for grp in mex_groups:
+            peaks = 0
+            for (z, d) in grp:
+                if get_state(states_cp[z], d) == 3:
+                    peaks += 1
+            if peaks > 1:
+                return None
+        # zone quotas
+        for zi, cfg in enumerate(zone_configs):
+            quota = cfg.get('energy_quota', 2**30)
+            if zone_energy(states_cp[zi], device_counts[zi]) > quota:
+                return None
+        # grid segments capacities and load balance
+        seg_utils = []
+        for seg in segment_map:
+            total = sum(zone_energy(states_cp[z], device_counts[z]) for z in seg['zones'])
+            if total > seg['capacity']:
+                return None
+            seg_utils.append((total, seg['capacity'], seg['load_balance_required']))
+        # global energy
+        total_energy = sum(zone_energy(states_cp[z], device_counts[z]) for z in range(zone_count))
+        if total_energy > global_energy_limit:
+            return None
+        # load balancing constraint across segments where required: ensure max% - min% <=40% else invalid unless unavoidable
+        utils_pct = []
+        for total, cap, lb in seg_utils:
+            pct = (total / cap * 100) if cap > 0 else 0
+            utils_pct.append(pct)
+        if utils_pct:
+            maxp = max(utils_pct)
+            minp = min(utils_pct)
+            if any(seg['load_balance_required'] for seg in segment_map):
+                if maxp - minp > 40 + 1e-9:
+                    return None
+        # inter-zone dependencies already checked
+        # compute transition cost
+        tcost = 0
+        # compare to original zone_states
+        for z in range(zone_count):
+            for d in range(device_counts[z]):
+                from_s = get_state(zone_states[z], d)
+                to_s = get_state(states_cp[z], d)
+                tcost += transition_cost(z, d, from_s, to_s, transition_cost_matrices)
+        # energy
+        energy = total_energy
+        obj = 0.7 * energy + 0.3 * tcost
+        # compute stddev across segments utilization %
+        std = statistics.pstdev(utils_pct) if utils_pct else 0.0
+        return {'states': states_cp, 'obj': obj, 'energy': energy, 'tcost': tcost, 'std': std, 'utils_pct': utils_pct}
+
+    # Depth-first search across zones with branch-and-bound
+    stack = [ (0, [], 0) ]  # zone index, chosen states list, current_energy
+    while stack:
+        zi, chosen, curr_energy = stack.pop()
+        if zi == zone_count:
+            # evaluate full solution
+            sol = evaluate_solution(chosen)
+            if sol is None:
+                continue
+            obj = sol['obj']
+            std = sol['std']
+            if obj + 1e-9 < best_obj - 1e-9 or (abs(obj - best_obj) <= 0.01 and std < best_balance):
+                best_obj = obj
+                best_solution = sol['states']
+                best_balance = std
+            continue
+        # simple pruning: if current_energy already exceeds global limit -> prune
+        # minimal possible remaining energy estimate: sum of minimal energies per remaining zone
+        min_remain = 0
+        for zj in range(zi, zone_count):
+            # minimal energy among candidates
+            min_e = min(zone_energy(cand, device_counts[zj]) for cand in per_zone_candidates[zj])
+            min_remain += min_e
+        if curr_energy + min_remain > global_energy_limit:
+            continue
+        # iterate candidates for zone zi sorted by local energy then transition cost
+        cands = per_zone_candidates[zi]
+        ranked = []
+        for cand in cands:
+            ze = zone_energy(cand, device_counts[zi])
+            tcost = 0
+            for d in range(device_counts[zi]):
+                tcost += transition_cost(zi, d, get_state(zone_states[zi], d), get_state(cand, d), transition_cost_matrices)
+            local_obj = 0.7 * ze + 0.3 * tcost
+            ranked.append((local_obj, ze, cand))
+        ranked.sort(key=lambda x: x[0])
+        for _, ze, cand in ranked:
+            new_chosen = chosen + [cand]
+            new_energy = curr_energy + ze
+            # quick local checks: zone quota
+            quota = zone_configs[zi].get('energy_quota', 2**30)
+            if ze > quota:
+                continue
+            # check inter-zone immediate dependencies that can be checked (where this zone acts as dependent)
+            violated = False
+            # if some other earlier chosen zone has device that requires this zone device min state
+            for (za, da), lst in inter_map.items():
+                for zb, db, minb in lst:
+                    if zb == zi and za < zi:
+                        # earlier chosen
+                        if get_state(new_chosen[za], da) > 0:
+                            if get_state(cand, db) < minb:
+                                violated = True
+                                break
+                if violated:
+                    break
+            if violated:
+                continue
+            # synchronization groups partial check: if group spans earlier zones, ensure consistent choices possible
+            sync_violation = False
+            for grp in sync_groups:
+                # if any member chosen earlier and any member in current zone, they must be compatible
+                chosen_states = {}
+                for (zj, dj) in grp:
+                    if zj < zi:
+                        chosen_states[(zj, dj)] = get_state(new_chosen[zj], dj)
+                # if current zone in group and there is an assigned target, cand must match that target
+                for (zj, dj) in grp:
+                    if zj == zi and chosen_states:
+                        target = next(iter(chosen_states.values()))
+                        if get_state(cand, dj) != target:
+                            sync_violation = True
+                            break
+                if sync_violation:
+                    break
+            if sync_violation:
+                continue
+            # mutual exclusion partial: if multiple earlier peaks in group and cand also peak -> prune
+            mex_violation = False
+            for grp in mex_groups:
+                peaks = 0
+                for (zj, dj) in grp:
+                    if zj < zi:
+                        if get_state(new_chosen[zj], dj) == 3:
+                            peaks += 1
+                for (zj, dj) in grp:
+                    if zj == zi:
+                        if get_state(cand, dj) == 3:
+                            peaks += 1
+                if peaks > 1:
+                    mex_violation = True
+                    break
+            if mex_violation:
+                continue
+            # push next
+            stack.append((zi+1, new_chosen, new_energy))
+    if best_solution is None:
+        return []
+    return best_solution

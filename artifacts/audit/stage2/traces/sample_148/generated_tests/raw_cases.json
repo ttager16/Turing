@@ -1,0 +1,50 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      3,
+      [
+        1,
+        1,
+        1,
+        1
+      ]
+    ],
+    "input_lines": [
+      "3",
+      "[1, 1, 1, 1]"
+    ],
+    "focus": "4 successive 90° rotations on a 3x3 grid (points at -2,0,2) to exercise 4-cycle merging and rotational symmetry detection."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      4,
+      [
+        3
+      ]
+    ],
+    "input_lines": [
+      "4",
+      "[3]"
+    ],
+    "focus": "Projection to the real axis on a 4x4 grid (non-integer step) to stress snapping behavior and deduplication when imaginary parts collapse to nearest grid rows."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      6,
+      [
+        99,
+        0,
+        4,
+        1
+      ]
+    ],
+    "input_lines": [
+      "6",
+      "[99, 0, 4, 1]"
+    ],
+    "focus": "Mixed sequence with an invalid code leading the list, then conjugation, negation, and a rotation on a 6x6 grid to test ignoring invalid codes and nontrivial multi-step invariant clusters."
+  }
+]

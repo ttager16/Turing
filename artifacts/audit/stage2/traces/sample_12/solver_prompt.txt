@@ -1,0 +1,171 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### PROBLEM STATEMENT
+
+EA’s distributed multiplayer platform dynamically distributes players across several global regions. Each region hosts **alliances** of players, subject to both **local capacity limits** and **network synergy constraints** between neighboring regions.
+
+Each pair of neighboring regions has a **synergy limit**, which restricts the total number of their combined **regional alliances** to prevent traffic overload. When this limit is exceeded, the platform creates **cross-region alliances** that merge players from both regions.  
+
+Cross-region alliances:
+- Operate at **50% of the smaller region's capacity**.
+- **Do not count** toward synergy constraints.
+
+However, such reallocation changes regional alliance counts and can indirectly trigger new violations in other regions. The system therefore rebalances repeatedly until **all constraints are satisfied** or the configuration becomes **infeasible**.
+
+The goal is to compute the **minimum total number of alliances (regional + cross-region)** required to accommodate all players while satisfying every capacity and synergy constraint.  
+If no stable configuration exists, return **-1**.
+
+***
+
+### OBJECTIVES
+
+1. Compute each region’s **initial number of regional alliances**.
+2. Detect synergy violations and rebalance through **cross-region alliances**.
+3. Repeat adjustments until all constraints are satisfied or the system stagnates.
+4. Minimize the total number of alliances formed.
+5. Return the **final alliance count**, or **-1** if no feasible arrangement exists.
+
+***
+
+### REBALANCING ALGORITHM
+
+For each iteration:
+1. Identify all **synergy violations** where $$ A_a + A_b > limit $$.
+2. Sort violations in **descending order of excess** ($$ (A_a + A_b) - limit $$).
+3. For each violation:
+   - Reallocate players to **cross-region alliances** one step at a time.
+   - Choose moves that **minimize total alliances** (regional + cross-region) while resolving or over-resolving the violation.
+   - Recalculate all regional alliance counts before processing the next violation.
+4. Continue iterations until:
+   - No violation remains, or
+   - No alliances change during a full iteration (stagnation).
+
+All data structures must be **lists**.  
+**Tuples, sets, or external libraries are not allowed.**
+
+***
+
+### FORMULAS AND CONSTRAINTS
+
+- **Initial regional alliances**:
+  $$
+  A_i = \lceil \frac{players[i]}{constraints[i]} \rceil
+  $$
+
+- **Synergy constraint** for each pair [a, b, limit]:
+  $$
+  A_a + A_b \leq limit
+  $$
+
+- **Cross-region alliance capacity**:
+  $$
+  0.5 \times \min(constraints[a], constraints[b])
+  $$
+
+Cross-region alliances relieve both participating regions but are ignored in synergy checks.
+
+***
+
+### EDGE CASES
+
+1. **Zero-Player Regions:**  
+   If `players[i] = 0`, region i has no alliances but can still appear in synergy definitions.
+
+2. **Disconnected Regions:**  
+   Regions with no synergies are balanced independently.  
+   Their alliance counts contribute individually to the global total.
+
+3. **Zero Synergy Limit:**  
+   If `synergy_limit = 0` and both regions have players, all players must join cross-region alliances.  
+   If impossible, return **-1**.
+
+4. **Infeasible Capacity:**  
+   If a region’s players cannot be accommodated even after maximum cross-region formation, return **-1**.
+
+5. **Termination Conditions:**  
+   Iteration stops when:
+   - All synergy constraints are met, or
+   - No alliance count changes between iterations.
+
+***
+
+### INPUT AND OUTPUT
+
+**Function Signature**
+
+```python
+def allocate_minimum_alliances(players: List[int], constraints: List[int], synergies: List[List[int]]) -> int:
+```
+
+**Parameters**
+
+- `players[i]`: Number of players in region i.  
+- `constraints[i]`: Player capacity per alliance in region i.  
+- `synergies[j] = [region_a, region_b, synergy_limit]`: Constraint between two regions.
+
+**Returns**
+
+- The **minimum number of total alliances** (regional + cross-region).  
+- **-1** if no feasible configuration exists.
+
+***
+
+### EXAMPLE
+
+**Input**
+```python
+players = [1500, 1200, 900, 800, 600]
+constraints = [300, 300, 200, 400, 150]
+synergies = [
+    [0, 1, 7],
+    [1, 2, 5],
+    [2, 3, 4],
+    [0, 4, 3],
+    [3, 4, 4]
+]
+```
+
+**Output**
+```python
+33
+```
+
+**Explanation**
+
+- Initial alliances:
+  - Region 0 = 5, Region 1 = 4, Region 2 = 5, Region 3 = 2, Region 4 = 4  
+    Total = 20.
+- Violations detected:
+  - : 9>7 (excess 2)  
+  - : 9>5 (excess 4)  
+  - : 7>4 (excess 3)  
+  - : 9>3 (excess 6)  
+  - : 6>4 (excess 2)
+- Violations sorted:  (6),  (4),  (3),  (2),  (2)
+- Iterative rebalancing introduces cross-region alliances until all constraints stabilize.
+- Final configuration:  
+  - 10 regional alliances  
+  - 23 cross-region alliances  
+  - Total = 33.
+
+***
+
+Starter Code:
+```python
+import logging
+import math
+from typing import List, Dict
+def allocate_minimum_alliances(
+    players: List[int],
+    constraints: List[int],
+    synergies: List[List[int]]
+) -> int:
+   pass
+```

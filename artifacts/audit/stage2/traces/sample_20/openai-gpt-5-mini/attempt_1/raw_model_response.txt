@@ -1,0 +1,225 @@
+from typing import List, Dict, Any
+
+def analyze_retinal_patterns(pixel_matrix: List[List[int]], feature_templates: List[Dict], 
+                             diagnostic_masks: List[Dict], risk_factors: Dict) -> Dict[str, Any]:
+    # Validation helpers
+    def error(msg): 
+        return {"error": msg}
+    if not pixel_matrix or not any(pixel_matrix):
+        return error("Empty pixel matrix provided")
+    # matrix rectangularity
+    rows = len(pixel_matrix)
+    if rows < 1:
+        return error("Empty pixel matrix provided")
+    cols = None
+    for r in pixel_matrix:
+        if not isinstance(r, list):
+            return error("Invalid pixel matrix dimensions")
+        if cols is None:
+            cols = len(r)
+        elif len(r) != cols:
+            return error("Invalid pixel matrix dimensions")
+    if cols is None:
+        return error("Empty pixel matrix provided")
+    if rows < 8 or rows > 16 or cols < 8 or cols > 16:
+        return error("Invalid pixel matrix dimensions")
+    # validate pixels are ints 0-255
+    for i in range(rows):
+        for j in range(cols):
+            v = pixel_matrix[i][j]
+            if not isinstance(v, int) or v < 0 or v > 255:
+                return error("Input is not valid")
+    # validate templates
+    for t in feature_templates:
+        if 'template_id' not in t or 'pattern_mask' not in t or 'feature_weight' not in t or 'correlation_threshold' not in t:
+            return error("Input is not valid")
+        tid = t['template_id']
+        pm = t['pattern_mask']
+        fw = t['feature_weight']
+        ct = t['correlation_threshold']
+        if not isinstance(pm, int) or pm < 0 or pm > 255:
+            return error(f"Invalid pattern mask value for template {tid}")
+        if not (isinstance(fw, (int,float)) and 0.1 <= fw <= 2.0):
+            return error(f"Feature weight out of range for template {tid}")
+        if not (isinstance(ct, (int,float)) and 0.3 <= ct <= 0.9):
+            return error(f"Correlation threshold invalid for template {tid}")
+    # validate diagnostic_masks
+    for m in diagnostic_masks:
+        if 'mask_id' not in m or 'region_coordinates' not in m or 'severity_modifier' not in m or 'analysis_priority' not in m:
+            return error("Input is not valid")
+        mid = m['mask_id']
+        coords = m['region_coordinates']
+        if not isinstance(coords, list) or not coords:
+            return error("Input is not valid")
+        for c in coords:
+            if (not isinstance(c, list)) or len(c) != 2:
+                return error("Input is not valid")
+            r,c0 = c
+            if not (isinstance(r,int) and isinstance(c0,int)):
+                return error("Input is not valid")
+            if r < 0 or r >= rows or c0 < 0 or c0 >= cols:
+                return error(f"Region coordinates exceed matrix bounds for mask {mid}")
+        sm = m['severity_modifier']
+        if not isinstance(sm,(int,float)):
+            return error("Input is not valid")
+    # validate risk_factors
+    rf = risk_factors
+    required_rf = ['patient_age_group','genetic_predisposition','environmental_exposure','previous_diagnosis_history']
+    for k in required_rf:
+        if k not in rf:
+            return error("Invalid risk factor values detected")
+    pag = rf['patient_age_group']
+    gp = rf['genetic_predisposition']
+    ee = rf['environmental_exposure']
+    pdh = rf['previous_diagnosis_history']
+    if not (isinstance(pag,int) and 1 <= pag <= 5):
+        return error("Invalid risk factor values detected")
+    if not (isinstance(gp,(int,float)) and 0.0 <= gp <= 1.0):
+        return error("Invalid risk factor values detected")
+    if not (isinstance(ee,(int,float)) and 0.0 <= ee <= 1.0):
+        return error("Invalid risk factor values detected")
+    if not (isinstance(pdh,(int,float)) and 0.0 <= pdh <= 1.0):
+        return error("Invalid risk factor values detected")
+    # deterministic ordering
+    templates = sorted(feature_templates, key=lambda x: x['template_id'])
+    masks = sorted(diagnostic_masks, key=lambda x: x['mask_id'])
+    # precompute region stats for max_possible_score
+    max_region_pixel_count = 0
+    max_adjacent_pairs_in_any_region = 0
+    for m in masks:
+        coords = m['region_coordinates']
+        n = len(coords)
+        if n > max_region_pixel_count:
+            max_region_pixel_count = n
+        # build set for adjacency
+        coord_set = set((r,c) for r,c in coords)
+        pairs = 0
+        for (r,c) in coord_set:
+            for dr,dc in ((1,0),(0,1),(-1,0),(0,-1)):
+                nr,nc = r+dr, c+dc
+                if (nr,nc) in coord_set:
+                    pairs += 1
+        # each adjacent pair counted twice
+        pairs = pairs // 2
+        if pairs > max_adjacent_pairs_in_any_region:
+            max_adjacent_pairs_in_any_region = pairs
+    max_feature_weight = max((t['feature_weight'] for t in templates), default=1.0)
+    max_severity_modifier = max((m['severity_modifier'] for m in masks), default=1.0)
+    max_possible_score = (max_region_pixel_count * max_feature_weight) + (max_adjacent_pairs_in_any_region * max_severity_modifier)
+    base_threshold = 0.6 * max_possible_score if max_possible_score > 0 else 1.0
+    # risk weight
+    risk_weight = (pag * 0.3) + (gp * 0.4) + (ee * 0.2) + (pdh * 0.1)
+    # helpers: popcount
+    def popcount(x: int) -> int:
+        # builtin bit_count if available
+        try:
+            return x.bit_count()
+        except AttributeError:
+            c = 0
+            while x:
+                x &= x-1
+                c += 1
+            return c
+    diagnostic_results = []
+    processed_regions = 0
+    total_pattern_matches = 0
+    sum_correlation = 0.0
+    successful_operations = 0
+    total_operations = len(templates) * len(masks)
+    total_diagnostic_score = 0.0
+    highest_severity_detected = 0
+    for t in templates:
+        tid = t['template_id']
+        tmask = t['pattern_mask']
+        fweight = float(t['feature_weight'])
+        cthreshold = float(t['correlation_threshold'])
+        for m in masks:
+            mid = m['mask_id']
+            coords = m['region_coordinates']
+            severity_mod = float(m['severity_modifier'])
+            # extract pixels
+            pixels = []
+            for (r,c0) in coords:
+                pixels.append(pixel_matrix[r][c0])
+            total_pixels = len(pixels)
+            processed_regions += 1
+            # pattern matches: pixel & tmask == tmask
+            matches = 0
+            for p in pixels:
+                if (p & tmask) == tmask:
+                    matches += 1
+            correlation = (matches / total_pixels) if total_pixels > 0 else 0.0
+            # edge discontinuities: for each adjacent pair within region (4-way), compute popcount(pixel1 ^ pixel2)
+            coord_set = set((r,c0) for r,c0 in coords)
+            seen_pairs = set()
+            edge_discont = 0
+            for (r,c0) in coord_set:
+                for dr,dc in ((1,0),(0,1)):
+                    nr,nc = r+dr, c0+dc
+                    if (nr,nc) in coord_set:
+                        p1 = pixel_matrix[r][c0]
+                        p2 = pixel_matrix[nr][nc]
+                        pair_key = ((r,c0),(nr,nc))
+                        if pair_key not in seen_pairs:
+                            edge_discont += popcount(p1 ^ p2)
+                            seen_pairs.add(pair_key)
+            # diagnostic score
+            diagnostic_score = (matches * fweight) + (edge_discont * severity_mod)
+            # final severity score and classification
+            final_severity_score = diagnostic_score * risk_weight
+            if base_threshold <= 0:
+                classification_level = 0
+            else:
+                classification_level = min(4, int(final_severity_score / base_threshold))
+            # feature density: popcount(OR of all pixels) / (total_pixels * 8)
+            agg = 0
+            for p in pixels:
+                agg |= p
+            feature_density = (popcount(agg) / (total_pixels * 8)) if total_pixels > 0 else 0.0
+            result = {
+                "template_id": tid,
+                "mask_id": mid,
+                "pattern_matches": matches,
+                "correlation_score": round(correlation, 6),
+                "edge_discontinuities": edge_discont,
+                "diagnostic_score": round(diagnostic_score, 6),
+                "severity_level": classification_level,
+                "feature_density": round(feature_density, 6)
+            }
+            diagnostic_results.append(result)
+            total_pattern_matches += matches
+            sum_correlation += correlation
+            total_diagnostic_score += diagnostic_score
+            if classification_level > highest_severity_detected:
+                highest_severity_detected = classification_level
+            if correlation >= cthreshold:
+                successful_operations += 1
+    average_correlation = (sum_correlation / total_operations) if total_operations > 0 else 0.0
+    processing_efficiency = (successful_operations / total_operations) if total_operations > 0 else 0.0
+    risk_adjusted_score = total_diagnostic_score * risk_weight
+    # recommended followup based on highest severity
+    if highest_severity_detected <= 1:
+        recommended = "routine_monitoring"
+    elif highest_severity_detected == 2:
+        recommended = "increased_monitoring"
+    elif highest_severity_detected == 3:
+        recommended = "immediate_consultation"
+    else:
+        recommended = "urgent_intervention"
+    analysis_metadata = {
+        "processed_regions": len(masks),
+        "total_pattern_matches": total_pattern_matches,
+        "average_correlation": round(average_correlation, 6),
+        "processing_efficiency": round(processing_efficiency, 6)
+    }
+    overall_assessment = {
+        "total_diagnostic_score": round(total_diagnostic_score, 6),
+        "highest_severity_detected": highest_severity_detected,
+        "risk_adjusted_score": round(risk_adjusted_score, 6),
+        "recommended_followup": recommended
+    }
+    return {
+        "diagnostic_results": diagnostic_results,
+        "overall_assessment": overall_assessment,
+        "analysis_metadata": analysis_metadata
+    }

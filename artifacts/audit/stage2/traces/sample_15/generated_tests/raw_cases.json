@@ -1,0 +1,124 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        [
+          0,
+          1,
+          -5,
+          2
+        ],
+        [
+          1,
+          2,
+          10,
+          3
+        ]
+      ],
+      [
+        [
+          0
+        ],
+        [
+          1
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[0, 1, -5, 2], [1, 2, 10, 3]]",
+      "[[0], [1]]"
+    ],
+    "focus": "Negative capacity in a workshop should raise ValueError (malformed input detection)."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        [
+          0,
+          1,
+          2,
+          10
+        ],
+        [
+          1,
+          1,
+          2,
+          10
+        ],
+        [
+          0,
+          2,
+          2,
+          11
+        ]
+      ],
+      [
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          2
+        ],
+        [
+          2
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[0, 1, 2, 10], [1, 1, 2, 10], [0, 2, 2, 11]]",
+      "[[0, 1], [0, 1], [2], [2]]"
+    ],
+    "focus": "Instructor conflict: two workshops share the same instructor and timeslot; solver must avoid scheduling both and pick the minimal feasible set."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        [
+          0,
+          1,
+          0,
+          5
+        ],
+        [
+          1,
+          2,
+          1,
+          6
+        ],
+        [
+          2,
+          3,
+          2,
+          7
+        ]
+      ],
+      [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2
+        ],
+        []
+      ]
+    ],
+    "input_lines": [
+      "[[0, 1, 0, 5], [1, 2, 1, 6], [2, 3, 2, 7]]",
+      "[[0, 0], [1, 2], [2], []]"
+    ],
+    "focus": "Format-sensitive: zero-capacity workshop, duplicated preference indices, and a student with empty preferences — should lead to impossibility (-1) rather than a silent failure."
+  }
+]

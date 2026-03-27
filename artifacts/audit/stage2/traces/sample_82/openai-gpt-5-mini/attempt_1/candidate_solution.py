@@ -1,0 +1,109 @@
+def build_adaptive_sensor_list(
+    data_stream: List[Dict[str, Any]],
+    invalidations: List[int] = []
+) -> Dict[str, Any]:
+    lock = threading.Lock()
+    # Structures
+    zones = {}  # zone_name -> dict of types -> list of (idx, value)
+    path_index = {}  # sensor key -> base type node id
+    # For tracking insertion order per zone/type
+    for idx, ev in enumerate(data_stream):
+        sensor = ev.get("sensor", "")
+        value = float(ev.get("value", 0.0))
+        # parse type_zone
+        if "_" not in sensor:
+            continue
+        typ, zone = sensor.split("_", 1)
+        with lock:
+            if zone not in zones:
+                zones[zone] = {}
+            if typ not in zones[zone]:
+                zones[zone][typ] = []  # list of (idx, value)
+            zones[zone][typ].append((idx, value))
+            path_index[sensor] = f"zone:{zone}/type:{typ}"
+    # Apply invalidations: remove readings by idx
+    invalid_set = set(invalidations)
+    # Build leaf_values: per base type node, list of values in original order minus invalids
+    leaf_values = {}
+    # For computing stats, need valid readings after invalidation
+    for zone in list(zones.keys()):
+        for typ in list(zones[zone].keys()):
+            readings = zones[zone][typ]
+            valid = [v for (i, v) in readings if i not in invalid_set]
+            node_id = f"zone:{zone}/type:{typ}"
+            leaf_values[node_id] = valid
+    # Hot segment promotion: for each (zone, type) when its event count (original arrivals) >=2,
+    # create hot node duplicating the most recently inserted reading that is valid (after invalidation).
+    hot_nodes = {}  # node_id* -> latest_value
+    for zone in zones:
+        for typ in zones[zone]:
+            readings = zones[zone][typ]
+            if len(readings) >= 2:
+                # most recently inserted reading is last in readings; if it's invalid, hot should reflect latest valid after rollbacks
+                # Rule: promote the most recently inserted reading into a hot segment when count reaches >=2.
+                # But after invalidation, hot should reflect latest valid reading (or be deleted).
+                # So we check valid readings and set hot to last valid if exists.
+                valid = [v for (i, v) in readings if i not in invalid_set]
+                if valid:
+                    hot_nodes[f"zone:{zone}/type:{typ}*"] = valid[-1]
+                else:
+                    # no hot node
+                    pass
+    # Build traversal order: root -> zones sorted lex -> for each zone types sorted lex -> hot immediately after base if exists
+    linked_order = ["root"]
+    zone_names = sorted(zones.keys())
+    for zone in zone_names:
+        zone_id = f"zone:{zone}"
+        linked_order.append(zone_id)
+        type_names = sorted(zones[zone].keys())
+        for typ in type_names:
+            base_id = f"zone:{zone}/type:{typ}"
+            linked_order.append(base_id)
+            hot_id = f"{base_id}*"
+            if hot_id in hot_nodes:
+                linked_order.append(hot_id)
+    # Build next_pointer_of
+    next_pointer_of = {}
+    for i, nid in enumerate(linked_order):
+        if i + 1 < len(linked_order):
+            next_pointer_of[nid] = linked_order[i + 1]
+        else:
+            next_pointer_of[nid] = None
+    # segment_stats
+    segment_stats = {}
+    for zone in zones:
+        for typ in zones[zone]:
+            node_id = f"zone:{zone}/type:{typ}"
+            vals = leaf_values.get(node_id, [])
+            if vals:
+                cnt = len(vals)
+                s = sum(vals)
+                mn = min(vals)
+                mx = max(vals)
+                avg = round(s / cnt + 1e-12, 3)
+                # Ensure avg has 3 decimal places as float (e.g., 180.000)
+                # Keep as float with rounding
+                segment_stats[node_id] = {
+                    "count": cnt,
+                    "sum": s,
+                    "min": mn,
+                    "max": mx,
+                    "avg": float(f"{avg:.3f}")
+                }
+            else:
+                # zero readings: per spec, base type nodes exist only when first needed; if exist but no valid readings, produce zeroed stats?
+                # The spec implies types exist only when needed and stats computed over valid readings; if none, we skip stats (not present).
+                pass
+    for hid, latest in hot_nodes.items():
+        segment_stats[hid] = {"latest_value": latest}
+    # path_index should map each sensor key to its base type node id; ensure unique keys present mapping for seen sensors
+    # Already built path_index, but ensure keys sorted? Not necessary.
+    # Ensure leaf_values includes only base type nodes that exist (already)
+    result = {
+        "linked_order": linked_order,
+        "next_pointer_of": next_pointer_of,
+        "segment_stats": segment_stats,
+        "path_index": path_index,
+        "leaf_values": leaf_values
+    }
+    return result

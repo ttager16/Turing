@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: custom_sort_markets\n\nProblem Statement:\n### Problem Statement\n\nA financial analytics firm is developing a Python-based system to analyze transaction records from multiple global markets. These records exhibit high variance in transaction amounts due to currency fluctuations and market differences. The firm requires a custom sorting algorithm that efficiently handles this variance, ensuring rapid organization of transaction data for real-time analysis and reporting. The solution must be scalable, capable of processing large datasets with unequal key distributions, and adaptable to dynamically changing market conditions, to provide timely insights for decision-making.\n\nThe module accepts a dictionary mapping market identifiers to their transaction amount arrays (floats already normalized to a reference currency such as USD). It must return a new dictionary where each market’s transactions are sorted in non-decreasing numeric order and a final combined list that merges all markets in a globally sorted, deterministic, and stable manner. The module must strictly validate input schema and data types, preserve full floating-point precision, avoid mutating the input, and fail fast on any violation.\n\n\n### Objectives\n\n1. Deterministic and stable numeric sorting\n   * Sort each market’s list of floats in non-decreasing numeric order.\n   * Preserve duplicate values and maintain stability for equal values.\n2. Multi-market stable merge\n   * Produce a single combined list by a deterministic, stable, multi-round pairwise merge of all individually sorted market lists.\n   * Merge schedule must be deterministic and based on lexicographic order of market identifiers.\n3. Performance and scalability\n   * Validation O(n) over all values.\n   * Per-market sorting O(n_i log n_i).\n   * Global merge O(N log T) for N total values across T markets.\n\n\n### Constraints\n\n- The solution must be implemented in pure Python (no external libraries allowed).\n- Implementation rules\n  * Do not use sorted(), list.sort(), heapq, bisect, or recursion.\n  * Implement iterative bottom-up merge sort for each market list.\n- Input structure (any violation must return {})\n  * The input must be a non-empty dictionary where each key consists of english alphabets and non-empty strings.\n  * Each value must be a list.\n  * Every element of each list must be exactly a float and finite.\n  * Empty lists are permitted for markets that currently have no transactions.\n- Sorting and ordering rules\n  * Sorting must be numeric and stable in non-decreasing order.\n  * After sorting all markets, build combined by a deterministic multi-round pairwise merge:\n    * Order markets lexicographically by key name.\n    * Merge adjacent lists pairwise to form the next round, repeat until one list remains.\n    * Each merge must be linear-time and stable and must not rely on heaps, priority queues, or re-sorting.\n  * The returned dictionary must contain all market keys in lexicographic order, plus the final key combined as the last key.\n\n\n### Function Signature\n\n```python\nfrom typing import Dict, List\n\ndef custom_sort_markets(data: Dict[str, List[float]]) -> Dict[str, List[float]]:\n    pass\n```\n\n\n### Sample Input/Output\n\nInput\n\n```python\n{\n    \"marketB\": [1.0, 6.0, 3.0, 6.0],\n    \"marketA\": [5.2, 2.0, 5.2, 3.0],\n    \"marketC\": []\n}\n```\n\nOutput\n\n```python\n{\n    \"marketA\": [2.0, 3.0, 5.2, 5.2],\n    \"marketB\": [1.0, 3.0, 6.0, 6.0],\n    \"marketC\": [],\n    \"combined\": [1.0, 2.0, 3.0, 3.0, 5.2, 5.2, 6.0, 6.0]\n}\n```\n\n\n### Expected Output Format\n\nReturn a dictionary with each market key sorted individually (non-decreasing, stable order) and a final key combined containing the globally merged, stable result. If validation fails, return {}. The input must remain unmodified, and all operations must maintain deterministic numeric behavior under high-variance data.\n\nStarter Code:\n```python\nfrom typing import Dict, List\nimport math\n\ndef custom_sort_markets(data: Dict[str, List[float]]) -> Dict[str, List[float]]:\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"{\\\"marketB\\\": [1.0, 6.0, 3.0, 6.0], \\\"marketA\\\": [5.2, 2.0, 5.2, 3.0], \\\"marketC\\\": []}\",\n    \"output\": \"{\\\"marketA\\\": [2.0, 3.0, 5.2, 5.2], \\\"marketB\\\": [1.0, 3.0, 6.0, 6.0], \\\"marketC\\\": [], \\\"combined\\\": [1.0, 2.0, 3.0, 3.0, 5.2, 5.2, 6.0, 6.0]}\"\n  },\n  {\n    \"input\": \"{\\\"A\\\": [2.0, 1.0], \\\"B\\\": [3.0]}\",\n    \"output\": \"{\\\"A\\\": [1.0, 2.0], \\\"B\\\": [3.0], \\\"combined\\\": [1.0, 2.0, 3.0]}\"\n  },\n  {\n    \"input\": \"{\\\"OnlyMarket\\\": [3.0, 1.0, 2.0]}\",\n    \"output\": \"{\\\"OnlyMarket\\\": [1.0, 2.0, 3.0], \\\"combined\\\": [1.0, 2.0, 3.0]}\"\n  }\n]\n"
+    }
+  ]
+}

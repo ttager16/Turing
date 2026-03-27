@@ -1,0 +1,76 @@
+{
+  "id": "resp_0207e7a1a733cc1c0069c31e96a2588195829dfefd3235613a",
+  "object": "response",
+  "created_at": 1774395030,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774395051,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0207e7a1a733cc1c0069c31e97288c81958b96c4a9ccaf3a58",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0207e7a1a733cc1c0069c31e974b6881958cd155d6036c0c58",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Union\nfrom datetime import datetime, timedelta\nfrom collections import defaultdict, deque\n\ndef detect_fraudulent_transactions(transactions: List[Dict[str, Any]], timeframe: List[str]) -> List[Union[List[Dict[str, Any]], Dict[str, Any]]]:\n    \"\"\"Detect fraudulent transaction patterns in given timeframe.\"\"\"\n    # Edge case: empty input\n    if not transactions:\n        summary = {\n            'total_anomalies': 0,\n            'fraud_scenarios': {\n                'cyclic_transfers': 0,\n                'multi_account_infiltration': 0,\n                'nested_money_laundering': 0,\n                'high_frequency_accounts': 0,\n                'large_amount_transactions': 0,\n                'rapid_sequential_transactions': 0,\n                'after_hours_transactions': 0,\n                'invalid_amount_transactions': 0\n            },\n            'key_subgraphs': []\n        }\n        return [[], summary]\n\n    # Parse timeframe\n    start_tf = datetime.fromisoformat(timeframe[0])\n    end_tf = datetime.fromisoformat(timeframe[1])\n\n    # Preprocess transactions: filter by timeframe inclusive start, exclusive end\n    txs = []\n    tx_by_id = {}\n    for t in transactions:\n        try:\n            ts = datetime.fromisoformat(t['timestamp'])\n        except Exception:\n            continue\n        if not (start_tf <= ts < end_tf):\n            continue\n        tx = dict(t)\n        tx['_ts'] = ts\n        txs.append(tx)\n        tx_by_id[tx['transaction_id']] = tx\n\n    # If none in timeframe\n    if not txs:\n        summary = {\n            'total_anomalies': 0,\n            'fraud_scenarios': {\n                'cyclic_transfers': 0,\n                'multi_account_infiltration': 0,\n                'nested_money_laundering': 0,\n                'high_frequency_accounts': 0,\n                'large_amount_transactions': 0,\n                'rapid_sequential_transactions': 0,\n                'after_hours_transactions': 0,\n                'invalid_amount_transactions': 0\n            },\n            'key_subgraphs': []\n        }\n        return [[], summary]\n\n    # Build adjacency lists for directed graph: source -> list of (dest, tx_id)\n    adj = defaultdict(list)\n    outgoing = defaultdict(list)\n    incoming = defaultdict(list)\n    for tx in sorted(txs, key=lambda x: x['_ts']):\n        sid = tx['source_account']\n        did = tx['destination_account']\n        tid = tx['transaction_id']\n        adj[sid].append((did, tid))\n        outgoing[sid].append(tx)\n        incoming[did].append(tx)\n\n    flagged = []\n    counts = {\n        'cyclic_transfers': 0,\n        'multi_account_infiltration': 0,\n        'nested_money_laundering': 0,\n        'high_frequency_accounts': 0,\n        'large_amount_transactions': 0,\n        'rapid_sequential_transactions': 0,\n        'after_hours_transactions': 0,\n        'invalid_amount_transactions': 0\n    }\n\n    # Rule 1 & 2 & 3: per-transaction checks\n    for tx in txs:\n        tid = tx['transaction_id']\n        amount = tx.get('amount', 0)\n        ts = tx['_ts']\n        # Invalid amount\n        if amount < 1 or amount > 10_000_000:\n            flagged.append({'chain': [tid], 'reason': 'Invalid amount transaction'})\n            counts['invalid_amount_transactions'] += 1\n            # continue checking other flags may be redundant but keep deterministic\n            continue\n        # After-hours: business hours 9:00 <= t <17:00 (exclusive of 17:00)\n        hour_min = ts.time()\n        if not (hour_min >= datetime(ts.year, ts.month, ts.day, 9, 0).time() and hour_min < datetime(ts.year, ts.month, ts.day, 17, 0).time()):\n            flagged.append({'chain': [tid], 'reason': 'After-hours transaction'})\n            counts['after_hours_transactions'] += 1\n        # Large amount >100k (and valid)\n        if amount > 100_000:\n            flagged.append({'chain': [tid], 'reason': 'Large amount transaction'})\n            counts['large_amount_transactions'] += 1\n\n    # Rule 6: High frequency account activity (10+ outgoing)\n    high_freq_accounts = []\n    for acc, outs in outgoing.items():\n        if len(outs) >= 10:\n            # order by timestamp ascending\n            outs_sorted = sorted(outs, key=lambda x: x['_ts'])\n            chain = [tx['transaction_id'] for tx in outs_sorted]\n            flagged.append({'chain': chain, 'reason': 'High frequency account activity'})\n            counts['high_frequency_accounts'] += 1\n            high_freq_accounts.append(acc)\n\n    # Rule 7: Nested money laundering for high-frequency accounts\n    nested_flagged_accounts = []\n    for acc in high_freq_accounts:\n        txs_related = incoming[acc] + outgoing[acc]\n        # sort by timestamp\n        txs_related_sorted = sorted(txs_related, key=lambda x: x['_ts'])\n        if len(txs_related_sorted) >= 8:\n            chain = [tx['transaction_id'] for tx in txs_related_sorted[:8]]\n            flagged.append({'chain': chain, 'reason': 'Nested money laundering pattern'})\n            counts['nested_money_laundering'] += 1\n            nested_flagged_accounts.append(acc)\n\n    # Rule 8: Rapid sequential transactions: 2+ from same source within 5 minutes -> flag consecutive pairs\n    for acc, outs in outgoing.items():\n        outs_sorted = sorted(outs, key=lambda x: x['_ts'])\n        for i in range(len(outs_sorted) - 1):\n            t1 = outs_sorted[i]['_ts']\n            t2 = outs_sorted[i+1]['_ts']\n            if (t2 - t1) <= timedelta(minutes=5):\n                chain = [outs_sorted[i]['transaction_id'], outs_sorted[i+1]['transaction_id']]\n                flagged.append({'chain': chain, 'reason': 'Rapid sequential transactions'})\n                counts['rapid_sequential_transactions'] += 1\n\n    # Rule 5: Multi-account infiltration: detect chains with 5+ hops from same source using DFS, flag first 5 transactions\n    # We'll perform DFS up to depth >=5\n    def dfs_chains(start_acc):\n        results = []\n        stack = [(start_acc, [], set())]  # node, path of tx ids, visited accounts to avoid immediate repeats\n        while stack:\n            node, path, visited = stack.pop()\n            for (nbr, tid) in adj.get(node, []):\n                if tid in path:\n                    continue\n                new_path = path + [tid]\n                if len(new_path) >= 5:\n                    results.append(new_path[:5])\n                # prevent infinite loops by limiting length to, say, 20\n                if len(new_path) < 20:\n                    new_visited = set(visited)\n                    new_visited.add(node)\n                    stack.append((nbr, new_path, new_visited))\n        return results\n\n    multi_infil_count = 0\n    for acc in list(adj.keys()):\n        chains = dfs_chains(acc)\n        for c in chains:\n            flagged.append({'chain': c, 'reason': 'Multi-account infiltration pattern'})\n            counts['multi_account_infiltration'] += 1\n            multi_infil_count += 1\n\n    # Rule 4: Cyclic transfer patterns: detect directed cycles len>=2 using DFS\n    visited_global = set()\n    cycles_found = set()  # store tuple of tx ids sorted to avoid dup\n    def dfs_cycle(node, stack_nodes, stack_txids, index_map):\n        visited_global.add(node)\n        for (nbr, tid) in adj.get(node, []):\n            if nbr in index_map:\n                # found cycle from index_map[nbr] to end\n                start_idx = index_map[nbr]\n                cycle_txids = stack_txids[start_idx:] + [tid]\n                if len(cycle_txids) >= 2:\n                    key = tuple(cycle_txids)\n                    if key not in cycles_found:\n                        cycles_found.add(key)\n            elif nbr not in visited_global and len(stack_txids) < 100:\n                index_map[nbr] = len(stack_txids)\n                stack_txids.append(tid)\n                dfs_cycle(nbr, stack_nodes + [nbr], stack_txids, index_map)\n                # backtrack\n                stack_txids.pop()\n                index_map.pop(nbr, None)\n\n    for node in list(adj.keys()):\n        if node not in visited_global:\n            dfs_cycle(node, [node], [], {node: 0})\n\n    for cycle in cycles_found:\n        flagged.append({'chain': list(cycle), 'reason': 'Cyclic transfer pattern detected'})\n        counts['cyclic_transfers'] += 1\n\n    # Edge case: detect self-loops and circular references explicitly\n    for acc, edges in adj.items():\n        for (nbr, tid) in edges:\n            if acc == nbr:\n                # self-loop\n                flagged.append({'chain': [tid], 'reason': 'Cyclic transfer pattern detected'})\n                counts['cyclic_transfers'] += 1\n\n    # Build key_subgraphs for up to 5 clusters from high-frequency accounts\n    key_subgraphs = []\n    clusters_added = 0\n    for acc in high_freq_accounts:\n        if clusters_added >= 5:\n            break\n        related_accounts = set()\n        for tx in incoming[acc] + outgoing[acc]:\n            related_accounts.add(tx['source_account'])\n            related_accounts.add(tx['destination_account'])\n        nodes_involved = sorted(list(related_accounts))\n        desc = f\"High activity cluster around account {acc}\"\n        key_subgraphs.append({'nodes_involved': nodes_involved, 'description': desc})\n        clusters_added += 1\n\n    # Consolidated summary\n    total_anomalies = len(flagged)\n    summary = {\n        'total_anomalies': total_anomalies,\n        'fraud_scenarios': {\n            'cyclic_transfers': counts['cyclic_transfers'],\n            'multi_account_infiltration': counts['multi_account_infiltration'],\n            'nested_money_laundering': counts['nested_money_laundering'],\n            'high_frequency_accounts': counts['high_frequency_accounts'],\n            'large_amount_transactions': counts['large_amount_transactions'],\n            'rapid_sequential_transactions': counts['rapid_sequential_transactions'],\n            'after_hours_transactions': counts['after_hours_transactions'],\n            'invalid_amount_transactions': counts['invalid_amount_transactions']\n        },\n        'key_subgraphs': key_subgraphs\n    }\n\n    return [flagged, summary]"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1730,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2312,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4042
+  },
+  "user": null,
+  "metadata": {}
+}

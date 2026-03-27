@@ -1,0 +1,95 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+In the realm of high-frequency trading (HFT), global liquidity pools and complex trade interdependencies demand a hyper-optimized, concurrency-safe prioritization system. Instead of a simple binary heap for managing trades, this problem requires building a multi-layered priority queue driven by an advanced data structure that dynamically ranks trades based on evolving metrics such as profit potential, liquidity constraints, and cross-trade dependencies. Moreover, each trade’s priority must be updated in real-time as new market signals in, necessitating compound state tracking and multi-step reasoning to maintain consistency across multiple distributed nodes in a volatile environment.
+
+#### Objectives:
+
+1. **Augmented Priority Structure:** Construct a multi-dimensional priority queue class capable of advanced partial updates, using a segment tree to efficiently manage large-scale trade re-prioritizations without scanning or re-building the entire structure.
+
+2. **Distributed Dependency Synchronization:** Ensure that each trade’s priority is computed in tandem with interdependent trades (e.g., trades sharing liquidity sources or hedging positions). Implement a concurrency-safe graph or tree-based model to detect and propagate priority changes throughout dependent nodes.
+
+#### Constraints:
+
+* Must manage at least **100,0** concurrent trade entries, each capable of spawn or merge events triggering cascading priority updates.
+
+* No external Python libraries are allowed; all data structures (segment tree, heap, or graph) must be implemented manually.
+
+* The system must gracefully recover from message delays and partial data ingestion across geographically distributed nodes, ensuring eventually consistent priority orders.
+
+* **Deterministic Priority Formula:** For each trade `t` with `trade_id`, let:
+
+  * `P = market_data[trade_id]['new_profit']` (numeric),
+  * `L = market_data[trade_id]['liquidity_impact']` (multiplier),
+  * `D = len(dependencies)` (count of **direct** dependencies).
+
+  Compute a deterministic **score**:
+
+  ```
+  score(t) = P * L - 5 * D
+  ```
+
+  Higher `score` implies higher priority. Convert scores to priority ranks by sorting **descending** on `score`. **Tie-breakers** (in order): smaller `D`, then lexicographically smaller `trade_id`. Final priorities are 1-based ranks (1 = highest).
+
+* **Propagation Rule:** When `P` or `L` of any trade changes, recompute its `score` and propagate by recomputing all **downstream dependents** (i.e., trades that list it in `dependencies`). Use a topologically ordered index of the dependency DAG and a segment tree over the score array to support batched recomputations and range queries/updates triggered by spawn/merge events.
+
+#### Function Signature
+
+```python
+def manage_trades(trade_data: List[Dict[str, Any]], market_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    pass
+```
+
+#### Sample Input/Output
+
+**Input:**
+
+```python
+trade_data = [
+    {'trade_id': 'T1', 'priority': 12, 'profit': 250, 'dependencies': ['T2']},
+    {'trade_id': 'T2', 'priority': 9, 'profit': 300, 'dependencies': []},
+    {'trade_id': 'T3', 'priority': 15, 'profit': 80, 'dependencies': ['T2']},
+    {'trade_id': 'T4', 'priority': 10, 'profit': 200, 'dependencies': ['T1', 'T3']}
+]
+market_data = {
+    'T1': {'new_profit': 260, 'liquidity_impact': 0.95},
+    'T2': {'new_profit': 280, 'liquidity_impact': 0.88},
+    'T3': {'new_profit': 100, 'liquidity_impact': 0.90},
+    'T4': {'new_profit': 210, 'liquidity_impact': 1.05}
+}
+```
+
+**Output:**
+
+```python
+[
+    {'trade_id': 'T2', 'priority': 1, 'profit': 280, 'dependencies': []},
+    {'trade_id': 'T1', 'priority': 2, 'profit': 260, 'dependencies': ['T2']},
+    {'trade_id': 'T4', 'priority': 3, 'profit': 210, 'dependencies': ['T1', 'T3']},
+    {'trade_id': 'T3', 'priority': 4, 'profit': 100, 'dependencies': ['T2']}
+]
+```
+
+### Expected Output Format
+
+* The output should be a list of dictionaries, each representing a trade with updated priorities, profits, and any applicable dependency data.
+* Trades must be sorted in ascending order of priority (1 being highest priority).
+* Each dictionary must preserve the keys “trade_id,” “priority,” “profit,” and “dependencies,” reflecting the updated state after all segment tree or advanced structure computations have been applied.
+
+Starter Code:
+```python
+from typing import Any, Dict, List, Tuple, Optional
+import threading
+
+
+def manage_trades(trade_data: List[Dict[str, Any]], market_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    pass
+```

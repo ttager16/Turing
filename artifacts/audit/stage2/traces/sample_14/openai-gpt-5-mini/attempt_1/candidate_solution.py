@@ -1,0 +1,127 @@
+def allocate_minimum_sessions(
+    departments: List[List[int]],   # each item: [capacity, synergy_group, resource_id]
+    conflicts: List[List[int]],     # each item: [dept_idx1, dept_idx2]
+    session_capacity: int
+) -> int:
+    # Build groups: each synergy_group >0 must be together. group id 0 -> unique per department
+    n = len(departments)
+    # Map original dept idx to group node id
+    group_members = {}
+    group_map = {}
+    next_gid = 1
+    for i, (cap, sg, res) in enumerate(departments):
+        if sg > 0:
+            if sg not in group_map:
+                group_map[sg] = next_gid
+                group_members[next_gid] = []
+                next_gid += 1
+            gid = group_map[sg]
+        else:
+            gid = next_gid
+            group_map[(0, i)] = gid
+            group_members[gid] = []
+            next_gid += 1
+        group_members[gid].append(i)
+    # Compute group properties
+    groups = []
+    dept_to_gid = {}
+    for gid, members in group_members.items():
+        total_cap = 0
+        resources = set()
+        for d in members:
+            cap, sg, res = departments[d]
+            total_cap += cap
+            if res != 0:
+                resources.add(res)
+            dept_to_gid[d] = len(groups)
+        groups.append({
+            "members": members,
+            "cap": total_cap,
+            "resources": resources
+        })
+    m = len(groups)
+    # Validity checks
+    for g in groups:
+        if g["cap"] > session_capacity:
+            return -1
+    # conflicts between departments -> conflicts between groups
+    group_conflicts = [[False]*m for _ in range(m)]
+    for a,b in conflicts:
+        if a<0 or b<0 or a>=n or b>=n:
+            continue
+        ga = dept_to_gid[a]
+        gb = dept_to_gid[b]
+        if ga == gb:
+            # internal conflict in synergy group impossible
+            return -1
+        group_conflicts[ga][gb] = True
+        group_conflicts[gb][ga] = True
+    # Resource conflicts: same resource cannot be used in parallel sessions.
+    # That means two groups sharing same resource cannot be placed in different sessions simultaneously.
+    # Equivalent to: in any session, at most one group using resource r can be scheduled; but across sessions,
+    # groups that share resource must be assigned to distinct time slots? The statement: "cannot be used simultaneously across multiple sessions."
+    # Interpret as: if two groups share same resource, they cannot be scheduled in the same time slot across different rooms -> they must be scheduled in non-overlapping times, i.e., cannot be in parallel sessions. That is identical to conflict between groups (they cannot be in same session index if sessions are parallel). So groups sharing resource must not be in different sessions that are simultaneous; but since sessions are time slots, groups sharing resource must not be in the same time slot (i.e., cannot be together). So treat as conflict (cannot be in same session) — same as conflicts.
+    # Build resource conflicts as group conflicts too.
+    resource_to_groups = defaultdict(list)
+    for i, g in enumerate(groups):
+        for r in g["resources"]:
+            resource_to_groups[r].append(i)
+    for r, glist in resource_to_groups.items():
+        for a,b in itertools.combinations(glist,2):
+            group_conflicts[a][b] = True
+            group_conflicts[b][a] = True
+    # Now we need to partition groups into minimum number of sessions such that:
+    # - sum cap per session <= session_capacity
+    # - no conflicting groups in same session
+    # This is bin packing with conflicts; we attempt increasing number of sessions k and test feasibility via backtracking.
+    # Order groups by descending cap for pruning
+    order = sorted(range(m), key=lambda i: groups[i]["cap"], reverse=True)
+    caps = [groups[i]["cap"] for i in order]
+    conflict_matrix = [[False]*m for _ in range(m)]
+    for i in range(m):
+        for j in range(m):
+            conflict_matrix[i][j] = group_conflicts[i][j]
+    # Remap conflict matrix to ordered indices
+    index_map = {order[i]: i for i in range(m)}
+    conf = [[False]*m for _ in range(m)]
+    for oi in range(m):
+        for oj in range(m):
+            if conflict_matrix[order[oi]][order[oj]]:
+                conf[oi][oj] = True
+    # Try k from 1..m
+    def feasible(k):
+        loads = [0]*k
+        assigned = [-1]*m
+        # For each session, maintain set of groups assigned to check conflicts quickly via bitmask
+        sess_groups = [set() for _ in range(k)]
+        # backtracking
+        def dfs(pos):
+            if pos==m:
+                return True
+            w = caps[pos]
+            for s in range(k):
+                if loads[s]+w > session_capacity:
+                    continue
+                ok = True
+                for g in sess_groups[s]:
+                    if conf[pos][g] or conf[g][pos]:
+                        ok = False
+                        break
+                if not ok:
+                    continue
+                # assign
+                loads[s]+=w
+                sess_groups[s].add(pos)
+                if dfs(pos+1):
+                    return True
+                sess_groups[s].remove(pos)
+                loads[s]-=w
+                # symmetry break: if session empty and failed, don't try other empty sessions
+                if loads[s]==0:
+                    break
+            return False
+        return dfs(0)
+    for k in range(1, m+1):
+        if feasible(k):
+            return k
+    return -1

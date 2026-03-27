@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6NJr7sXoJIh4fn0vDhGI7sitOdl",
+  "object": "chat.completion",
+  "created": 1774398421,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"{}\",\n        \"[[\\\"S\\\", \\\"A\\\", 8], [\\\"S\\\", \\\"A\\\", 5], [\\\"S\\\", \\\"B\\\", 7], [\\\"B\\\", \\\"E\\\", 3], [\\\"A\\\", \\\"X\\\", 0], [\\\"S\\\", \\\"C\\\", 6], [\\\"C\\\", \\\"E\\\", 20]]\",\n        \"\\\"S\\\"\",\n        \"\\\"E\\\"\"\n      ],\n      \"focus\": \"Empty initial graph, last-write-wins on repeated updates, closed edge creates a sink — verifies sink penalty and that constructed graph from updates is used.\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"A\\\": {\\\"B\\\": 5, \\\"C\\\": 4}, \\\"B\\\": {\\\"D\\\": 5}, \\\"C\\\": {\\\"D\\\": 6}, \\\"D\\\": {}}\",\n        \"[]\",\n        \"\\\"A\\\"\",\n        \"\\\"D\\\"\"\n      ],\n      \"focus\": \"Tie on total cost and hops between A->B->D and A->C->D — enforces lexicographic tie-breaker after cost and hop comparisons.\"\n    },\n    {\n      \"input_lines\": [\n        \"{}\",\n        \"[[\\\"X\\\", \\\"X\\\", 3]]\",\n        \"\\\"X\\\"\",\n        \"\\\"Y\\\"\"\n      ],\n      \"focus\": \"Self-loop introduced in updates — should trigger immediate return [] (self-loop detection in updates).\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1341,
+    "completion_tokens": 2245,
+    "total_tokens": 3586,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1920,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

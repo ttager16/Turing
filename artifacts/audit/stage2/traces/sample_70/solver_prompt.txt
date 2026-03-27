@@ -1,0 +1,311 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+Design a **deterministic batch routing function** for a **directed, multi-layer road graph**.
+Given:
+
+* a city network of directed edges with base traversal costs,
+* historical edge signals,
+* current edge signals,
+* and a list of routing **demands** (source, destination, commodity, units, priority),
+
+the function must compute exactly one route per demand, in sequence.
+For each demand:
+
+1. A feasible route must be chosen that respects residual capacity.
+2. The per-edge traversal cost must be computed using a fixed, testable formula that fuses static costs with dynamic signals.
+3. After selecting the route, both **edge capacities** and **edge costs** must be updated before processing the next demand, to simulate congestion and layer switching penalties.
+
+The function must return a deterministic summary object. No randomness, no time-based behavior, and no external state are allowed.
+
+### Objectives
+
+1. **Sequential demand handling**
+   Process demands in list order. Each demand is routed using the current state of the network at that moment (current residual capacities and edge costs).
+
+2. **Capacity feasibility**
+   A candidate path is feasible for a demand only if **all** edges along the path have residual capacity ≥ `units` of that demand.
+   If no feasible path exists, the route for that demand is `[]`.
+
+3. **Per-edge base cost calculation (before congestion, before layer penalty)**
+   For each directed edge `(u → v)` with `base_cost = b > 0` from `city_network`:
+
+   * Define the edge ID string as `"u-v"` (e.g. `"L1:A-L1:B"`).
+   * Let
+     `h = historical_data.get("u-v", 0.0)` (if missing, use 0.0)
+     `c = current_conditions.get("u-v", 0.0)` (if missing, use 0.0)
+   * Compute EMA with fixed `alpha = 0.6`:
+     `ema = alpha * c + (1 - alpha) * h`
+   * Clamp congestion signal floor:
+     `effective_ema = max(0.0, ema)`
+     (negative values act like 0, they do not reduce cost)
+   * Compute `cost_base = b * (1.0 + effective_ema / 100.0)`
+
+4. **Layer-switching penalty**
+   Nodes are strings of the form `"Lk:XYZ"`, where the prefix before `":"` is the layer (e.g. `"L1"`, `"L2"`).
+
+   * If an edge goes from a node in layer `La` to a node in the same layer `La`, there is no layer penalty.
+   * If an edge goes from `La` to a **different** layer `Lb`, multiply the edge’s cost by `1.55`.
+     So:
+     `cost_after_layer = cost_base * layer_multiplier`
+     where `layer_multiplier` is `1.55` if `La != Lb`, else `1.0`.
+
+5. **Priority scaling**
+   Each demand includes a `priority` in the range `[0,1]`. Higher priority means cheaper effective cost.
+
+   * For each demand with `priority = p`, compute
+     `cost_for_demand = cost_after_layer * (1.0 - 0.4 * p)`
+   * After scaling, clamp:
+     `cost_for_demand = max(cost_for_demand, 1e-6)`
+
+   This `cost_for_demand` is what the pathfinder should minimize for that specific demand.
+
+6. **Pathfinding and tie-breaking**
+   Use any deterministic shortest-path algorithm to find the feasible (capacity-respecting) path with minimum total `cost_for_demand` sum.
+   If multiple feasible paths share the same total cost, select the one whose full node sequence (list of node IDs as strings) is lexicographically smallest.
+
+7. **Residual capacity updates**
+   After a route is chosen for a demand:
+
+   * For each edge on that route, decrement its residual capacity by `units` (cannot go below zero; if decrement would go negative, then that path should not have been considered feasible in the first place).
+   * If route is `[]`, no capacity is changed for that demand.
+
+8. **Congestion cost inflation for future demands**
+   After a non-empty route is assigned to a demand, increase the *stored* cost_base of every edge used in that route to simulate congestion for later demands:
+
+   * `cost_base_new = cost_base_old * (1.0 + 0.1 * units)`
+   * This update affects later demands’ routing cost calculations, including layer penalties and priority scaling.
+   * This update does **not** alter historical_data or current_conditions; it only mutates the active working cost state for this run.
+
+   If the route was `[]`, skip this congestion inflation.
+
+9. **State isolation**
+   All behavior must depend only on function arguments.
+   No global state, no randomness, and no time-based logic.
+   The same input must always produce the same output.
+
+
+### Constraints
+
+* **JSON-only types:**
+  All inputs and outputs must be JSON-compatible: lists, dicts, strings, numbers, booleans. No tuples, sets, custom classes, generators, or external file I/O.
+
+* **Directed graph only:**
+  Each edge in `city_network` is one-way. If travel is allowed both directions, both directions must be explicitly listed.
+
+* **Edge capacity initialization:**
+  All edges start with an integer residual capacity.
+
+  * Default capacity is `1` for every edge.
+  * If `current_conditions` contains a key `"capacity_map"`, and its value is a dictionary like `{"U-V": 3, "X-Y": 2}`, then those edges start with those capacities instead of 1.
+  * Any edge not listed in `"capacity_map"` still defaults to 1.
+
+* **Invalid edges:**
+  Any edge whose `base_cost <= 0` in `city_network` must be ignored entirely (it is treated as nonexistent).
+
+* **Demand cleanup:**
+  Before processing each demand:
+
+  * Clamp `units = max(units, 0)`.
+  * Clamp `priority` into `[0.0, 1.0]`. Values below 0 become 0.0; values above 1 become 1.0.
+
+* **Signals for nonexistent edges:**
+  If `historical_data` or `current_conditions` mention an edge that is not in `city_network`, ignore those entries.
+
+* **Feasibility rule:**
+  A demand that cannot be served under current residual capacities returns `[]`, but still counts toward output stats.
+
+* **Single entry point:**
+  The scaffold must expose only the required function. No additional top-level functions or classes should appear in the scaffolding file beyond the declared entry point signature.
+
+### Function Signature
+
+```python
+from typing import List, Dict, Any
+
+def optimize_traffic_batch(
+    city_network: List[List[Any]],
+    historical_data: List[List[Any]],
+    current_conditions: Dict[str, Any],
+    demands: List[List[Any]]
+) -> Dict[str, Any]:
+    """
+    Args:
+      city_network:
+        [
+          [u: str, v: str, base_cost: float],
+          ...
+        ]
+        Defines directed edges from u -> v with base traversal cost.
+
+      historical_data:
+        [
+          [edge_id: "U-V", value: float],
+          ...
+        ]
+        Historical signal per directed edge.
+
+      current_conditions:
+        {
+          "U-V": float,
+          ...,
+          "capacity_map": {"U-V": int, ...}   # optional
+        }
+        Current signal and optional initial capacity override.
+
+      demands:
+        [
+          [source: str,
+           destination: str,
+           commodity: str,
+           units: int,
+           priority: float],
+          ...
+        ]
+        Each demand must be processed in order.
+
+    Returns:
+      A summary dictionary. See Output Format.
+    """
+```
+
+### Input Format
+
+#### `city_network` (JSON list)
+
+```python
+[
+  ["L1:A", "L1:B", 2.5],
+  ["L1:B", "L1:C", 3.0],
+  ["L2:A", "L2:B", 1.0],
+  ["L2:B", "L2:C", 1.5],
+  ["L1:C", "L1:D", 2.0],
+  ["L2:C", "L2:D", 2.5],
+  ["L1:C", "L2:C", 0.8]  // cross-layer edge (L1 -> L2)
+]
+```
+
+#### `historical_data` (JSON list)
+
+```python
+[
+  ["L1:A-L1:B", 90],
+  ["L1:B-L1:C", 110],
+  ["L2:A-L2:B", 70],
+  ["L1:C-L1:D", 60],
+  ["L2:C-L2:D", 100],
+  ["L1:C-L2:C", 50]
+]
+```
+
+#### `current_conditions` (JSON object)
+
+```python
+{
+  "L1:A-L1:B": 95,
+  "L1:B-L1:C": 120,
+  "L2:A-L2:B": 75,
+  "L1:C-L1:D": 80,
+  "L2:C-L2:D": 105,
+  "L1:C-L2:C": 40,
+  "capacity_map": {
+    "L1:A-L1:B": 2,
+    "L1:B-L1:C": 1,
+    "L1:C-L1:D": 1,
+    "L1:C-L2:C": 1,
+    "L2:A-L2:B": 1,
+    "L2:B-L2:C": 1,
+    "L2:C-L2:D": 1
+  }
+}
+```
+
+#### `demands` (JSON list)
+
+```python
+[
+  ["L1:A", "L1:D", "passenger", 1, 0.5],
+  ["L2:A", "L2:D", "freight",   1, 0.3],
+  ["L1:A", "L2:D", "emergency", 1, 1.0]
+]
+```
+
+### Output Format
+
+The function must return a dictionary with the following keys:
+
+```python
+{
+  "routes": [
+    ["L1:A", "L1:B", "L1:C", "L1:D"],
+    ["L2:A", "L2:B", "L2:C", "L2:D"],
+    ["L1:A", "L1:B", "L1:C", "L2:C", "L2:D"]
+  ],
+  "unserved_demands": 0,
+  "layer_switches": 1,
+  "total_cost": 84.7
+}
+```
+
+#### Field semantics:
+
+* **routes**
+
+  * `routes[i]` is the final chosen path for `demands[i]` as a list of node IDs (strings).
+  * If no feasible path exists for `demands[i]`, `routes[i]` must be `[]`.
+
+* **unserved_demands**
+
+  * Count of how many demands resulted in `[]` because no feasible route existed.
+
+* **layer_switches**
+
+  * Total number of times (summed over all non-empty routes) where an edge crossed between different layers, e.g. `"L1:*"` → `"L2:*"` or `"L2:*"` → `"L1:*"`.
+
+* **total_cost**
+
+  * The sum, over all non-empty routes, of the total routed cost for that demand:
+
+    * For each edge in that route, use the `cost_for_demand` value that was in effect *when that demand was routed*, including:
+
+      * EMA-adjusted base cost,
+      * layer-switch multiplier (1.55 if layer changes),
+      * priority scaling,
+    * and sum those per-edge values.
+  * `total_cost` must be a finite non-negative number. Clamp tiny negative float noise to `0.0` if it occurs.
+
+### Edge Cases & Determinism
+
+* If multiple feasible paths have the same total routing cost for that demand, choose the path whose full node sequence is lexicographically smallest (compare as lists of strings).
+* Capacities can never go below zero. If applying a chosen path would make residual capacity negative on any edge, that path is invalid and must not be selected.
+* When `units <= 0`, treat it as `units = 0` (this makes every path capacity-feasible, but congestion/capacity updates after routing still follow the rules using `units = 0`, which means no capacity reduction and no congestion inflation).
+* Clamp `priority` to `[0.0, 1.0]` before using it in any formula.
+* After each successful (non-empty) route assignment:
+
+  * Decrease capacities on all edges in that route by `units`.
+  * Inflate each of those edges' stored base costs by `(1.0 + 0.1 * units)`, which affects later demands only.
+* If an edge in `city_network` has `base_cost <= 0`, ignore that edge entirely.
+* Signals in `historical_data` / `current_conditions` for edges not present in `city_network` must be ignored.
+* The function must not rely on randomness or system time. Identical inputs must always produce identical outputs.
+
+Starter Code:
+```python
+from typing import List, Dict, Any
+import heapq
+import math
+
+def optimize_traffic_batch(
+    city_network: List[List[Any]],
+    historical_data: List[List[Any]],
+    current_conditions: Dict[str, Any],
+    demands: List[List[Any]]
+) -> Dict[str, Any]:
+```

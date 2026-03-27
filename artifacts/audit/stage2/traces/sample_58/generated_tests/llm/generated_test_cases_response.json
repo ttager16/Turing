@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6CLSM6Hl3KCcY0rUsHpHB6ZkcuK",
+  "object": "chat.completion",
+  "created": 1774397741,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[]\",\n        \"[10, 20, 30]\"\n      ],\n      \"focus\": \"Empty processors list (rule 24): ensure function returns the mandated empty/zero-shaped result when no processors are provided.\"\n    },\n    {\n      \"input_lines\": [\n        \"[5, 0, 5, 10]\",\n        \"[]\"\n      ],\n      \"focus\": \"Non-empty processors with empty task list (rule 25): preserves initial loads, single snapshot in load_history, and zero tasks handling.\"\n    },\n    {\n      \"input_lines\": [\n        \"[0, 9990, 5000]\",\n        \"[0, 1, 1, 2, 2, 2, 50, 50, 100, 100]\"\n      ],\n      \"focus\": \"Format- and tie-sensitive case: includes zero-cost tasks and many duplicate sizes to exercise priority tie-breakers, locality/affinity scoring, and deterministic assignment behavior.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 4090,
+    "completion_tokens": 1192,
+    "total_tokens": 5282,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 960,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

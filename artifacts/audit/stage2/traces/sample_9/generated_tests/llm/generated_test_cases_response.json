@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5Actjjj7GYgRckovksR7nOjjfuW",
+  "object": "chat.completion",
+  "created": 1774393790,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"{\\\"performance_history\\\":[70,70,70],\\\"engagement_over_time\\\":[\\\"low\\\",\\\"low\\\"],\\\"preferences\\\":{\\\"format\\\":[\\\"video\\\"],\\\"topic_focus\\\":[\\\"history\\\"]}}\",\"[{\\\"id\\\":201,\\\"type\\\":\\\"video\\\",\\\"subject\\\":\\\"history\\\"},{\\\"id\\\":202,\\\"type\\\":\\\"video\\\",\\\"subject\\\":\\\"geography\\\",\\\"difficulty\\\":2},{\\\"id\\\":203,\\\"type\\\":\\\"text\\\",\\\"subject\\\":\\\"history\\\",\\\"difficulty\\\":4}]\",\"{}\"],\"focus\":\"missing student_profile.id (use string/hash seeding), defaults for constraints, modules with missing difficulty, current_path_tree absent\"}, {\"input_lines\":[\"{\\\"id\\\":true,\\\"performance_history\\\":[90,90],\\\"engagement_over_time\\\":[\\\"high\\\",\\\"high\\\"],\\\"preferences\\\":{\\\"format\\\":[\\\"quiz\\\"],\\\"topic_focus\\\":[\\\"math\\\"]},\\\"current_path_tree\\\":{\\\"invalid\\\":\\\"yes\\\"}}\",\"[{\\\"id\\\":301,\\\"type\\\":\\\"quiz\\\",\\\"subject\\\":\\\"math\\\",\\\"difficulty\\\":3},{\\\"id\\\":302,\\\"type\\\":\\\"quiz\\\",\\\"subject\\\":\\\"math\\\",\\\"difficulty\\\":3},{\\\"id\\\":303,\\\"type\\\":\\\"quiz\\\",\\\"subject\\\":\\\"math\\\",\\\"difficulty\\\":3}]\",\"{\\\"max_flow_cost\\\":10,\\\"priority_subjects\\\":[],\\\"max_concurrent_modules\\\":0}\"],\"focus\":\"boolean id (must be hashed as string), identical modules to force tie-breaking by index, max_concurrent_modules=0 treated as unlimited, small budget for rounding edge cases\"}, {\"input_lines\":[\"{\\\"id\\\":\\\"user-αβ\\\",\\\"performance_history\\\":[60],\\\"engagement_over_time\\\":[\\\"medium\\\"],\\\"preferences\\\":{\\\"format\\\":[\\\"interactive\\\"],\\\"topic_focus\\\":[\\\"physics\\\"]},\\\"current_path_tree\\\":{\\\"node\\\":1,\\\"children\\\":[{\\\"node\\\":5,\\\"children\\\":[{\\\"node\\\":7,\\\"children\\\":[]}]},{\\\"node\\\":6,\\\"children\\\":[]} ]}}\",\"[{\\\"id\\\":401,\\\"type\\\":\\\"interactive\\\",\\\"subject\\\":\\\"physics\\\",\\\"difficulty\\\":5},{\\\"id\\\":402,\\\"type\\\":\\\"interactive\\\",\\\"subject\\\":\\\"chemistry\\\",\\\"difficulty\\\":6},{\\\"id\\\":403,\\\"type\\\":\\\"lecture\\\",\\\"subject\\\":\\\"physics\\\"}]\",\"{\\\"max_flow_cost\\\":75.5,\\\"priority_subjects\\\":[\\\"physics\\\"],\\\"max_difficulty_spread\\\":1}\"],\"focus\":\"non-ASCII string id (md5 seeding), tree contains some module IDs for depth bias and some missing (use root), missing module difficulty default, priority_subjects boost and tight max_difficulty_spread\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 5297,
+    "completion_tokens": 2645,
+    "total_tokens": 7942,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2112,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

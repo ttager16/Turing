@@ -1,0 +1,162 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+A leading logistics company, GlobalSupplyChain Inc., is now faced with orchestrating multi-commodity shipments across a layered network of warehouses, ports, and cross-docking stations spread over several continents and time zones. Each commodity class (e.g., perishable goods, electronics, pharmaceuticals) adheres to unique handling requirements, capacity restrictions, and strict delivery deadlines. Additionally, seasonal demand fluctuations impose dynamic constraints that change daily. This scenario calls for a hyper-optimized and robust algorithmic framework that models multiple interlinked networks, tracks capacities on each edge, and ensures minimal overall routing cost while balancing inventory buffers.
+
+The challenge extends beyond classical linear programming. You must integrate a specialized, from-scratch advanced data structure—such as a carefully constructed graph with layered segments or a heavy-light decomposition for on-the-fly capacity updates—to compute multi-commodity flows. Your task is to build an efficient, multi-step, dynamic flow control system that reconciles concurrent shipments, mitigates congestion, and optimizes dispatch schedules in real-time.
+
+### Objectives
+
+1. **Implement Multi-Commodity Flow with Advanced Structures:**  
+   Construct a custom algorithm (e.g., a layered Min-Cost Max-Flow or a heavy-light decomposition for path capacity updates) that supports multiple goods simultaneously. Ensure that edges and nodes can be rapidly updated to reflect newly arriving or expiring constraints during execution.
+
+2. **Incorporate Time-Window Constraints and Demand Shifts:**  
+   Design a modular approach to handle time-windows for perishable commodities and shifting demand patterns. Each commodity's transit must respect crucial deadlines and adhere to day-by-day capacity updates across nodes and edges.
+
+3. **Optimize Throughput, Storage, and Costs with Priority Resolution:**  
+   Track both transportation costs and storage overhead in intermediate nodes. The solution must decide whether to reroute goods to avoid congestion or hold them longer in specific warehouses. **Priority-based routing takes precedence over cost minimization**: higher-priority commodities may use more expensive routes if their preferred routes are congested, but the algorithm should still minimize total cost within the constraints of priority ordering.
+
+4. **Ensure Robust Scalability and Precision:**  
+   Employ careful pivoting, cycle detection, and numeric stability controls. The data structures should preempt rounding anomalies, avoid infinite loops, handle thousands of nodes elegantly, and maintain consistency between partial and global solutions.
+
+### Constraints
+
+- The algorithm must be coded solely in Python without any external libraries, frameworks, or built-in advanced modules (e.g., no "numpy" or "fractions").
+- The solution should handle at least 5 different classes of commodities, with each class potentially having up to 10,000 shipment routes in large-scale test cases.
+- Real-time updates imply that partial flow decisions can be invalidated if daily capacity changes. Recomputations must happen in under 5 minutes, even for large multi-graph scenarios.
+- **Priority-based routing**: Commodities must be processed in priority order (electronics > pharmaceuticals > perishables > textiles > chemicals), with higher priority goods getting preferential routing. When routing conflicts occur, priority takes precedence over cost optimization.
+- **Cross-contamination prevention**: Certain commodity types cannot share the same node simultaneously during transit or storage. Specifically:
+  - Chemicals cannot share nodes with perishables or pharmaceuticals
+  - Perishables cannot share nodes with chemicals
+  - This applies to both transient paths (commodities passing through the same node) and storage (commodities stored at the same node)
+  - The "separated by at least one intermediate node" requirement means that if a chemical commodity uses node X, then perishable/pharmaceutical commodities cannot use node X and all its immediate neighbors
+- **Dynamic capacity degradation**: Edge capacities decrease by 10% for each day a commodity remains in transit, simulating real-world deterioration. The degradation factor is calculated as max(0.1, 1.0 - (days_in_transit * 0.1)).
+- **Minimum flow thresholds**: Each commodity must maintain a minimum flow rate of 20% of its demand to prevent supply chain disruptions. If this threshold cannot be met, the commodity's flow is set to zero.
+- Corner cases:  
+  - Nodes with unexpectedly zero capacity on certain days.  
+  - Fluctuating edge costs that spike after a particular threshold is reached.  
+  - Simultaneous arrival of multiple commodities at a single node, requiring priority-based dispatch.  
+
+### Function Signature
+```python
+def advanced_multi_commodity_flow_solver(
+    base_graph: List[List[List[Union[int, float]]]],
+    commodities: List[Dict[str, Any]],
+    time_windows: List[List[Union[int, int]]],
+    node_storage_caps: List[float]
+) -> List[Union[List[List[float]], float]]:
+    """Solve multi-commodity flow problem with advanced constraints and optimizations."""
+    pass
+```
+
+### Function Parameters
+- base_graph: An adjacency list representing the layered network. Each entry contains tuples of (destination_node, cost_per_unit_flow).  
+- commodities: A list of dictionaries, each specifying "source", "sink", "demand", "type_of_good", and potentially dynamic "daily_capacity_changes".  
+- time_windows: A list of (start_day, end_day) limits for shipping certain classes of goods.  
+- node_storage_caps: Maximum holding capacity at each node for backlogged shipments.
+
+### Time and Capacity Management Details
+
+**Daily Capacity Changes and Time Windows Relationship:**
+- The `daily_capacity_changes` list in each commodity dictionary represents capacity modifications for each day of the simulation
+- Each element in the list corresponds to a specific day (index 0 = day 0, index 1 = day 1, etc.)
+- The `time_windows` parameter provides delivery deadlines for each commodity (by index)
+- The algorithm processes commodities in priority order, and for each commodity:
+  1. Applies the corresponding time window constraints (affecting edge costs and capacities based on urgency)
+  2. Iterates through the `daily_capacity_changes` list, applying capacity degradation for each day
+  3. The capacity degradation is cumulative: each day's degradation builds upon previous days' effects
+
+**Time Window Impact on Routing:**
+- Perishables with tight time windows (< 2 days) get 50% capacity reduction and 50% cost increase
+- Pharmaceuticals with tight time windows (< 3 days) get 20% capacity reduction and 20% cost increase
+- These modifications ensure urgent deliveries are prioritized but at higher cost
+
+**Priority vs. Cost Optimization Resolution:**
+The algorithm resolves conflicts between priority-based routing and cost minimization using the following hierarchy:
+1. **Priority Processing Order**: Commodities are processed in strict priority order (electronics → pharmaceuticals → perishables → textiles → chemicals)
+2. **Path Selection Within Priority**: For each commodity, the algorithm finds the minimum-cost path that satisfies all constraints (capacity, cross-contamination, time windows)
+3. **Constraint Enforcement**: If a higher-priority commodity blocks a lower-priority commodity's preferred route, the lower-priority commodity must find an alternative (potentially more expensive) route
+4. **Cost Minimization**: Within the constraints imposed by priority ordering and cross-contamination rules, the algorithm minimizes total transportation and storage costs
+5. **Fallback Strategy**: If a commodity cannot meet its minimum flow threshold (20% of demand) due to constraints, its flow is set to zero rather than compromising higher-priority commodities
+
+**Cross-Contamination Prevention Implementation:**
+The cross-contamination prevention is implemented through the following mechanisms:
+- **Incompatible Type Mapping**: 
+  - Chemicals are incompatible with perishables and pharmaceuticals
+  - Perishables are incompatible with chemicals
+- **Node Usage Validation**: Before routing a commodity through a node, the algorithm checks:
+  1. If any incompatible commodity types are currently using that node (direct usage)
+  2. If any incompatible commodity types are using adjacent nodes (within distance 1)
+- **Adjacent Node Restriction**: The "separated by at least one intermediate node" requirement is enforced by preventing incompatible commodities from using nodes that are adjacent (within distance 1) to nodes used by incompatible types
+- **Real-time Constraint Checking**: During path finding, each potential node is validated against existing commodity flows to ensure no cross-contamination occurs
+
+### Return Value
+The function returns a list:
+1. A 2D list representing the multi-commodity flow solution; each sub-list corresponds to a commodity's flow distribution across all edges in the same order as they appear in the base_graph adjacency list (flattened by iterating through each node's neighbors sequentially).  
+2. A float representing the total minimized cost (including storage and transit).
+
+**Cost Calculation Details:**
+- **Transportation Cost**: Sum of (flow_amount × edge_cost) for all edges used
+- **Storage Cost**: Additional 0.1 cost per unit flow for intermediate nodes (nodes that are neither source nor sink)
+- **Total Cost**: Transportation cost + Storage cost
+
+**Flow Matrix Generation:**
+- The flow matrix has dimensions [num_commodities × total_edges]
+- Edges are indexed in the order they appear in the base_graph adjacency list (flattened)
+- Each element flow_matrix[i][j] represents the flow of commodity i on edge j
+- The matrix is generated by iterating through all edges and matching them with commodity flows
+
+### Sample Input
+```python
+base_graph = [
+    [[1, 2.0], [2, 5.0]],
+    [[2, 1.5], [3, 3.0]],
+    [[3, 2.0]],
+    []
+]
+commodities = [
+    {"source": 0, "sink": 3, "demand": 15.0, "type_of_good": "electronics", "daily_capacity_changes": [20, 20, 5]},
+    {"source": 0, "sink": 2, "demand": 10.0, "type_of_good": "perishables", "daily_capacity_changes": [10, 10, 10]}
+]
+time_windows = [[0, 1], [0, 2]]
+node_storage_caps = [10.0, 5.0, 20.0, 0.0]
+```
+
+### Sample Output
+```python
+[
+    [
+        [15.0, 0.0, 0.0, 15.0, 0.0],
+        [0.0, 10.0, 0.0, 0.0, 0.0]
+    ],
+    126.5
+]
+```
+
+### Expected Output Format
+- A list where:  
+  1. The first element is a list of lists, providing flows for each commodity across all edges in the same order as the "base_graph" adjacency list.  
+  2. The second element is a float, representing the minimized overall cost of transportation and storage.
+
+Starter Code:
+```python
+from typing import List, Dict, Any, Tuple, Union
+from collections import defaultdict
+import heapq
+
+def advanced_multi_commodity_flow_solver(
+    base_graph: List[List[List[Union[int, float]]]],
+    commodities: List[Dict[str, Any]],
+    time_windows: List[List[Union[int, int]]],
+    node_storage_caps: List[float]
+) -> List[Union[List[List[float]], float]]:
+    """Solve multi-commodity flow problem with advanced constraints and optimizations."""
+    pass
+```

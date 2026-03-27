@@ -1,0 +1,166 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+# Problem Statement
+
+In a next-generation urban planning project, geospatial analysts must reconcile overlapping city zones (parks, residential areas, commercial districts) and their resource networks (water mains, major roads, fiber corridors). Full geometric boolean operations and continuous resource-flow simulation are out of scope for this task — instead, you will implement a **deterministic, testable subsystem** that models the *structural* aspects of zone merging using simplified but realistic approximations.
+
+Each input zone is given as an axis-aligned polygon approximation (a list of `(x,y)` vertices forming a rectilinear-like polygon). Resources are represented as simple line segments or numeric aggregate metrics (capacity, density). Your job is to identify which zones should be merged based on *geometric adjacency/overlap* (approximated by bounding-box overlap) and *resource compatibility* (e.g., combined capacity limits), then produce a merged list of zones that conservatively aggregates geometry and resources.
+
+This simplified subsystem preserves the spirit of a larger composite structure (Disjoint-Set for connectivity, plus auxiliary aggregators for resources) while being deterministic, verifiable, and suitable for automated grading.
+
+---
+
+# Objectives
+
+1. **Connectivity via Disjoint-Set:**
+
+   * Build a union-find (disjoint-set) to group zones that should be merged. Two zones are merge candidates if **their axis-aligned bounding boxes intersect** (non-empty intersection) *and* their resource aggregates satisfy compatibility checks described below.
+
+2. **Resource Compatibility Checks:**
+
+   * For a resource type (e.g., `water`), define a simple compatibility rule: the merged capacity must not exceed a global threshold `MAX_WATER_CAPACITY` (configurable internally). If the capacity would exceed the threshold, the zones should **not** be merged for that resource dimension.
+   * For `roads`, merge by summing `density` and concatenating `connections`; no upper bound is enforced unless explicitly provided in the input as `max_density` (optional).
+
+3. **Multi-Phase Merge:**
+
+   * Phase 1: compute bounding boxes and identify raw geometric adjacency pairs.
+   * Phase 2: for each adjacency pair, evaluate resource compatibility. If compatible, union their DSU sets.
+   * Phase 3: after all unions, aggregate per-set geometry and resources deterministically (see Aggregation rules).
+
+4. **Deterministic Aggregation Rules:**
+
+   * Merged `id`: deterministic new id equal to `min(all constituent ids) * 100 + count` (so it's reproducible).
+   * Merged `type`: if all constituent types are identical, keep that type; otherwise set to `'mixed'`.
+   * Merged `coordinates`: produce a deterministic concatenation of all input coordinates in ascending order of zone id (no geometric union — just concatenation, which is deterministic and represents the combined shape conservatively).
+   * Merged `resources`: for each resource type, apply deterministic aggregation (sum capacities, sum densities, concatenate route lists preserving order).
+
+5. **Extensibility Notes:**
+
+   * Document in comments where a spatial index (R-tree) or an actual polygon union routine would be integrated for higher fidelity.
+
+---
+
+# Constraints
+
+* Input `zones` list length `n <= 10^4` in production, but for this challenge you may assume `n <= 2000` and design `O(n log n)` or `O(n^2)` adjacency checks depending on bounding-box indexing.
+* Each zone dict contains at least: `id` (int), `type` (str), `coordinates` (list of `(x,y)` tuples), and `resources` (dict of resource summaries).
+* No external geometry or spatial libraries are allowed. Use only the Python standard library.
+* The routine must be deterministic: identical inputs produce identical outputs.
+* The function should be robust to missing optional fields (e.g., `max_density`) and handle negative or zero capacities gracefully.
+
+---
+
+# Function Signature
+
+```python
+from typing import List, Dict, Any
+
+def optimize_city_layout(zones: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Returns a list of merged zone dictionaries according to deterministic aggregation rules.
+    """
+```
+
+---
+
+# Aggregation Rules (Detailed)
+
+* `id`: `new_id = min(ids) * 100 + count` where `count` is the number of merged zones in that set.
+* `type`: if all `type` strings equal -> keep; else `'mixed'`.
+* `coordinates`: concatenation of coordinates lists in ascending order by original `id` (no deduplication required).
+* `resources`:
+
+  * `water`: `capacity` = sum capacities; `routes` = concatenation of route lists preserving zone-id order. If any zone has `max_water_capacity` and the sum exceeds it, those zones should not have been unioned — ensure compatibility check prevents this.
+  * `roads`: `density` = sum densities; `connections` = concatenation of all connections.
+  * For unknown resource keys, default to conservative aggregation: numeric -> sum, lists -> concatenate, others -> keep as list of values.
+
+---
+
+# Sample Input/Output
+
+**Input**
+
+```python
+zones = [
+    {
+        'id': 1,
+        'type': 'residential',
+        'coordinates': [(0, 0), (3, 0), (3, 3), (0, 3)],
+        'resources': {
+            'water': {'capacity': 100, 'routes': [((0,1),(3,1))]},
+            'roads': {'density': 2, 'connections': [((0,2),(3,2))]}
+        }
+    },
+    {
+        'id': 2,
+        'type': 'residential',
+        'coordinates': [(2, 2), (5, 2), (5, 5), (2, 5)],
+        'resources': {
+            'water': {'capacity': 80, 'routes': [((2,3),(5,3))]},
+            'roads': {'density': 1, 'connections': [((2,4),(5,4))]}
+        }
+    },
+    {
+        'id': 3,
+        'type': 'commercial',
+        'coordinates': [(6, 0), (8, 0), (8, 2), (6, 2)],
+        'resources': {
+            'water': {'capacity': 60, 'routes': []},
+            'roads': {'density': 3, 'connections': [((7,0),(7,2))]}
+        }
+    }
+]
+```
+
+**Output**
+
+```python
+[
+    {
+        'id': 102,  # min id 1 * 100 + count 2
+        'type': 'residential',
+        'coordinates': [(0,0),(3,0),(3,3),(0,3),(2,2),(5,2),(5,5),(2,5)],
+        'resources': {
+            'water': {'capacity': 180, 'routes': [((0,1),(3,1)), ((2,3),(5,3))]},
+            'roads': {'density': 3, 'connections': [((0,2),(3,2)), ((2,4),(5,4))]}
+        }
+    },
+    {
+        'id': 103,
+        'type': 'commercial',
+        'coordinates': [(6,0),(8,0),(8,2),(6,2)],
+        'resources': {
+            'water': {'capacity': 60, 'routes': []},
+            'roads': {'density': 3, 'connections': [((7,0),(7,2))]}
+        }
+    }
+]
+```
+
+---
+
+# Expected Output Format
+
+Return a `List[Dict[str, Any]]` where each dict contains the merged zone fields as described.
+
+---
+
+# Notes & Extensions
+
+* If higher fidelity geometric operations are required, note in comments how to integrate a proper polygon union routine (such as shapely) or an R-tree spatial index for adjacency queries.
+* For scalability, replace the O(n^2) adjacency check with an interval or spatial index.
+* This challenge focuses on deterministic structural consolidation and resource aggregation — not on exact geometrical union.
+
+Starter Code:
+```python
+from typing import List, Dict, Any
+
+def optimize_city_layout(zones: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+```

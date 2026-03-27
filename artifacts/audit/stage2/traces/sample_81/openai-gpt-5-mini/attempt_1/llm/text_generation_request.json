@@ -1,0 +1,30 @@
+{
+  "model": "gpt-5-mini",
+  "input": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are a careful coding assistant. Return the best possible answer for the task."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Solve the following Python coding task.\n\nRequirements:\n- Return only Python code.\n- Implement the requested entry function exactly.\n- Do not include explanations before or after the code.\n- Use only the Python standard library unless the prompt explicitly permits otherwise.\n\nProblem Statement:\n### Problem Statement\n\nIn a next-generation hospital network spanning multiple geographical locations, a Python developer is tasked with designing a complex, multi-ward patient scheduling ecosystem. This system must administer diverse triage strategies, cross-ward resource allocation, and dynamic priority adjustments in real time. At the core, it requires a sophisticated data structure that can track patient records, handle intricate dependencies (e.g., doctor availability, ward capacity, and medical equipment usage), and efficiently accommodate large-scale concurrency. The design must support advanced algorithms—such as tree-based segment partitioning—to ensure minimal latency when assigning and reassigning patients across wards, even under high system load. Furthermore, the solution must accurately synchronize state changes (such as transferring a patient to a new ward or reprioritizing multiple patients simultaneously) across all nodes in the hospital network, preventing data inconsistencies or corruption.\n\n### Objectives:\n\n1. **Build a Multi-Layer Patient Data Structure:**\n\n   * Devise a data structure (e.g., self-balancing trees) that can process insertions, deletions, and dynamic reordering of patient records while handling inter-ward dependencies.\n   * Ensure each record can track multiple attributes: priority levels, estimated treatment duration, emergency status, and potential resource conflicts.\n\n2. **Implement Concurrent Scheduling and Resource Allocation:**\n\n   * Integrate concurrency controls that accommodate input from multiple healthcare providers in separate wards, guaranteeing atomicity of state updates.\n   * Use locking or lock-free strategies that propagate changes throughout the data structure, ensuring consistent treatment schedules without overlapping resource usage.\n\n3. **Coordinate Cross-Ward Transfers and Compound State Updates:**\n\n   * Develop logic to relocate patients from one ward to another without compromising overall scheduling efficiency.\n   * Support compound transitions, such as moving groups of patients simultaneously or switching large numbers of priorities based on sudden emergency influxes.\n\n4. **Optimize for Scalability and Minimally Disruptive Updates:**\n\n   * Maintain an update mechanism capable of recalculating only affected segments or nodes rather than recomputing the entire schedule.\n\n### Constraints:\n\n* All core operations (e.g., inserting, deleting, transferring, reprioritizing) must achieve amortized O(n) or better using specialized algorithms/data structures.\n* The system must manage at least 100,0 concurrent patients and handle up to 50,0 concurrent modification requests across wards without data corruption or significant latency spikes.\n* State updates (including cross-ward transfers and mass priority changes) must be reflected throughout the entire hospital network within 500 milliseconds to maintain real-time accuracy.\n* Only standard Python libraries are allowed; no external libraries can be used to implement concurrency, data structures, or graph algorithms.\n\n### Function Signature\n\n```python\ndef manage_patient_queue(commands: list[list[str, any]]) -> list[str]:\n    pass\n```\n\n### Sample Input/Output\n\nSample Input:\n\n```python\ncommands = [\n    ('insert', {'id': 101, 'ward': 'ICU', 'priority': 3, 'emergency': False, 'duration': 120}),\n    ('insert', {'id': 202, 'ward': 'ER', 'priority': 1, 'emergency': True, 'duration': 45}),\n    ('transfer', {'id': 202, 'new_ward': 'ICU'}),\n    ('reorder',  {'id': 101, 'new_priority': 2, 'simulate_mass_update': True}),\n    ('delete',   {'id': 101})\n]\n```\n\nSample Output:\n\n```python\n[\n    \"Patient 101 added to ward ICU\",\n    \"Patient 202 added to ward ER\",\n    \"Patient 202 transferred to ward ICU\",\n    \"Patient 101 updated to priority 2 with mass update simulation\",\n    \"Patient 101 removed from system\"\n]\n```\n\n### Expected Output Format\n\n• The function should return a list of strings summarizing the actions taken or results of each command in the order they were processed.\n\nStarter Code:\n```python\nfrom typing import List, Tuple, Any, Dict, Optional\nfrom threading import RLock\nfrom collections import defaultdict\nimport bisect\nimport time\n\ndef manage_patient_queue(commands: List[List]) -> List[str]:\n    pass\n```\n"
+        }
+      ]
+    }
+  ],
+  "reasoning": {
+    "effort": "minimal"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 4096
+}

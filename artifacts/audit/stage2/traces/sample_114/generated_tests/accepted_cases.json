@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "{\"graph\": {\"1\": [[2, 5, 1], [3, 2, 4]], \"2\": [[3, 3, 1]], \"3\": [[1, 1, 0]]}, \"analyze_all_paths\": false}",
+    "output_text": "{\"error\": \"Source node not found in graph\"}"
+  },
+  {
+    "case_index": 1,
+    "input_text": "{\"graph\": {\"0\": []}, \"source\": 0, \"sink\": 0, \"analyze_all_paths\": false}",
+    "output_text": "{\"optimal_path\": [0], \"max_throughput\": null, \"total_cost\": 0, \"layers\": {\"0\": [0]}, \"num_layers\": 1, \"bottleneck_nodes\": [], \"metrics\": {\"capacity_utilization_percent\": 0.0, \"cost_efficiency_ratio\": null, \"path_length\": 0, \"avg_edge_capacity\": 0.0, \"flow_efficiency_percent\": 0.0, \"network_density\": 0.0, \"cost_per_hop\": 0.0, \"bottleneck_severity_percent\": 0.0, \"path_resilience_score\": 0, \"layer_distribution\": {\"min_nodes_per_layer\": 1, \"max_nodes_per_layer\": 1, \"avg_nodes_per_layer\": 1.0}}}"
+  },
+  {
+    "case_index": 2,
+    "input_text": "{\"graph\": {\"0\": [[1, 5, 1], [2, 5, 3]], \"1\": [[3, 5, 2]], \"2\": [[3, 5, 1]], \"3\": []}, \"source\": 0, \"sink\": 3, \"analyze_all_paths\": true}",
+    "output_text": "{\"optimal_path\": [0, 1, 3], \"max_throughput\": 10, \"total_cost\": 3, \"layers\": {\"0\": [0], \"1\": [1, 2], \"2\": [3]}, \"num_layers\": 3, \"bottleneck_nodes\": [0, 1], \"metrics\": {\"capacity_utilization_percent\": 100.0, \"cost_efficiency_ratio\": 3.3333, \"path_length\": 2, \"avg_edge_capacity\": 5.0, \"flow_efficiency_percent\": 100.0, \"network_density\": 1.0, \"cost_per_hop\": 1.5, \"bottleneck_severity_percent\": 0.0, \"path_resilience_score\": 2, \"layer_distribution\": {\"min_nodes_per_layer\": 1, \"max_nodes_per_layer\": 2, \"avg_nodes_per_layer\": 1.33}}, \"alternative_paths\": [{\"path\": [0, 1, 3], \"capacity\": 5, \"cost\": 3}, {\"path\": [0, 2, 3], \"capacity\": 5, \"cost\": 4}]}"
+  }
+]

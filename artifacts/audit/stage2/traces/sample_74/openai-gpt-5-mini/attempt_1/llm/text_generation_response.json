@@ -1,0 +1,76 @@
+{
+  "id": "resp_04d7ab478f49749b0069c32c95dc60819f98b5df276e532a78",
+  "object": "response",
+  "created_at": 1774398613,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398644,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_04d7ab478f49749b0069c32c9620ac819fa8736a1d56ff4ec6",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_04d7ab478f49749b0069c32c964d3c819faaa837886d0aa826",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Tuple, Dict, Optional, Any\nimport math\n\nclass TransactionMetadata:\n    def __init__(self, timestamp: int, appearance: int, amount: float):\n        self.timestamp = timestamp\n        self.appearance = appearance\n        self.amount = amount\n\nclass AVLNode:\n    def __init__(self, timestamp: int):\n        self.timestamp: int = timestamp\n        self.transactions: List[Tuple[str, int]] = []  # list of (canonical_id, appearance_index)\n        self.left: Optional['AVLNode'] = None\n        self.right: Optional['AVLNode'] = None\n        self.height: int = 1\n\ndef node_height(n: Optional[AVLNode]) -> int:\n    return n.height if n else 0\n\ndef update_height(n: AVLNode):\n    n.height = 1 + max(node_height(n.left), node_height(n.right))\n\ndef balance_factor(n: Optional[AVLNode]) -> int:\n    if not n:\n        return 0\n    return node_height(n.left) - node_height(n.right)\n\ndef right_rotate(y: AVLNode) -> AVLNode:\n    x = y.left\n    T2 = x.right\n    x.right = y\n    y.left = T2\n    update_height(y)\n    update_height(x)\n    return x\n\ndef left_rotate(x: AVLNode) -> AVLNode:\n    y = x.right\n    T2 = y.left\n    y.left = x\n    x.right = T2\n    update_height(x)\n    update_height(y)\n    return y\n\ndef insert_avl(root: Optional[AVLNode], timestamp: int, canonical_id: str, appearance: int) -> AVLNode:\n    if root is None:\n        node = AVLNode(timestamp)\n        node.transactions.append((canonical_id, appearance))\n        return node\n    if timestamp < root.timestamp:\n        root.left = insert_avl(root.left, timestamp, canonical_id, appearance)\n    elif timestamp > root.timestamp:\n        root.right = insert_avl(root.right, timestamp, canonical_id, appearance)\n    else:\n        # same timestamp, append transaction tuple\n        root.transactions.append((canonical_id, appearance))\n        return root\n    update_height(root)\n    bf = balance_factor(root)\n    # Left Left\n    if bf > 1 and timestamp < root.left.timestamp:\n        return right_rotate(root)\n    # Right Right\n    if bf < -1 and timestamp > root.right.timestamp:\n        return left_rotate(root)\n    # Left Right\n    if bf > 1 and timestamp > root.left.timestamp:\n        root.left = left_rotate(root.left)\n        return right_rotate(root)\n    # Right Left\n    if bf < -1 and timestamp < root.right.timestamp:\n        root.right = right_rotate(root.right)\n        return left_rotate(root)\n    return root\n\ndef range_query(root: Optional[AVLNode], start: int, end: int, out: List[Tuple[str,int]]):\n    if not root:\n        return\n    if start <= root.timestamp <= end:\n        # traverse left, then this node, then right to maintain timestamp order; appearance ordering handled later\n        range_query(root.left, start, end, out)\n        out.extend(root.transactions)\n        range_query(root.right, start, end, out)\n    elif root.timestamp < start:\n        range_query(root.right, start, end, out)\n    else:\n        range_query(root.left, start, end, out)\n\ndef traverse_stats(root: Optional[AVLNode], stats: Dict[str,int]):\n    if not root:\n        return\n    stats['node_count'] += 1\n    if root.left is None and root.right is None:\n        stats['leaf_count'] += 1\n    lh = node_height(root.left)\n    rh = node_height(root.right)\n    stats['balance_max'] = max(stats['balance_max'], abs(lh - rh))\n    traverse_stats(root.left, stats)\n    traverse_stats(root.right, stats)\n\ndef collect_all_transactions(root: Optional[AVLNode], out: List[Tuple[str,int,int]]):\n    if not root:\n        return\n    collect_all_transactions(root.left, out)\n    for cid, app in root.transactions:\n        out.append((cid, app, root.timestamp))\n    collect_all_transactions(root.right, out)\n\ndef process_transactions(transactions: List[List],\n                         queries: List[List]) -> Dict[str, Any]:\n    hash_index: Dict[str, TransactionMetadata] = {}\n    root: Optional[AVLNode] = None\n    appearance_counter = 0\n    total_processed = 0\n    duplicate_count = 0\n    branch_counts: Dict[str,int] = {}\n    duplicate_sources = 0  # count of duplicate transaction IDs encountered (per constraint 13)\n    out_of_order_count = 0\n    prev_timestamp: Optional[int] = None\n\n    # For amount stats accumulation for unique inserted transactions\n    amounts_by_cid: Dict[str, float] = {}\n\n    # Process transactions\n    for tx in transactions:\n        total_processed += 1\n        timestamp, txid, amount = tx\n        # Branch detection and canonical parsing\n        branch_id = None\n        canonical = txid\n        if isinstance(txid, str) and txid.startswith('B') and '|' in txid:\n            parts = txid.split('|', 1)\n            branch_id = parts[0]\n            canonical = parts[1]\n            branch_counts.setdefault(branch_id, 0)\n            branch_counts[branch_id] += 1\n        else:\n            # If not branch-prefixed, still count nothing for branches\n            pass\n        if branch_id is None and isinstance(txid, str) and txid.startswith('B') and '|' not in txid:\n            # starts with B but no '|', per rules branch only when contains '|'\n            pass\n        # Also, if branch prefix exists, counts should include duplicates per constraint 12: count all transactions with each branch prefix including duplicates\n        # Done above.\n        # Deduplication\n        if canonical in hash_index:\n            duplicate_count += 1\n            duplicate_sources += 1\n            # still count branch occurrence if branch present even for duplicates\n            continue\n        # Out-of-order detection\n        if prev_timestamp is not None and timestamp < prev_timestamp:\n            out_of_order_count += 1\n        prev_timestamp = timestamp\n        # Insert\n        appearance = appearance_counter\n        appearance_counter += 1\n        metadata = TransactionMetadata(timestamp, appearance, amount)\n        hash_index[canonical] = metadata\n        amounts_by_cid[canonical] = amount\n        root = insert_avl(root, timestamp, canonical, appearance)\n\n    unique_count = len(hash_index)\n\n    # Timestamp statistics\n    if unique_count == 0:\n        min_timestamp = None\n        max_timestamp = None\n        timestamp_range = 0\n        unique_timestamps = 0\n        out_of_order_ratio = 0.0\n    else:\n        ts_list = [m.timestamp for m in hash_index.values()]\n        min_timestamp = min(ts_list)\n        max_timestamp = max(ts_list)\n        timestamp_range = max_timestamp - min_timestamp\n        unique_timestamps = len(set(ts_list))\n        out_of_order_ratio = round((out_of_order_count / total_processed) * 100, 2) if total_processed>0 else 0.0\n\n    # Amount statistics (population std dev)\n    if unique_count == 0:\n        total_amount = 0.0\n        avg_amount = 0.0\n        min_amount = 0.0\n        max_amount = 0.0\n        amount_std_dev = 0.0\n    else:\n        amounts = list(amounts_by_cid.values())\n        total_amount = sum(amounts)\n        avg_amount = total_amount / len(amounts)\n        min_amount = min(amounts)\n        max_amount = max(amounts)\n        # population variance\n        mean = avg_amount\n        var = sum((a - mean) ** 2 for a in amounts) / len(amounts)\n        amount_std_dev = round(math.sqrt(var), 2)\n\n    # Queries\n    results: List[List[str]] = []\n    per_query_metrics: List[Dict[str, Any]] = []\n    total_results_returned = 0\n    empty_query_count = 0\n    for q in queries:\n        start, end = q\n        if start > end:\n            results.append([])\n            per_query_metrics.append({\n                \"range\": [start, end],\n                \"result_count\": 0,\n                \"total_amount\": 0.0,\n                \"avg_amount\": 0.0,\n                \"min_amount\": 0.0,\n                \"max_amount\": 0.0\n            })\n            empty_query_count += 1\n            continue\n        collected: List[Tuple[str,int]] = []\n        range_query(root, start, end, collected)\n        # Remove duplicates? Transactions are unique by canonical in tree; collected may contain multiple entries but unique canonical across tree exists.\n        # Sort by appearance index\n        collected_sorted = sorted(collected, key=lambda x: x[1])\n        canonical_list = [cid for cid,_ in collected_sorted]\n        results.append(canonical_list)\n        total_results_returned += len(canonical_list)\n        if len(canonical_list) == 0:\n            empty_query_count += 1\n            per_query_metrics.append({\n                \"range\": [start, end],\n                \"result_count\": 0,\n                \"total_amount\": 0.0,\n                \"avg_amount\": 0.0,\n                \"min_amount\": 0.0,\n                \"max_amount\": 0.0\n            })\n        else:\n            # compute amount stats for these canonical IDs (unique)\n            vals = [hash_index[c].amount for c in canonical_list]\n            t_amt = sum(vals)\n            avg_a = t_amt / len(vals)\n            min_a = min(vals)\n            max_a = max(vals)\n            per_query_metrics.append({\n                \"range\": [start, end],\n                \"result_count\": len(vals),\n                \"total_amount\": t_amt,\n                \"avg_amount\": avg_a,\n                \"min_amount\": min_a,\n                \"max_amount\": max_a\n            })\n\n    total_queries = len(queries)\n    avg_results_per_query = (total_results_returned / total_queries) if total_queries>0 else 0.0\n\n    # Tree statistics\n    if root is None:\n        tree_height = 0\n        node_count = 0\n        balance_max = 0\n        is_balanced = True\n        leaf_count = 0\n        theoretical_min_height = 0\n        balance_efficiency = 100.0\n    else:\n        tree_height = node_height(root)\n        stats = {'node_count':0, 'leaf_count':0, 'balance_max':0}\n        traverse_stats(root, stats)\n        node_count = stats['node_count']\n        leaf_count = stats['leaf_count']\n        balance_max = stats['balance_max']\n        is_balanced = (balance_max <= 1)\n        theoretical_min_height = int(math.isqrt(node_count))\n        balance_efficiency = round((1 - balance_max/10) * 100, 2)\n    # Performance metrics\n    insertion_success_rate = round(((total_processed - duplicate_count) / total_processed) * 100, 2) if total_processed>0 else 0.0\n    deduplication_rate = round((duplicate_count / total_processed) * 100, 2) if total_processed>0 else 0.0\n\n    # Branch statistics summary\n    branches_detected = len(branch_counts)\n    merge_efficiency = round((unique_count / total_processed) * 100, 2) if total_processed>0 else 0.0\n\n    output = {\n        \"results\": results,\n        \"unique_count\": unique_count,\n        \"duplicate_count\": duplicate_count,\n        \"branch_statistics\": {\n            \"branches_detected\": branches_detected,\n            \"transactions_per_branch\": branch_counts,\n            \"duplicate_sources\": duplicate_sources,\n            \"merge_efficiency\": merge_efficiency\n        },\n        \"timestamp_statistics\": {\n            \"min_timestamp\": min_timestamp,\n            \"max_timestamp\": max_timestamp,\n            \"timestamp_range\": timestamp_range,\n            \"unique_timestamps\": unique_timestamps,\n            \"out_of_order_ratio\": out_of_order_ratio\n        },\n        \"amount_statistics\": {\n            \"total_amount\": round(total_amount, 2),\n            \"average_amount\": round(avg_amount, 2),\n            \"min_amount\": round(min_amount, 2),\n            \"max_amount\": round(max_amount, 2),\n            \"amount_std_dev\": amount_std_dev\n        },\n        \"query_statistics\": {\n            \"total_queries\": total_queries,\n            \"per_query_metrics\": per_query_metrics,\n            \"total_results_returned\": total_results_returned,\n            \"avg_results_per_query\": avg_results_per_query,\n            \"empty_query_count\": empty_query_count\n        },\n        \"tree_statistics\": {\n            \"height\": tree_height,\n            \"node_count\": node_count,\n            \"balance_factor_max\": balance_max,\n            \"is_balanced\": is_balanced,\n            \"leaf_count\": leaf_count,\n            \"theoretical_min_height\": theoretical_min_height,\n            \"balance_efficiency\": balance_efficiency\n        },\n        \"performance_metrics\": {\n            \"total_transactions_processed\": total_processed,\n            \"insertion_success_rate\": insertion_success_rate,\n            \"deduplication_rate\": deduplication_rate\n        }\n    }\n    return output"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2436,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2847,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 5283
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,76 @@
+{
+  "id": "resp_0914e28c59fdfa450069c32550a9a081a292b400b9a00178c5",
+  "object": "response",
+  "created_at": 1774396752,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774396785,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0914e28c59fdfa450069c325512a3081a2839673af9c533772",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0914e28c59fdfa450069c3255177dc81a2ba1b7059e5a79dbc",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List, Any, Tuple\n\ndef maximize_ad_impressions(payload: Dict[str, Any]) -> Dict[str, float | List[str]]:\n    budget: float = float(payload.get(\"budget\", 0.0))\n    raw_bids = payload.get(\"bids\", [])\n    synergy_list = payload.get(\"synergy\", [])\n    seg_caps_raw = payload.get(\"segment_roi_cap\", {}) or {}\n\n    # Normalize segment caps: keys may be strings or ints\n    seg_caps: Dict[int, float] = {}\n    for k, v in seg_caps_raw.items():\n        try:\n            key = int(k)\n        except Exception:\n            # fallback if not int-like\n            key = k\n        seg_caps[key] = float(v)\n\n    # Parse bids into dicts\n    bids: List[Dict[str, Any]] = []\n    for entry in raw_bids:\n        bid_id, cost, roi, segments = entry\n        bids.append({\n            \"id\": str(bid_id),\n            \"cost\": float(cost),\n            \"roi\": float(roi),\n            \"segs\": list(int(s) for s in segments)\n        })\n\n    # Build synergy map: unordered pair -> penalty\n    synergy: Dict[Tuple[int, int], float] = {}\n    for item in synergy_list:\n        a, b = item.get(\"pair\", [None, None])\n        if a is None or b is None:\n            continue\n        a_i, b_i = int(a), int(b)\n        if a_i == b_i:\n            continue\n        key = (a_i, b_i) if a_i < b_i else (b_i, a_i)\n        synergy[key] = float(item.get(\"penalty\", 0.0))\n\n    # Deterministic ordering of bids (tie-breakers): by id\n    bids.sort(key=lambda x: x[\"id\"])\n\n    # Helper functions\n    def compute_roi_and_penalty(selected_ids: List[str]) -> Tuple[float, float, Dict[int, float]]:\n        \"\"\"Return (total_roi_after_caps, total_penalty, per_segment_allocated)\"\"\"\n        sel = [b for b in bids if b[\"id\"] in selected_ids]\n        per_seg_alloc: Dict[int, float] = {}\n        # allocate ROI split equally per bid\n        for b in sel:\n            segs = b[\"segs\"]\n            if not segs:\n                continue\n            per_seg = b[\"roi\"] / len(segs)\n            for s in segs:\n                per_seg_alloc[s] = per_seg_alloc.get(s, 0.0) + per_seg\n        # apply caps\n        total_roi = 0.0\n        for s, val in per_seg_alloc.items():\n            cap = seg_caps.get(s, None)\n            if cap is None:\n                total_roi += val\n            else:\n                # cap applies per segment overall\n                total_roi += min(val, cap)\n        # compute penalties: presence-based for unordered pairs\n        present_segments = set(per_seg_alloc.keys())\n        total_pen = 0.0\n        for (a, b), p in synergy.items():\n            if a in present_segments and b in present_segments:\n                total_pen += p\n        return total_roi, total_pen, per_seg_alloc\n\n    def total_cost_of(selected_ids: List[str]) -> float:\n        s = 0.0\n        idset = set(selected_ids)\n        for b in bids:\n            if b[\"id\"] in idset:\n                s += b[\"cost\"]\n        return s\n\n    # Greedy initial selection: sort by marginal utility per cost\n    accepted: List[str] = []\n    remaining_budget = budget\n    # We'll compute marginal utility assuming no caps/pens initially to rank, but deterministically refine\n    # For deterministic behavior, iterate and pick best marginal that fits budget; recompute true marginal each time.\n    candidate_ids = [b[\"id\"] for b in bids]\n    # Precompute lookup\n    bid_map = {b[\"id\"]: b for b in bids}\n\n    while True:\n        best_id = None\n        best_delta = 0.0\n        for bid_id in candidate_ids:\n            if bid_id in accepted:\n                continue\n            b = bid_map[bid_id]\n            if b[\"cost\"] > remaining_budget:\n                continue\n            # Evaluate adding bid\n            new_sel = accepted + [bid_id]\n            new_roi, new_pen, _ = compute_roi_and_penalty(new_sel)\n            cur_roi, cur_pen, _ = compute_roi_and_penalty(accepted)\n            delta = (new_roi - cur_roi) - (new_pen - cur_pen)\n            # tie-break deterministically by bid id (lower id preferred)\n            if delta > best_delta or (delta == best_delta and best_id is not None and bid_id < best_id):\n                best_delta = delta\n                best_id = bid_id\n            elif delta == best_delta and best_id is None and delta > 0:\n                best_id = bid_id\n        if best_id is not None and best_delta > 0:\n            accepted.append(best_id)\n            remaining_budget -= bid_map[best_id][\"cost\"]\n        else:\n            break\n\n    # Local improvement: try additions and swaps until no improvement\n    improved = True\n    # For deterministic iterations, always consider candidates in sorted id order\n    while improved:\n        improved = False\n        # Attempt single additions first\n        for bid_id in candidate_ids:\n            if bid_id in accepted:\n                continue\n            b = bid_map[bid_id]\n            if b[\"cost\"] <= remaining_budget:\n                new_sel = accepted + [bid_id]\n                new_roi, new_pen, _ = compute_roi_and_penalty(new_sel)\n                cur_roi, cur_pen, _ = compute_roi_and_penalty(accepted)\n                delta = (new_roi - cur_roi) - (new_pen - cur_pen)\n                if delta > 1e-9:\n                    accepted.append(bid_id)\n                    remaining_budget -= b[\"cost\"]\n                    improved = True\n                    break\n        if improved:\n            continue\n        # Attempt beneficial swaps: replace one accepted with one candidate or two-for-one etc.\n        # We'll attempt single-for-single swaps deterministically\n        best_swap = None  # (gain, remove_id, add_id)\n        for rem_id in list(accepted):\n            rem_b = bid_map[rem_id]\n            for add_id in candidate_ids:\n                if add_id in accepted:\n                    continue\n                add_b = bid_map[add_id]\n                new_cost = total_cost_of([x for x in accepted if x != rem_id] + [add_id])\n                if new_cost > budget:\n                    continue\n                new_sel = [x for x in accepted if x != rem_id] + [add_id]\n                new_roi, new_pen, _ = compute_roi_and_penalty(new_sel)\n                cur_roi, cur_pen, _ = compute_roi_and_penalty(accepted)\n                delta = (new_roi - cur_roi) - (new_pen - cur_pen)\n                if delta > 1e-9:\n                    if best_swap is None or delta > best_swap[0] or (abs(delta - best_swap[0]) <= 1e-12 and (rem_id, add_id) < (best_swap[1], best_swap[2])):\n                        best_swap = (delta, rem_id, add_id)\n        if best_swap:\n            _, rem_id, add_id = best_swap\n            accepted.remove(rem_id)\n            accepted.append(add_id)\n            remaining_budget = budget - total_cost_of(accepted)\n            improved = True\n            continue\n        # Attempt two-for-one swaps: remove two accepted and add one candidate\n        best_swap2 = None  # (gain, remove_ids(tuple), add_id)\n        if len(accepted) >= 2:\n            for i in range(len(accepted)):\n                for j in range(i+1, len(accepted)):\n                    rem_ids = (accepted[i], accepted[j])\n                    rem_cost = bid_map[rem_ids[0]][\"cost\"] + bid_map[rem_ids[1]][\"cost\"]\n                    for add_id in candidate_ids:\n                        if add_id in accepted:\n                            continue\n                        add_b = bid_map[add_id]\n                        new_cost = total_cost_of([x for x in accepted if x not in rem_ids] + [add_id])\n                        if new_cost > budget:\n                            continue\n                        new_sel = [x for x in accepted if x not in rem_ids] + [add_id]\n                        new_roi, new_pen, _ = compute_roi_and_penalty(new_sel)\n                        cur_roi, cur_pen, _ = compute_roi_and_penalty(accepted)\n                        delta = (new_roi - cur_roi) - (new_pen - cur_pen)\n                        if delta > 1e-9:\n                            if best_swap2 is None or delta > best_swap2[0] or (abs(delta - best_swap2[0]) <= 1e-12 and (rem_ids, add_id) < (best_swap2[1], best_swap2[2])):\n                                best_swap2 = (delta, rem_ids, add_id)\n        if best_swap2:\n            _, rem_ids, add_id = best_swap2\n            for r in rem_ids:\n                accepted.remove(r)\n            accepted.append(add_id)\n            remaining_budget = budget - total_cost_of(accepted)\n            improved = True\n            continue\n        # No improvements found\n        break\n\n    # Final deterministic ordering of accepted IDs\n    accepted_sorted = sorted(accepted)\n\n    total_roi, total_penalty, _ = compute_roi_and_penalty(accepted_sorted)\n    total_cost = total_cost_of(accepted_sorted)\n    utility = total_roi - total_penalty\n\n    # Round floats minimally (but keep deterministic)\n    return {\n        \"accepted\": accepted_sorted,\n        \"total_cost\": float(total_cost),\n        \"total_roi\": float(total_roi),\n        \"total_penalty\": float(total_penalty),\n        \"utility\": float(utility)\n    }"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1431,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2114,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3545
+  },
+  "user": null,
+  "metadata": {}
+}

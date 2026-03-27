@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5Orx7YkYddQCmizuR21Q1VogwUP",
+  "object": "chat.completion",
+  "created": 1774394673,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[1329227995784915872903807060280344581, 2658455991569831745807614120560689169, 170141183460469231731687303715884105729, 0]\",\n        \"[1329227995784915872903807060280344578, 4]\",\n        \"[8, 2658455991569831745807614120560689155]\"\n      ],\n      \"focus\": \"Nodes include high-layer bits (bits >=120) and explicit HEARTBEAT_FAIL on a node; mixed small lower-bit supplies/demands to exercise fault detection and proportional reduction logic.\"\n    },\n    {\n      \"input_lines\": [\n        \"[]\",\n        \"[1, 1329227995784915872903807060280344576]\",\n        \"[3, 5]\"\n      ],\n      \"focus\": \"Edge case: no nodes but non-empty sources/consumers. Tests graceful handling of empty node list and format sensitivity when high-bit flags appear only in source masks.\"\n    },\n    {\n      \"input_lines\": [\n        \"[1329227995784915872903807060280344699, 2658455991569831745807614120560689608, 255211775190703847597531955573826158599, 53169119831396634916152282411213783040, 0]\",\n        \"[1, 2658455991569831745807614120560689152, 42535295865117307932921825928971026432]\",\n        \"[1024, 10633823966279326983230456482242756608]\"\n      ],\n      \"focus\": \"Complex multi-flag nodes including a node with both HEARTBEAT_OK and HEARTBEAT_FAIL set (should not be treated as failed), plus reactive/failover flags and combinations to separate correct logic from naive pattern-matching.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1678,
+    "completion_tokens": 8683,
+    "total_tokens": 10361,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 8256,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

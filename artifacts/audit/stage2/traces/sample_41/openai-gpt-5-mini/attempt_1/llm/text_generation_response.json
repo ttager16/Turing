@@ -1,0 +1,76 @@
+{
+  "id": "resp_01e769f43dc54a280069c32391e77481a38d1d6f82f32b8f4d",
+  "object": "response",
+  "created_at": 1774396305,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774396319,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_01e769f43dc54a280069c323922cf081a39ad8210ffbdeb683",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_01e769f43dc54a280069c32392697881a3b11b2d02b555c3d1",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "def infinite_horizon_value_iteration(\n    states: list,\n    actions: list,\n    transition_probabilities: dict,\n    rewards: dict,\n    gamma: float,\n    epsilon: float\n) -> dict:\n    # Input validation\n    if not isinstance(states, list) or len(states) == 0:\n        return {'error': 'Empty states list'}\n    if not isinstance(actions, list) or len(actions) == 0:\n        return {'error': 'Empty actions list'}\n    # duplicates\n    if len(set(states)) != len(states):\n        return {'error': 'Duplicate states found'}\n    if len(set(actions)) != len(actions):\n        return {'error': 'Duplicate actions found'}\n    # gamma\n    try:\n        if not (0.0 < float(gamma) < 1.0):\n            return {'error': 'Invalid gamma value'}\n    except Exception:\n        return {'error': 'Invalid gamma value'}\n    # epsilon\n    try:\n        if not (float(epsilon) > 0.0):\n            return {'error': 'Invalid epsilon value'}\n    except Exception:\n        return {'error': 'Invalid epsilon value'}\n    # transitions presence\n    if not isinstance(transition_probabilities, dict):\n        return {'error': 'Missing transition probabilities'}\n    for s in states:\n        if s not in transition_probabilities or not isinstance(transition_probabilities[s], dict):\n            return {'error': 'Missing transition probabilities'}\n        for a in actions:\n            if a not in transition_probabilities[s] or not isinstance(transition_probabilities[s][a], dict):\n                return {'error': 'Missing transition probabilities'}\n    # transitions validity\n    for s in states:\n        for a in actions:\n            trans_dict = transition_probabilities[s][a]\n            total = 0.0\n            for s_next, p in trans_dict.items():\n                if s_next not in states:\n                    return {'error': 'Invalid next state in transitions'}\n                try:\n                    pval = float(p)\n                except Exception:\n                    return {'error': 'Invalid transition probability'}\n                if not (0.0 <= pval <= 1.0):\n                    return {'error': 'Invalid transition probability'}\n                total += pval\n            if abs(total - 1.0) > 1e-6:\n                return {'error': 'Transition probabilities do not sum to 1'}\n    # rewards presence\n    if not isinstance(rewards, dict):\n        return {'error': 'Missing rewards'}\n    for s in states:\n        if s not in rewards or not isinstance(rewards[s], dict):\n            return {'error': 'Missing rewards'}\n        for a in actions:\n            if a not in rewards[s]:\n                return {'error': 'Missing rewards'}\n            r = rewards[s][a]\n            try:\n                _ = float(r)\n            except Exception:\n                return {'error': 'Invalid reward value'}\n    # Initialization\n    V_old = {s: 0.0 for s in states}\n    gamma = float(gamma)\n    epsilon = float(epsilon)\n    # Value iteration\n    while True:\n        V_new = {}\n        for s in states:\n            best = None\n            for a in actions:\n                r = float(rewards[s][a])\n                exp = 0.0\n                trans = transition_probabilities[s][a]\n                for s_next, p in trans.items():\n                    exp += float(p) * V_old[s_next]\n                val = r + gamma * exp\n                if best is None or val > best:\n                    best = val\n            V_new[s] = best if best is not None else 0.0\n        delta = max(abs(V_new[s] - V_old[s]) for s in states)\n        if delta < epsilon:\n            V_final = V_new\n            break\n        V_old = V_new\n    # Policy extraction\n    policy = {}\n    for s in states:\n        best_val = None\n        best_action = None\n        for a in actions:\n            r = float(rewards[s][a])\n            exp = 0.0\n            trans = transition_probabilities[s][a]\n            for s_next, p in trans.items():\n                exp += float(p) * V_final[s_next]\n            val = r + gamma * exp\n            if best_val is None or val > best_val + 1e-9:\n                best_val = val\n                best_action = a\n            elif abs(val - best_val) <= 1e-9:\n                # tie: keep earlier action (actions are iterated in order)\n                pass\n        policy[s] = best_action if best_action is not None else actions[0]\n    # Round value function to 2 decimals\n    value_function = {s: round(V_final[s], 2) for s in states}\n    return {'value_function': value_function, 'policy': policy}"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1926,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1034,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2960
+  },
+  "user": null,
+  "metadata": {}
+}

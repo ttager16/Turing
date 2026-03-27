@@ -1,0 +1,130 @@
+from typing import List
+
+def simulate_quantum_circuit(bitmask: str, gates: List[List], num_qubits: str) -> str:
+    # Input validation parsing
+    try:
+        nq = int(num_qubits)
+        if nq < 1:
+            return "ValueError: Invalid Input"
+    except Exception:
+        return "ValueError: Invalid Input"
+    # parse bitmask string in binary/hex/decimal
+    try:
+        if isinstance(bitmask, str):
+            if bitmask.startswith(("0b", "0B", "0x", "0X")):
+                bm = int(bitmask, 0)
+            else:
+                bm = int(bitmask, 10)
+        else:
+            return "ValueError: Invalid Input"
+        if bm < 0 or bm >= (1 << nq):
+            return "ValueError: Invalid Input"
+    except Exception:
+        return "ValueError: Invalid Input"
+    # Validate gates structure first (before any state change)
+    if not isinstance(gates, list):
+        return "ValueError: Invalid Input"
+    allowed_ops = {"MCX", "CNOT", "MEASURE", "REORDER", "TRACE"}
+    for gate in gates:
+        if not (isinstance(gate, list) and len(gate) == 2):
+            return "ValueError: Invalid Input"
+        op, args = gate
+        if op not in allowed_ops:
+            return "ValueError: Invalid Input"
+        if op == "TRACE":
+            if args != []:
+                return "ValueError: Invalid Input"
+        elif op == "REORDER":
+            # args should be a list of length nq and be a permutation of 0..nq-1
+            if not isinstance(args, list) or len(args) != nq:
+                return "ValueError: Invalid Input"
+            try:
+                perm = list(args)
+                if sorted(perm) != list(range(nq)):
+                    return "ValueError: Invalid Input"
+                for p in perm:
+                    if not isinstance(p, int):
+                        return "ValueError: Invalid Input"
+            except Exception:
+                return "ValueError: Invalid Input"
+        else:
+            # MCX, CNOT, MEASURE: args should be list of ints (for MCX last are targets but all indices must be valid)
+            if not isinstance(args, list):
+                return "ValueError: Invalid Input"
+            if op == "MEASURE":
+                if len(args) != 1:
+                    return "ValueError: Invalid Input"
+            elif op == "CNOT":
+                if len(args) != 2:
+                    return "ValueError: Invalid Input"
+            elif op == "MCX":
+                if len(args) < 2:
+                    return "ValueError: Invalid Input"
+            for idx in args:
+                if not isinstance(idx, int):
+                    return "ValueError: Invalid Input"
+                if idx < 0 or idx >= nq:
+                    return "ValueError: Invalid Input"
+    # All validation passed. Now simulate.
+    changed = set()
+    traces = []
+    initial_state_bits = format(bm, '0{}b'.format(nq))[::-1]  # LSB first for internal, but display MSB..LSB?
+    # Note: Problem sample displays qubits highest..0 as left to right e.g. qubits 5..0: 110011 printed as 110011
+    # So display should be bitstring with qubit (nq-1) as leftmost.
+    def bitstring_from_int(x):
+        return format(x, '0{}b'.format(nq))
+    # Process gates
+    state = bm
+    for gate in gates:
+        op, args = gate
+        if op == "TRACE":
+            traces.append(f"|{bitstring_from_int(state)}>")
+        elif op == "MEASURE":
+            q = args[0]
+            # deterministic measurement: just read bit, no change
+            _ = (state >> q) & 1
+            # do not mark changed
+        elif op == "CNOT":
+            control, target = args
+            if ((state >> control) & 1) == 1:
+                # flip target bit
+                before = state
+                state ^= (1 << target)
+                if ((before >> target) & 1) != ((state >> target) & 1):
+                    changed.add(target)
+        elif op == "MCX":
+            *controls, target = args
+            all_one = True
+            for c in controls:
+                if ((state >> c) & 1) == 0:
+                    all_one = False
+                    break
+            if all_one:
+                before = state
+                state ^= (1 << target)
+                if ((before >> target) & 1) != ((state >> target) & 1):
+                    changed.add(target)
+        elif op == "REORDER":
+            perm = args[:]  # new_order_of_indices: list length nq where element i is old index that becomes position i? Need interpret per sample.
+            # The sample: before 110011 (qubits 5..0). REORDER [2,5,1,0,3,4] produced final 111111 from prior 111111 so unclear.
+            # Interpret as new state bits at positions [n-1..0] correspond to old indices given by perm list in same order.
+            # i.e., new bit at position i (from 0..nq-1 LHS->MSB?) We'll implement mapping where bit at new position i (0..nq-1, with 0 being position 0 LSB) comes from old position perm[i].
+            new_state = 0
+            for new_pos in range(nq):
+                old_pos = perm[new_pos]
+                bit = (state >> old_pos) & 1
+                if bit:
+                    new_state |= (1 << new_pos)
+            # Determine changed qubits: positions where bit changed
+            diff = state ^ new_state
+            for q in range(nq):
+                if (diff >> q) & 1:
+                    changed.add(q)
+            state = new_state
+        else:
+            return "ValueError: Invalid Input"
+    result = f"Resulting State: |{bitstring_from_int(bm)}> -> |{bitstring_from_int(state)}> | Changed qubits: {sorted(list(changed))}"
+    if traces:
+        trace_str = ", ".join(traces)
+        result = result + "\nTrace: [" + trace_str + "]"
+    return result

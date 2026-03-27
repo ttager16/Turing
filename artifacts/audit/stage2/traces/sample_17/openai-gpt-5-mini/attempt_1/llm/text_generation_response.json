@@ -1,0 +1,76 @@
+{
+  "id": "resp_06efab1ad4fb44ff0069c31c03d0988197bac2ce1e60ea96aa",
+  "object": "response",
+  "created_at": 1774394371,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774394387,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_06efab1ad4fb44ff0069c31c043cc48197bfdad645317d79f6",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_06efab1ad4fb44ff0069c31c04805c81979f01cac1b3ae8811",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "def find_nearest_depot(depots, target_distance, offline_depots=None, zero_capacity_depots=None, \n                      priority_levels=None, operating_hours=None, load_capacities=None, current_hour=12,\n                      weather_affected_depots=None, service_types=None, required_service_type=None,\n                      maintenance_schedules=None, depot_zones=None, allowed_zones=None, \n                      depot_costs=None, max_budget=None):\n    \"\"\"Return index of nearest valid depot or -1.\"\"\"\n    # Normalize \"empty as None\"\n    def none_if_empty(x):\n        if x is None:\n            return None\n        if isinstance(x, dict) and len(x) == 0:\n            return None\n        if isinstance(x, (list, tuple)) and len(x) == 0:\n            return None\n        if isinstance(x, (int, float)) and x == 0:\n            return None\n        return x\n    offline_depots = none_if_empty(offline_depots)\n    zero_capacity_depots = none_if_empty(zero_capacity_depots)\n    priority_levels = none_if_empty(priority_levels)\n    operating_hours = none_if_empty(operating_hours)\n    load_capacities = none_if_empty(load_capacities)\n    weather_affected_depots = none_if_empty(weather_affected_depots)\n    service_types = none_if_empty(service_types)\n    maintenance_schedules = none_if_empty(maintenance_schedules)\n    depot_zones = none_if_empty(depot_zones)\n    allowed_zones = none_if_empty(allowed_zones)\n    depot_costs = none_if_empty(depot_costs)\n    max_budget = none_if_empty(max_budget)\n\n    n = len(depots)\n    # Defaults\n    if offline_depots is None:\n        offline_set = set()\n    else:\n        offline_set = set(offline_depots)\n    if zero_capacity_depots is None:\n        zero_capacity_set = set()\n    else:\n        zero_capacity_set = set(zero_capacity_depots)\n    if priority_levels is None:\n        priority_levels = [1] * n\n    if operating_hours is None:\n        operating_hours = [[0, 24]] * n\n    if load_capacities is None:\n        load_capacities = [float('inf')] * n\n    if weather_affected_depots is None:\n        weather_set = set()\n    else:\n        weather_set = set(weather_affected_depots)\n    if service_types is None:\n        service_types = [None] * n\n    if maintenance_schedules is None:\n        maintenance_schedules = [None] * n\n    if depot_zones is None:\n        depot_zones = [None] * n\n    if allowed_zones is None:\n        allowed_zones_set = None\n    else:\n        allowed_zones_set = set(allowed_zones)\n    if depot_costs is None:\n        depot_costs = [None] * n\n    if max_budget is None:\n        max_budget_val = None\n    else:\n        max_budget_val = max_budget\n\n    # Helper: check if depot i is valid\n    def is_valid(i):\n        if i < 0 or i >= n:\n            return False\n        if i in offline_set:\n            return False\n        if i in zero_capacity_set:\n            return False\n        # capacity numeric check\n        cap = load_capacities[i] if i < len(load_capacities) else float('inf')\n        if cap is None:\n            cap = float('inf')\n        if cap <= 0:\n            return False\n        if i in weather_set:\n            return False\n        # operating hours\n        oh = operating_hours[i] if i < len(operating_hours) else [0, 24]\n        if oh is None:\n            oh = [0, 24]\n        try:\n            start_h, end_h = int(oh[0]), int(oh[1])\n        except Exception:\n            start_h, end_h = 0, 24\n        # treat end_h==start_h as full day if both 0 or 24, else empty\n        if not (start_h == end_h == 0 or start_h == end_h == 24):\n            if start_h <= end_h:\n                if not (start_h <= current_hour < end_h):\n                    return False\n            else:\n                # overnight window\n                if not (current_hour >= start_h or current_hour < end_h):\n                    return False\n        # maintenance\n        ms = maintenance_schedules[i] if i < len(maintenance_schedules) else None\n        if ms:\n            try:\n                mstart, mend = int(ms[0]), int(ms[1])\n                if mstart <= mend:\n                    if mstart <= current_hour < mend:\n                        return False\n                else:\n                    if current_hour >= mstart or current_hour < mend:\n                        return False\n            except Exception:\n                pass\n        # service type\n        st = service_types[i] if i < len(service_types) else None\n        if required_service_type is not None:\n            if st is not None and st != required_service_type:\n                return False\n            if st is None:\n                # assume supports all if unspecified\n                pass\n        # zone\n        zone = depot_zones[i] if i < len(depot_zones) else None\n        if allowed_zones_set is not None:\n            if zone is None:\n                # unspecified zone -> treat as allowed\n                pass\n            elif zone not in allowed_zones_set:\n                return False\n        # budget\n        cost = depot_costs[i] if i < len(depot_costs) else None\n        if max_budget_val is not None:\n            if cost is None:\n                # unspecified cost -> treat as allowed\n                pass\n            else:\n                try:\n                    if cost > max_budget_val:\n                        return False\n                except Exception:\n                    pass\n        return True\n\n    # Because depots are near-sorted (displaced up to ±2), but with updates may be more,\n    # we still need global scan due to many constraints. We'll scan all depots keeping best.\n    best_idx = -1\n    best_key = None  # tuple (distance_diff, -priority, index)\n    for i, d in enumerate(depots):\n        if not is_valid(i):\n            continue\n        try:\n            dist = abs(int(d) - int(target_distance))\n        except Exception:\n            try:\n                dist = abs(float(d) - float(target_distance))\n            except Exception:\n                continue\n        pr = priority_levels[i] if i < len(priority_levels) and priority_levels[i] is not None else 1\n        # selection key\n        key = (dist, -int(pr), i)\n        if best_key is None or key < best_key:\n            best_key = key\n            best_idx = i\n    return best_idx"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1901,
+    "input_tokens_details": {
+      "cached_tokens": 1792
+    },
+    "output_tokens": 1453,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3354
+  },
+  "user": null,
+  "metadata": {}
+}

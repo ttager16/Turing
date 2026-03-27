@@ -1,0 +1,76 @@
+{
+  "id": "resp_06e1156ef27fd6320069c3373d0ffc819d93353e2d76d079a7",
+  "object": "response",
+  "created_at": 1774401341,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774401372,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_06e1156ef27fd6320069c3373d9730819db97d78ccc648440b",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_06e1156ef27fd6320069c3373dc3a0819d8fbb47dae18e4663",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List, Tuple\nfrom collections import defaultdict, deque\nimport math\nimport copy\n\ndef self_stabilizing_matching(graph: Dict[str, List], disruptions: List[List[str]]) -> Dict[str, str]:\n    # Validate graph structure\n    if not isinstance(graph, dict) or not isinstance(disruptions, list):\n        return {}\n    for k, v in graph.items():\n        if not isinstance(k, str):\n            return {}\n        if not isinstance(v, list):\n            return {}\n        for nbr in v:\n            # string control id\n            if isinstance(nbr, str):\n                if nbr == \"\":\n                    return {}\n            elif isinstance(nbr, list):\n                if len(nbr) != 2:\n                    return {}\n                cid, cost = nbr\n                if not isinstance(cid, str) or cid == \"\":\n                    return {}\n                if not isinstance(cost, int):\n                    return {}\n            else:\n                return {}\n    # Validate disruptions\n    for d in disruptions:\n        if not isinstance(d, list) or len(d) != 2:\n            return {}\n        event, nid = d\n        if not isinstance(event, str) or event not in (\"fail\", \"attack\", \"restore\"):\n            return {}\n        if not isinstance(nid, str) or nid == \"\":\n            return {}\n    # If both empty, return {}\n    if not graph and not disruptions:\n        return {}\n    # Build sets of services and controls\n    services = set(graph.keys())\n    controls_multilist = defaultdict(list)  # list of occurrences (service, occurrence_index)\n    # Also collect control ids, and per (s,c) minimal cost, and counts for capacity calculation (counts across available services after disruptions)\n    # Store occurrences as entries to count capacity later\n    raw_edges = []  # tuples (service, control, cost)\n    for s, nbrs in graph.items():\n        for nbr in nbrs:\n            if isinstance(nbr, str):\n                c = nbr\n                cost = 0\n            else:\n                c, cost = nbr[0], nbr[1]\n            raw_edges.append((s, c, cost))\n    controls = set(c for _, c, _ in raw_edges)\n    # Apply disruptions atomically\n    node_state = {}  # True = available, False = unavailable\n    # initialize all known nodes available\n    for s in services:\n        node_state[s] = True\n    for c in controls:\n        # if same id as service, already set; else\n        if c not in node_state:\n            node_state[c] = True\n    for ev, nid in disruptions:\n        if nid not in node_state:\n            continue  # ignore unknown nodes\n        if ev in (\"fail\", \"attack\"):\n            node_state[nid] = False\n        else:  # restore\n            node_state[nid] = True\n    # Determine operational services and controls\n    operational_services = [s for s in sorted(services) if node_state.get(s, False)]\n    operational_controls = set(c for c in controls if node_state.get(c, False))\n    # Build effective edges only between operational service and operational control\n    # For (s,c) pair, effective cost = min of costs across duplicates\n    eff_cost = {}  # (s,c) -> min cost\n    capacity_counts = defaultdict(int)  # c -> capacity (counts occurrences across operational services, duplicates count)\n    for s, c, cost in raw_edges:\n        if not node_state.get(s, False):\n            continue\n        if not node_state.get(c, False):\n            continue\n        key = (s, c)\n        if key in eff_cost:\n            if cost < eff_cost[key]:\n                eff_cost[key] = cost\n        else:\n            eff_cost[key] = cost\n        capacity_counts[c] += 1\n    # Services with no valid neighbors are omitted\n    service_neighbors = {}\n    for s in operational_services:\n        neighs = []\n        for c in operational_controls:\n            if (s, c) in eff_cost:\n                neighs.append(c)\n        if neighs:\n            service_neighbors[s] = sorted(neighs)\n    if not service_neighbors:\n        return {}\n    # Build flow network for Min-Cost Max-Flow with capacities on controls.\n    # We'll implement successive shortest augmenting path with potentials.\n    # Nodes: source(0), services 1..n, controls n+1..n+m, sink last.\n    svc_list = sorted(service_neighbors.keys())\n    ctrl_list = sorted(capacity_counts.keys())\n    # Only include controls that have capacity>0 and appear in eff_cost\n    ctrl_list = [c for c in ctrl_list if capacity_counts[c] > 0 and any((s, c) in eff_cost for s in svc_list)]\n    if not ctrl_list:\n        return {}\n    svc_index = {s: i+1 for i, s in enumerate(svc_list)}\n    ctrl_index = {c: i+1+len(svc_list) for i, c in enumerate(ctrl_list)}\n    SRC = 0\n    SNK = 1 + len(svc_list) + len(ctrl_list)\n    N = SNK + 1\n    # adjacency with edge objects\n    class Edge:\n        __slots__ = ('v','cap','cost','rev')\n        def __init__(self,v,cap,cost,rev):\n            self.v = v; self.cap = cap; self.cost = cost; self.rev = rev\n    g = [[] for _ in range(N)]\n    def add_edge(u,v,cap,cost):\n        g[u].append(Edge(v,cap,cost,len(g[v])))\n        g[v].append(Edge(u,0,-cost,len(g[u])-1))\n    # From source to each service cap 1 cost 0\n    for s in svc_list:\n        add_edge(SRC, svc_index[s], 1, 0)\n    # From each control to sink with capacity = capacity_counts[c]\n    for c in ctrl_list:\n        add_edge(ctrl_index[c], SNK, capacity_counts[c], 0)\n    # From service to control edges with cap 1 and cost = eff_cost\n    for s in svc_list:\n        for c in service_neighbors[s]:\n            if c not in ctrl_index:\n                continue\n            cost = eff_cost[(s,c)]\n            # To enforce lexicographic tie-breaking among equal costs and cardinality, we perturb costs slightly:\n            # We'll add a tiny epsilon based on control id ordering to make deterministic selection.\n            # Since costs are integers, multiply by large factor.\n            # Compose total_cost = cost * M + tie_breaker where tie_breaker depends on control id index.\n            # But we also need lexicographic across service order: ensure earlier services prefer smaller control ids.\n            # We can implement final tie-breaker by, when extracting matching among equal total cost flows, enumerating possibilities.\n            add_edge(svc_index[s], ctrl_index[c], 1, cost)\n    # Min-Cost Max-Flow\n    flow = 0\n    cost = 0\n    INF = 10**18\n    potential = [0]*N\n    dist = [0]*N\n    prevv = [0]*N\n    preve = [0]*N\n    maxf = len(svc_list)\n    while flow < maxf:\n        for i in range(N):\n            dist[i] = INF\n        dist[SRC] = 0\n        inqueue = [False]*N\n        # use Dijkstra with potentials (costs can be negative initially, so use Bellman-Ford first iteration)\n        # We'll implement SPFA since N smallish\n        dq = deque([SRC])\n        inqueue[SRC] = True\n        while dq:\n            u = dq.popleft()\n            inqueue[u] = False\n            for ei, e in enumerate(g[u]):\n                if e.cap > 0 and dist[e.v] > dist[u] + e.cost + potential[u] - potential[e.v]:\n                    dist[e.v] = dist[u] + e.cost + potential[u] - potential[e.v]\n                    prevv[e.v] = u\n                    preve[e.v] = ei\n                    if not inqueue[e.v]:\n                        inqueue[e.v] = True\n                        dq.append(e.v)\n        if dist[SNK] == INF:\n            break\n        for v in range(N):\n            potential[v] += dist[v] if dist[v] < INF else 0\n        d = maxf - flow\n        v = SNK\n        while v != SRC:\n            d = min(d, g[prevv[v]][preve[v]].cap)\n            v = prevv[v]\n        flow += d\n        v = SNK\n        while v != SRC:\n            e = g[prevv[v]][preve[v]]\n            e.cap -= d\n            g[v][e.rev].cap += d\n            cost += e.cost * d\n            v = prevv[v]\n    # flow is max matched services\n    if flow == 0:\n        return {}\n    # Extract matching: for each service edge to control, if residual cap is 0 (used), then matched\n    matches = {}\n    for s in svc_list:\n        u = svc_index[s]\n        for e in g[u]:\n            if ctrl_list and SNK>=0:\n                if e.v in ctrl_index.values():\n                    # If original cap was 1, and now cap==0 => used\n                    rev = g[e.v][e.rev]\n                    if rev.cap > 0:  # flow sent: reverse edge has cap >0\n                        # find control id\n                        for c, idx in ctrl_index.items():\n                            if idx == e.v:\n                                matches[s] = c\n                                break\n                        break\n    # Now matches length == flow. However tie-breaking rule requires among equal cardinality and cost choose lexicographically smallest sequence.\n    # Our MCMF produced minimal total cost; but lex tie-break not enforced. We must enforce deterministic among equal-cost matchings.\n    # To resolve, we'll generate all possible matchings achieving same cardinality and total cost by backtracking with pruning.\n    target_card = flow\n    target_cost = cost\n    # Build adjacency per service with effective cost\n    adj = {s: [] for s in svc_list}\n    for s in svc_list:\n        for c in service_neighbors[s]:\n            adj[s].append((c, eff_cost[(s,c)]))\n    # Precompute control capacities\n    cap0 = {c: capacity_counts[c] for c in ctrl_list}\n    best_match = None\n    best_services_seq = None\n    best_controls_seq = None\n    # We'll iterate services in sorted order of svc_list per lex rule.\n    svc_order = svc_list\n    # Precompute minimal remaining possible matches bound for pruning (simple)\n    # Backtrack\n    def backtrack(i, cur_match, cur_cost, cur_cap, matched_count):\n        nonlocal best_match, best_cost, best_match_card, best_services_seq, best_controls_seq\n        # prune by cost > target_cost\n        if cur_cost > target_cost:\n            return\n        # bound on maximum possible additional matches: remaining services that have at least one control with cap>0\n        if matched_count + (len(svc_order) - i) < target_card:\n            return\n        if i == len(svc_order):\n            if matched_count == target_card and cur_cost == target_cost:\n                # build service seq (sorted matched service ids)\n                matched_services = sorted(cur_match.keys())\n                controls_seq = [cur_match[s] for s in matched_services]\n                # compare lexicographically\n                if best_match is None:\n                    best_match = cur_match.copy()\n                    best_services_seq = matched_services\n                    best_controls_seq = controls_seq\n                else:\n                    if matched_services < best_services_seq:\n                        best_match = cur_match.copy()\n                        best_services_seq = matched_services\n                        best_controls_seq = controls_seq\n                    elif matched_services == best_services_seq:\n                        if controls_seq < best_controls_seq:\n                            best_match = cur_match.copy()\n                            best_services_seq = matched_services\n                            best_controls_seq = controls_seq\n            return\n        s = svc_order[i]\n        # option: skip matching this service (omit) — but we need exactly target_card matches; skipping allowed if can still reach target\n        # Try matching to each control sorted to favor lexicographic smaller control in tie\n        # To ensure deterministic order, iterate controls sorted\n        # First try matching options\n        for c, cst in sorted(adj[s], key=lambda x: x[0]):\n            if cur_cap.get(c,0) <= 0:\n                continue\n            # choose\n            cur_cap[c] -= 1\n            cur_match[s] = c\n            backtrack(i+1, cur_match, cur_cost + cst, cur_cap, matched_count+1)\n            # undo\n            cur_cap[c] += 1\n            del cur_match[s]\n        # Also consider leaving s unmatched\n        backtrack(i+1, cur_match, cur_cost, cur_cap, matched_count)\n    best_match = None\n    best_cost = None\n    best_match_card = None\n    backtrack(0, {}, 0, dict(cap0), 0)\n    if best_match is None:\n        return {}\n    return dict(best_match)"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1716,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2828,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4544
+  },
+  "user": null,
+  "metadata": {}
+}

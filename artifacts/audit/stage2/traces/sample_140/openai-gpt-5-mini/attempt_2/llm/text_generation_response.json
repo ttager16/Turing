@@ -1,0 +1,76 @@
+{
+  "id": "resp_0d171ede233077710069c341cb3834819596fb7986da793477",
+  "object": "response",
+  "created_at": 1774404043,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774404086,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0d171ede233077710069c341cbc1608195a1f0778e37252f02",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0d171ede233077710069c341cc5c548195ae8ae44ce75002db",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Any, Dict, List, Tuple\nimport heapq\nimport math\n\ndef compute_dynamic_shortest_paths(\n    graph: Dict[str, List[List[Any]]],\n    updates: List[List[Any]],\n    time_of_day: int\n) -> Dict[str, List[str]]:\n    # Validate basic types\n    if not isinstance(graph, dict):\n        return {}\n    if not isinstance(updates, list):\n        return {}\n    if not isinstance(time_of_day, int) or not (0 <= time_of_day < 24):\n        return {}\n    if graph == {} and updates == []:\n        return {}\n    # Validate and normalize graph structure; build adjacency map\n    adj: Dict[str, List[Tuple[str, int, Dict[str, Any]]]] = {}\n    for city, edges in graph.items():\n        if not isinstance(city, str) or city == \"\":\n            return {}\n        if not isinstance(edges, list):\n            return {}\n        adj[city] = []\n        for edge in edges:\n            if not isinstance(edge, list) or len(edge) != 3:\n                return {}\n            dest, base_cost, constraints = edge\n            if not isinstance(dest, str) or dest == \"\":\n                return {}\n            if dest == city:\n                # self-loop malformed definition should result in {}\n                return {}\n            if not isinstance(base_cost, int) or base_cost < 0:\n                return {}\n            if not isinstance(constraints, dict):\n                return {}\n            # Validate allowed constraint types if present\n            for k, v in constraints.items():\n                if k not in (\"traffic\", \"maintenance\", \"capacity_tier\", \"time_window_start\", \"time_window_end\"):\n                    continue  # unknown keys ignored\n                if k in (\"traffic\", \"maintenance\"):\n                    if not (isinstance(v, float) or isinstance(v, int)):\n                        return {}\n                    if float(v) <= 0:\n                        return {}\n                if k == \"capacity_tier\":\n                    if not isinstance(v, int) or v < 1:\n                        return {}\n                if k in (\"time_window_start\", \"time_window_end\"):\n                    if not isinstance(v, int):\n                        return {}\n                    if not (0 <= v <= 24):\n                        return {}\n                    # 24 valid only as end bound; if start==24 invalid\n                    if k == \"time_window_start\" and v == 24:\n                        return {}\n            # store copy\n            adj[city].append((dest, base_cost, dict(constraints)))\n    # Ensure all referenced destination cities exist as keys in graph; if missing, still allow? Problem: edges to unknown pairs: updates ignored, but original graph may reference cities not keys. However graph mapping must include every city as key; spec: graph is dict mapping each city to list of outgoing. If some dest isn't a key, we should still include that dest as node with empty outgoing list.\n    for src in list(adj.keys()):\n        for dest, _, _ in adj[src]:\n            if dest not in adj:\n                adj[dest] = []\n    # Apply updates: each update is [u,v,constraints], only if edge exists; merge keys (override mentioned)\n    if not isinstance(updates, list):\n        return {}\n    for up in updates:\n        if not isinstance(up, list) or len(up) != 3:\n            return {}\n        u, v, up_constraints = up\n        if not isinstance(u, str) or u == \"\" or not isinstance(v, str) or v == \"\":\n            return {}\n        if not isinstance(up_constraints, dict):\n            return {}\n        # find edge in adj[u] to v\n        if u not in adj:\n            continue\n        found = False\n        for idx, (dest, base_cost, constraints) in enumerate(adj[u]):\n            if dest == v:\n                found = True\n                # Validate update constraint types similar to earlier rules; unknown keys ignored\n                for k, val in up_constraints.items():\n                    if k not in (\"traffic\", \"maintenance\", \"capacity_tier\", \"time_window_start\", \"time_window_end\"):\n                        continue\n                    if k in (\"traffic\", \"maintenance\"):\n                        if not (isinstance(val, float) or isinstance(val, int)):\n                            return {}\n                        if float(val) <= 0:\n                            return {}\n                    if k == \"capacity_tier\":\n                        if not isinstance(val, int) or val < 1:\n                            return {}\n                    if k in (\"time_window_start\", \"time_window_end\"):\n                        if not isinstance(val, int):\n                            return {}\n                        if not (0 <= val <= 24):\n                            return {}\n                        if k == \"time_window_start\" and val == 24:\n                            return {}\n                # merge\n                newc = dict(constraints)\n                for k, val in up_constraints.items():\n                    if k not in (\"traffic\", \"maintenance\", \"capacity_tier\", \"time_window_start\", \"time_window_end\"):\n                        continue\n                    newc[k] = val\n                adj[u][idx] = (dest, base_cost, newc)\n                break\n        # if not found, ignore\n        continue\n    # Precompute effective costs and availability\n    INF = float(\"inf\")\n    eff_adj: Dict[str, List[Tuple[str, float, Dict[str, Any]]]] = {}\n    for src, edges in adj.items():\n        eff_adj[src] = []\n        for dest, base_cost, constraints in edges:\n            # skip self-loops (shouldn't exist)\n            if dest == src:\n                return {}\n            # compute defaults\n            traffic = constraints.get(\"traffic\", 1.0)\n            maintenance = constraints.get(\"maintenance\", 1.0)\n            capacity = constraints.get(\"capacity_tier\", 1)\n            tws = constraints.get(\"time_window_start\", None)\n            twe = constraints.get(\"time_window_end\", None)\n            # validate types again (some keys may be missing)\n            if not (isinstance(traffic, float) or isinstance(traffic, int)):\n                return {}\n            if float(traffic) <= 0:\n                return {}\n            if not (isinstance(maintenance, float) or isinstance(maintenance, int)):\n                return {}\n            if float(maintenance) <= 0:\n                return {}\n            if not isinstance(capacity, int) or capacity < 1:\n                return {}\n            if tws is not None:\n                if not isinstance(tws, int):\n                    return {}\n                if not (0 <= tws <= 24):\n                    return {}\n                if tws == 24:\n                    return {}\n            if twe is not None:\n                if not isinstance(twe, int):\n                    return {}\n                if not (0 <= twe <= 24):\n                    return {}\n            # time window availability\n            available = True\n            if tws is None or twe is None:\n                available = True\n            else:\n                if tws <= time_of_day <= twe:\n                    available = True\n                else:\n                    available = False\n            if not available:\n                continue  # treat as absent\n            # compute effective cost\n            eff = base_cost * float(traffic) * float(maintenance) * (1.0 + 0.25 * max(capacity - 1, 0))\n            if eff < 0:\n                return {}\n            eff_adj[src].append((dest, eff, {\"base\": base_cost, \"traffic\": float(traffic), \"maintenance\": float(maintenance), \"capacity\": capacity}))\n    # Determine terminals: cities with no outgoing usable edges (after availability filtering)\n    terminals = set()\n    for city in eff_adj:\n        if not eff_adj[city]:\n            terminals.add(city)\n    # For any city not in eff_adj (shouldn't happen), treat as terminal\n    for city in list(adj.keys()):\n        if city not in eff_adj:\n            eff_adj[city] = []\n            terminals.add(city)\n    # Reverse graph for multi-source Dijkstra from terminals\n    rev: Dict[str, List[Tuple[str, float]]] = {}\n    for u in eff_adj:\n        if u not in rev:\n            rev[u] = []\n    for u, edges in eff_adj.items():\n        for v, cost, _ in edges:\n            rev.setdefault(v, []).append((u, cost))\n    # Multi-source Dijkstra to compute best cost to any terminal, with tie-breaking via paths\n    # We'll store for each node: (cost, path as tuple)\n    # Initialize heap with all terminals: cost 0, path (t,)\n    best_cost: Dict[str, float] = {}\n    best_path: Dict[str, Tuple[str, ...]] = {}\n    heap: List[Tuple[float, Tuple[str, ...], int, str]] = []\n    # The heap items: (cost, path_tuple, hops, current_node)\n    for t in terminals:\n        best_cost[t] = 0.0\n        best_path[t] = (t,)\n        heapq.heappush(heap, (0.0, (t,), 0, t))\n    # For deterministic comparisons with floats, define EPS\n    EPS = 1e-9\n    while heap:\n        cost_u, path_u, hops_u, u = heapq.heappop(heap)\n        # If popped entry is worse than recorded, skip\n        if u in best_cost:\n            if abs(cost_u - best_cost[u]) > EPS:\n                if cost_u > best_cost[u]:\n                    continue\n            else:\n                # costs equal, check path tuple equality\n                if path_u != best_path[u]:\n                    # if popped path is lexicographically larger than recorded, skip\n                    if path_u > best_path[u]:\n                        continue\n        # relax predecessors\n        for pred, edge_cost in rev.get(u, []):\n            new_cost = cost_u + edge_cost\n            # build new path: pred + path_u\n            new_path = (pred,) + path_u\n            new_hops = len(new_path) - 1\n            update = False\n            if pred not in best_cost:\n                update = True\n            else:\n                old_c = best_cost[pred]\n                if new_cost + EPS < old_c:\n                    update = True\n                elif abs(new_cost - old_c) <= EPS:\n                    # tie-break by lexicographically smallest full path\n                    old_path = best_path[pred]\n                    if new_path < old_path:\n                        update = True\n                    elif new_path == old_path:\n                        # fewer hops\n                        if new_hops < (len(old_path) - 1):\n                            update = True\n                        elif new_hops == (len(old_path) - 1):\n                            # lexicographically smaller next hop\n                            # next hop is new_path[1] vs old_path[1] if exist\n                            next_new = new_path[1] if len(new_path) > 1 else \"\"\n                            next_old = old_path[1] if len(old_path) > 1 else \"\"\n                            if next_new < next_old:\n                                update = True\n            if update:\n                best_cost[pred] = new_cost\n                best_path[pred] = new_path\n                heapq.heappush(heap, (new_cost, new_path, new_hops, pred))\n    # Build result: for each city in original graph keys (all cities), return path to terminal or [city]\n    result: Dict[str, List[str]] = {}\n    all_cities = list(adj.keys())\n    all_cities.sort()  # deterministic order though final dict insertion order not required\n    for city in all_cities:\n        if city in best_path:\n            path = list(best_path[city])\n            result[city] = path\n        else:\n            result[city] = [city]\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1454,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2459,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3913
+  },
+  "user": null,
+  "metadata": {}
+}

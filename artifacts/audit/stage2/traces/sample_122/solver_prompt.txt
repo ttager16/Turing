@@ -1,0 +1,226 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+In the context of a next-generation smart city infrastructure project, an engineering team is tasked with designing a multi-layer electrical distribution network that must simultaneously satisfy precise capacity constraints, demand-supply balancing, and resiliency requirements. This is formulated as a **minimum-cost maximum-flow problem** on a multi-layer network.
+
+#### Network Structure
+The city layout is represented as a set of interlinked graphs (one per layer). Nodes can appear in multiple layers, each with a distinct demand, supply, or throughput requirement:
+- **Supply nodes** (positive values): Energy producers
+- **Demand nodes** (negative values): Energy consumers  
+- **Relay nodes** (zero net balance): Intermediate connection points
+
+Edges represent potential connections with two key attributes:
+- **Cost**: Installation/operational cost per unit
+- **Capacity**: Maximum flow throughput
+
+#### Optimization Model
+
+This is a **minimum-cost flow problem** with the following formal definition:
+
+**Decision Variables:**
+- Let f_{e} denote the flow on edge e
+
+**Objective Function:**
+Minimize: Σ (adjusted_cost(e) × f_{e}) for all edges e with flow
+
+Where adjusted_cost(e) is computed as:
+```
+adjusted_cost(e) = base_cost(e) × priority_factor(e)
+
+priority_factor(e) = 1.0 / (priority_weight(u) × priority_weight(v))
+  where u, v are the endpoints of edge e
+  and priority_weight(node) = max(0.1, critical_nodes.get(node, 1.0))
+```
+
+**Higher priority values → Lower effective costs → Preferential selection**
+
+**Constraints:**
+1. **Flow Conservation**: Σ flow_in(v) - Σ flow_out(v) = balance(v) for all nodes v
+2. **Capacity Constraints**: 0 ≤ f_{e} ≤ capacity(e) for all edges e
+3. **Supply-Demand Balance**: Σ supply = Σ |demand| (globally)
+4. **Critical Node Connectivity**: All critical nodes with non-zero balance must be connected to at least one supply node in the solution network
+
+**Feasibility Requirement:**
+If no feasible solution exists (e.g., supply ≠ demand, insufficient capacity, or critical nodes cannot be connected), return an empty list [].
+
+### Objectives
+
+1. Implement a function 
+   find_optimal_multilayer_network(  
+       layer_graphs: List[Dict[str, Any]],  
+       critical_nodes: Dict[str, float]  
+   ) -> List[Dict[str, int]]:
+   - Accepts:
+     • A list of layered graph definitions (layer_graphs), where each entry specifies:
+       – layer_id: an integer or string identifying the layer.  
+       – nodes: a mapping of node_id → (demand or supply value).  
+       – edges: a list of dictionaries with keys {"from": node1, "to": node2, "cost": cost, "capacity": capacity}.  
+     • A dictionary of critical_nodes mapping node_id to a priority weight that indicates how crucial it is to connect that node in each relevant layer.  
+   - Returns:
+     • A unified edge selection across all layers, expressed as a list of dictionaries with keys {"layer_id": layer_id, "from": nodeA, "to": nodeB}, indicating precisely which edges are chosen to satisfy multi-layer connectivity, throughput constraints, and cost minimization. If no feasible solution exists (e.g., due to supply-demand imbalance or insufficient capacities), return an empty list [].
+
+2. Employ a **minimum-cost flow algorithm** (e.g., successive shortest paths with Dijkstra's algorithm) to handle:
+   - **Flow conservation**: Ensure all supply/demand constraints are met
+   - **Cost minimization**: Use adjusted edge costs based on critical node priorities
+   - **Capacity constraints**: Respect maximum throughput on each edge
+   - **Multi-layer integration**: Aggregate node balances across layers and select edges from any layer
+   - **Feasibility validation**: Detect infeasible scenarios (imbalanced supply/demand, disconnected critical nodes, insufficient capacity)
+
+3. Implement the solution from scratch without relying on external optimization libraries (e.g., NetworkX, OR-Tools). Use standard data structures (heaps, defaultdict, deque) and algorithms (Dijkstra's shortest path, breadth-first search for connectivity checks).
+
+### Constraints
+
+- Each layer_graph entry can contain up to 500 nodes and 2000 edges (when considered alone).  
+- There can be up to 5 layers, each with distinct cost, capacity, and node load profiles.  
+- Edge costs are positive floats; capacities and node demands/supplies may be zero, positive, or negative.  
+- At least one node in each layer may appear as a producer (supply > 0) or consumer (demand > 0).  
+- Critical nodes must remain connected to at least one producer node in their layer (or across layers if multi-layer bridging is allowed).  
+- The solution must gracefully handle corner cases:
+  - Entire layers with no feasible edges.  
+  - Nodes spanning multiple layers with conflicting demands or supply sums.  
+  - Redundant edges that could form cycles or violate capacity constraints.
+  - Scenarios where total global supply does not match total global demand, rendering the network infeasible.
+  - Layers with cyclic interdependencies (e.g., layer A relays to B, which relays back to A), requiring flow resolution to prevent unbounded loops.
+  - Nodes with zero net balance across layers but serving as mandatory relays, where insufficient incoming capacity prevents throughput.
+  - Cases requiring redundant paths or cycles in the sub-network to aggregate edge capacities when single paths are insufficient for high-demand flows.
+  - Isolated critical nodes with no possible edges to producers, even across layers.
+  - Nodes appearing in 3+ layers with cumulative fractional demands/supplies that demand precise floating-point handling to avoid precision errors in flow calculations.
+  - Empty layers (no nodes or edges) that must be ignored without affecting overall feasibility.
+  - Critical nodes with negative priority weights, which should deprioritize their connectivity if it increases cost unnecessarily.
+
+### Function Signature
+```python
+def find_optimal_multilayer_network(  
+    layer_graphs: List[Dict[str, Any]],  
+    critical_nodes: Dict[str, float]  
+) -> List[Dict[str, int]]:
+    """
+    Solves a minimum-cost maximum-flow problem on a multi-layer network.
+    
+    Finds the set of edges that:
+    1. Satisfies all supply/demand constraints (flow conservation)
+    2. Respects all capacity constraints
+    3. Ensures critical nodes with non-zero balance are connected to supply nodes
+    4. Minimizes total cost using priority-adjusted edge costs
+    
+    Args:
+        layer_graphs: List of layer definitions, each with layer_id, nodes (id -> balance), 
+                      and edges as dictionaries {"from": u, "to": v, "cost": cost, "capacity": capacity}
+        critical_nodes: Node priorities (higher value = higher priority = lower effective cost)
+    
+    Returns:
+        List of dictionaries {"layer_id": layer_id, "from": nodeA, "to": nodeB} representing selected edges,
+        or [] if no feasible solution exists
+    """
+```
+
+### Sample Input/Output
+
+Sample Input:
+------------------
+```python
+layer_graphs = [
+    {
+        "layer_id": 0,
+        "nodes": {1: 9.0, 2: -3.0, 3: -2.0},
+        "edges": [
+            {"from": 1, "to": 2, "cost": 2.5, "capacity": 10.0},
+            {"from": 2, "to": 3, "cost": 3.0, "capacity": 5.0},
+            {"from": 1, "to": 3, "cost": 4.0, "capacity": 7.0}
+        ]
+    },
+    {
+        "layer_id": 1,
+        "nodes": {3: 0.0, 4: -4.0},
+        "edges": [
+            {"from": 3, "to": 4, "cost": 1.0, "capacity": 8.0}
+        ]
+    }
+]
+critical_nodes = {"1": 2.0, "4": 1.5}
+```
+
+Sample Output:
+------------------
+```python
+[
+    {"layer_id": 0, "from": 1, "to": 2},
+    {"layer_id": 0, "from": 1, "to": 3},
+    {"layer_id": 1, "from": 3, "to": 4}
+]
+```
+
+Explanation (Rigorous Step-by-Step):
+
+**Step 1: Network Setup**
+- Layer 0: Node 1 (supply=9.0), Node 2 (demand=-3.0), Node 3 (demand=-2.0)  
+- Layer 1: Node 3 (demand=0.0), Node 4 (demand=-4.0)
+- Aggregate node balances: Node 1: +9.0, Node 2: -3.0, Node 3: -2.0 (layer 0) + 0.0 (layer 1) = -2.0, Node 4: -4.0
+- Global balance check: Supply = 9.0, Total Demand = 3.0 + 2.0 + 4.0 = 9.0 ✓
+
+**Step 2: Cost Adjustment with Priorities**
+Critical nodes: {"1": 2.0, "4": 1.5}
+
+Edge {"layer_id": 0, "from": 1, "to": 2}: base_cost = 2.5
+- priority_factor = 1.0 / (2.0 × 1.0) = 0.5  [node 1 has priority 2.0, node 2 defaults to 1.0]
+- adjusted_cost = 2.5 × 0.5 = 1.25
+
+Edge {"layer_id": 0, "from": 2, "to": 3}: base_cost = 3.0
+- priority_factor = 1.0 / (1.0 × 1.0) = 1.0  [both nodes default to 1.0]
+- adjusted_cost = 3.0 × 1.0 = 3.0
+
+Edge {"layer_id": 0, "from": 1, "to": 3}: base_cost = 4.0
+- priority_factor = 1.0 / (2.0 × 1.0) = 0.5  [node 1 has priority 2.0, node 3 defaults to 1.0]
+- adjusted_cost = 4.0 × 0.5 = 2.0
+
+Edge {"layer_id": 1, "from": 3, "to": 4}: base_cost = 1.0
+- priority_factor = 1.0 / (1.0 × 1.5) = 0.667  [node 3 defaults to 1.0, node 4 has priority 1.5]
+- adjusted_cost = 1.0 × 0.667 = 0.667
+
+**Step 3: Min-Cost Flow Solution**
+The algorithm finds the minimum-cost flow satisfying all constraints:
+
+Selected edges and exact flows:
+1. Edge {"layer_id": 0, "from": 1, "to": 2}: flow = 3.0 units, adjusted_cost = 1.25, total = 3.0 × 1.25 = 3.75
+2. Edge {"layer_id": 0, "from": 1, "to": 3}: flow = 6.0 units, adjusted_cost = 2.0, total = 6.0 × 2.0 = 12.0
+3. Edge {"layer_id": 1, "from": 3, "to": 4}: flow = 4.0 units, adjusted_cost = 0.667, total = 4.0 × 0.667 = 2.67
+
+**Flow verification:**
+- Node 1: outflow = 3.0 + 6.0 = 9.0 ✓ (matches supply)
+- Node 2: inflow = 3.0 ✓ (satisfies demand)
+- Node 3: inflow from layer 0 = 6.0, outflow to layer 1 = 4.0, net = 2.0 ✓ (satisfies layer 0 demand)
+- Node 4: inflow = 4.0 ✓ (satisfies demand)
+
+**Capacity verification:**
+- {"layer_id": 0, "from": 1, "to": 2}: 3.0 ≤ 10.0 ✓
+- {"layer_id": 0, "from": 1, "to": 3}: 6.0 ≤ 7.0 ✓
+- {"layer_id": 1, "from": 3, "to": 4}: 4.0 ≤ 8.0 ✓
+
+**Total adjusted cost:** 3.75 + 12.0 + 2.67 = **18.42**
+
+
+### Expected Output Format
+
+The function should return a list of dictionaries, where each dictionary has the format {"layer_id": layer_id, "from": nodeA, "to": nodeB}, indicating the chosen edges across all layers. This sub-network must satisfy the multi-layer connectivity and throughput constraints, minimize total installation cost, and respect the priority of critical nodes.
+
+Starter Code:
+```python
+from typing import List, Dict, Any
+from collections import defaultdict, deque
+import heapq
+
+
+def find_optimal_multilayer_network(
+    layer_graphs: List[Dict[str, Any]],
+    critical_nodes: Dict[str, float]
+) -> List[Dict[str, int]]:
+    pass
+```

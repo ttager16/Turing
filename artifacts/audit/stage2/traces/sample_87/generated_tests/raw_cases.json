@@ -1,0 +1,149 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        0.01,
+        10000.0,
+        250.55,
+        250.45
+      ],
+      [
+        [
+          "prefix_sum",
+          0
+        ],
+        [
+          "prefix_sum",
+          3
+        ],
+        [
+          "range_sum",
+          1,
+          2
+        ],
+        [
+          "update",
+          0,
+          0.02
+        ],
+        [
+          "update",
+          3,
+          9999.99
+        ],
+        [
+          "range_sum",
+          0,
+          3
+        ],
+        [
+          "prefix_sum",
+          3
+        ],
+        [
+          "range_sum",
+          3,
+          3
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[0.01, 10000.00, 250.55, 250.45]",
+      "[[\"prefix_sum\", 0], [\"prefix_sum\", 3], [\"range_sum\", 1, 2], [\"update\", 0, 0.02], [\"update\", 3, 9999.99], [\"range_sum\", 0, 3], [\"prefix_sum\", 3], [\"range_sum\", 3, 3]]"
+    ],
+    "focus": "Precision and boundary checks: very small and very large float values, updates to first and last indices, single-index range query"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        1.1,
+        2.2,
+        3.3,
+        4.4,
+        5.5,
+        6.6,
+        7.7,
+        8.8,
+        9.9,
+        10.0
+      ],
+      [
+        [
+          "range_sum",
+          0,
+          9
+        ],
+        [
+          "prefix_sum",
+          4
+        ],
+        [
+          "update",
+          5,
+          0.55
+        ],
+        [
+          "update",
+          0,
+          11.11
+        ],
+        [
+          "range_sum",
+          0,
+          5
+        ],
+        [
+          "range_sum",
+          3,
+          7
+        ],
+        [
+          "update",
+          9,
+          20.0
+        ],
+        [
+          "prefix_sum",
+          9
+        ],
+        [
+          "range_sum",
+          8,
+          9
+        ],
+        [
+          "update",
+          5,
+          6.6
+        ],
+        [
+          "prefix_sum",
+          5
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[1.10, 2.20, 3.30, 4.40, 5.50, 6.60, 7.70, 8.80, 9.90, 10.00]",
+      "[[\"range_sum\", 0, 9], [\"prefix_sum\", 4], [\"update\", 5, 0.55], [\"update\", 0, 11.11], [\"range_sum\", 0, 5], [\"range_sum\", 3, 7], [\"update\", 9, 20.00], [\"prefix_sum\", 9], [\"range_sum\", 8, 9], [\"update\", 5, 6.60], [\"prefix_sum\", 5]]"
+    ],
+    "focus": "Batch updates and overlapping queries: multiple updates to same index, mid-array modifications, full-range and sub-range queries to verify consistency over sequences of operations"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        12.34,
+        56.78,
+        90.12
+      ],
+      []
+    ],
+    "input_lines": [
+      "[12.34, 56.78, 90.12]",
+      "[]"
+    ],
+    "focus": "No operations: empty operations list should return an empty result list and not alter the initial data structure"
+  }
+]

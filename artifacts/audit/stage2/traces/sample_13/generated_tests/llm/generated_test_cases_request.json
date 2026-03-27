@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: allocate_minimum_agencies\n\nProblem Statement:\n### Problem Statement\nIn a sprawling national healthcare network, the government must distribute specialized medical agencies across a large set of interconnected regions. Each region has unique population densities, complex healthcare demands, and varying operational costs that fluctuate based on how agencies are shared between neighboring regions. This problem requires sophisticated multi-level coordination and coverage verification with strict budget constraints, complex adjacency rules, regional priority systems, and temporal dependencies.\n\n### Cost and Coverage Rules\n1. **Base Cost Calculation**: The cost of placing an agency in region i is calculated as: `base_cost[i] = (population[i] / 1000) + (demands[i] * 1.5) + (i * 0.5)` where the third term represents infrastructure setup cost that increases with region index.\n\n2. **Agency Coverage**: Each agency covers exactly one region. Adjacent regions (indices i and i+1) can share an agency, which covers both regions with a single placement. When shared, the agency must be placed at the region with higher demand. If demands are equal, place at the region with higher population. If both are equal, place at the lower index.\n\n3. **Shared Agency Cost with Dynamic Discount**: When an agency covers two adjacent regions:\n   - If both regions have population < 3000: discount = 0.80 (20% savings)\n   - If one region has population >= 3000 and < 6000: discount = 0.85 (15% savings)\n   - If one region has population >= 6000: discount = 0.90 (10% savings)\n   - Cost = `discount * base_cost[higher_demand_region]`\n\n4. **Priority Region Constraint**: Regions where `(demands[i] > 40 OR population[i] > 8000)` are designated as \"priority regions\" and have additional constraints:\n   - A priority region can ONLY be covered individually OR share with exactly one adjacent non-priority region\n   - Two adjacent priority regions CANNOT share an agency\n   - If a priority region shares with a non-priority region, there's NO discount (multiplier = 1.0)\n\n5. **Chain Constraint**: If region i is covered by a shared agency with region i+1, then region i+2 (if exists) CANNOT be part of a shared agency with region i+1. This prevents chain formations: `[i-i+1 shared] -> [i+1-i+2 shared]` is INVALID.\n\n6. **Cluster Penalty**: If three or more consecutive agencies are all individual (non-shared), add a cluster penalty of 5.0 to the total cost for each such sequence of 3+ individual agencies.\n\n7. **Budget Constraint**: The max_cost is the total budget limit. The sum of all agency placement costs (including cluster penalties) must not exceed max_cost.\n\n8. **Minimum Coverage Requirement**: Regions with demands >= 35 must receive coverage from an agency where the placement region's demand is also >= 30 (quality assurance constraint).\n\n9. **Objective**: Minimize the number of agencies while ensuring every region is covered, total cost ≤ max_cost, and all constraints (priority, chain, cluster, minimum coverage) are satisfied.\n\n### Objectives\n1. Implement a function called:\n   ▸ allocate_minimum_agencies(population, demands, max_cost)  \n   that computes the least number of agencies required to ensure full coverage for all regions.\n\n2. Incorporate a robust algorithmic strategy that can handle:  \n   - Dynamic discount rates based on population thresholds\n   - Priority region constraints with asymmetric sharing rules\n   - Chain prevention logic for sequential dependencies\n   - Cluster penalty calculations for isolated individual agencies\n   - Minimum coverage quality requirements\n   - Multi-dimensional state tracking in DP\n\n3. Optimize the placement of agencies so that all constraints are satisfied simultaneously. The solution must explore all valid state transitions while pruning invalid configurations early.\n\n### Constraints\n- population: A list of integers representing each region's population size (100 ≤ population[i] ≤ 20000)\n- demands: A list of integers representing each region's service demands (1 ≤ demands[i] ≤ 100)\n- max_cost: An integer indicating the maximum allowed cumulative expenditure (1 ≤ max_cost ≤ 10000)\n- 1 ≤ n ≤ 10^5 regions must be handled efficiently\n- Multiple constraint violations must be detected and handled properly\n- The algorithm must use advanced techniques: segment DP with constraint propagation, state compression, or interval scheduling with cost optimization\n\n### Function Signature\n```python\ndef allocate_minimum_agencies(population: List[int], demands: List[int], max_cost: int) -> int:\n```\n\n### Sample Input/Output\nSample Input:\n```python\npopulation = [1000, 2000, 1500, 3000]\ndemands = [10, 20, 15, 30]\nmax_cost = 100\n```\nSample Output:\n```\n3\n```\n\n### Expected Output Format\nThe function should return an integer that indicates the minimal number of agencies required to satisfy all coverage demands and constraints without exceeding the specified budget. Return -1 if it is impossible to cover all regions within the budget while satisfying all constraints.\n\nStarter Code:\n```python\nfrom typing import List\nfrom collections import defaultdict\n\ndef allocate_minimum_agencies(population: List[int], demands: List[int], max_cost: int) -> int:\n    \"\"\"\n    Computes the minimum number of agencies required with complex constraints:\n    - Dynamic discount rates based on population\n    - Priority region restrictions\n    - Chain prevention for sequential sharing\n    - Cluster penalties for isolated individual agencies\n    - Minimum coverage quality requirements\n    \n    Args:\n        population: List of integers representing each region's population size\n        demands: List of integers representing each region's service demands\n        max_cost: Maximum allowed cumulative expenditure\n    \n    Returns:\n        Minimum number of agencies needed, or -1 if impossible\n    \"\"\"\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[1000, 2000]\\n[5, 10]\\n30\",\n    \"output\": \"1\"\n  },\n  {\n    \"input\": \"[4000, 5000]\\n[20, 25]\\n100\",\n    \"output\": \"1\"\n  },\n  {\n    \"input\": \"[2000, 2000]\\n[20, 20]\\n60\",\n    \"output\": \"1\"\n  }\n]\n"
+    }
+  ]
+}

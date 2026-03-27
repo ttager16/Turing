@@ -1,0 +1,76 @@
+{
+  "id": "resp_0f40b8ed3e2c875d0069c3378879d4819fa97b7bc1c7d99aa4",
+  "object": "response",
+  "created_at": 1774401416,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774401433,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0f40b8ed3e2c875d0069c33788befc819f8ecc9267ea5cb92e",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0f40b8ed3e2c875d0069c33788f734819f9aee9a5c96c458b2",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "def optimize_resource_allocation(graph: dict, forbidden_patterns: list) -> list:\n    # Helper: check node attrs against a constraint dict (all key equality)\n    def node_matches_constraints(node_attrs, constraint):\n        for k, v in constraint.items():\n            if k not in node_attrs or node_attrs[k] != v:\n                return False\n        return True\n\n    # Helper: check edge attrs against constraint (supports numeric range dicts)\n    def edge_matches_constraints(edge_attrs, constraint):\n        for k, v in constraint.items():\n            if k not in edge_attrs:\n                return False\n            val = edge_attrs[k]\n            if isinstance(v, dict):\n                mn = v.get(\"min\", float(\"-inf\"))\n                mx = v.get(\"max\", float(\"inf\"))\n                try:\n                    if not (mn <= val <= mx):\n                        return False\n                except Exception:\n                    return False\n            else:\n                if val != v:\n                    return False\n        return True\n\n    if not graph:\n        return []\n\n    # Build forbidden node and forbidden edge sets\n    forbidden_nodes = set()\n    forbidden_edges = set()  # store as tuple (u,v) with u<=v\n\n    # Preprocess node attribute mapping: nodes might not have explicit attrs in graph top-level;\n    # assume node attributes appear only in adjacency entries; we consider node-level attrs only via adjacency attributes if present.\n    node_attrs_map = {}\n    for u_str, adj in graph.items():\n        u = int(u_str) if isinstance(u_str, str) else u_str\n        # collect attrs from any adjacency that contains node-like keys (e.g., maintenance_mode)\n        for nei, attrs in adj:\n            if isinstance(attrs, dict):\n                # assume node attrs are same across edges if present\n                for k in [\"maintenance_mode\"]:\n                    if k in attrs:\n                        node_attrs_map.setdefault(u, {})[k] = attrs[k]\n\n    # Evaluate forbidden patterns\n    for pattern in forbidden_patterns:\n        node_constraints = pattern.get(\"node_constraints\", [])\n        edge_constraints = pattern.get(\"edge_constraints\", [])\n        # mark nodes\n        if node_constraints:\n            for u in graph.keys():\n                u_id = int(u) if isinstance(u, str) else u\n                attrs = node_attrs_map.get(u_id, {})\n                for c in node_constraints:\n                    if node_matches_constraints(attrs, c):\n                        forbidden_nodes.add(u_id)\n                        break\n        # mark edges: iterate all edges in graph\n        if edge_constraints:\n            for u_str, adj in graph.items():\n                u = int(u_str) if isinstance(u_str, str) else u_str\n                for nei, attrs in adj:\n                    v = int(nei) if isinstance(nei, str) else nei\n                    for c in edge_constraints:\n                        if edge_matches_constraints(attrs or {}, c):\n                            a, b = (u, v) if u <= v else (v, u)\n                            forbidden_edges.add((a, b))\n                            break\n\n    # Build list of allowed edges with cost\n    edges = {}\n    for u_str, adj in graph.items():\n        u = int(u_str) if isinstance(u_str, str) else u_str\n        for nei, attrs in adj:\n            v = int(nei) if isinstance(nei, str) else nei\n            a, b = (u, v) if u <= v else (v, u)\n            if u in forbidden_nodes or v in forbidden_nodes:\n                continue\n            if (a, b) in forbidden_edges:\n                continue\n            # compute cost\n            tc = attrs.get(\"time_cost\", {}) if attrs else {}\n            day = tc.get(\"day\")\n            night = tc.get(\"night\")\n            if day is None and night is None:\n                # if no time info, skip edge (cannot cost)\n                continue\n            if day is None:\n                cost = float(night)\n            elif night is None:\n                cost = float(day)\n            else:\n                cost = (float(day) + float(night)) / 2.0\n            # keep minimal cost if multiple parallel edges\n            prev = edges.get((a, b))\n            if prev is None or cost < prev:\n                edges[(a, b)] = cost\n\n    if not edges:\n        return []\n\n    # Create adjacency for remaining graph (undirected simple graph)\n    adj = {}\n    for (u, v), cost in edges.items():\n        adj.setdefault(u, []).append((v, cost))\n        adj.setdefault(v, []).append((u, cost))\n\n    # Greedy algorithm to find maximal matching while aiming to minimize total cost:\n    # Sort all edges by cost asc, then by node ids lexicographically.\n    edge_list = []\n    for (u, v), cost in edges.items():\n        edge_list.append((cost, min(u, v), max(u, v)))\n    edge_list.sort(key=lambda x: (x[0], x[1], x[2]))\n\n    matched = set()\n    result = []\n    for cost, u, v in edge_list:\n        if u in matched or v in matched:\n            continue\n        matched.add(u); matched.add(v)\n        result.append([u, v])\n\n    # Ensure maximality: simple greedy by increasing cost yields maximal matching for sorted edges.\n    # Sort pairs lexicographically as tie-breaker for deterministic output\n    result.sort(key=lambda p: (min(p[0], p[1]), max(p[0], p[1])))\n    return result\n\nif __name__ == \"__main__\":\n    def main():\n        graph = {\n          \"1\": [[2, {\"capacity_peak\": 50, \"capacity_offpeak\": 60, \"time_cost\": {\"day\": 5, \"night\": 3}, \"layer\": 0}]],\n          \"2\": [[1, {\"capacity_peak\": 50, \"capacity_offpeak\": 60, \"time_cost\": {\"day\": 5, \"night\": 3}, \"layer\": 0}]],\n          \"3\": [[4, {\"capacity_peak\": 100, \"capacity_offpeak\": 120, \"time_cost\": {\"day\": 6, \"night\": 4}, \"layer\": 1, \"pollution_factor\": 1.8}]],\n          \"4\": [[3, {\"capacity_peak\": 100, \"capacity_offpeak\": 120, \"time_cost\": {\"day\": 6, \"night\": 4}, \"layer\": 1, \"pollution_factor\": 1.8}]],\n          \"5\": [[6, {\"capacity_peak\": 40, \"capacity_offpeak\": 60, \"time_cost\": {\"day\": 2, \"night\": 1}, \"layer\": 2, \"pollution_factor\": 0.7}]],\n          \"6\": [[5, {\"capacity_peak\": 40, \"capacity_offpeak\": 60, \"time_cost\": {\"day\": 2, \"night\": 1}, \"layer\": 2, \"pollution_factor\": 0.7}]]\n        }\n        forbidden_patterns = [\n            {\n              \"substructure_id\": \"env_filter\",\n              \"edge_constraints\": [{\"pollution_factor\": {\"min\": 1.0, \"max\": 2.0}}]\n            }\n        ]\n        print(optimize_resource_allocation(graph, forbidden_patterns))\n    main()"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1405,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1554,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2959
+  },
+  "user": null,
+  "metadata": {}
+}

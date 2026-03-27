@@ -1,0 +1,167 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+You are managing a smart city's traffic network during peak hours where multiple vehicle types (commodities) must travel through a directed road network simultaneously. Each road has a total capacity that must be shared among all vehicle types, and certain roads have restrictions on which vehicle types can use them.
+
+## Problem Description
+
+Your task is to compute the maximum total flow across all commodities from their respective sources to a common sink, while respecting individual road capacities, commodity-specific restrictions, and ensuring that flow conservation holds at all intermediate nodes. Additionally, you must identify the minimum bottleneck cut, compute residual graph properties, and provide detailed flow decomposition for traffic management insights.
+
+Given a directed graph with nodes, edges (with capacities and time-varying multipliers), multiple commodity sources, a single sink, road restrictions per commodity, and a flow computation strategy, compute:
+1. Maximum total flow achievable across all commodities
+2. Minimum cut edges that limit total flow in the residual graph
+3. Flow assignment for each commodity on each edge
+4. Bottleneck edges operating at full capacity
+5. Residual capacity distribution across the network
+6. Flow paths decomposed by commodity
+7. Critical intersection nodes that affect overall flow
+8. Per-commodity flow values from each source to the sink
+
+The solution must handle three algorithmic strategies for flow computation:
+1. Edmonds-Karp: Sequential commodity routing using BFS-based augmenting paths
+2. Capacity Scaling: Sequential commodity routing with exponential capacity scaling (delta scaling), commodities processed in input order
+3. Dinic's Algorithm: Sequential commodity routing using level graphs and blocking flows
+
+All strategies route commodities sequentially in the order provided in the sources and commodities lists (commodity 0 first, then commodity 1, etc.). Each commodity uses the residual capacity remaining after all previous commodities have been routed.
+
+## Function Signature
+
+```python
+def optimize_traffic_flow(nodes, edges, sources, sink, commodities, restrictions, time_multipliers, strategy):
+    # Returns: dict with keys: "total_flow", "commodity_flows", "min_cut_capacity", "min_cut_edges", 
+    #          "source_partition", "sink_partition", "flow_assignments", "bottleneck_roads",
+    #          "augmenting_paths_count", "residual_capacity_sum", "flow_decomposition", "critical_nodes"
+    pass
+```
+
+## Constraints
+
+1. Number of nodes must be between 6 and 80
+2. Number of edges must be between 6 and 400
+3. Each edge capacity must be between 5 and 800
+4. Number of commodities must be between 2 and 8
+5. Source nodes must be distinct and different from sink
+6. All source nodes and sink must exist in the graph
+7. Time multipliers must be between 0.2 and 1.8
+8. Time multipliers list length must equal edges list length
+9. Edge capacity after applying time multiplier must be at least 1
+10. Strategy must be exactly one of: "edmonds_karp", "capacity_scaling", "dinic"
+11. Each commodity must have at least one path from its source to the sink
+12. No edge can have both endpoints as the same node
+13. Restrictions list length must equal commodities count
+14. Each restriction entry is a list of edge indices that the commodity cannot use
+15. All node identifiers must be non-negative integers less than 1000
+16. Commodities list must contain positive integers between 1 and 100
+
+## Output Format
+
+Return a dictionary containing:
+- **total_flow**: Integer sum of all commodity flows reaching the sink
+- **commodity_flows**: List of integers representing flow value for each commodity (same order as commodities input, each ≤ its demand)
+- **min_cut_capacity**: Integer capacity of the minimum cut in the residual graph after routing flows
+- **min_cut_edges**: List of [from, to] integer pairs representing edges in the minimum cut
+- **source_partition**: Sorted list of node integers reachable from any source in the residual graph after flow routing
+- **sink_partition**: Sorted list of node integers in the sink side of the partition
+- **flow_assignments**: List of dictionaries, each containing "edge" (list of 2 integers), "flows" (list of integers showing flow per commodity), "total" (integer sum)
+- **bottleneck_roads**: List of [from, to] integer pairs for edges at full capacity
+- **augmenting_paths_count**: Integer count of total augmenting paths found across all commodities
+- **residual_capacity_sum**: Integer sum of unused capacity across all edges
+- **flow_decomposition**: Dictionary with keys "commodity_0", "commodity_1", etc., each containing a list of paths. Each path is a list of [from, to, flow_value] integer triples showing the actual flow amount routed on that edge in the path decomposition.
+- **critical_nodes**: Sorted list of node integers that are bottleneck points (excluding sources and sink). A node is critical if it is an endpoint of at least one saturated edge.
+
+## Important Clarifications
+
+**Demand-Limited vs. Capacity-Limited vs. Mixed-Limitation Flows:**
+
+The min-cut is computed in the **residual graph after routing all commodity flows**. The relationship between min-cut and total flow depends on network topology and commodity-specific constraints:
+
+### 1. Pure Demand-Limited Flow
+
+- **All commodities achieve their full demands**
+- `min_cut_capacity`: **0** (no bottleneck remains)
+- `source_partition`: **all nodes including the sink**
+- `sink_partition`: **empty**
+- The network could handle more flow if demands were higher
+- **Example:** Two commodities each want 10 and the network can handle 100; both get what they requested
+
+### 2. Pure Capacity-Limited Flow
+
+- **At least one commodity cannot meet its demand** and the residual graph has no alternative paths to the sink
+- `min_cut_capacity`: **equals `total_flow`** (max-flow min-cut theorem)
+- `source_partition` and `sink_partition`: valid s-t cut (sources and sink separated, sink is not reachable from sources in residual graph)
+- **Example:** Two commodities demand  but only total 25 can flow due to a cut edge of capacity 25; the cut separates sources from sink
+
+### 3. Mixed-Limitation/Multi-Commodity Topologies
+
+- **At least one commodity is limited (cannot achieve demand) due to a specific bottleneck on its paths**
+- However, **the overall residual graph may still have alternative paths to the sink for other flows**
+- `min_cut_capacity`: **may be 0** even though not all demands were met
+- `source_partition`: **all nodes including the sink**
+- `sink_partition`: **empty**
+- This is common in multi-commodity settings where *individual commodity paths are restricted but the global network is not fully saturated*
+- **Example:** Commodity 1 is limited by a bottleneck edge on its path, but the sink is still reachable through other (possibly unused) paths
+
+> **The min-cut reflects the remaining bottleneck in the residual graph across all flows—not just the bottleneck faced by a single commodity. If the sink remains reachable after all flows, `min_cut_capacity` is 0, even if not all commodities met their demand.**
+
+## Sample Input
+
+```python
+nodes = [0, 1, 2, 3, 4, 5]
+edges = [[0, 1, 20], [0, 2, 15], [1, 3, 18], [2, 3, 12], [3, 4, 25], [4, 5, 30]]
+sources = [0, 2]
+sink = 5
+commodities = [20, 15]
+restrictions = [[], []]
+time_multipliers = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+strategy = "edmonds_karp"
+```
+
+## Sample Output
+
+```python
+{
+  "total_flow": 25,
+  "commodity_flows": [20, 5],
+  "min_cut_capacity": 25,
+  "min_cut_edges": [[3, 4]],
+  "source_partition": [0, 1, 2, 3],
+  "sink_partition": [4, 5],
+  "flow_assignments": [
+    {"edge": [0, 1], "flows": [18, 0], "total": 18},
+    {"edge": [0, 2], "flows": [2, 0], "total": 2},
+    {"edge": [1, 3], "flows": [18, 0], "total": 18},
+    {"edge": [2, 3], "flows": [2, 5], "total": 7},
+    {"edge": [3, 4], "flows": [20, 5], "total": 25},
+    {"edge": [4, 5], "flows": [20, 5], "total": 25}
+  ],
+  "bottleneck_roads": [[1, 3], [3, 4]],
+  "augmenting_paths_count": 3,
+  "residual_capacity_sum": 25,
+  "flow_decomposition": {
+    "commodity_0": [[[0, 1, 18], [1, 3, 18], [3, 4, 18], [4, 5, 18]], [[0, 2, 2], [2, 3, 2], [3, 4, 2], [4, 5, 2]]],
+    "commodity_1": [[[2, 3, 5], [3, 4, 5], [4, 5, 5]]]
+  },
+  "critical_nodes": [1, 3, 4]
+}
+```
+
+### Note:
+
+This sample demonstrates a **capacity-limited scenario** ("Scenario 2" above) where not all commodities meet their demands due to a tight bottleneck edge. If sink had remained reachable in the residual graph after routing, `min_cut_capacity` would be 0, reflecting a mixed-limitation ("Scenario 3") as described above.
+
+Starter Code:
+```python
+import collections
+from typing import List, Dict, Tuple, Set, Any, Optional
+
+def optimize_traffic_flow(nodes, edges, sources, sink, commodities, restrictions, time_multipliers, strategy):
+    pass
+```

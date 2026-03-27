@@ -1,0 +1,76 @@
+{
+  "id": "resp_037ae5268b124b640069c3348dc150819fb0eae68bb1644d53",
+  "object": "response",
+  "created_at": 1774400653,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774400682,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_037ae5268b124b640069c33490795c819faba1587ebf7f8320",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_037ae5268b124b640069c33490a470819fb6665d598de5d0e4",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List, Tuple, Optional\nfrom collections import deque\nimport math\n\nclass CapacityConstrainedGraph:\n    def __init__(self, city_graph: Dict, capacity_map: Dict, demand_map: Dict):\n        # Normalize city_graph keys and neighbor lists to integers\n        self.city_graph = {}\n        if not city_graph:\n            self.city_graph = {}\n        else:\n            # detect key type by inspecting first key\n            first_key = next(iter(city_graph))\n            for k, nbrs in city_graph.items():\n                ki = int(k) if not isinstance(k, int) else k\n                self.city_graph[ki] = [int(n) for n in nbrs]\n        # Sorted nodes\n        self.nodes = sorted(self.city_graph.keys())\n        # Normalize capacity_map: parse \"u,v\" strings; each undirected edge appears once\n        self.capacity_map = {}\n        for k, v in (capacity_map or {}).items():\n            # k might be like \"u,v\" or already tuple\n            if isinstance(k, str):\n                parts = k.split(\",\")\n                if len(parts) == 2:\n                    u = int(parts[0].strip())\n                    v = int(parts[1].strip())\n                else:\n                    continue\n            elif isinstance(k, tuple) and len(k) == 2:\n                u, v = int(k[0]), int(k[1])\n            else:\n                continue\n            cap = int(v) if isinstance(v, str) and v.isdigit() else int(v)\n            # store canonical key as tuple (min,max) for undirected reference but keep original directional entries for quick lookup\n            key = (u, v)\n            self.capacity_map[key] = cap\n        # Normalize demand_map: keys may be strings\n        self.demand_map = {}\n        for k, v in (demand_map or {}).items():\n            ki = int(k) if not isinstance(k, int) else k\n            self.demand_map[ki] = int(v)\n        # Ensure default zeros for missing nodes when accessed via get\n    def num_nodes(self) -> int:\n        return len(self.nodes)\n    def num_edges(self) -> int:\n        # number of unique undirected edges is size of input capacity_map\n        return len(self.capacity_map)\n\nclass CapacityAwarePathfinder:\n    def __init__(self, graph: CapacityConstrainedGraph):\n        self.graph = graph\n        # Build normalized residual capacity map that supports bidirectional access\n    def shortest_distances_ignoring_capacity(self, source: int) -> Dict[int, int]:\n        dist = {}\n        q = deque()\n        q.append(source)\n        dist[source] = 0\n        while q:\n            u = q.popleft()\n            for v in self.graph.city_graph.get(u, []):\n                if v not in dist:\n                    dist[v] = dist[u] + 1\n                    q.append(v)\n        return dist\n    def capacity_aware_path(self, source: int, target: int, demand: int, residual: Dict[Tuple[int,int], int]) -> Optional[List[int]]:\n        if source == target:\n            return [source]\n        q = deque()\n        q.append((source, [source]))\n        visited = set([source])\n        while q:\n            node, path = q.popleft()\n            for nbr in self.graph.city_graph.get(node, []):\n                if nbr in visited:\n                    continue\n                cap = residual.get((node, nbr), 0)\n                if cap >= demand:\n                    if nbr == target:\n                        return path + [nbr]\n                    visited.add(nbr)\n                    q.append((nbr, path + [nbr]))\n        return None\n    def compute_weighted_distance(self, hub: int) -> Optional[int]:\n        # BFS ignoring capacity for distances\n        dist = self.shortest_distances_ignoring_capacity(hub)\n        total = 0\n        for n in self.graph.nodes:\n            if n == hub:\n                continue\n            d = dist.get(n)\n            if d is None:\n                return None\n            demand = self.graph.demand_map.get(n, 0)\n            total += d * demand\n        return total\n    def is_capacity_feasible(self, hub: int) -> bool:\n        # Make mutable residual capacities with bidirectional entries.\n        residual = {}\n        # Initialize residual capacities: for any edge in input capacity_map which is stored as (u,v) with direction as input,\n        # we need to populate both (u,v) and (v,u) with same capacity.\n        for (u, v), cap in self.graph.capacity_map.items():\n            residual[(u, v)] = cap\n            residual[(v, u)] = cap\n        # Process nodes in sorted order, excluding hub\n        for n in self.graph.nodes:\n            if n == hub:\n                continue\n            demand = self.graph.demand_map.get(n, 0)\n            if demand == 0:\n                continue\n            # find a single path from hub to n that has residual >= demand on every edge\n            path = self.capacity_aware_path(hub, n, demand, residual)\n            if path is None:\n                return False\n            # decrement capacities along path in both directions\n            for i in range(len(path)-1):\n                a = path[i]; b = path[i+1]\n                # decrement forward and reverse\n                residual[(a,b)] = residual.get((a,b), 0) - demand\n                residual[(b,a)] = residual.get((b,a), 0) - demand\n                # allow negatives? specification says reject if exceed, but we check before using path that each edge >= demand,\n                # so after decrement they won't go below zero beyond this step.\n        return True\n\nclass GraphMedianFinder:\n    def __init__(self, graph: CapacityConstrainedGraph):\n        self.graph = graph\n        self.pathfinder = CapacityAwarePathfinder(graph)\n    def evaluate_hub(self, hub: int) -> Tuple[Optional[int], bool]:\n        # compute distances ignoring capacity\n        dist = self.pathfinder.shortest_distances_ignoring_capacity(hub)\n        # connectivity\n        connected = len(dist) == len(self.graph.nodes)\n        # compute weighted distance; if any unreachable, returns None\n        total = self.pathfinder.compute_weighted_distance(hub)\n        return total, connected\n    def find_optimal_hub(self) -> Dict:\n        nodes = self.graph.nodes\n        result = {\n            \"optimal_hub\": 0 if not nodes else nodes[0],\n            \"total_weighted_distance\": None,\n            \"feasible_hubs\": [],\n            \"graph_connected\": False,\n            \"num_nodes\": self.graph.num_nodes(),\n            \"num_edges\": self.graph.num_edges()\n        }\n        if not nodes:\n            return result\n        feasible_list = []\n        best_cost = math.inf\n        best_hub = None\n        best_connected = False\n        # First, test every node for capacity feasibility and compute cost/connectivity\n        for n in nodes:\n            feasible = self.pathfinder.is_capacity_feasible(n)\n            if feasible:\n                feasible_list.append(n)\n            # even if not feasible, we need to know reachability/cost for selection? constraints say skip candidates that fail capacity feasibility\n        # Evaluate feasible candidates for cost and connectivity\n        for n in feasible_list:\n            cost, connected = self.evaluate_hub(n)\n            if cost is None:\n                continue\n            if cost < best_cost:\n                best_cost = cost\n                best_hub = n\n                best_connected = connected\n        # Fallback behavior\n        if best_hub is None:\n            fallback = nodes[0] if nodes else 0\n            total, connected = self.evaluate_hub(fallback)\n            result[\"optimal_hub\"] = fallback\n            result[\"total_weighted_distance\"] = int(total) if total is not None else None\n            result[\"feasible_hubs\"] = feasible_list\n            result[\"graph_connected\"] = connected\n            result[\"num_nodes\"] = self.graph.num_nodes()\n            result[\"num_edges\"] = self.graph.num_edges()\n            return result\n        else:\n            result[\"optimal_hub\"] = best_hub\n            result[\"total_weighted_distance\"] = int(best_cost)\n            result[\"feasible_hubs\"] = feasible_list\n            result[\"graph_connected\"] = best_connected\n            result[\"num_nodes\"] = self.graph.num_nodes()\n            result[\"num_edges\"] = self.graph.num_edges()\n            return result\n\ndef solve_transportation_hub_problem(input_data: Dict) -> Dict:\n    # Input validation\n    if not isinstance(input_data, dict):\n        return {\"error\": \"Invalid input format\"}\n    city_graph = input_data.get(\"city_graph\")\n    capacity_map = input_data.get(\"capacity_map\")\n    demand_map = input_data.get(\"demand_map\")\n    if not isinstance(city_graph, dict):\n        return {\"error\": \"Invalid city_graph\"}\n    if not isinstance(capacity_map, dict):\n        return {\"error\": \"Invalid capacity_map\"}\n    if not isinstance(demand_map, dict):\n        return {\"error\": \"Invalid demand_map\"}\n    graph = CapacityConstrainedGraph(city_graph, capacity_map, demand_map)\n    finder = GraphMedianFinder(graph)\n    return finder.find_optimal_hub()"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2003,
+    "input_tokens_details": {
+      "cached_tokens": 1920
+    },
+    "output_tokens": 1958,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3961
+  },
+  "user": null,
+  "metadata": {}
+}

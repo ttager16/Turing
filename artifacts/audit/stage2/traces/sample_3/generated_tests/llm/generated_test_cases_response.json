@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN51csfo1oEZsfe9OjPSrq4WCz2bW",
+  "object": "chat.completion",
+  "created": 1774393232,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"\\\"0\\\"\",\"\\\"12345678901234567890123456789012345678901234567890\\\"\",\"2\"],\"focus\":\"zero_operand_with_minimum-length_other_operand (tests zero-handling and bypass of length minimum)\"},{\"input_lines\":[\"\\\"12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890\\\"\",\"\\\"98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765432109876543210\\\"\",\"3\"],\"focus\":\"maximum_length_200_digits_each (performance and memory boundary, cache-friendly optimizations)\"},{\"input_lines\":[\"\\\"99999999999999999999999999999999999999999999999999\\\"\",\"\\\"99999999999999999999999999999999999999999999999999\\\"\",\"1\"],\"focus\":\"all_nines_50_digits_each (maximal carry propagation stress test)\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2061,
+    "completion_tokens": 1585,
+    "total_tokens": 3646,
+    "prompt_tokens_details": {
+      "cached_tokens": 1792,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1344,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

@@ -1,0 +1,161 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+A financial institution seeks to design a long-term investment optimization model that adapts to market fluctuations. The problem is represented as an Infinite Horizon Markov Decision Process (MDP), where each market condition is modeled as a state and each investment choice as an action. The objective is to determine an optimal investment policy that maximizes the expected discounted return across an indefinite future. You must implement the Value Iteration algorithm using Dynamic Programming to find the optimal value function and corresponding optimal policy.
+
+### Objectives
+
+- Implement the Value Iteration algorithm for an infinite horizon MDP.
+- Compute the optimal state values representing long-term expected returns.
+- Derive the optimal policy mapping each market condition to its best investment decision.
+- Continue iterations until the value function converges within a specified tolerance.
+
+### Constraints
+
+**Input Validation**
+
+Validate inputs in the following order and return `{'error': '[description]'}` when validation fails:
+
+- `{'error': 'Empty states list'}` - states list is empty
+- `{'error': 'Empty actions list'}` - actions list is empty
+- `{'error': 'Duplicate states found'}` - states list contains duplicates
+- `{'error': 'Duplicate actions found'}` - actions list contains duplicates
+- `{'error': 'Invalid gamma value'}` - gamma not strictly between 0 and 1
+- `{'error': 'Invalid epsilon value'}` - epsilon not positive (must be > 0)
+- `{'error': 'Missing transition probabilities'}` - transition_probabilities missing entries for some (state, action) pairs
+- `{'error': 'Invalid next state in transitions'}` - transition_probabilities contains next states not in states list
+- `{'error': 'Invalid transition probability'}` - probability value outside [0, 1] range
+- `{'error': 'Transition probabilities do not sum to 1'}` - probabilities for a (state, action) pair don't sum to 1.0 (within 1e-6 tolerance)
+- `{'error': 'Missing rewards'}` - rewards missing entries for some (state, action) pairs
+- `{'error': 'Invalid reward value'}` - reward is not a valid numeric value
+
+**Valid Input Requirements:**
+- `states`: non-empty list of unique strings
+- `actions`: non-empty list of unique strings
+- `transition_probabilities`: nested dictionary where `transition_probabilities[s][a][s_next]` gives the probability of transitioning from state `s` to state `s_next` under action `a`
+- `rewards`: nested dictionary where `rewards[s][a]` gives the immediate numeric reward for taking action `a` in state `s`
+- `gamma`: float strictly between 0 and 1
+- `epsilon`: positive float greater than 0, defining the convergence threshold
+
+**Algorithm Requirements**
+
+- **Initialization:**
+  - Set `V(s) = 0.0` for all states s in `states`.
+
+- **Value Iteration Loop:**
+  - Repeat the following until convergence:
+    1. Store the current value function as `V_old`.
+    2. For each state s, compute the new value: `V_new(s) = max_a [ R(s,a) + gamma * Σ_{s'} P(s'|s,a) * V_old(s') ]`
+       Where:
+       - `max_a` means maximum over all actions in `actions`
+       - `R(s,a)` = `rewards[s][a]`
+       - `P(s'|s,a)` = `transition_probabilities[s][a][s']`
+       - `Σ_{s'}` means sum over all next states s' in `states`
+    3. Compute the maximum change:
+       `delta = max_s |V_new(s) - V_old(s)|`
+    4. If `delta < epsilon`, convergence is achieved; exit the loop.
+    5. Otherwise, set `V_old = V_new` and continue to the next iteration.
+
+- **Policy Extraction:**
+  - After convergence, for each state s, determine the optimal action:
+    `policy(s) = argmax_a [ R(s,a) + gamma * Σ_{s'} P(s'|s,a) * V_final(s') ]`
+  - Where `V_final` is the converged value function.
+
+- **Tie-Breaking Rule:**
+  - If multiple actions yield the same maximum expected value (within tolerance of 1e-9), select the action that appears first in the `actions` list.
+
+- **Numerical Precision:**
+  - Use full floating-point precision for all calculations during iterations.
+  - Only round values when producing the final output.
+
+- **Output Formatting:**
+  - Round all values in the value function to exactly 2 decimal places using Python's built-in `round()` function.
+
+**Edge Cases**
+
+- **Zero rewards**: If all rewards are zero for all state-action pairs, the value function converges to 0.0 for all states, and the policy selects the first action from the `actions` list for each state (by tie-breaking rule).
+- **Single state**: If there is only one state, compute the value iteration normally. The state will have one optimal action.
+- **Single action**: If there is only one action, all states will have that action as their optimal policy.
+- **Self-loops**: States can transition to themselves with probability 1.0. Handle these transitions normally in the Bellman equation.
+- **Deterministic transitions**: When a state-action pair has probability 1.0 for a single next state and 0.0 for all others, compute using the same Bellman equation (the summation will have only one non-zero term).
+- **Negative rewards**: Handle negative rewards (losses) correctly in the value iteration, which may result in negative state values.
+- **Absorbing states**: States where all actions lead back to the same state with probability 1.0 and reward 0 should converge to value 0.0.
+- **Mixed positive and negative rewards**: Handle MDPs where some states have positive rewards and others have negative rewards, ensuring correct value propagation.
+- **Sparse transition matrices**: When most transition probabilities are 0.0, the algorithm should still compute correctly for the non-zero transitions.
+- **Equal expected values**: When multiple actions for a state have equal expected values (within 1e-9 tolerance), select the action that appears first in the `actions` list.
+- **High discount factor**: When gamma is close to 1.0 (e.g., 0.99), convergence may require more iterations but the algorithm terminates when delta < epsilon.
+
+### Function Signature
+```python
+def infinite_horizon_value_iteration(
+    states: list,
+    actions: list,
+    transition_probabilities: dict,
+    rewards: dict,
+    gamma: float,
+    epsilon: float
+) -> dict:
+    pass
+```
+
+### Sample Input/Output
+
+**Input:**
+```python
+states = ["Bull", "Bear"]
+actions = ["Invest", "Hold"]
+
+transition_probabilities = {
+    "Bull": {
+        "Invest": {"Bull": 0.8, "Bear": 0.2},
+        "Hold": {"Bull": 0.6, "Bear": 0.4}
+    },
+    "Bear": {
+        "Invest": {"Bull": 0.3, "Bear": 0.7},
+        "Hold": {"Bull": 0.4, "Bear": 0.6}
+    }
+}
+
+rewards = {
+    "Bull": {"Invest": 10, "Hold": 5},
+    "Bear": {"Invest": -5, "Hold": 2}
+}
+
+gamma = 0.9
+epsilon = 0.01
+```
+
+**Output:**
+```python
+{
+  "value_function": {"Bull": 77.41, "Bear": 64.91},
+  "policy": {"Bull": "Invest", "Bear": "Hold"}
+}
+```
+
+### Expected Output Format
+
+- Return a dictionary with exactly two keys: `"value_function"` and `"policy"` for successful execution, OR a dictionary with a single key `"error"` containing the error description string for validation failures.
+- `"value_function"`: dictionary mapping each state (string) to its optimal value (float rounded to 2 decimal places).
+- `"policy"`: dictionary mapping each state (string) to its optimal action (string).
+- Both value_function and policy dictionaries must contain entries for all states in the input `states` list.
+
+Starter Code:
+```python
+def infinite_horizon_value_iteration(
+    states: list,
+    actions: list,
+    transition_probabilities: dict,
+    rewards: dict,
+    gamma: float,
+    epsilon: float
+) -> dict:
+```

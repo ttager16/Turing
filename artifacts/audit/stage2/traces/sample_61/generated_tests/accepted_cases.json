@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[[\"insert\", 30], [\"insert\", 10], [\"insert\", 20], [\"search\", 20], [\"insert\", 40], [\"insert\", 50], [\"search\", 50], [\"delete\", 10], [\"search\", 10]]",
+    "output_text": "[null, null, null, 20, null, null, 50, null, null]"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[[\"insert\", 5], [\"insert\", 5], [\"search\", 5], [\"delete\", 5], [\"delete\", 5], [\"search\", 5], [\"insert\", -10], [\"search\", -10], [\"delete\", -10], [\"search\", -10]]",
+    "output_text": "[null, null, 5, null, null, null, null, -10, null, null]"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[[\"insert\", 10], [\"insert\", 20], [\"insert\", 30], [\"insert\", 40], [\"insert\", 50], [\"search\", 30], [\"delete\", 40], [\"search\", 40], [\"insert\", 25], [\"search\", 25]]",
+    "output_text": "[null, null, null, null, null, 30, null, null, null, 25]"
+  }
+]

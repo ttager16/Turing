@@ -1,0 +1,76 @@
+{
+  "id": "resp_0fb81475b1ca277a0069c328c29cb48191941fa6f2dac8c2d2",
+  "object": "response",
+  "created_at": 1774397634,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774397646,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0fb81475b1ca277a0069c328c2e5088191a0c9273ad5b25c79",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0fb81475b1ca277a0069c328c31680819191b15aa68469854f",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List\nimport math\n\ndef custom_sort_markets(data: Dict[str, List[float]]) -> Dict[str, List[float]]:\n    # Validate top-level\n    if not isinstance(data, dict) or not data:\n        return {}\n    # Validate keys and prepare sorted key order\n    for k in data.keys():\n        if not isinstance(k, str) or not k:\n            return {}\n        # keys must consist of english alphabets only\n        if not all(('a' <= ch <= 'z') or ('A' <= ch <= 'Z') for ch in k):\n            return {}\n    # Lexicographic order of market identifiers\n    keys = sorted(data.keys())\n    # Validate values and elements, ensure no mutation by copying lists\n    market_lists = {}\n    total_count = 0\n    for k in keys:\n        v = data.get(k)\n        if not isinstance(v, list):\n            return {}\n        # Elements must be exactly float and finite\n        copied = []\n        for elem in v:\n            if not isinstance(elem, float):\n                return {}\n            if not math.isfinite(elem):\n                return {}\n            copied.append(elem)\n        market_lists[k] = copied\n        total_count += len(copied)\n    # Implement iterative bottom-up merge sort for each market list\n    def merge_two(left: List[float], right: List[float]) -> List[float]:\n        # stable linear merge\n        i = j = 0\n        nl = len(left)\n        nr = len(right)\n        out = []\n        out_extend = out.append\n        while i < nl and j < nr:\n            if left[i] <= right[j]:\n                out_extend(left[i]); i += 1\n            else:\n                out_extend(right[j]); j += 1\n        while i < nl:\n            out_extend(left[i]); i += 1\n        while j < nr:\n            out_extend(right[j]); j += 1\n        return out\n\n    def bottom_up_merge_sort(arr: List[float]) -> List[float]:\n        n = len(arr)\n        if n <= 1:\n            return arr[:]  # copy to avoid mutating original\n        width = 1\n        src = arr[:]  # work on copies\n        dest = [0.0] * n\n        # iterative bottom-up\n        while width < n:\n            i = 0\n            di = 0\n            while i < n:\n                left = i\n                mid = min(i + width, n)\n                right = min(i + 2 * width, n)\n                # merge src[left:mid] and src[mid:right] into dest[di:...]\n                l = left\n                r = mid\n                while l < mid and r < right:\n                    if src[l] <= src[r]:\n                        dest[di] = src[l]; l += 1; di += 1\n                    else:\n                        dest[di] = src[r]; r += 1; di += 1\n                while l < mid:\n                    dest[di] = src[l]; l += 1; di += 1\n                while r < right:\n                    dest[di] = src[r]; r += 1; di += 1\n                i += 2 * width\n            # copy any remaining tail if di < n (shouldn't be necessary)\n            if di < n:\n                for k2 in range(di, n):\n                    dest[k2] = src[k2]\n            # swap src and dest\n            src, dest = dest, src\n            width *= 2\n        return src\n\n    # Sort each market\n    sorted_markets: Dict[str, List[float]] = {}\n    for k in keys:\n        arr = market_lists[k]\n        sorted_arr = bottom_up_merge_sort(arr)\n        sorted_markets[k] = sorted_arr\n\n    # Multi-round deterministic pairwise merge based on lexicographic order\n    round_lists = [sorted_markets[k] for k in keys]\n    if not round_lists:\n        combined = []\n    else:\n        while len(round_lists) > 1:\n            next_round = []\n            i = 0\n            L = len(round_lists)\n            while i < L:\n                if i + 1 < L:\n                    merged = merge_two(round_lists[i], round_lists[i+1])\n                    next_round.append(merged)\n                    i += 2\n                else:\n                    # odd one passes to next round unchanged (copy to avoid mutation)\n                    next_round.append(round_lists[i][:])\n                    i += 1\n            round_lists = next_round\n        combined = round_lists[0][:]  # final combined copy\n\n    # Build result dict with markets in lexicographic order and combined last\n    result: Dict[str, List[float]] = {}\n    for k in keys:\n        result[k] = sorted_markets[k][:]\n    result['combined'] = combined\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 975,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1052,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2027
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,76 @@
+{
+  "id": "resp_096eb25398c2c4ca0069c344a6bed4819c80c55c42c462444b",
+  "object": "response",
+  "created_at": 1774404774,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774404794,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_096eb25398c2c4ca0069c344a714e0819cbf6428449f609ce0",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_096eb25398c2c4ca0069c344a7554c819ca30aa1d8a8de9217",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Tuple\nimport heapq\n\ndef optimize_delivery_routes(\n    num_nodes: int,\n    edges: List[List[int]],\n    mandatory_checkpoints: List[int],\n    global_max_time: int,\n    global_max_capacity: int\n) -> List[int]:\n    # Build adjacency list: u -> list of (v, time, cap, cost)\n    adj = [[] for _ in range(num_nodes)]\n    for u, v, t, c, cost in edges:\n        if t <= global_max_time and c <= global_max_capacity:\n            adj[u].append((v, t, c, cost))\n\n    # We need a path that visits all mandatory_checkpoints in order.\n    # We'll treat segments: start from any node, must reach first checkpoint, then next, ... final checkpoint.\n    # Use multi-source Dijkstra-like search per segment but tracking cumulative time, capacity, cost.\n    # Since nodes can repeat, and constraints are global (sum over entire path), when searching segment k we must\n    # start from possible start states coming from previous segment results.\n    checkpoints = list(mandatory_checkpoints)\n    if not checkpoints:\n        return []\n\n    # For initial segment, possible starts are any node (we allow starting at any node).\n    # Represent state as (cost, node, time_used, cap_used, path)\n    # For first segment, we need to reach checkpoints[0]\n    def search_segment(starts: List[Tuple[int,int,int,List[int]]], target: int):\n        # starts: list of (node, time_used, cap_used, path)\n        # returns list of resulting states at target: (cost, node, time, cap, path)\n        results = []\n        # We'll run a priority queue over total cost so far\n        pq = []\n        # visited dictionary to prune: (node, time_used, cap_used) -> best cost\n        # But to keep manageable, we store best cost per (node, time_used, cap_used) quantized by exact values.\n        visited = dict()\n        for node, time_used, cap_used, cost_used, path in starts:\n            key = (node, time_used, cap_used)\n            prev = visited.get((node, time_used, cap_used))\n            if prev is None or cost_used < prev:\n                visited[(node, time_used, cap_used)] = cost_used\n                heapq.heappush(pq, (cost_used, node, time_used, cap_used, path))\n        while pq:\n            cost_so_far, u, time_so_far, cap_so_far, path_so_far = heapq.heappop(pq)\n            # If this state exceeded stored best, skip\n            if visited.get((u, time_so_far, cap_so_far), None) != cost_so_far:\n                continue\n            if u == target:\n                results.append((cost_so_far, u, time_so_far, cap_so_far, path_so_far.copy()))\n                # Do not early return: other possibly cheaper states may exist\n                continue\n            for v, t, c, edge_cost in adj[u]:\n                new_time = time_so_far + t\n                new_cap = cap_so_far + c\n                if new_time > global_max_time or new_cap > global_max_capacity:\n                    continue\n                new_cost = cost_so_far + edge_cost\n                new_path = path_so_far + [v]\n                key = (v, new_time, new_cap)\n                prev = visited.get(key)\n                if prev is None or new_cost < prev:\n                    visited[key] = new_cost\n                    heapq.heappush(pq, (new_cost, v, new_time, new_cap, new_path))\n        return results\n\n    # Initialize starts: all nodes as possible starting positions with zero time/cap/cost and path [node]\n    starts = []\n    for node in range(num_nodes):\n        starts.append((node, 0, 0, 0, [node]))\n\n    # For each checkpoint, run segment search to reach it from any of current starts\n    for cp in checkpoints:\n        seg_results = search_segment(starts, cp)\n        if not seg_results:\n            return []\n        # Consolidate results: keep only Pareto-efficient states to limit explosion.\n        # We'll keep for each (node) a list of states and prune dominated ones.\n        new_states = dict()  # key: node -> list of (time, cap, cost, path)\n        for cost, node, time_used, cap_used, path in seg_results:\n            lst = new_states.setdefault(node, [])\n            lst.append((time_used, cap_used, cost, path))\n        # prune dominated: a dominates b if time<= and cap<= and cost<= with at least one strict\n        starts = []\n        for node, lst in new_states.items():\n            pruned = []\n            for a in lst:\n                dominated = False\n                for b in lst:\n                    if a is b:\n                        continue\n                    if b[0] <= a[0] and b[1] <= a[1] and b[2] <= a[2] and (b[0] < a[0] or b[1] < a[1] or b[2] < a[2]):\n                        dominated = True\n                        break\n                if not dominated:\n                    pruned.append(a)\n            for time_used, cap_used, cost_used, path in pruned:\n                starts.append((node, time_used, cap_used, cost_used, path))\n\n    # After final checkpoint reached, choose minimal cost among starts\n    if not starts:\n        return []\n    best = min(starts, key=lambda s: s[3])\n    return best[4]"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1719,
+    "input_tokens_details": {
+      "cached_tokens": 1664
+    },
+    "output_tokens": 1208,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2927
+  },
+  "user": null,
+  "metadata": {}
+}

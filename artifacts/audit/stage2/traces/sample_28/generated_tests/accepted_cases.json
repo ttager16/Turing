@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[{\"id\": \"S1\", \"inventory\": [30, 30], \"coalition_id\": \"C1\", \"routes\": {\"W1\": {\"cost\": 10, \"time\": 3}, \"W2\": {\"cost\": 12, \"time\": 2}}}, {\"id\": \"S2\", \"inventory\": [20, 20], \"coalition_id\": \"C1\", \"routes\": {\"W1\": {\"cost\": 11, \"time\": 2}, \"W2\": {\"cost\": 9, \"time\": 3}}}]\n[{\"id\": \"D1\", \"demand\": [40, 10], \"preferred_routes\": [\"W1\", \"W2\"]}, {\"id\": \"D2\", \"demand\": [10, 20], \"preferred_routes\": [\"W2\"]}]\n[{\"id\": \"W1\", \"capacity\": [40, 10], \"routes\": {\"D1\": {\"cost\": 5, \"time\": 1}, \"D2\": {\"cost\": 7, \"time\": 2}}}, {\"id\": \"W2\", \"capacity\": [30, 30], \"routes\": {\"D1\": {\"cost\": 6, \"time\": 2}, \"D2\": {\"cost\": 4, \"time\": 1}}}]\n[{\"phase\": 2, \"action\": \"route_closure\", \"details\": {\"from\": \"W1\", \"to\": \"D1\"}}]",
+    "output_text": "{\"multi_phase_routes\": [{\"phase\": 1, \"routes\": [{\"path\": [\"S1\", \"W1\", \"D1\"], \"units_shipped\": 30, \"coalition_used\": \"C1\", \"phase_cost\": 12, \"phase_time\": 3}, {\"path\": [\"S2\", \"W2\", \"D2\"], \"units_shipped\": 10, \"coalition_used\": \"C1\", \"phase_cost\": 11, \"phase_time\": 3}, {\"path\": [\"S2\", \"W2\", \"D1\"], \"units_shipped\": 10, \"coalition_used\": \"C1\", \"phase_cost\": 12, \"phase_time\": 4}]}, {\"phase\": 2, \"routes\": [{\"path\": [\"S2\", \"W2\", \"D2\"], \"units_shipped\": 20, \"coalition_used\": \"C1\", \"phase_cost\": 11, \"phase_time\": 3}, {\"path\": [\"S1\", \"W2\", \"D1\"], \"units_shipped\": 10, \"coalition_used\": \"C1\", \"phase_cost\": 15, \"phase_time\": 3}]}], \"total_cost\": 61, \"total_time\": 16, \"unmet_demand\": {\"D1\": 0, \"D2\": 0}}"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[{\"id\": \"S1\", \"inventory\": [10], \"coalition_id\": null, \"routes\": {\"W1\": {\"cost\": 5, \"time\": 1}}}]\n[{\"id\": \"D1\", \"demand\": [5], \"preferred_routes\": [\"W1\"]}]\n[{\"id\": \"W1\", \"capacity\": [10], \"routes\": {}}]\n[]",
+    "output_text": "{\"multi_phase_routes\": [{\"phase\": 1, \"routes\": []}], \"total_cost\": 0, \"total_time\": 0, \"unmet_demand\": {\"D1\": 5}}"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[{\"id\": \"S1\", \"inventory\": [5, 0, 5], \"coalition_id\": \"C1\", \"routes\": {\"W1\": {\"cost\": 7, \"time\": 5}}}, {\"id\": \"S2\", \"inventory\": [0, 5, 0], \"coalition_id\": null, \"routes\": {\"W1\": {\"cost\": 6, \"time\": 4}}}]\n[{\"id\": \"D1\", \"demand\": [5, 5, 5], \"preferred_routes\": [\"W1\"]}]\n[{\"id\": \"W1\", \"capacity\": [5, 5, 5], \"routes\": {\"D1\": {\"cost\": 3, \"time\": 2}}}]\n[{\"phase\": 2, \"action\": \"capacity_change\", \"details\": {\"warehouse_id\": \"W1\", \"new_capacity\": 2}}]",
+    "output_text": "{\"multi_phase_routes\": [{\"phase\": 1, \"routes\": [{\"path\": [\"S1\", \"W1\", \"D1\"], \"units_shipped\": 5, \"coalition_used\": \"C1\", \"phase_cost\": 8, \"phase_time\": 5}]}, {\"phase\": 2, \"routes\": [{\"path\": [\"S2\", \"W1\", \"D1\"], \"units_shipped\": 2, \"coalition_used\": null, \"phase_cost\": 9, \"phase_time\": 6}]}, {\"phase\": 3, \"routes\": [{\"path\": [\"S1\", \"W1\", \"D1\"], \"units_shipped\": 2, \"coalition_used\": \"C1\", \"phase_cost\": 8, \"phase_time\": 5}]}], \"total_cost\": 25, \"total_time\": 16, \"unmet_demand\": {\"D1\": 6}}"
+  }
+]

@@ -1,0 +1,146 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+A social platform wants to power a live “reach-from-user” panel for campaign planners: pick a source user and instantly see how many hops away everyone else is, while friendships are constantly being added or removed by users.
+Your task is to implement a deterministic Breadth-First Search (BFS) that computes shortest-path hop counts from a given source, then keeps those distances correct as batched edge activations and deactivations arrive, updating only the affected region instead of recomputing everything, so the panel stays fast and consistent.
+
+
+### Objectives
+
+1. **Deterministic BFS Core:**
+   Level-synchronous BFS that processes nodes in strictly sorted order for reproducibility. No threading or multiprocessing
+2. **Incremental Updates:**
+   Apply activations with localized relaxations and deactivations with targeted invalidation + repair (no full recompute after the initial run).
+3. **Batch Atomicity:**
+   All operations in each update batch are applied atomically before any BFS propagation resumes.
+4. **Deterministic Load Order:**
+   Process each frontier in ascending lexicographic order of node IDs.
+5. **Determinism:**
+   Identical inputs (graph, source, updates) must always produce identical outputs.
+
+
+### Constraints
+
+- The solution must be implemented in pure Python (no external libraries allowed).
+- Graph Format:
+    * keys and neighbor IDs are string numeric node IDs (e.g., "0", "12")
+    * Self-loops are ignored, duplicate neighbors deduplicated.
+- Undirected Symmetry:
+    * If "u" lists "v", ensure "v" lists "u".
+    * Both adjacency lists must remain symmetric after updates.
+- Updates Format:
+    * updates is list[list[str]], each ["activate"|"deactivate", "u", "v"].
+    * "u" and "v" must be valid string numeric IDs.
+    * Missing nodes are auto-added.
+    * Self-loops and duplicate activates or deactivates are no-ops.
+- Incremental Correctness:
+    * Parent-chain invalidation: Removing edge (p, c) where parent[c] == p invalidates c and its descendants (set distance = -1).
+    * Boundary repair: Run multi-source BFS only from neighbors that still have non-negative distances.
+    * Off-tree deactivations: If the edge removed is not a parent edge, distances remain unchanged.
+    * Activations: Add both directions, attempt local relaxation from endpoints.
+- Batch Atomicity: Apply the entire updates list atomically, then propagate once.
+- Distance Map:
+    * The source node has a distance of 0.
+    * All reachable nodes have non-negative hop counts.
+    * Unreachable nodes have a distance value of -1.
+    * Every node seen in the graph or updates must appear in the output.
+- Validation Failures: Return {} if:
+    * graph is not a dict.
+    * any key/neighbor is not a valid string numeric ID.
+    * updates is not a list of valid 3-element lists.
+    * source is not a valid string numeric ID.
+    * or both graph == {} and updates are empty.
+- Deterministic Order:
+    * Sort neighbor lists lexicographically.
+    * Process frontiers in ascending node ID order.
+    * When multiple parents yield equal distances, choose the lexicographically smallest parent.
+
+
+### Function Signature
+
+```python
+def get_shortest_paths(graph: dict, source: str, updates: list[list[str]]) -> dict:
+    """
+    graph: Dictionary where keys are string node IDs and values are lists of neighbor IDs.
+    source: The node ID (string) from which to compute shortest paths.
+    updates: Ordered list of ["activate"/"deactivate", "u", "v"] operations.
+
+    returns: Dictionary mapping every node (string) to its shortest-path distance from 'source'
+             after applying all updates atomically. Reachable: non-negative hops; unreachable: -1.
+             Returns {} on invalid input.
+             The returned dictionary is sorted by ascending lexicographic order of node IDs.
+    """
+```
+
+
+### Sample Input
+
+```python
+graph = {
+    "0": ["1", "2"],
+    "1": ["0", "3"],
+    "2": ["0", "4"],
+    "3": ["1", "5"],
+    "4": ["2", "5"],
+    "5": ["3", "4", "6"],
+    "6": ["5"]
+}
+source = "0"
+updates = [
+    ["deactivate", "5", "6"],
+    ["activate",   "1", "6"],
+    ["deactivate", "2", "4"],
+    ["activate",   "2", "6"],
+    ["deactivate", "1", "3"],
+    ["activate",   "0", "3"]
+]
+```
+
+### Sample Output
+
+```python
+{
+    "0": 0,
+    "1": 1,
+    "2": 1,
+    "3": 1,
+    "4": 3,
+    "5": 2,
+    "6": 2
+}
+```
+
+
+### **Explanation**
+
+After applying all updates atomically, the final edges are:
+
+(0,1) (0,2) (0,3)
+(1,0) (1,6)
+(2,0) (2,6)
+(3,0) (3,5)
+(4,5)
+(5,3) (5,4)
+(6,1) (6,2)
+
+BFS from "0" yields:
+* 0 -> 1 -> 1, 2, 3
+* 2 -> 2, 5, 6
+* 3 -> 4 (via 5).
+  Hence "4": 3.
+
+Starter Code:
+```python
+from collections import defaultdict
+
+def get_shortest_paths(graph: dict, source: str, updates: list[list[str]]) -> dict:
+    pass
+```

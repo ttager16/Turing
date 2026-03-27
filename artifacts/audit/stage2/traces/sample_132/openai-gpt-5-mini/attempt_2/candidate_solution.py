@@ -1,0 +1,369 @@
+def process_offline_graph_queries(road_network: List[Dict], intersection_data: List[Dict],
+                                  closure_schedule: List[Dict], query_batch: List[Dict]) -> Dict[str, Any]:
+    # Validation
+    if not isinstance(query_batch, list) or len(query_batch) == 0:
+        return {"error": "Empty query batch provided"}
+    # Build intersection map
+    inter_map = {}
+    for inter in intersection_data:
+        iid = inter.get("intersection_id")
+        if iid is None:
+            return {"error": "Input is not valid"}
+        coords = inter.get("coordinates", {})
+        x = coords.get("x"); y = coords.get("y")
+        if not isinstance(x, int) or not isinstance(y, int) or not (0 <= x <= 10000) or not (0 <= y <= 10000):
+            return {"error": f"Invalid coordinates for intersection {iid}"}
+        cluster = inter.get("neighborhood_cluster")
+        if not isinstance(cluster, int) or not (1 <= cluster <= 10):
+            return {"error": f"Invalid neighborhood cluster assignment for intersection {iid}"}
+        inter_map[iid] = inter
+    # Validate road references and build adjacency
+    adj = defaultdict(list)  # node -> list of (neighbor, edge_id)
+    edge_map = {}
+    for edge in road_network:
+        eid = edge.get("edge_id")
+        a = edge.get("intersection_a"); b = edge.get("intersection_b")
+        if a not in inter_map or b not in inter_map:
+            return {"error": f"Invalid intersection reference in road segment {eid}"}
+        edge_map[eid] = edge
+        adj[a].append((b, eid))
+        adj[b].append((a, eid))
+    # Validate connected_roads consistency
+    for iid, inter in inter_map.items():
+        conn = inter.get("connected_roads", [])
+        for eid in conn:
+            if eid not in edge_map:
+                return {"error": f"Inconsistent road connections for intersection {iid}"}
+            e = edge_map[eid]
+            if not (e.get("intersection_a") == iid or e.get("intersection_b") == iid):
+                return {"error": f"Inconsistent road connections for intersection {iid}"}
+    # Closure validation times and overlapping priority 1
+    closures_by_inter = defaultdict(list)
+    for c in closure_schedule:
+        cid = c.get("closure_id")
+        s = c.get("start_time"); e = c.get("end_time")
+        if not isinstance(s, int) or not isinstance(e, int) or s >= e:
+            return {"error": f"Invalid closure time window for closure {cid}"}
+        ai = c.get("affected_intersection")
+        closures_by_inter[ai].append(c)
+    for inter_id, clist in closures_by_inter.items():
+        # check overlapping priority 1
+        pr1 = [c for c in clist if c.get("priority_level") == 1]
+        pr1_sorted = sorted(pr1, key=lambda x: (x["start_time"], x["end_time"]))
+        for i in range(1, len(pr1_sorted)):
+            if pr1_sorted[i]["start_time"] < pr1_sorted[i-1]["end_time"]:
+                return {"error": "Overlapping high-priority closures detected"}
+    # Query time validation and source/target presence
+    for q in query_batch:
+        qid = q.get("query_id")
+        qt = q.get("query_time")
+        if not isinstance(qt, int) or not (0 <= qt <= 168):
+            return {"error": f"Query time outside valid range for query {qid}"}
+        s = q.get("source_intersection"); t = q.get("target_intersection")
+        if s not in inter_map or t not in inter_map:
+            return {"error": "Input is not valid"}
+    # Connectivity validation: check whole network connected
+    # BFS from any node
+    if len(inter_map) == 0:
+        return {"error": "Input is not valid"}
+    start_node = next(iter(inter_map))
+    visited = set()
+    dq = deque([start_node])
+    while dq:
+        u = dq.popleft()
+        if u in visited: continue
+        visited.add(u)
+        for v, _ in adj.get(u, []):
+            if v not in visited:
+                dq.append(v)
+    if len(visited) != len(inter_map):
+        return {"error": "Disconnected network components detected"}
+    # Preprocessing: degrees, critical intersections
+    degrees = {iid: len(adj[iid]) for iid in inter_map}
+    critical_intersections = [iid for iid, d in degrees.items() if d > 4]
+    # Precompute shortest paths (Dijkstra) from all intersections that appear in queries (sources/targets)
+    query_nodes = set()
+    for q in query_batch:
+        query_nodes.add(q["source_intersection"])
+        query_nodes.add(q["target_intersection"])
+    # weight for Dijkstra is segment_length
+    def dijkstra(start, banned_nodes:Set[int]=None):
+        banned_nodes = banned_nodes or set()
+        dist = {start: 0}
+        prev = {}
+        h = [(0, start)]
+        while h:
+            d, u = heapq.heappop(h)
+            if d != dist.get(u, float('inf')): continue
+            for v, eid in adj[u]:
+                if v in banned_nodes: continue
+                elen = edge_map[eid]["segment_length"]
+                nd = d + elen
+                if nd < dist.get(v, float('inf')):
+                    dist[v] = nd
+                    prev[v] = (u, eid)
+                    heapq.heappush(h, (nd, v))
+        return dist, prev
+    # cache shortest distances without closures
+    sp_cache = {}
+    for node in query_nodes:
+        dist, prev = dijkstra(node, banned_nodes=set())
+        sp_cache[node] = (dist, prev)
+    # Helper to reconstruct path from prev
+    def reconstruct(prev_map, start, end):
+        if end == start:
+            return [start]
+        path = []
+        cur = end
+        while cur != start:
+            if cur not in prev_map:
+                return []
+            u, eid = prev_map[cur]
+            path.append(cur)
+            cur = u
+        path.append(start)
+        path.reverse()
+        return path
+    # Helper to compute path metrics
+    def compute_path_metrics(path, active_closures_ids):
+        # path is list of intersection ids
+        path_edges = []
+        for i in range(len(path)-1):
+            a = path[i]; b = path[i+1]
+            # find edge
+            found = None
+            for v,eid in adj[a]:
+                if v == b:
+                    found = edge_map[eid]
+                    path_edges.append((eid, found))
+                    break
+            if found is None:
+                return None
+        base_distance = sum(e["segment_length"] for _,e in path_edges)
+        # closure penalty: number_of_closed_intersections_on_path *100 + total_closure_duration*0.5
+        closed_on_path = set()
+        total_closure_duration = 0
+        affected_segments = 0
+        for i_node in path:
+            for cid in active_closures_ids:
+                c = closure_lookup[cid]
+                if c["affected_intersection"] == i_node:
+                    closed_on_path.add(cid)
+                    total_closure_duration += c["end_time"] - c["start_time"]
+        # affected segments: segments that connect to any closed intersection
+        closed_inters = set(c["affected_intersection"] for c in (closure_lookup[cid] for cid in active_closures_ids))
+        for eid,e in path_edges:
+            if e["intersection_a"] in closed_inters or e["intersection_b"] in closed_inters:
+                affected_segments += 1
+        # traffic impact
+        avg_traffic = sum(e["traffic_density"] for _,e in path_edges)/len(path_edges)
+        congestion_level = sum(e["congestion_weight"] for _,e in path_edges)
+        # detour complexity
+        direct_len = sp_cache[path[0]][0].get(path[-1], None)
+        if direct_len is None:
+            direct_len = base_distance
+        detour_complexity = (base_distance - direct_len) * 10
+        # alternative routes count placeholder (will be filled by caller)
+        return {
+            "base_distance": base_distance,
+            "closed_count": len(closed_on_path),
+            "total_closure_duration": total_closure_duration,
+            "affected_segments": affected_segments,
+            "avg_traffic": avg_traffic,
+            "congestion_level": congestion_level,
+            "detour_complexity": detour_complexity
+        }
+    # Build closure lookup
+    closure_lookup = {c["closure_id"]: c for c in closure_schedule}
+    # For each query, process considering closures active at query_time
+    query_results = []
+    total_detour_distance = 0
+    high_impact_closures = set()
+    for q in sorted(query_batch, key=lambda x: x["query_id"]):
+        qid = q["query_id"]; qtype = q["query_type"]
+        s = q["source_intersection"]; t = q["target_intersection"]
+        qt = q["query_time"]
+        max_alt = q["max_alternative_paths"]
+        dist_thresh = q["distance_threshold"]
+        # determine active closures at qt
+        active_closures = [c for c in closure_schedule if c["start_time"] <= qt < c["end_time"]]
+        active_closure_ids = [c["closure_id"] for c in active_closures]
+        # banned nodes are fully closed intersections where alternative_capacity == 0.0 or treated as closed
+        banned = set()
+        for c in active_closures:
+            if c.get("alternative_capacity", 0.0) <= 0.0:
+                banned.add(c["affected_intersection"])
+        # Simple path search: Dijkstra avoiding banned
+        dist, prev = dijkstra(s, banned_nodes=banned)
+        if t not in dist:
+            result_status = "no_path_found"
+            optimal_path = []
+            path_distance = 0
+            path_quality_score = 0.0
+            travel_time_estimate = 0
+            affected_closures = active_closure_ids.copy()
+            alternative_paths = []
+        else:
+            optimal_path = reconstruct(prev, s, t)
+            path_distance = sum(edge_map[eid]["segment_length"] for i in range(len(optimal_path)-1)
+                                for _, eid in [(next((p for p in adj[optimal_path[i]] if p[0]==optimal_path[i+1]), (None,None))[1], None)] if eid is not None)  # fallback
+            # safer compute edges
+            path_distance = 0
+            path_edges_eids = []
+            for i in range(len(optimal_path)-1):
+                a = optimal_path[i]; b = optimal_path[i+1]
+                for v,eid in adj[a]:
+                    if v == b:
+                        path_edges_eids.append(eid)
+                        path_distance += edge_map[eid]["segment_length"]
+                        break
+            # path metrics
+            metrics = compute_path_metrics(optimal_path, active_closure_ids)
+            # closure penalty with criticality adjustment
+            closure_penalty = (metrics["closed_count"] * 100) + (metrics["total_closure_duration"] * 0.5)
+            # adjust for critical intersections on path
+            mult = 1.0
+            for node in optimal_path:
+                if degrees.get(node,0) > 4:
+                    mult = 1.5
+                    break
+            closure_penalty *= mult
+            traffic_impact_factor = metrics["avg_traffic"] * 25
+            congestion_level = metrics["congestion_level"]
+            detour_complexity = metrics["detour_complexity"]
+            # alternative routes count: try to find up to max_alt alternative simple paths using Yen-like approach (simple removal of edges of optimal)
+            alternatives = []
+            removed_edges = set()
+            # generate alternatives by temporarily banning one node from optimal path (excluding endpoints) to force detour
+            alt_found = []
+            candidates = []
+            for idx in range(1, max(1, len(optimal_path)-1)):
+                node_to_ban = optimal_path[idx]
+                if node_to_ban in (s, t): continue
+                d2, p2 = dijkstra(s, banned_nodes=banned | {node_to_ban})
+                if t in d2:
+                    path2 = reconstruct(p2, s, t)
+                    pdist = 0
+                    for i in range(len(path2)-1):
+                        a = path2[i]; b = path2[i+1]
+                        for v,eid in adj[a]:
+                            if v == b:
+                                pdist += edge_map[eid]["segment_length"]; break
+                    candidates.append((pdist, path2))
+                if len(candidates) >= max_alt:
+                    break
+            # also try banning each edge on optimal path
+            for i in range(len(optimal_path)-1):
+                a = optimal_path[i]; b = optimal_path[i+1]
+                # find eid
+                eid_block = None
+                for v,eid in adj[a]:
+                    if v == b:
+                        eid_block = eid; break
+                if eid_block is None: continue
+                # create modified adjacency by skipping eid_block
+                # implement dijkstra that can skip an edge id
+                def dijkstra_skip_edge(start, skip_eid, banned_nodes:Set[int]=None):
+                    banned_nodes = banned_nodes or set()
+                    dist = {start: 0}
+                    prev = {}
+                    h = [(0, start)]
+                    while h:
+                        d, u = heapq.heappop(h)
+                        if d != dist.get(u, float('inf')): continue
+                        for v,eid in adj[u]:
+                            if eid == skip_eid: continue
+                            if v in banned_nodes: continue
+                            elen = edge_map[eid]["segment_length"]
+                            nd = d + elen
+                            if nd < dist.get(v, float('inf')):
+                                dist[v] = nd
+                                prev[v] = (u, eid)
+                                heapq.heappush(h, (nd, v))
+                    return dist, prev
+                d3, p3 = dijkstra_skip_edge(s, eid_block, banned_nodes=banned)
+                if t in d3:
+                    path3 = reconstruct(p3, s, t)
+                    pdist = 0
+                    for j in range(len(path3)-1):
+                        a2 = path3[j]; b2 = path3[j+1]
+                        for v,eid in adj[a2]:
+                            if v == b2:
+                                pdist += edge_map[eid]["segment_length"]; break
+                    candidates.append((pdist, path3))
+                if len(candidates) >= max_alt:
+                    break
+            # deduplicate candidates
+            seen_paths = set()
+            unique_candidates = []
+            for pdist, pth in sorted(candidates, key=lambda x: (x[0], x[1])):
+                key = tuple(pth)
+                if key in seen_paths: continue
+                seen_paths.add(key)
+                unique_candidates.append((pdist, pth))
+                if len(unique_candidates) >= max_alt:
+                    break
+            # compute quality scores
+            alt_list = []
+            for pdist, pth in unique_candidates:
+                pm = compute_path_metrics(pth, active_closure_ids)
+                cp = (pm["closed_count"] * 100) + (pm["total_closure_duration"] * 0.5)
+                if any(degrees.get(node,0) > 4 for node in pth):
+                    cp *= 1.5
+                tif = pm["avg_traffic"] * 25
+                cong = pm["congestion_level"]
+                detc = pm["detour_complexity"]
+                alt_score = pm["base_distance"] + (cp * pm["affected_segments"]) + (tif * cong) + (detc * len(unique_candidates))
+                detour_factor = round(pdist / path_distance, 2) if path_distance>0 else 1.0
+                alt_list.append({
+                    "path_intersections": pth,
+                    "path_distance": pdist,
+                    "quality_score": float(round(alt_score,2)),
+                    "detour_factor": detour_factor
+                })
+            alternative_paths = alt_list
+            # compute optimal path quality
+            pq_score = metrics["base_distance"] + (closure_penalty * metrics["affected_segments"]) + (traffic_impact_factor * congestion_level) + (detour_complexity * max(1, len(alternative_paths)))
+            path_quality_score = float(round(pq_score,2))
+            # travel time estimate: sum of ((segment_length / 1000) / max_speed_limit * 60) + (baseline_delay / 60) for all segments and intersections in path, in minutes
+            travel_time = 0.0
+            for i in range(len(optimal_path)-1):
+                a = optimal_path[i]; b = optimal_path[i+1]
+                for v,eid in adj[a]:
+                    if v == b:
+                        seg = edge_map[eid]
+                        travel_time += (seg["segment_length"]/1000.0) / seg["max_speed_limit"] * 60.0
+                        break
+            # add baseline delays for intersections in path (convert seconds to minutes)
+            for node in optimal_path:
+                travel_time += inter_map[node]["baseline_delay"]/60.0
+            travel_time_estimate = int(round(travel_time))
+            # affected closures ids on path
+            affected_closures = []
+            for cid in active_closure_ids:
+                c = closure_lookup[cid]
+                if c["affected_intersection"] in optimal_path:
+                    affected_closures.append(cid)
+            result_status = "success"
+            # distance threshold validation: theoretical minimum is direct shortest without closures
+            theoretical_min = sp_cache[s][0].get(t, None)
+            if theoretical_min is None:
+                # unreachable in original (shouldn't happen since network connected)
+                theoretical_min = path_distance
+            if dist_thresh < theoretical_min:
+                return {"error": f"Distance threshold too restrictive for query {qid}"}
+            # if alternatives required but fewer found
+            if qtype == "alternative_routes" and len(alternative_paths) < max_alt:
+                result_status = "insufficient_alternatives"
+            # accumulate network impact summary
+            total_detour_distance += sum((alt["path_distance"] - path_distance) for alt in alternative_paths if alt["path_distance"] > path_distance)
+            for cid in affected_closures:
+                c = closure_lookup[cid]
+                if degrees.get(c["affected_intersection"],0) > 4:
+                    high_impact_closures.add(cid)
+        query_results.append({
+            "query_id": qid,
+            "query_type": qtype,
+            "result_status": result_status,
+            "optimal_path": optimal_path,
+            "path

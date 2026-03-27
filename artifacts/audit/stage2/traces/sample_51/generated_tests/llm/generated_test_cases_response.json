@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN64GvYvR9HrZmg4hdC816fCeU7ZV",
+  "object": "chat.completion",
+  "created": 1774397240,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[\\\"10\\\", 0.0, \\\"inf\\\", -5, 8]\",\"[\\\"0.12\\\", \\\"nan\\\", 0.05, 0.1, null]\",\"[1.2, -0.1, \\\"0.5\\\", \\\"abc\\\", 0]\",\"1000.0\",\"\\\"bad\\\"\",\"6\"],\"focus\":\"mixed-type sanitation: nonnumeric strings, zero/negative/inf prices, null returns, risk_penalty coerced to 0 and per-index error ordering\"},{\"input_lines\":[\"[10.0, 20.0, 5.0]\",\"[0.1, 0.2, 0.05]\",\"[0, -0.1, 0]\",\"500.0\",\"0.01\",\"15\"],\"focus\":\"all max_weights clipped to 0 (trigger 'all caps zero') with invalid round_decimals coerced to 6; check clipping messages and no global early exit\"},{\"input_lines\":[\"[10.0, 5.0]\",\"[0.2, 0.1]\",\"[0.505, 0.495]\",\"100.0\",\"0.0\",\"2\"],\"focus\":\"rounding overshoot: rounded weights sum >1.0 causing spent>budget and requiring corrective downward adjustment of the last allocated asset\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2060,
+    "completion_tokens": 3181,
+    "total_tokens": 5241,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2880,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

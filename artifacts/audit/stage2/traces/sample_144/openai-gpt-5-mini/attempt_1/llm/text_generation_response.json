@@ -1,0 +1,76 @@
+{
+  "id": "resp_0b9bcbd044753c5a0069c343890a8881979b05f2f5f6a9b68e",
+  "object": "response",
+  "created_at": 1774404489,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774404539,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0b9bcbd044753c5a0069c3438966248197a1500977d15d338d",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0b9bcbd044753c5a0069c34389b9208197ab3d07e8f86a2719",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, Any, List, Optional, Union\nfrom collections import deque\n\ndef update_topological_order(\n    graph: Dict[str, Dict[str, int]],\n    node_states: Dict[str, Dict[str, Any]],\n    updates: List[Dict[str, Any]],\n    reconcile_policy: str = \"abort_on_conflict\"\n) -> Union[List[str], str]:\n    # Nested helpers\n    def err(s: str) -> str:\n        return s\n\n    # Validate graph type\n    if not isinstance(graph, dict) or not all(isinstance(k, str) and isinstance(v, dict) for k, v in graph.items()):\n        return err(\"TypeError: InvalidInputError: 'graph' must be Dict[str, Dict[str, int]]\")\n    # Count nodes and edges\n    n_nodes = len(graph)\n    n_edges = sum(len(v) for v in graph.values())\n    if n_nodes > 10 or n_edges > 10:\n        return err(f\"ValueError: InputSizeError: graph has {n_nodes} nodes and {n_edges} edges; limits are max_nodes=10, max_edges=10\")\n    # Validate node_states\n    if not isinstance(node_states, dict) or not all(isinstance(k, str) and isinstance(v, dict) for k, v in node_states.items()):\n        return err(\"TypeError: InvalidInputError: 'node_states' must be Dict[str, Dict[str, Any]]\")\n    for node in graph:\n        if node not in node_states:\n            return err(f\"KeyError: InvalidInputError: missing node_states entry for node {node}\")\n    # reconcile_policy\n    if reconcile_policy not in (\"abort_on_conflict\", \"ignore_with_skip\"):\n        return err(\"ValueError: InvalidInputError: reconcile_policy must be 'abort_on_conflict' or 'ignore_with_skip'\")\n\n    # Validate updates list\n    if not isinstance(updates, list):\n        return err(\"TypeError: InvalidInputError: 'updates' must be a list of update records\")\n    for i, up in enumerate(updates):\n        if not isinstance(up, dict):\n            return err(f\"TypeError: InvalidUpdateError: update at index {i} must be a dict\")\n        op = up.get(\"op\")\n        if not isinstance(op, str) or op not in (\"add_edge\", \"remove_edge\", \"capacity_change\", \"change_state\"):\n            return err(f\"ValueError: InvalidUpdateError: update at index {i} has invalid op '{op}'\")\n        # src required for edge and state ops\n        if op in (\"add_edge\", \"remove_edge\", \"capacity_change\", \"change_state\"):\n            src = up.get(\"src\", None)\n            if not isinstance(src, str):\n                return err(f\"TypeError: InvalidUpdateError: update at index {i} missing or invalid 'src'\")\n        # dst required for edge ops\n        if op in (\"add_edge\", \"remove_edge\", \"capacity_change\"):\n            dst = up.get(\"dst\", None)\n            if not isinstance(dst, str):\n                return err(f\"TypeError: InvalidUpdateError: update at index {i} missing or invalid 'dst'\")\n        # value types\n        if op == \"capacity_change\":\n            if \"value\" not in up or not isinstance(up.get(\"value\", None), int):\n                return err(f\"TypeError: InvalidUpdateError: update at index {i} has invalid 'value' for op '{op}'\")\n        if op == \"change_state\":\n            if \"value\" not in up:\n                return err(f\"TypeError: InvalidUpdateError: update at index {i} has invalid 'value' for op '{op}'\")\n            if not isinstance(up.get(\"value\", None), dict):\n                return err(f\"TypeError: InvalidUpdateError: update at index {i} change_state 'value' must be a dict\")\n        # ts if present\n        if \"ts\" in up and not isinstance(up[\"ts\"], (int, float)):\n            return err(f\"TypeError: InvalidUpdateError: update at index {i} has invalid 'ts' type; must be int or float\")\n\n    # Work on copies for transactional behavior\n    g = {k: dict(v) for k, v in graph.items()}\n    ns = {k: dict(v) for k, v in node_states.items()}\n\n    # Helper to detect unknown node\n    def unknown_node(i, node_id):\n        return f\"RuntimeError: InvalidUpdateError: update at index {i} references unknown node {node_id}\"\n\n    # Apply updates atomically unless ignore_with_skip\n    applied_ops = []\n    for i, up in enumerate(updates):\n        op = up[\"op\"]\n        src = up.get(\"src\")\n        dst = up.get(\"dst\")\n        val = up.get(\"value\")\n        # check nodes exist\n        if op in (\"add_edge\", \"remove_edge\", \"capacity_change\"):\n            if src not in g:\n                if reconcile_policy == \"abort_on_conflict\":\n                    return err(unknown_node(i, src))\n                else:\n                    continue\n            if dst not in g:\n                if reconcile_policy == \"abort_on_conflict\":\n                    return err(unknown_node(i, dst))\n                else:\n                    continue\n        if op == \"change_state\":\n            if src not in g:\n                if reconcile_policy == \"abort_on_conflict\":\n                    return err(unknown_node(i, src))\n                else:\n                    continue\n            if not isinstance(val, dict):\n                if reconcile_policy == \"abort_on_conflict\":\n                    return err(f\"TypeError: InvalidUpdateError: update at index {i} change_state 'value' must be a dict\")\n                else:\n                    continue\n        # Semantic checks\n        if op == \"add_edge\":\n            # add or overwrite capacity\n            g[src][dst] = val if isinstance(val, int) else (up.get(\"value\") if isinstance(up.get(\"value\"), int) else 0)\n            applied_ops.append((\"add_edge\", src, dst))\n        elif op == \"remove_edge\":\n            if dst not in g[src]:\n                if reconcile_policy == \"abort_on_conflict\":\n                    return err(f\"RuntimeError: InvalidUpdateError: update at index {i} references non-existent edge {src}->{dst}\")\n                else:\n                    continue\n            del g[src][dst]\n            applied_ops.append((\"remove_edge\", src, dst))\n        elif op == \"capacity_change\":\n            if dst not in g[src]:\n                if reconcile_policy == \"abort_on_conflict\":\n                    return err(f\"RuntimeError: InvalidUpdateError: update at index {i} references non-existent edge {src}->{dst}\")\n                else:\n                    continue\n            g[src][dst] = val\n            applied_ops.append((\"capacity_change\", src, dst, val))\n        elif op == \"change_state\":\n            # merge provided keys into node state\n            ns[src].update(val)\n            applied_ops.append((\"change_state\", src, val))\n        # After each update, check sizes constraints\n        total_edges = sum(len(v) for v in g.values())\n        if len(g) > 10 or total_edges > 10:\n            return err(f\"ValueError: InputSizeError: graph has {len(g)} nodes and {total_edges} edges; limits are max_nodes=10, max_edges=10\")\n\n    # After applying batch, detect cycles. Use Kahn's algorithm but produce deterministic ordering by priority then id.\n    # Build in-degree\n    nodes = list(g.keys())\n    indeg = {node: 0 for node in nodes}\n    for u in nodes:\n        for v in g[u]:\n            indeg[v] = indeg.get(v, 0) + 1\n    # Prepare priority and stable ordering keys\n    def node_key(n):\n        pr = ns.get(n, {}).get(\"priority\", 0)\n        return (pr, int(n) if n.isdigit() else n)\n    # Kahn's algorithm deterministic: pick nodes with indeg 0 sorted by priority then id\n    zero = [n for n in nodes if indeg[n] == 0]\n    zero.sort(key=node_key)\n    order = []\n    q = deque(zero)\n    while q:\n        u = q.popleft()\n        order.append(u)\n        for v in list(g[u].keys()):\n            indeg[v] -= 1\n            if indeg[v] == 0:\n                # insert maintaining order: append and then stable sort not efficient but small sizes\n                q.append(v)\n        # maintain deterministic queue order by sorting current queue by key\n        q = deque(sorted(list(q), key=node_key))\n    if len(order) != len(nodes):\n        # find cycle nodes via nodes with indeg>0\n        cycle_nodes = [n for n in nodes if indeg[n] > 0]\n        cycle_nodes_sorted = sorted(cycle_nodes, key=lambda x: (ns.get(x, {}).get(\"priority\", 0), int(x) if x.isdigit() else x))\n        if reconcile_policy == \"abort_on_conflict\":\n            # find failed_update_index: approximate as first update that if removed would avoid cycle.\n            # For spec, report failed_update_index as index of last applied op (simpler)\n            failed_index = 0\n            # Try to find which update introduced cycle: simulate incremental application to empty base graph\n            base_g = {k: dict(v) for k, v in graph.items()}\n            base_ns = {k: dict(v) for k, v in node_states.items()}\n            for idx, up in enumerate(updates):\n                op = up[\"op\"]\n                src = up.get(\"src\")\n                dst = up.get(\"dst\")\n                val = up.get(\"value\")\n                # apply with same skip semantics for unknowns etc.\n                if op in (\"add_edge\", \"remove_edge\", \"capacity_change\"):\n                    if src not in base_g or dst not in base_g:\n                        # skip semantics\n                        if reconcile_policy == \"abort_on_conflict\":\n                            failed_index = idx\n                            break\n                        else:\n                            continue\n                if op == \"add_edge\":\n                    base_g[src][dst] = val if isinstance(val, int) else (up.get(\"value\") if isinstance(up.get(\"value\"), int) else 0)\n                elif op == \"remove_edge\":\n                    if dst not in base_g[src]:\n                        if reconcile_policy == \"abort_on_conflict\":\n                            failed_index = idx\n                            break\n                        else:\n                            continue\n                    del base_g[src][dst]\n                elif op == \"capacity_change\":\n                    if dst not in base_g[src]:\n                        if reconcile_policy == \"abort_on_conflict\":\n                            failed_index = idx\n                            break\n                        else:\n                            continue\n                    base_g[src][dst] = val\n                elif op == \"change_state\":\n                    if src not in base_ns:\n                        if reconcile_policy == \"abort_on_conflict\":\n                            failed_index = idx\n                            break\n                        else:\n                            continue\n                    base_ns[src].update(val)\n                # check cycle quick\n                indeg_b = {n:0 for n in base_g}\n                for u in base_g:\n                    for v in base_g[u]:\n                        indeg_b[v] = indeg_b.get(v,0)+1\n                qz = [n for n in base_g if indeg_b[n]==0]\n                # attempt topo\n                cnt=0\n                qq=deque(sorted(qz, key=lambda x:(base_ns.get(x,{}).get(\"priority\",0), int(x) if x.isdigit() else x)))\n                while qq:\n                    uu=qq.popleft(); cnt+=1\n                    for vv in base_g[uu]:\n                        indeg_b[vv]-=1\n                        if indeg_b[vv]==0:\n                            qq.append(vv)\n                    qq=deque(sorted(list(qq), key=lambda x:(base_ns.get(x,{}).get(\"priority\",0), int(x) if x.isdigit() else x)))\n                if cnt != len(base_g):\n                    failed_index = idx\n                    break\n            return err(f\"RuntimeError: CycleDetectedError: batch creates cycle involving nodes {cycle_nodes_sorted}; failed_update_index={failed_index}\")\n        else:\n            # ignore_with_skip shouldn't reach here because we applied skip semantics earlier; but return ordering of acyclic reachable nodes\n            # As per requirement, produce consistent ordering or clear error. Here, return error string describing inconsistency.\n            return err(f\"RuntimeError: CycleDetectedError: batch creates cycle involving nodes {cycle_nodes_sorted}; failed_update_index=0\")\n\n    return order"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2552,
+    "input_tokens_details": {
+      "cached_tokens": 2432
+    },
+    "output_tokens": 2664,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 5216
+  },
+  "user": null,
+  "metadata": {}
+}

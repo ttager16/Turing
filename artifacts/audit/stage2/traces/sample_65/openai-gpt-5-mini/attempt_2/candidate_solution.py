@@ -1,0 +1,101 @@
+def manage_device_clusters(devices: List[List], operations: List[List]) -> List[List[int]]:
+    # device_id -> efficiency
+    eff: Dict[int, float] = {}
+    # device_id -> state: 'active', 'standby', 'failed'
+    state: Dict[int, str] = {}
+    # initialize devices
+    for d, e in devices:
+        eff[d] = float(e)
+        state[d] = 'active'
+    # helper to create device if missing
+    def ensure_device(did: int):
+        if did not in eff:
+            eff[did] = 0.80
+            state[did] = 'active'
+    # process operations
+    for op in operations:
+        if not op: continue
+        typ = op[0]
+        if len(op) < 2:
+            continue
+        did = op[1]
+        if typ == 'join':
+            if did in state and state[did] == 'failed':
+                # join on failed? treat as new active (spec not explicit). We'll create as active.
+                eff.setdefault(did, 0.80)
+                state[did] = 'active'
+            else:
+                ensure_device(did)
+        elif typ == 'fail':
+            if did in state:
+                state[did] = 'failed'
+            else:
+                eff.setdefault(did, 0.80)
+                state[did] = 'failed'
+        elif typ == 'standby':
+            if did in state:
+                if state[did] != 'failed':
+                    state[did] = 'standby'
+            else:
+                eff.setdefault(did, 0.80)
+                state[did] = 'standby'
+        elif typ == 'resume':
+            if did in state and state[did] == 'standby':
+                state[did] = 'active'
+            else:
+                # no effect if nonexistent or not standby; if nonexistent, create active per edge-case
+                if did not in state:
+                    eff.setdefault(did, 0.80)
+                    state[did] = 'active'
+        else:
+            # unknown op -> ignore
+            pass
+
+    # collect active devices
+    active_ids = [did for did, st in state.items() if st == 'active']
+    if not active_ids:
+        return []
+    # split into high (>=0.75) and low (<0.75)
+    high: List[int] = []
+    low: List[int] = []
+    for did in active_ids:
+        if eff.get(did, 0.80) >= 0.75:
+            high.append(did)
+        else:
+            low.append(did)
+
+    # For high-efficiency devices we need to cluster such that any cluster's average >=0.75.
+    # Simple greedy approach: sort high by efficiency descending and try to merge to maximize clusters while maintaining average >=0.75.
+    # We'll form clusters by starting from highest efficiency, adding next highest if cluster avg stays >=0.75.
+    high.sort(key=lambda x: (-eff.get(x,0.8), x))
+    clusters: List[List[int]] = []
+    used: Set[int] = set()
+    for did in high:
+        if did in used:
+            continue
+        # start new cluster
+        members = [did]
+        total = eff.get(did, 0.8)
+        count = 1
+        used.add(did)
+        # try to add other unused highs in descending eff order
+        for jd in high:
+            if jd in used:
+                continue
+            new_total = total + eff.get(jd, 0.8)
+            new_count = count + 1
+            if new_total / new_count >= 0.75:
+                members.append(jd)
+                total = new_total
+                count = new_count
+                used.add(jd)
+        clusters.append(sorted(members))
+
+    # low efficiency devices each form single-device clusters
+    for did in low:
+        clusters.append([did])
+
+    # Now sort clusters by their minimum device_id, and sort devices within clusters ascending
+    clusters = [sorted(c) for c in clusters]
+    clusters.sort(key=lambda c: (c[0] if c else float('inf')))
+    return clusters

@@ -1,0 +1,190 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+A global logistics provider manages a large-scale **delivery network** across multiple regions. Each region is represented as a **city** (graph node), and the **roads** connecting them are **edges** with known distances and varying fuel availability conditions.
+
+Unlike standard shortest-path problems, every city has additional operational constraints:
+
+* Limited fuel availability — refueling is possible only at designated fuel-station cities.
+* **Cargo inspection checkpoints** at specific cities that must be visited before proceeding further.
+* **Vehicle fuel capacity limits** that restrict how far the vehicle can travel without refueling.
+
+The task is to design an algorithm that finds the **optimal delivery route** from a start city to a destination city while considering:
+
+1. Limited and dynamically available refueling options.
+2. Mandatory inspection requirements at specified cities.
+3. Fuel consumption per road segment.
+
+The algorithm must find a feasible and minimum-distance route that satisfies all constraints without running out of fuel or skipping required inspections.
+
+---
+
+### Objectives
+
+1. **Find the optimal delivery path** from the start city to the destination city, minimizing total travel distance.
+2. Implement a **state-tracking mechanism** that records:
+
+   * Current remaining fuel.
+   * Completed or pending cargo inspections.
+   * Fuel availability at each city during travel.
+3. Allow **adaptive path adjustments**, enabling the algorithm to handle situations where refueling or inspection timing affects route selection.
+4. Implement an efficient solution using only **core Python features** (no external libraries).
+
+---
+
+### Constraints
+
+* Each city is represented as a unique integer node.
+* Roads are **directed edges** represented as lists `[destination_node, distance]`.
+* The vehicle’s **maximum fuel capacity** and **fuel consumption rate** (units per distance) are provided.
+* **Fuel stations** are located in specific cities. A vehicle can refuel **only if** that city’s fuel station is open during the current operational time.
+* **Inspection checkpoints** are mandatory stops and must be visited before reaching the final destination.
+* If no valid path exists under given constraints, the algorithm should return an **empty list `[]`**.
+* Graph keys are provided as strings in the input; the algorithm must normalize (convert) them into integer node IDs before processing.
+* Normalize city identifiers by converting all graph keys to integers during preprocessing.
+---
+
+### Key Definitions
+
+* **City (Node):** A point in the logistics network representing a region.
+* **Road (Edge):** A one-way connection between two cities with an associated travel distance.
+* **Fuel Capacity (C):** The maximum fuel the vehicle can hold at any point in time.
+* **Fuel Consumption Rate (r):** The amount of fuel consumed per unit of distance.
+
+  * Remaining fuel after traveling a road of distance `d` = `current_fuel - (r × d)`
+* **Fuel Station:** A city where the vehicle can refuel (partially or fully) depending on the station’s operational availability.
+* **Inspection Checkpoint:** A designated city where mandatory cargo inspection must occur before proceeding further.
+
+---
+
+### Function Signature
+
+```python
+def optimize_delivery_route(
+    graph: Dict[str, List[List[float]]],
+    fuel_stations: List[int],
+    vehicle_capacity: float,
+    fuel_consumption: float,
+    start: int,
+    destination: int,
+    inspections: List[int]
+) -> List[int]:
+```
+
+---
+
+### Input Format
+
+* **graph**:
+  A dictionary where each key is a city (string representing a numeric city ID), and the value is a **list of lists** representing the outgoing roads.
+  Each sub-list follows the format:
+  `[destination_city, distance]`
+The solver must internally convert all graph city keys from string to integer before route computation.
+
+* **fuel_stations**:
+  A list of cities that contain active fuel stations.
+
+* **vehicle_capacity**:
+  A floating-point number representing the maximum fuel capacity of the vehicle.
+
+* **fuel_consumption**:
+  A floating-point number representing how much fuel the vehicle consumes per unit of distance.
+
+* **start**:
+  The integer ID of the starting city.
+
+* **destination**:
+  The integer ID of the destination city.
+
+* **inspections**:
+  A list of city IDs where mandatory inspections must occur before reaching the destination.
+
+Note: Although `graph` keys are provided as string node IDs, the implementation must convert them to integers before route evaluation.
+
+---
+
+### Sample Input
+
+```python
+graph = {
+        "0": [[1, 12.5], [2, 25.0]],
+        "1": [[3, 10.0], [4, 15.0]],
+        "2": [[5, 18.0]],
+        "3": [[6, 22.0]],
+        "4": [[6, 5.0]],
+        "5": [[6, 30.0]],
+        "6": []
+    }
+
+fuel_stations = [0, 1, 2, 4]
+vehicle_capacity = 40.0
+fuel_consumption = 1.0
+start = 0
+destination = 6
+inspections = [4]
+```
+
+---
+
+### Output Format
+
+A list of integers representing the sequence of city nodes visited from start to destination, satisfying all fueling and inspection constraints while minimizing total travel distance.
+If no valid route exists, return an empty list `[]`.
+
+---
+
+### Sample Output
+
+```python
+[0, 1, 4, 6]
+```
+
+---
+
+### Explanation of the Sample
+
+1. The vehicle starts from **city `"0"`** with a full fuel tank (40 units).
+2. From city `"0"`, it can travel either to city `"1"` or city `"2"`.
+
+   * Choosing city `"1"` (distance 12.5) leaves `40 - 12.5 = 27.5` fuel remaining.
+3. City `"1"` has a fuel station, allowing the vehicle to refuel back to full capacity (40 units).
+4. The route then proceeds to **city `"4"`** (distance 15.0).
+
+   * Remaining fuel: `40 - 15 = 25`.
+   * City `"4"` also has a fuel station and serves as the **mandatory inspection checkpoint**, satisfying the inspection requirement.
+5. Finally, the vehicle travels from **city `"4"` → `"6"`** (distance 5.0).
+
+   * Remaining fuel: `25 - 5 = 20`.
+6. All constraints are satisfied:
+
+   * The inspection city `"4"` was visited.
+   * Fuel never dropped below zero.
+   * The total travel distance is minimized.
+7. All constraints are satisfied and the minimum-distance route is obtained. Although the input graph keys are strings, the returned route uses integer node IDs: [0, 1, 4, 6]
+
+Hence, the **optimal route** is represented as: [0, 1, 4, 6]
+
+Starter Code:
+```python
+from typing import Dict, List, Tuple, Set, Optional
+import heapq
+
+def optimize_delivery_route(
+    graph: Dict[str, List[List[float]]],
+    fuel_stations: List[int],
+    vehicle_capacity: float,
+    fuel_consumption: float,
+    start: int,
+    destination: int,
+    inspections: List[int]
+) -> List[int]:
+    pass
+```

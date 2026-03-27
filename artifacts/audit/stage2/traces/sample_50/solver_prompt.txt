@@ -1,0 +1,199 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+A global logistics company operates a large-scale delivery network across multiple cities. Each vehicle must complete several deliveries per day while navigating congestion, temporary closures, and shifting priorities. Because network conditions change frequently, static plans degrade quickly. The company requires a dynamic routing system that continuously recomputes vehicle paths in response to live updates.
+
+The system employs a self-adjusting greedy algorithm written in Python. For every vehicle, the algorithm maintains a frontier of feasible next steps and repeatedly chooses the option with the lowest cumulative greedy score until all required locations are served. The score blends travel time, congestion, fuel, checkpoint time windows, and the urgency assigned to the vehicle. Updates to traffic, closures, and priorities are applied in batches; after each batch, all routes are recalculated deterministically.
+
+## Objectives
+
+1. Dynamic Data Integration: Ingest batched updates for traffic metrics, road closures, and vehicle priority changes; apply last-update-wins within each batch.
+2. Greedy Route Selection: Use a fixed-weight scoring function per segment; accumulate scores and expand the lowest-score frontier first (priority queue).
+3. Route Calculation with Time Windows: Support checkpoint-level time windows and service times. Early arrivals may wait (waiting adds time, not fuel). Late arrivals are penalized in the score.
+4. Ordered Groups with Flexible Sequence: Each vehicle’s checkpoints are partitioned into ordered groups. All checkpoints in a group must be visited before advancing to the next group, but the order within a group is chosen greedily.
+5. Fleet-Wide Adaptability: Support up to 500 vehicles, each with multiple checkpoints under changing conditions.
+6. Operational Efficiency: Balance path optimality, fuel usage, and computational overhead with deterministic tie-breaks to ensure consistent outcomes.
+
+## Constraints
+
+* Pure Python only; use standard structures such as `heapq`, lists, and dictionaries with string keys.
+* Batch sizes (per recomputation):
+
+  * Up to 5,000 directed road segments with dynamic metrics
+  * Up to 100 road closures
+  * Up to 500 priority changes
+* Vehicle limits:
+
+  * Up to 10 checkpoints per vehicle
+  * Checkpoints carry: `node` (string), `group` (string), `window` as `[earliest_min, latest_min]` (integers, minutes), and `service` (non-negative integer minutes)
+* Directed graph. An edge `u -> v` exists only if provided.
+* Waiting at a checkpoint is allowed and increases total time but not fuel.
+* Determinism:
+
+  * Dijkstra-style expansion on cumulative greedy score.
+  * Tie-break order for frontier entries: `(score, total_time, total_fuel, current_node, path_length)`.
+  * Last entry for any `(u, v)` within `traffic_data` replaces earlier entries in the same batch; last entry for a `vehicle_id` in `priority_changes` replaces earlier ones; last entry for `(u, v)` in `road_closures` applies.
+* Failure rule: If any required subroute is impossible (respecting closures and windows), the vehicle yields an empty route with zero time and fuel.
+
+## Function Signature
+
+```python
+def optimize_routes(
+    vehicle_data: List[Dict],
+    traffic_data: List[Dict],
+    road_closures: List[Dict],
+    priority_changes: List[Dict]
+) -> List[Dict]:
+    ...
+```
+
+## Input Specification
+
+### vehicle_data
+
+List of dictionaries, one per vehicle:
+
+* `vehicle_id` (string): Vehicle identifier
+* `checkpoints` (list of dict): Each item:
+
+  * `node` (string): Location name
+  * `group` (string): Group label; groups define order across groups
+  * `window` (list of two integers): `[earliest_min, latest_min]` arrival window (minutes since batch start)
+  * `service` (integer): Service time in minutes at this checkpoint (added upon arrival; waiting happens before service)
+
+Groups are processed in ascending group lexicographic order. All checkpoints in the current group must be completed before moving to the next group; within a group, the order is chosen by the greedy search.
+
+### traffic_data
+
+List of dictionaries, one per directed road segment:
+
+* `u` (string): Start node
+* `v` (string): End node
+* `time` (number): Travel time in minutes
+* `congestion` (number): 0.0 to 1.0
+* `fuel` (number): Fuel cost (arbitrary units)
+* `age_min` (integer): Data age in minutes
+* `max_age_min` (integer): Threshold; if `age_min > max_age_min`, the segment is considered stale and incurs a fixed stale penalty in the score (see rule below)
+
+### road_closures
+
+List of dictionaries indicating segment availability:
+
+* `u` (string), `v` (string), `closed` (boolean)
+
+### priority_changes
+
+List of dictionaries:
+
+* `vehicle_id` (string)
+* `priority` (integer): 1 (low), 2 (medium), 3 (high)
+
+## Output Specification
+
+A list of dictionaries, each for a vehicle:
+
+* `vehicle_id` (string)
+* `optimized_route` (list of strings): Full node sequence from the starting node (first checkpoint) through all visited checkpoints in order determined by the algorithm
+* `estimated_time` (number): Total minutes (includes waiting and service)
+* `fuel_consumption` (number): Total fuel units
+
+If any required subroute is infeasible (closures/windows/disconnection), output:
+
+* `optimized_route` = `[]`
+* `estimated_time` = `0`
+* `fuel_consumption` = `0`
+
+## Sample Input
+
+```python
+vehicle_data = [
+  {
+    "vehicle_id": "V1",
+    "checkpoints": [
+      {"node": "A", "group": "G1", "window": [0, 100], "service": 0},
+      {"node": "B", "group": "G1", "window": [0, 20],  "service": 0},
+      {"node": "E", "group": "G1", "window": [0, 40],  "service": 0},
+      {"node": "D", "group": "G2", "window": [0, 60],  "service": 0}
+    ]
+  },
+  {
+    "vehicle_id": "V2",
+    "checkpoints": [
+      {"node": "A", "group": "G1", "window": [0, 100], "service": 0},
+      {"node": "E", "group": "G1", "window": [0, 50],  "service": 0},
+      {"node": "F", "group": "G1", "window": [0, 70],  "service": 0}
+    ]
+  }
+]
+
+traffic_data = [
+  {"u": "A", "v": "B", "time": 5, "congestion": 0.2, "fuel": 3, "age_min": 2, "max_age_min": 10},
+  {"u": "B", "v": "E", "time": 3, "congestion": 0.1, "fuel": 1, "age_min": 1, "max_age_min": 10},
+  {"u": "E", "v": "D", "time": 4, "congestion": 0.2, "fuel": 2, "age_min": 1, "max_age_min": 10},
+  {"u": "A", "v": "E", "time": 7, "congestion": 0.5, "fuel": 2, "age_min": 12, "max_age_min": 10},
+  {"u": "E", "v": "F", "time": 5, "congestion": 0.0, "fuel": 2, "age_min": 0, "max_age_min": 10}
+]
+
+road_closures = [
+  {"u": "C", "v": "D", "closed": True}
+]
+
+priority_changes = [
+  {"vehicle_id": "V1", "priority": 3},
+  {"vehicle_id": "V2", "priority": 2}
+]
+```
+
+## Sample Output
+
+```python
+[{'vehicle_id': 'V1', 'optimized_route': ['A', 'B', 'E', 'D'], 'estimated_time': 12, 'fuel_consumption': 6}, {'vehicle_id': 'V2', 'optimized_route': ['A', 'B', 'E', 'F'], 'estimated_time': 13, 'fuel_consumption': 6}]
+```
+
+## Greedy Decision Rule
+
+At search time, each traversed segment contributes a score; the algorithm expands frontier states in ascending order of cumulative score:
+
+```
+base_score = (0.6 * time) + (0.3 * congestion) + (0.1 * fuel)
+
+lateness_penalty = max(0, arrival_time_at_checkpoint - checkpoint_window_latest) * LATE_PENALTY_PER_MIN
+
+stale_penalty = STALE_PENALTY if age_min > max_age_min else 0
+
+final_edge_score = (base_score + stale_penalty) / priority
+```
+
+* Constants: `LATE_PENALTY_PER_MIN = 0.5`, `STALE_PENALTY = 1.0`.
+* `priority` is from the latest `priority_changes` entry for the vehicle.
+* Waiting (when arriving before `window[0]`) increases `arrival_time_at_checkpoint` but does not change fuel.
+* Time windows and service times are enforced at checkpoint nodes only.
+
+### Search procedure
+
+1. Partition checkpoints by ascending `group`. Process one group at a time.
+2. Within a group, repeatedly pick the next checkpoint that yields the lowest cumulative greedy score from the current node (Dijkstra-style on cumulative score; edges excluded if closed).
+3. On ties, use the deterministic tie-break: `(cumulative_score, total_time, total_fuel, current_node, path_length)`.
+4. Append the realized shortest-score path’s nodes to `optimized_route`, update time (including waiting + service) and fuel, and continue until all groups are completed.
+5. If any required leg is impossible or any arrival must exceed its latest window, return the failure output for that vehicle.
+
+Starter Code:
+```python
+from typing import List, Dict, Any, Tuple
+import heapq
+
+def optimize_routes(
+    vehicle_data: List[Dict],
+    traffic_data: List[Dict],
+    road_closures: List[Dict],
+    priority_changes: List[Dict]
+) -> List[Dict]:
+```

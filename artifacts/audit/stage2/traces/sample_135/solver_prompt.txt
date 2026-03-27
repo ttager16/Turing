@@ -1,0 +1,237 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+A smart city's emergency response system requires an advanced traffic management algorithm to determine optimal routes for emergency vehicles navigating through dynamic urban environments. The system must handle real-time traffic data where road conditions and travel times are uncertain due to unpredictable factors such as weather, accidents, construction, and varying traffic density.
+
+You are tasked with implementing a sophisticated shortest path algorithm that operates on graphs with uncertain edge weights, where each road segment has multiple possible travel time scenarios with associated probability distributions. The algorithm must calculate the most reliable shortest path, considering uncertainty in travel times while ensuring emergency vehicles reach their destinations optimally under changing conditions.
+
+## Core Requirements
+
+Your solution must implement a **pure Python** algorithm (no external libraries) that processes uncertain graph data and generates the most reliable shortest path considering probability-weighted scenarios. The algorithm should handle multiple uncertainty scenarios for each edge and compute paths that minimize expected travel time while maintaining reliability.
+
+### Key Operational Constraints
+
+1. **Uncertainty Modeling**: Each edge has multiple travel time scenarios with associated probabilities that sum to 1.0
+2. **Path Reliability**: The algorithm must consider both expected travel time and path reliability across all scenarios
+3. **Graph Connectivity**: Handle disconnected components and unreachable destinations gracefully
+
+### Advanced Algorithmic Requirements
+
+The shortest path calculation must use an **expected value optimization** approach with reliability weighting:
+
+**Expected Travel Time = Σ(scenario_probability × scenario_travel_time) for all scenarios**
+
+**Reliability Score = Σ(scenario_probability) for all scenarios where travel_time ≤ threshold, otherwise 1.0 if no scenarios qualify**
+
+Where the reliability threshold is calculated as: **threshold = 1.25 × expected_time** for each edge.
+
+The final path selection criterion combines both factors:
+
+**Path Score = Expected_Total_Time + (Reliability_Penalty × (1 - Path_Reliability))**
+
+Where:
+- Expected_Total_Time: Sum of expected travel times along the path
+- Path_Reliability: Product of individual edge reliability scores along the path
+- Reliability_Penalty: **50.0** (fixed penalty factor for unreliable paths)
+
+The algorithm must also incorporate **scenario consistency checking** where paths are validated during the pathfinding process to ensure no scenario combination results in travel time exceeding **200%** of the expected path time. This validation checks all possible combinations of edge scenarios along the path to verify that the sum of travel times in any combination does not exceed the 200% threshold. Only paths that pass this validation should be considered as valid candidates during the shortest path search.
+
+## Function Signature
+
+```python
+def find_emergency_route(graph_nodes, uncertain_edges, start_node, end_node):
+    """
+    Finds optimal emergency vehicle route considering uncertain edge weights.
+    
+    Returns: Dictionary with route information and reliability metrics
+    """
+    pass
+```
+
+## Input Specifications
+
+- **graph_nodes**: List of integers representing node IDs (1-500)
+
+- **uncertain_edges**: List of dictionaries, each containing:
+  - `from_node`: Source node ID (integer)
+  - `to_node`: Destination node ID (integer)
+  - `scenarios`: List of dictionaries with:
+    - `travel_time`: Time in minutes (float, 0.5-120.0)
+    - `probability`: Scenario probability (float, 0.01-1.0)
+  - `edge_id`: Unique edge identifier (integer)
+
+- **start_node**: Starting node ID (integer)
+
+- **end_node**: Destination node ID (integer)
+
+## Output Specification
+
+Return a dictionary containing:
+```python
+{
+    "path": [start_node, intermediate_nodes, end_node],  # List of node IDs
+    "expected_travel_time": float,  # Total expected time in minutes
+    "path_reliability": float,  # Overall path reliability score (0.0-1.0)
+    "total_path_score": float,  # Combined score used for optimization
+    "scenario_analysis": {
+        "best_case_time": float,  # Minimum possible travel time
+        "worst_case_time": float,  # Maximum possible travel time
+        "variance": float  # Travel time variance across scenarios
+    },
+    "edge_details": [
+        {
+            "from_node": int,
+            "to_node": int,
+            "expected_time": float,
+            "reliability": float,
+            "edge_id": int
+        }
+    ]
+}
+```
+
+## Constraint Requirements
+
+1. **Input Validation**: Return {"error": "Invalid node ID"}" if any node ID in uncertain_edges is not in graph_nodes
+2. **Probability Validation**: Return {"error": "Edge probabilities do not sum to 1.0"} if scenario probabilities for any edge do not sum to 1.0 (±0.001 tolerance)
+3. **Connectivity Validation**: Return {"error": "No path exists between start and end nodes"} if no valid path can be found
+4. **Empty Graph**: Return {"error" : "Empty graph provided"} if graph_nodes list is empty
+5. **Scenario Validation**: Return {"error": "Invalid scenario data for edge {edge_id}"} if any edge has an empty scenarios list
+6. **Node Existence**: Return {"error": "Start or end node not in graph"} if start_node or end_node not in graph_nodes
+7. For any other input parameter violation, return {"error": "Input is not valid"}
+
+## Sample Input/Output
+
+**Input:**
+```python
+graph_nodes = [1, 2, 3, 4, 5]
+
+uncertain_edges = [
+    {
+        "from_node": 1,
+        "to_node": 2,
+        "scenarios": [
+            {"travel_time": 4.0, "probability": 0.8},
+            {"travel_time": 8.0, "probability": 0.2}
+        ],
+        "edge_id": 101
+    },
+    {
+        "from_node": 1,
+        "to_node": 3,
+        "scenarios": [
+            {"travel_time": 6.0, "probability": 0.9},
+            {"travel_time": 12.0, "probability": 0.1}
+        ],
+        "edge_id": 102
+    },
+    {
+        "from_node": 2,
+        "to_node": 4,
+        "scenarios": [
+            {"travel_time": 3.0, "probability": 0.7},
+            {"travel_time": 7.0, "probability": 0.3}
+        ],
+        "edge_id": 103
+    },
+    {
+        "from_node": 3,
+        "to_node": 4,
+        "scenarios": [
+            {"travel_time": 2.0, "probability": 0.6},
+            {"travel_time": 5.0, "probability": 0.4}
+        ],
+        "edge_id": 104
+    },
+    {
+        "from_node": 4,
+        "to_node": 5,
+        "scenarios": [
+            {"travel_time": 4.0, "probability": 0.8},
+            {"travel_time": 6.0, "probability": 0.2}
+        ],
+        "edge_id": 105
+    }
+]
+
+start_node = 1
+end_node = 5
+```
+
+**Expected Output:**
+```python
+{
+    "path": [1, 2, 4, 5],
+    "expected_travel_time": 13.4,
+    "path_reliability": 0.448,
+    "total_path_score": 41.0,
+    "scenario_analysis": {
+        "best_case_time": 11.0,
+        "worst_case_time": 21.0,
+        "variance": 6.56
+    },
+    "edge_details": [
+        {
+            "from_node": 1,
+            "to_node": 2,
+            "expected_time": 4.8,
+            "reliability": 0.8,
+            "edge_id": 101
+        },
+        {
+            "from_node": 2,
+            "to_node": 4,
+            "expected_time": 4.2,
+            "reliability": 0.7,
+            "edge_id": 103
+        },
+        {
+            "from_node": 4,
+            "to_node": 5,
+            "expected_time": 4.4,
+            "reliability": 0.8,
+            "edge_id": 105
+        }
+    ]
+}
+```
+
+## Implementation Guidelines
+
+1. **Expected Value Calculation**: For each edge, compute expected travel time as the probability-weighted sum of all scenario travel times
+2. **Reliability Computation**: Calculate reliability threshold as 1.25 × expected_time for each edge, then compute reliability as the sum of probabilities for scenarios where travel_time ≤ threshold (use 1.0 if no scenarios qualify)
+3. **Path Optimization**: Use modified Dijkstra's algorithm where the distance metric is the Path Score (expected time + reliability penalty)
+4. **Scenario Consistency**: During pathfinding, validate each candidate path to ensure no scenario combination exceeds 200% of expected path time by checking all possible combinations of edge scenarios along the path; only consider paths that pass this validation
+5. **Variance Calculation**: Compute travel time variance for the selected path across all scenario combinations
+6. **Deterministic Selection**: When multiple paths have identical scores, select the path with the lexicographically smallest node sequence
+7. **Graph Representation**: Build an adjacency list representation for efficient pathfinding operations
+
+## Algorithm Flow
+
+1. **Preprocessing**: Build graph adjacency list and calculate expected times and reliability scores for all edges
+2. **Reliability Threshold**: For each edge, calculate threshold = 1.25 × expected_time and determine reliability score
+3. **Modified Dijkstra**: Apply the shortest path algorithm using Path Score as the distance metric, validating scenario consistency for each path during exploration
+4. **Path Validation**: During pathfinding, check each candidate path to verify scenario consistency by testing all possible combinations of edge scenarios to ensure no combination exceeds 200% of expected path time before considering it as a valid option
+5. **Scenario Analysis**: Calculate best-case, worst-case, and variance metrics for the selected path
+6. **Result Assembly**: Construct output dictionary with complete path information and reliability metrics
+
+The algorithm should efficiently handle graphs with up to 500 nodes and 2000 uncertain edges while maintaining deterministic output for identical inputs.
+
+Starter Code:
+```python
+import heapq
+from typing import List, Dict, Any
+import itertools
+
+def find_emergency_route(graph_nodes: List[int], uncertain_edges: List[Dict], 
+                        start_node: int, end_node: int) -> Dict[str, Any]:
+                        pass
+```

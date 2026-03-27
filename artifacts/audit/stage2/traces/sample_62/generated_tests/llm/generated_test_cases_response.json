@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6EqY13umqwy27YS9o9Z0v5MfScj",
+  "object": "chat.completion",
+  "created": 1774397896,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[\\\"INSERT 10 1000.00 PURCHASE 1 vendor, sale at shop\\\", \\\"INSERT 11 1500.00 PURCHASE 2 vendor sale store\\\", \\\"INSERT 12 2000.00 PURCHASE 3 vendor sale mart\\\", \\\"INSERT 13 1200.00 PURCHASE 4 vendor, sale cafe\\\", \\\"INSERT 14 1300.00 PURCHASE 5 VENDOR sale booth\\\", \\\"INSERT 15 50.00 REFUND 6 small refund\\\", \\\"INSERT 12 2100.00 PURCHASE 3 updated description vendor sale mart updated\\\", \\\"REALLOCATE 10 20\\\", \\\"DELETE 99\\\", \\\"INSERT 16 1250.00 PURCHASE 2 another vendor sale spot\\\", \\\"BATCH_REALLOCATE 11->21,13->22\\\", \\\"INSERT 17 100000.00 TRANSFER 7 huge transfer\\\"]\"], \"focus\":\"Tokenization punctuation vs exact-match tokens; updates preserving sequence; reallocate and deletion of missing id; triggers for H2 and C1.\"},{\"input_lines\":[\"[\\\"INSERT 100 100.00 PURCHASE 50 tx1\\\", \\\"INSERT 101 200.00 PURCHASE 50 tx2\\\", \\\"INSERT 102 300.00 PURCHASE 50 tx3\\\", \\\"INSERT 103 400.00 PURCHASE 51 tx4\\\", \\\"INSERT 104 500.00 PURCHASE 50 tx5\\\", \\\"INSERT 105 600.00 PURCHASE 50 tx6\\\", \\\"REALLOCATE 102 200\\\", \\\"BATCH_REALLOCATE 100->150,104->145,103->155\\\", \\\"INSERT 106 700.00 WITHDRAWAL 50 quick withdraw\\\", \\\"DELETE 9999\\\", \\\"INSERT 107 25000.00 PURCHASE 60 medium high amount\\\"]\"], \"focus\":\"Rapid merchant reuse (C3) and velocity (H3) with reallocation and batch ordering; tests sequence reassignment ordering in batch_reallocate and handling of non-existent deletes.\"},{\"input_lines\":[\"[\\\"INSERT 1 1000.00 DEPOSIT 10 salary monthly paycheck\\\", \\\"INSERT 2 980.00 DEPOSIT 11 monthly pay direct\\\", \\\"INSERT 3 1020.00 DEPOSIT 12 pay salary monthly\\\", \\\"INSERT 4 1049.00 DEPOSIT 13 incoming salary payment\\\", \\\"INSERT 5 50.00 PURCHASE 20 small buy\\\", \\\"INSERT 6 995.00 DEPOSIT 14 salary monthly direct deposit\\\", \\\"INSERT 7 990.00 TRANSFER 15 transfer to savings\\\", \\\"REALLOCATE 5 9\\\", \\\"INSERT 8 1500.00 DEPOSIT 16 big deposit\\\", \\\"INSERT 10 1005.00 DEPOSIT 17 extra salary monthly\\\"]\"], \"focus\":\"Amount-proximity clusters (M2), descriptor Jaccard similarity (M3), and category concentration (M1); reallocate small purchase to test sequence effects on concentration and proximity.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2364,
+    "completion_tokens": 3513,
+    "total_tokens": 5877,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2880,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

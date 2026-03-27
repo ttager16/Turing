@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN8381tvqkif4uk5n0pi2VQWztyap",
+  "object": "chat.completion",
+  "created": 1774404858,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"{\\\"k\\\": 5, \\\"joint_lengths\\\": [1.5, 1.2, 0.8, 1.0, 0.5], \\\"start_config\\\": [[0.0, 0.0], [0.2, 0.1], [0.5, 0.0], [-0.3, 0.2], [0.0, 0.0]], \\\"target_config\\\": [[1.57, 0.5], [0.78, 0.0], [0.0, -0.2], [0.5, 0.0], [1.0, 0.1]], \\\"obstacles\\\": [{\\\"center\\\": [2.0, 1.0, 0.5], \\\"radius\\\": 0.4}, {\\\"center\\\": [-1.5, 2.0, 0.2], \\\"radius\\\": 0.6}, {\\\"center\\\": [0.5, 0.0, 1.0], \\\"radius\\\": 0.3}, {\\\"center\\\": [3.0, -0.5, 0.2], \\\"radius\\\": 0.5}, {\\\"center\\\": [1.0, 1.5, -0.3], \\\"radius\\\": 0.2}], \\\"max_steps\\\": 50}\"\n      ],\n      \"focus\": \"High joint count (k=5) with multiple obstacles (>4) and mixed nonzero velocities — tests default workspace bounds, spatial tree subdivision behavior, and max_steps cap.\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"k\\\": 4, \\\"joint_lengths\\\": [2.0, 0.0, 1.0, 0.5], \\\"start_config\\\": [[0.0, 0.0], [0.0, 0.0], [0.5, 0.2], [1.0, 0.3]], \\\"target_config\\\": [[0.1, 0.0], [0.0, 0.0], [0.6, 0.0], [0.9, 0.0]], \\\"obstacles\\\": [{\\\"center\\\": [0.0, 0.0, 0.0], \\\"radius\\\": 0.1}], \\\"workspace_bounds\\\": [[-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]], \\\"max_steps\\\": 10}\"\n      ],\n      \"focus\": \"Includes a zero-length joint and an obstacle centered at the base to exercise degenerate segment cases (a ~ 0 and c <= 0) and tight workspace bounds.\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"k\\\": 3, \\\"joint_lengths\\\": [3.0, 2.5, 2.0], \\\"start_config\\\": [[-6.283, 1.2], [3.1415, 0.8], [0.0, 0.0]], \\\"target_config\\\": [[6.283, 0.0], [-3.1415, -0.6], [1.5708, 1.5]], \\\"max_steps\\\": 20}\"\n      ],\n      \"focus\": \"Large-magnitude and negative angles with some velocities exceeding default limits to check angle handling, constraint-violation counting, and behavior over many interpolation steps.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 5321,
+    "completion_tokens": 2936,
+    "total_tokens": 8257,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2176,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

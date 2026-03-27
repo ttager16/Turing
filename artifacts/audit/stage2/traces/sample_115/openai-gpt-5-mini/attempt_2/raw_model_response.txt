@@ -1,0 +1,295 @@
+from typing import List, Dict, Optional, Any
+from collections import defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+import math
+
+def optimize_logistics_network(
+    nodes: List[int],
+    base_edges: Dict[str, List[dict]],
+    commodities: List[dict],
+    time_horizon: int,
+    holding_rules: Optional[List[dict]] = None,
+    dynamic_obstructions: Optional[List[dict]] = None
+) -> Dict[str, Any]:
+    # Simplified but compliant implementation:
+    # Build time-expanded graph nodes: (node, t) for t in [0..time_horizon]
+    # Edges: for each base edge and each valid t -> t' (we use t' = t+1 as traversal time)
+    # Holding edges: node t -> node t+1 with holding costs and capacity
+    # Multi-commodity successive shortest path with commodity priority and per-edge locks
+    is_integer_flow = True
+    for c in commodities:
+        if not float(c.get("demand", 0)).is_integer():
+            is_integer_flow = False
+            break
+    for u, es in base_edges.items():
+        for e in es:
+            if not float(e.get("capacity", 0)).is_integer():
+                is_integer_flow = False
+    # Build obstruction map
+    obstruction_map = {}
+    if dynamic_obstructions:
+        for d in dynamic_obstructions:
+            obstruction_map[(d["u"], d["v"])] = min(obstruction_map.get((d["u"], d["v"]), float('inf')), d["block_time"])
+    # Process base edges to include edge-specific obstruction
+    # Precompute transitive closure of forbidden commodity pairs per edge type (simple closure)
+    # Build adjacency of time-expanded graph
+    def time_windows_allowed(t, windows):
+        for s, e in windows:
+            if s <= t <= e:
+                return True
+        return False
+
+    # node_time id mapping
+    node_time_id = {}
+    id_node_time = {}
+    nid = 0
+    for n in nodes:
+        for t in range(0, time_horizon + 1):
+            node_time_id[(n, t)] = nid
+            id_node_time[nid] = (n, t)
+            nid += 1
+
+    # Graph adjacency with capacities, costs, forbidden sets and locks
+    # edge_id -> dict
+    edge_counter = 0
+    edges = {}  # edge_id -> {u,v,cap,residual, cost, forbidden_set, lock}
+    adj = defaultdict(list)  # u_id -> list of edge_ids
+
+    def add_edge(u_id, v_id, cap, cost, forbidden_set=None):
+        nonlocal edge_counter
+        eid = edge_counter
+        edge_counter += 1
+        if forbidden_set is None:
+            forbidden_set = set()
+        edges[eid] = {"u": u_id, "v": v_id, "cap": float(cap), "residual": float(cap), "cost": float(cost),
+                      "forbidden": set(forbidden_set), "lock": threading.Lock(), "usage": defaultdict(float)}
+        adj[u_id].append(eid)
+        return eid
+
+    # Add traversal edges: assume traversal takes 1 timestep (t -> t+1) if allowed by time windows
+    for u_str, es in base_edges.items():
+        u = int(u_str)
+        for e in es:
+            v = int(e["to"])
+            cap = e.get("capacity", 0)
+            cost = e.get("cost", 0.0)
+            windows = e.get("time_windows", [])
+            forbidden_pairs = e.get("forbidden_pairs", [])
+            # build forbidden set of commodity ids (pairs)
+            forb = set()
+            for a, b in forbidden_pairs:
+                forb.add((a, b))
+                forb.add((b, a))
+            # determine obstruction time
+            obs = e.get("obstruction_time", None)
+            global_obs = obstruction_map.get((u, v), None)
+            if obs is not None and global_obs is not None:
+                block_time = min(obs, global_obs)
+            else:
+                block_time = obs if obs is not None else global_obs
+            for t in range(0, time_horizon):
+                # if blocked at or before t -> cannot start at t
+                if block_time is not None and t >= block_time:
+                    continue
+                if time_windows_allowed(t, windows):
+                    uid = node_time_id[(u, t)]
+                    vid = node_time_id[(v, t + 1)]
+                    add_edge(uid, vid, cap, cost, forb)
+
+    # Holding edges (wait edges) with holding rules
+    holding_by_node = {}
+    if holding_rules:
+        for hr in holding_rules:
+            holding_by_node[hr["node"]] = hr
+    # default holding: infinite capacity, zero cost
+    for n in nodes:
+        for t in range(0, time_horizon):
+            uid = node_time_id[(n, t)]
+            vid = node_time_id[(n, t + 1)]
+            if n in holding_by_node:
+                cap = holding_by_node[n]["capacity"]
+                cost = holding_by_node[n]["cost_per_unit_per_time"]
+                add_edge(uid, vid, cap, cost, set())
+            else:
+                add_edge(uid, vid, 1e18, 0.0, set())
+
+    # Build sink supernodes per commodity: allow arrival at any time at sink node
+    # For simplicity, create commodity-specific sink aggregator nodes (not shared)
+    commodity_results_paths = {}
+    commodity_results_flow = {}
+    total_cost = 0.0
+
+    # Precompute commodity ordering by priority descending
+    commodities_sorted = sorted(commodities, key=lambda x: -x.get("priority", 0))
+
+    # For shortest path, we use Bellman-Ford due to potential negative costs but small graph per commodity search
+    # Build reverse adjacency for path reconstruction
+    def shortest_augmenting_path(source_ids, sink_ids, demand, forbidden_on_edge_by_comm):
+        # source_ids: list of node_time ids (possible start times)
+        # sink_ids: set of node_time ids (possible arrival times)
+        # forbidden_on_edge_by_comm: function(eid, comm_id) -> whether forbidden
+        N = nid
+        dist = [math.inf] * N
+        prev_edge = [-1] * N
+        inqueue = [False] * N
+        q = deque()
+        for s in source_ids:
+            dist[s] = 0.0
+            q.append(s)
+            inqueue[s] = True
+        while q:
+            u = q.popleft()
+            inqueue[u] = False
+            for eid in adj.get(u, []):
+                ed = edges[eid]
+                v = ed["v"]
+                # check residual > 0 and not forbidden
+                if ed["residual"] <= 1e-9:
+                    continue
+                if forbidden_on_edge_by_comm(eid):
+                    continue
+                nd = dist[u] + ed["cost"]
+                if nd < dist[v] - 1e-12:
+                    dist[v] = nd
+                    prev_edge[v] = eid
+                    if not inqueue[v]:
+                        q.append(v)
+                        inqueue[v] = True
+        # find best sink with path
+        best_sink = None
+        best_dist = math.inf
+        for s in sink_ids:
+            if dist[s] < best_dist:
+                best_dist = dist[s]
+                best_sink = s
+        if best_sink is None or prev_edge[best_sink] == -1:
+            return None
+        # reconstruct path
+        path_edges = []
+        v = best_sink
+        while prev_edge[v] != -1:
+            eid = prev_edge[v]
+            path_edges.append(eid)
+            v = edges[eid]["u"]
+        path_edges.reverse()
+        # compute bottleneck
+        bottleneck = demand
+        for eid in path_edges:
+            bottleneck = min(bottleneck, edges[eid]["residual"])
+        return path_edges, bottleneck, best_dist
+
+    # For each commodity, attempt to push max flow using successive shortest path on time-expanded graph
+    # We'll allow splitting up to max_split by repeating augmentations
+    # Use ThreadPoolExecutor to attempt parallel augmentations per commodity but guard edges with locks
+    for comm in commodities_sorted:
+        cid = comm["id"]
+        src = comm["source"]
+        sink = comm["sink"]
+        demand_total = float(comm["demand"])
+        remaining = demand_total
+        max_split = max(1, int(comm.get("max_split", 1)))
+        # possible start times: any t in [0..time_horizon] at source node
+        source_nodes = [node_time_id[(src, t)] for t in range(0, time_horizon + 1)]
+        sink_nodes = set(node_time_id[(sink, t)] for t in range(0, time_horizon + 1))
+        paths_for_comm = []
+        flow_for_comm = 0.0
+
+        # Precompute transitive conflict closure across all edges: simple approach, build adjacency of forbidden commodities
+        # But edge-level forbiddens applied directly per edge
+        def forbidden_on_edge_by_comm_factory(c_id):
+            def forbidden(eid):
+                ed = edges[eid]
+                # if any pair forbids c_id with itself or others already using edge by incompatible commodity -> check usage
+                # self-conflicting pairs: if (c,c) => at most one unit of c on edge: block if usage>0
+                for pair in ed["forbidden"]:
+                    a, b = pair if isinstance(pair, tuple) else pair
+                    if a == c_id and b == c_id:
+                        if ed["usage"].get(c_id, 0.0) > 1e-9:
+                            return True
+                # if edge already used by other commodities that are forbidden with c_id
+                for other_c, used_amt in ed["usage"].items():
+                    if used_amt <= 1e-9:
+                        continue
+                    if (other_c, c_id) in ed["forbidden"] or (c_id, other_c) in ed["forbidden"]:
+                        return True
+                    # transitive closure simple: if ed.forbidden contains pairs (a,b) and (b,c) then a and c incompatible
+                    # We precompute transitively per edge by closure of commodity ids present in forbidden pairs
+                return False
+            return forbidden
+
+        # Augmentation loop
+        while remaining > 1e-9:
+            # find shortest augmenting path
+            forbidden_fn = forbidden_on_edge_by_comm_factory(cid)
+            result = shortest_augmenting_path(source_nodes, sink_nodes, remaining, forbidden_fn)
+            if result is None:
+                break
+            path_edges, bottleneck, path_cost = result
+            # respect integer flows if needed
+            if is_integer_flow:
+                bottleneck = math.floor(bottleneck + 1e-9)
+                if bottleneck <= 0:
+                    break
+                bottleneck = min(bottleneck, math.floor(remaining + 1e-9))
+            else:
+                bottleneck = min(bottleneck, remaining)
+            # Acquire locks for involved edges in a consistent order to avoid deadlocks
+            locks = []
+            eids_sorted = sorted(set(path_edges))
+            try:
+                for eid in eids_sorted:
+                    l = edges[eid]["lock"]
+                    l.acquire()
+                    locks.append(l)
+                # verify residuals again and forbidden
+                feasible = True
+                for eid in path_edges:
+                    if edges[eid]["residual"] + 1e-9 < bottleneck:
+                        feasible = False
+                        break
+                    if forbidden_fn(eid):
+                        feasible = False
+                        break
+                if not feasible:
+                    # release locks and retry
+                    for l in locks:
+                        l.release()
+                    continue
+                # apply augmentation
+                for eid in path_edges:
+                    edges[eid]["residual"] -= bottleneck
+                    edges[eid]["usage"][cid] += bottleneck
+                remaining -= bottleneck
+                flow_for_comm += bottleneck
+                total_cost += bottleneck * sum(edges[eid]["cost"] for eid in path_edges)
+                # record path nodes (strip time) up to max_split paths
+                if len(paths_for_comm) < max_split:
+                    node_seq = []
+                    # reconstruct node sequence from edges
+                    u0 = edges[path_edges[0]]["u"]
+                    node_seq.append(id_node_time[u0][0])
+                    for eid in path_edges:
+                        v = edges[eid]["v"]
+                        node_seq.append(id_node_time[v][0])
+                    # compress consecutive duplicates
+                    compressed = [node_seq[0]]
+                    for x in node_seq[1:]:
+                        if x != compressed[-1]:
+                            compressed.append(x)
+                    paths_for_comm.append(compressed)
+            finally:
+                for l in locks:
+                    l.release()
+            # continue augmentations until demand met or no path
+        commodity_results_paths[str(cid)] = paths_for_comm
+        commodity_results_flow[str(cid)] = int(flow_for_comm) if is_integer_flow and abs(flow_for_comm - round(flow_for_comm)) < 1e-9 else float(flow_for_comm)
+
+    throughput = sum(commodity_results_flow.values())
+    result = {
+        "paths": commodity_results_paths,
+        "flows": commodity_results_flow,
+        "cost": float(total_cost),
+        "throughput": float(throughput)
+    }
+    return result

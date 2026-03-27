@@ -1,0 +1,120 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        {
+          "name": "External",
+          "risk": 1.0,
+          "return": 4.0,
+          "references": [
+            "Leaf"
+          ],
+          "sub_portfolios": []
+        },
+        {
+          "name": "Root",
+          "risk": 1.0,
+          "return": 2.0,
+          "references": [
+            "Leaf",
+            "Leaf",
+            "Unknown"
+          ],
+          "sub_portfolios": [
+            {
+              "name": "Leaf",
+              "risk": 0.5,
+              "return": 1.5,
+              "references": [
+                "Root"
+              ],
+              "sub_portfolios": []
+            },
+            {
+              "name": "Solo",
+              "risk": 2.0,
+              "return": 6.0,
+              "references": [],
+              "sub_portfolios": []
+            }
+          ]
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"name\":\"External\",\"risk\":1.0,\"return\":4.0,\"references\":[\"Leaf\"],\"sub_portfolios\":[]},{\"name\":\"Root\",\"risk\":1.0,\"return\":2.0,\"references\":[\"Leaf\",\"Leaf\",\"Unknown\"],\"sub_portfolios\":[{\"name\":\"Leaf\",\"risk\":0.5,\"return\":1.5,\"references\":[\"Root\"],\"sub_portfolios\":[]},{\"name\":\"Solo\",\"risk\":2.0,\"return\":6.0,\"references\":[],\"sub_portfolios\":[]}]}]"
+    ],
+    "focus": "Nested cycle between Root and Leaf, duplicate references and an unknown reference (ignored). Ensures SCC handling, deduplication, and preservation of sub_portfolio order."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      []
+    ],
+    "input_lines": [
+      "[]"
+    ],
+    "focus": "Empty top-level list — should be treated as valid input and return [] immediately (edge case for no data)."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        {
+          "name": "TopOne",
+          "risk": 1.0,
+          "return": 2.0,
+          "references": [
+            "B",
+            "B",
+            "Z"
+          ],
+          "sub_portfolios": [
+            {
+              "name": "A",
+              "risk": 0.1,
+              "return": 0.2,
+              "references": [
+                "B",
+                "B"
+              ],
+              "sub_portfolios": []
+            },
+            {
+              "name": "B",
+              "risk": 0.2,
+              "return": 0.4,
+              "references": [
+                "C"
+              ],
+              "sub_portfolios": []
+            }
+          ]
+        },
+        {
+          "name": "TopTwo",
+          "risk": 2.0,
+          "return": 10.0,
+          "references": [
+            "A",
+            "B",
+            "A"
+          ],
+          "sub_portfolios": []
+        },
+        {
+          "name": "C",
+          "risk": 0.4,
+          "return": 0.8,
+          "references": [],
+          "sub_portfolios": []
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"name\":\"TopOne\",\"risk\":1.0,\"return\":2.0,\"references\":[\"B\",\"B\",\"Z\"],\"sub_portfolios\":[{\"name\":\"A\",\"risk\":0.1,\"return\":0.2,\"references\":[\"B\",\"B\"],\"sub_portfolios\":[]},{\"name\":\"B\",\"risk\":0.2,\"return\":0.4,\"references\":[\"C\"],\"sub_portfolios\":[]}]},{\"name\":\"TopTwo\",\"risk\":2.0,\"return\":10.0,\"references\":[\"A\",\"B\",\"A\"],\"sub_portfolios\":[]},{\"name\":\"C\",\"risk\":0.4,\"return\":0.8,\"references\":[],\"sub_portfolios\":[]} ]"
+    ],
+    "focus": "Acyclic multi-level graph with nested sub_portfolios and duplicated references; tests deterministic traversal, reference-averaging propagation, and rounding/ordering across top-level portfolios."
+  }
+]

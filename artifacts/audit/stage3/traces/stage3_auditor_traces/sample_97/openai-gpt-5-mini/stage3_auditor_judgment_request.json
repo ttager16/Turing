@@ -1,0 +1,61 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "stage3_auditor_judgment",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "dataset_utility_label": {
+            "type": "string",
+            "enum": [
+              "strong",
+              "usable",
+              "caveated",
+              "contradictory",
+              "saturated"
+            ]
+          },
+          "primary_risk": {
+            "type": "string",
+            "enum": [
+              "none",
+              "redundancy",
+              "instability",
+              "benchmark_defect",
+              "threshold_fragility",
+              "outlier",
+              "contradiction"
+            ]
+          },
+          "audit_priority": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "medium",
+              "high",
+              "critical"
+            ]
+          }
+        },
+        "required": [
+          "dataset_utility_label",
+          "primary_risk",
+          "audit_priority"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a strict data-quality auditor. Return compact JSON only."
+    },
+    {
+      "role": "user",
+      "content": "Judge this sample only as a dataset-audit item within a benchmark.\nFocus on benchmark utility, not coding quality.\nReturn JSON only.\n\nIndex: 97\nTitle: Core Data Structures\nDifficulty: hard\nWinnerCombinedPassRate: 0.0\nOraclePassRate: 1.0\nEfficacyLabel: Inconclusive\nSuspicious: False\nRedundancyScore: 0.0\nDuplicateLabel: \nOutlierFlags: test_count_outlier\nAttemptVarianceLabel: volatile\nThresholdSensitivityLabel: caveated\nContradictionLabel: \nAuditPriority: medium\n\nChoose:\n- dataset_utility_label: strong / usable / caveated / contradictory / saturated\n- primary_risk: none / redundancy / instability / benchmark_defect / threshold_fragility / outlier / contradiction\n- audit_priority: normal / medium / high / critical"
+    }
+  ]
+}

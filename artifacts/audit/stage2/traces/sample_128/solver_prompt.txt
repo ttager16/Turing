@@ -1,0 +1,159 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+In a large-scale urban planning project, a city planner now faces a more intricate challenge: rather than simply identifying a single "center" in each district's tree, they must juggle multiple interacting tree-based districts that evolve under different scenarios. Each district is still represented by a tree graph, but with additional layers of complexity:
+
+1. Intermittent node deactivations that temporarily remove certain nodes (and their incident edges) from service.
+2. Dynamic edge weight updates reflecting changing road lengths due to construction or closures.
+3. Queries that merge two or more tree districts into a shared service region if they become interconnected at specific nodes.
+
+In this advanced setting, the goal is to maintain an optimal "emergency response hub" for each district (or newly merged region) under these offline modifications. The objective is no longer a simple minimization of maximum distance, each node carries both a traffic density factor and a capacity constraint indicating how many emergencies it can handle at a time. Placing a service hub at a node must ensure minimal overall response time while respecting each node's capacity limits and the shifting topology of the network.
+
+The planner must design a robust offline algorithm in Python that processes these tree-based regions, handles all queued modifications (node deactivations/activations, edge updates, district merges), and, after all modifications are applied, computes the final best hub placement(s). Due to the complex interplay of constraints and multi-step updates, straightforward brute-force or naive tree-center formulas are inadequate. Advanced data structures (like Heavy-Light Decomposition or DS-trees) and tree-based dynamic programming may be required to maintain and update relevant metrics (distance, capacity usage, traffic distribution) for each scenario efficiently.
+
+### Objectives
+
+1. Develop a Python function that, given multiple tree districts alongside a sequence of offline events, returns the final optimal hub node in each modified tree/district.
+2. Incorporate an efficient mechanism to manage node/edge updates and inter-district merges, ensuring that recalculations do not degrade for large or frequently updated trees.
+3. Track node capacity usage in tandem with road lengths (edge weights) and traffic densities (node weights) to compute a **compound objective function** reflecting realistic emergency response needs.
+4. Demonstrate scalability to handle up to tens of thousands of nodes across multiple districts, including corner cases where merges form large, interconnected super-districts.
+
+## Compound Objective Function
+
+To determine the **optimal hub** node `h` within a district or merged region `D = (V, E)`, minimize
+
+[
+F(h) = \sum_{i \in V_{active}} \frac{T_i \times d(h, i)}{C_h}
+]
+
+Where:
+
+* (T_i) is the traffic density (node weight) at node (i).
+* (d(h, i)) is the shortest path distance (sum of edge weights) between hub (h) and node (i).
+* (C_h) is the capacity of hub node (h).
+* (V_{active}) is the set of active nodes in the district after applying deactivations.
+
+The optimal hub is the node `h` that minimizes (F(h)). If multiple nodes yield the same minimum value, choose the one with the smallest node ID.
+
+This function balances travel time and hub efficiency: higher-capacity hubs distribute load more effectively, while nodes with higher traffic density contribute more heavily to total response time.
+
+## Constraints
+
+* Each individual district is initially a tree with up to 10,000 nodes.
+* When two districts are merged, a new connecting edge is added between the specified merge nodes with a defined weight.
+* The merge event must include this connecting edge weight.
+* After merging, the combined structure must remain a tree. No cycles or redundant edges are introduced.
+* Node weights (traffic density) and capacities range from 1 to 100.
+* Edge weights representing road lengths range from 1 to 50, and may change via offline modifications.
+* Each offline event is one of:
+
+  * Node deactivation or activation.
+  * Edge weight update.
+  * Merge operation joining two distinct trees at a specified node pair with a given connecting edge weight.
+* The algorithm must queue and process up to 1,000 events in a single execution without using external Python libraries.
+
+## Function Signature
+
+```python
+from typing import List, Dict, Any
+
+def determine_tree_centers(trees: List[Dict[str, Any]]) -> List[int]:
+    """
+    Processes multiple districts represented by tree-like data, handles offline modifications,
+    and determines the final optimal hub node for each (possibly merged) district.
+    """
+    pass
+```
+
+## Input
+
+The function takes a list of district dictionaries.
+Each dictionary describes one district, which is a separate tree with its own roads, nodes, and events.
+
+Every district dictionary must have these keys:
+
+* `"nodes"`: an array of numbers listing all node IDs in that district.
+* `"edges"`: an array of connections between nodes. Each connection is `[u, v, weight]`, where `u` and `v` are node IDs and `weight` is the distance or cost between them.
+* `"node_weights"`: an object that maps **stringified node IDs** to integer traffic densities. Keys must be strings.
+
+  * Example: `"node_weights": { "1": 10, "2": 20, "3": 30 }`
+* `"capacity"`: an object that maps **stringified node IDs** to integer capacities. Keys must be strings.
+
+  * Example: `"capacity": { "1": 2, "2": 2, "3": 3 }`
+* `"events"`: an array of actions that happen in the district. Each event is an array describing the operation.
+
+**Important on IDs:** Everywhere else in the input where node IDs appear inside arrays or scalars (for example in `"nodes"`, `"edges"`, and `"events"`), they are numbers. Only the keys of `"node_weights"` and `"capacity"` are strings.
+
+**Event types:**
+
+* `["deactivate_node", node_id]` means temporarily remove a node and its edges.
+* `["activate_node", node_id]` means restore a previously deactivated node.
+* `["update_road", node_u, node_v, new_weight]` updates the weight of an existing edge.
+* `["merge", district_index_to_merge, merge_node_in_this_district, merge_node_in_other_district, connecting_edge_weight]` merges this district with another, creating a new edge of the specified weight between the given nodes.
+
+After all events are processed, each district (or merged super-district) is evaluated to determine its optimal hub node according to the compound objective function.
+
+## Output
+
+Return a list of integers with the same length as the input. Each position corresponds to a district in the input:
+
+* `node_id`: ID of the final optimal hub for that district or merged region if it is the surviving district.
+* `-1`: the district was merged into another and no longer exists independently.
+
+**Example interpretation:** If two districts merge, the surviving district's entry holds the computed hub ID, while the merged-into district's entry is `-1`.
+
+## Sample Input (JSON)
+
+```json
+[
+  {
+    "nodes": [1, 2, 3],
+    "edges": [[1, 2, 5], [2, 3, 5]],
+    "node_weights": { "1": 10, "2": 20, "3": 30 },
+    "capacity": { "1": 2, "2": 2, "3": 3 },
+    "events": [
+      ["update_road", 2, 3, 2],
+      ["deactivate_node", 1]
+    ]
+  },
+  {
+    "nodes": [4, 5],
+    "edges": [[4, 5, 10]],
+    "node_weights": { "4": 15, "5": 25 },
+    "capacity": { "4": 1, "5": 2 },
+    "events": [
+      ["activate_node", 4],
+      ["merge", 0, 4, 3, 3]
+    ]
+  }
+]
+```
+
+## Sample Output
+
+```python
+[3, -1]
+```
+
+## Expected Output Format
+
+A list of integers corresponding to the final hub nodes for each original district.
+
+* Each element represents the final best hub for that district after all events.
+* If a district was merged into another, its entry is set to `-1`.
+
+Starter Code:
+```python
+from typing import Any, Dict, List
+
+
+def determine_tree_centers(trees: List[Dict[str, Any]]) -> List[int]:
+```

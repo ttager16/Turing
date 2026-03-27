@@ -1,0 +1,76 @@
+{
+  "id": "resp_00a6cff473f20a5c0069c324bb16dc81a0ac9535152482fa3d",
+  "object": "response",
+  "created_at": 1774396603,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774396616,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_00a6cff473f20a5c0069c324bb636881a09c86c527b687c874",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_00a6cff473f20a5c0069c324bb9e0481a0948f02133f763efb",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\nfrom decimal import Decimal, ROUND_FLOOR, InvalidOperation, getcontext\nimport math\n\ndef optimize_trades(\n    price_updates: List[List],\n    budget: float,\n    per_stock_cap_frac: float = 0.3,\n    min_lot_dollars: float = 100.00\n) -> List[List]:\n    getcontext().prec = 28\n    # Helpers\n    def is_finite_positive(x):\n        try:\n            d = Decimal(x)\n        except (InvalidOperation, TypeError):\n            return False\n        if not d.is_finite():\n            return False\n        return d > 0\n\n    # Consolidate updates: latest valid per ticker (case-insensitive alpha 1-5) and latest broker fee\n    prices = {}  # ticker -> Decimal price\n    fee = None\n    for upd in price_updates:\n        if not isinstance(upd, (list, tuple)) or len(upd) != 2:\n            continue\n        key, val = upd[0], upd[1]\n        if not isinstance(key, str):\n            continue\n        key_up = key.strip()\n        if key_up.upper() == 'BROKER_FEE':\n            if is_finite_positive(val):\n                fee = Decimal(val)\n            # invalid fee ignored\n        else:\n            ticker = key_up.upper()\n            if not (1 <= len(ticker) <= 5 and ticker.isalpha()):\n                continue\n            if is_finite_positive(val):\n                prices[ticker] = Decimal(val)\n            # invalid price ignored\n\n    if fee is None:\n        fee = Decimal('0')\n\n    # Build list of valid stocks\n    stocks = []\n    for t, p in prices.items():\n        # score = 1 / (price * (1 + fee))\n        denom = p * (Decimal('1') + fee)\n        if denom > 0:\n            score = Decimal('1') / denom\n            stocks.append((t, p, score))\n    if not stocks:\n        # Nothing to allocate; all budget is reserve\n        reserve = Decimal(budget).quantize(Decimal('0.01'))\n        return [['RESERVE', float(reserve)]]\n\n    # Sort by score desc, tie-breaker: higher raw price, then ticker alphabetical\n    stocks.sort(key=lambda x: (x[2], x[1], ''.join(x[0])), reverse=True)\n\n    # Allocation parameters\n    B = Decimal(budget)\n    per_stock_cap = (Decimal(per_stock_cap_frac) * B).quantize(Decimal('0.01'))\n    lot = Decimal(min_lot_dollars).quantize(Decimal('0.01'))\n    # Max lots per stock: floor(cap / lot)\n    allocations = {t: Decimal('0') for t, _, _ in stocks}\n    remaining = B\n\n    # Greedy allocate: iterate stocks in order, for each allocate as many full lots as possible up to cap and remaining\n    for t, p, s in stocks:\n        if remaining < lot:\n            break\n        max_by_cap = (per_stock_cap // lot)\n        if max_by_cap <= 0:\n            continue\n        # current allocated lots for t is 0 initially\n        max_by_budget = (remaining // lot)\n        lots = int(min(max_by_cap, max_by_budget))\n        if lots <= 0:\n            continue\n        alloc = (Decimal(lots) * lot).quantize(Decimal('0.01'))\n        allocations[t] = alloc\n        remaining -= alloc\n\n    # After single pass greedy per spec (give as much as possible to top stock then next...), but above already did that.\n    # Prepare output: include only stocks with positive allocation, sorted by allocated amount desc then ticker name alpha\n    out_stocks = [(t, a) for t, a in allocations.items() if a > 0]\n    out_stocks.sort(key=lambda x: (x[1], x[0]), reverse=True)\n    # Reserve must be present; remainder possibly with pennies; ensure total sums to budget (adjust rounding)\n    # remaining is Decimal with cents precision\n    remaining = remaining.quantize(Decimal('0.01'))\n    # Build result list with floats rounded to 2 decimals\n    result = []\n    for t, a in out_stocks:\n        result.append([t, float(a.quantize(Decimal('0.01')))])\n    result.append(['RESERVE', float(remaining)])\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1416,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 950,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2366
+  },
+  "user": null,
+  "metadata": {}
+}

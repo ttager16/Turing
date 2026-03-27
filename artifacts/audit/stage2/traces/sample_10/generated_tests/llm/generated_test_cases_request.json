@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: allocate_minimum_teams\n\nProblem Statement:\n### Problem Statement\nA project manager at a software development company needs to allocate the minimum number of development teams to complete all projects. Each project has specific skill requirements and deadlines, and each team has members with various skills and limited availability.\n\nThe challenge is to determine the minimum number of teams needed to complete all projects within their deadlines using binary search to optimize the allocation.\n\n#### Objectives\nDesign a function `allocate_minimum_teams(projects, teams)` that:\n- Uses binary search to find the minimum number of teams required\n- Ensures all projects meet their skill requirements and deadlines\n- Validates that selected teams can cover all project needs\n\n#### Input Format\n- `projects`: A list of dictionaries, each containing:\n  - `'phases'`: A list of phase dictionaries, where each phase has:\n    - `'required_skills'`: A list of skills needed for that phase\n    - `'deadline'`: An integer sub-deadline for this phase\n  - `'project_deadline'`: An integer representing the overall project deadline\n  \n- `teams`: A list of dictionaries, each containing:\n  - `'members'`: A list of member dictionaries with:\n    - `'name'`: Member's name (string)\n    - `'skills'`: A list of skills the member possesses\n  - `'base_availability'`: An integer representing the maximum number of days the team is initially available\n\n#### Constraints\n- 1 ≤ number of projects ≤ 1000\n- 1 ≤ number of teams ≤ 1000\n- Each phase requires 1-10 skills\n- Each team member has 1-10 skills\n- Deadlines range from 1 to 100 days\n- Team availability ranges from 1 to 100 days\n- A team can work on multiple phases if their availability allows\n- All project phases must be completed within their respective deadlines\n- No external libraries allowed\n\n#### Function Signature\n```python\ndef allocate_minimum_teams(projects: List[Dict[str, Any]], teams: List[Dict[str, Any]]) -> int:\n```\n#### Approach\n Use binary search on the number of teams:\n- Set search range: minimum = 1, maximum = number of available teams\n- For each mid-point, check if that many teams can complete all project phases\n- Implement a feasibility function that validates if k teams can handle all phases considering:\n\n#### Sample Input\n```python\nprojects = [\n    {\n        'phases': [\n            {\n                'required_skills': ['python', 'security'],\n                'deadline': 5\n            },\n            {\n                'required_skills': ['python', 'testing'],\n                'deadline': 10\n            }\n        ],\n        'project_deadline': 12\n    },\n    {\n        'phases': [\n            {\n                'required_skills': ['java', 'ml'],\n                'deadline': 8\n            }\n        ],\n        'project_deadline': 8\n    }\n]\n\nteams = [\n    {\n        'members': [\n            {'name': 'Alice', 'skills': ['python', 'java']},\n            {'name': 'Bob', 'skills': ['security', 'testing']}\n        ],\n        'base_availability': 10\n    },\n    {\n        'members': [\n            {'name': 'Charlie', 'skills': ['ml', 'testing']},\n            {'name': 'Diana', 'skills': ['java']}\n        ],\n        'base_availability': 8\n    }\n]\n```\n\n#### Sample Output\n```python\n2\n```\n\n#### Explanation\nUsing binary search:\n\n- Try with 1 team: Not feasible (cannot cover all skill requirements within deadlines)\n- Try with 2 teams: Feasible (both teams together can cover all phases)\n- Minimum answer: 2 teams\n\n#### Output Format\nReturn an integer representing the minimum number of teams required to complete all project phases within their deadlines.\n\nStarter Code:\n```python\r\nfrom typing import List, Dict, Any, Set, Tuple\r\n\r\n\r\ndef allocate_minimum_teams(projects: List[Dict[str, Any]], teams: List[Dict[str, Any]]) -> int:\r\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[{\\\"phases\\\": [{\\\"required_skills\\\": [\\\"python\\\", \\\"security\\\"], \\\"deadline\\\": 5}, {\\\"required_skills\\\": [\\\"python\\\", \\\"testing\\\"], \\\"deadline\\\": 10}], \\\"project_deadline\\\": 12}, {\\\"phases\\\": [{\\\"required_skills\\\": [\\\"java\\\", \\\"ml\\\"], \\\"deadline\\\": 8}], \\\"project_deadline\\\": 8}]\\n[{\\\"members\\\": [{\\\"name\\\": \\\"Alice\\\", \\\"skills\\\": [\\\"python\\\", \\\"java\\\"]}, {\\\"name\\\": \\\"Bob\\\", \\\"skills\\\": [\\\"security\\\", \\\"testing\\\"]}], \\\"base_availability\\\": 10}, {\\\"members\\\": [{\\\"name\\\": \\\"Charlie\\\", \\\"skills\\\": [\\\"ml\\\", \\\"testing\\\"]}, {\\\"name\\\": \\\"Diana\\\", \\\"skills\\\": [\\\"java\\\"]}], \\\"base_availability\\\": 8}]\",\n    \"output\": \"2\"\n  },\n  {\n    \"input\": \"[]\\n[{\\\"members\\\": [{\\\"name\\\": \\\"Alice\\\", \\\"skills\\\": [\\\"python\\\"]}], \\\"base_availability\\\": 10}]\",\n    \"output\": \"0\"\n  },\n  {\n    \"input\": \"[{\\\"phases\\\": [{\\\"required_skills\\\": [\\\"python\\\", \\\"aws\\\", \\\"docker\\\"], \\\"deadline\\\": 10}, {\\\"required_skills\\\": [\\\"java\\\", \\\"kubernetes\\\", \\\"terraform\\\"], \\\"deadline\\\": 15}, {\\\"required_skills\\\": [\\\"go\\\", \\\"redis\\\", \\\"kafka\\\"], \\\"deadline\\\": 20}, {\\\"required_skills\\\": [\\\"python\\\", \\\"ml\\\", \\\"tensorflow\\\"], \\\"deadline\\\": 25}, {\\\"required_skills\\\": [\\\"rust\\\", \\\"webassembly\\\", \\\"systems\\\"], \\\"deadline\\\": 30}], \\\"project_deadline\\\": 35}]\\n[{\\\"members\\\": [{\\\"name\\\": \\\"T1M1\\\", \\\"skills\\\": [\\\"python\\\", \\\"aws\\\", \\\"docker\\\", \\\"ml\\\", \\\"tensorflow\\\"]}], \\\"base_availability\\\": 20}, {\\\"members\\\": [{\\\"name\\\": \\\"T2M1\\\", \\\"skills\\\": [\\\"java\\\", \\\"kubernetes\\\"]}, {\\\"name\\\": \\\"T2M2\\\", \\\"skills\\\": [\\\"terraform\\\", \\\"docker\\\"]}], \\\"base_availability\\\": 15}, {\\\"members\\\": [{\\\"name\\\": \\\"T3M1\\\", \\\"skills\\\": [\\\"go\\\", \\\"redis\\\", \\\"kafka\\\", \\\"rust\\\"]}, {\\\"name\\\": \\\"T3M2\\\", \\\"skills\\\": [\\\"webassembly\\\", \\\"systems\\\"]}], \\\"base_availability\\\": 25}]\",\n    \"output\": \"3\"\n  }\n]\n"
+    }
+  ]
+}

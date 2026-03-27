@@ -1,0 +1,275 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        {
+          "center_id": 1,
+          "inventory": 500,
+          "location": "L1",
+          "capacity": 600,
+          "connected_centers": [
+            2
+          ]
+        },
+        {
+          "center_id": 2,
+          "inventory": 800,
+          "location": "L2",
+          "capacity": 1000,
+          "connected_centers": [
+            1,
+            3,
+            5
+          ]
+        },
+        {
+          "center_id": 3,
+          "inventory": 100,
+          "location": "L3",
+          "capacity": 300,
+          "connected_centers": [
+            2,
+            4
+          ]
+        },
+        {
+          "center_id": 4,
+          "inventory": 400,
+          "location": "L4",
+          "capacity": 450,
+          "connected_centers": [
+            3,
+            5
+          ]
+        },
+        {
+          "center_id": 5,
+          "inventory": 300,
+          "location": "L5",
+          "capacity": 500,
+          "connected_centers": [
+            2,
+            4
+          ]
+        }
+      ],
+      [
+        {
+          "product_id": "P1",
+          "forecast": 200,
+          "location": "L3",
+          "priority": 2
+        },
+        {
+          "product_id": "P2",
+          "forecast": 300,
+          "location": "L4",
+          "priority": 1
+        },
+        {
+          "product_id": "P1",
+          "forecast": 150,
+          "location": "L5",
+          "priority": 1
+        },
+        {
+          "product_id": "P3",
+          "forecast": 100,
+          "location": "L2",
+          "priority": 3
+        }
+      ],
+      [
+        {
+          "type": "weather",
+          "severity": 0.1,
+          "affected_centers": [
+            1,
+            2
+          ]
+        },
+        {
+          "type": "infra",
+          "severity": 0.2,
+          "affected_centers": [
+            2
+          ]
+        },
+        {
+          "type": "strike",
+          "severity": 0.5,
+          "affected_centers": [
+            5
+          ]
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"center_id\": 1, \"inventory\": 500, \"location\": \"L1\", \"capacity\": 600, \"connected_centers\": [2]}, {\"center_id\": 2, \"inventory\": 800, \"location\": \"L2\", \"capacity\": 1000, \"connected_centers\": [1, 3, 5]}, {\"center_id\": 3, \"inventory\": 100, \"location\": \"L3\", \"capacity\": 300, \"connected_centers\": [2, 4]}, {\"center_id\": 4, \"inventory\": 400, \"location\": \"L4\", \"capacity\": 450, \"connected_centers\": [3, 5]}, {\"center_id\": 5, \"inventory\": 300, \"location\": \"L5\", \"capacity\": 500, \"connected_centers\": [2, 4]}]",
+      "[{\"product_id\": \"P1\", \"forecast\": 200, \"location\": \"L3\", \"priority\": 2}, {\"product_id\": \"P2\", \"forecast\": 300, \"location\": \"L4\", \"priority\": 1}, {\"product_id\": \"P1\", \"forecast\": 150, \"location\": \"L5\", \"priority\": 1}, {\"product_id\": \"P3\", \"forecast\": 100, \"location\": \"L2\", \"priority\": 3}]",
+      "[{\"type\": \"weather\", \"severity\": 0.1, \"affected_centers\": [1, 2]}, {\"type\": \"infra\", \"severity\": 0.2, \"affected_centers\": [2]}, {\"type\": \"strike\", \"severity\": 0.5, \"affected_centers\": [5]}]"
+    ],
+    "focus": "Multiple candidate senders, one-hop routing, and tie-breaking by surplus/ proximity/priority; disruptions on several hubs."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        {
+          "center_id": 10,
+          "inventory": 1000,
+          "location": "HubA",
+          "capacity": 1500,
+          "connected_centers": [
+            11
+          ]
+        },
+        {
+          "center_id": 11,
+          "inventory": 200,
+          "location": "HubB",
+          "capacity": 300,
+          "connected_centers": [
+            10,
+            12
+          ]
+        },
+        {
+          "center_id": 12,
+          "inventory": 50,
+          "location": "HubC",
+          "capacity": 100,
+          "connected_centers": [
+            11
+          ]
+        }
+      ],
+      [
+        {
+          "product_id": "X",
+          "forecast": 800,
+          "location": "HubA",
+          "priority": 1
+        },
+        {
+          "product_id": "X",
+          "forecast": 300,
+          "location": "HubB",
+          "priority": 2
+        },
+        {
+          "product_id": "Y",
+          "forecast": 100,
+          "location": "HubC",
+          "priority": 1
+        }
+      ],
+      [
+        {
+          "type": "political",
+          "severity": 0.6,
+          "affected_centers": [
+            10,
+            11
+          ]
+        },
+        {
+          "type": "weather",
+          "severity": 0.6,
+          "affected_centers": [
+            11
+          ]
+        },
+        {
+          "type": "maintenance",
+          "severity": 0.5,
+          "affected_centers": [
+            12
+          ]
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"center_id\": 10, \"inventory\": 1000, \"location\": \"HubA\", \"capacity\": 1500, \"connected_centers\": [11]}, {\"center_id\": 11, \"inventory\": 200, \"location\": \"HubB\", \"capacity\": 300, \"connected_centers\": [10, 12]}, {\"center_id\": 12, \"inventory\": 50, \"location\": \"HubC\", \"capacity\": 100, \"connected_centers\": [11]}]",
+      "[{\"product_id\": \"X\", \"forecast\": 800, \"location\": \"HubA\", \"priority\": 1}, {\"product_id\": \"X\", \"forecast\": 300, \"location\": \"HubB\", \"priority\": 2}, {\"product_id\": \"Y\", \"forecast\": 100, \"location\": \"HubC\", \"priority\": 1}]",
+      "[{\"type\": \"political\", \"severity\": 0.6, \"affected_centers\": [10, 11]}, {\"type\": \"weather\", \"severity\": 0.6, \"affected_centers\": [11]}, {\"type\": \"maintenance\", \"severity\": 0.5, \"affected_centers\": [12]}]"
+    ],
+    "focus": "Disruption severities summing above 1 (capping to 1.0) leading to effectively zero available inventory for a hub; tests inability to route through disabled centers."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        {
+          "center_id": 21,
+          "inventory": 300,
+          "location": "CityX",
+          "capacity": 500,
+          "connected_centers": [
+            22
+          ]
+        },
+        {
+          "center_id": 22,
+          "inventory": 0,
+          "location": "CityX",
+          "capacity": 400,
+          "connected_centers": [
+            21,
+            23
+          ]
+        },
+        {
+          "center_id": 23,
+          "inventory": 200,
+          "location": "CityY",
+          "capacity": 200,
+          "connected_centers": [
+            22
+          ]
+        },
+        {
+          "center_id": 24,
+          "inventory": 100,
+          "location": "CityZ",
+          "capacity": 150,
+          "connected_centers": []
+        }
+      ],
+      [
+        {
+          "product_id": "Alpha",
+          "forecast": 400,
+          "location": "CityX",
+          "priority": 1
+        },
+        {
+          "product_id": "Beta",
+          "forecast": 150,
+          "location": "CityY",
+          "priority": 2
+        },
+        {
+          "product_id": "Alpha",
+          "forecast": 50,
+          "location": "CityZ",
+          "priority": 1
+        }
+      ],
+      [
+        {
+          "type": "none",
+          "severity": 0.0,
+          "affected_centers": []
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"center_id\": 21, \"inventory\": 300, \"location\": \"CityX\", \"capacity\": 500, \"connected_centers\": [22]}, {\"center_id\": 22, \"inventory\": 0, \"location\": \"CityX\", \"capacity\": 400, \"connected_centers\": [21, 23]}, {\"center_id\": 23, \"inventory\": 200, \"location\": \"CityY\", \"capacity\": 200, \"connected_centers\": [22]}, {\"center_id\": 24, \"inventory\": 100, \"location\": \"CityZ\", \"capacity\": 150, \"connected_centers\": []}]",
+      "[{\"product_id\": \"Alpha\", \"forecast\": 400, \"location\": \"CityX\", \"priority\": 1}, {\"product_id\": \"Beta\", \"forecast\": 150, \"location\": \"CityY\", \"priority\": 2}, {\"product_id\": \"Alpha\", \"forecast\": 50, \"location\": \"CityZ\", \"priority\": 1}]",
+      "[{\"type\": \"none\", \"severity\": 0.0, \"affected_centers\": []}]"
+    ],
+    "focus": "Format-sensitive case with multiple centers sharing the same location (CityX) and an isolated hub (no connections); tests aggregation of forecasts by location and unreachable centers."
+  }
+]

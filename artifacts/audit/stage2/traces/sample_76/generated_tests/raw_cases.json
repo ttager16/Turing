@@ -1,0 +1,165 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        {
+          "trade_id": "A",
+          "priority": 5,
+          "profit": 50,
+          "dependencies": []
+        },
+        {
+          "trade_id": "B",
+          "priority": 6,
+          "profit": 50,
+          "dependencies": []
+        },
+        {
+          "trade_id": "C",
+          "priority": 7,
+          "profit": 30,
+          "dependencies": [
+            "A"
+          ]
+        }
+      ],
+      {
+        "A": {
+          "new_profit": 100,
+          "liquidity_impact": 1.0
+        },
+        "B": {
+          "new_profit": 100,
+          "liquidity_impact": 1.0
+        },
+        "C": {
+          "new_profit": 105,
+          "liquidity_impact": 1.0
+        }
+      }
+    ],
+    "input_lines": [
+      "[{\"trade_id\": \"A\", \"priority\": 5, \"profit\": 50, \"dependencies\": []}, {\"trade_id\": \"B\", \"priority\": 6, \"profit\": 50, \"dependencies\": []}, {\"trade_id\": \"C\", \"priority\": 7, \"profit\": 30, \"dependencies\": [\"A\"]}]",
+      "{\"A\": {\"new_profit\": 100, \"liquidity_impact\": 1.0}, \"B\": {\"new_profit\": 100, \"liquidity_impact\": 1.0}, \"C\": {\"new_profit\": 105, \"liquidity_impact\": 1.0}}"
+    ],
+    "focus": "Tie-breaking when multiple trades compute identical scores: ensure smaller D then lexicographic trade_id ordering are applied consistently (all three produce score=100)."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        {
+          "trade_id": "T1",
+          "priority": 1,
+          "profit": 10,
+          "dependencies": []
+        },
+        {
+          "trade_id": "T2",
+          "priority": 2,
+          "profit": 20,
+          "dependencies": [
+            "T1"
+          ]
+        },
+        {
+          "trade_id": "T3",
+          "priority": 3,
+          "profit": 30,
+          "dependencies": [
+            "T2"
+          ]
+        },
+        {
+          "trade_id": "T4",
+          "priority": 4,
+          "profit": 40,
+          "dependencies": [
+            "T2",
+            "T3"
+          ]
+        }
+      ],
+      {
+        "T1": {
+          "new_profit": 50,
+          "liquidity_impact": 0.0
+        },
+        "T2": {
+          "new_profit": 200,
+          "liquidity_impact": 1.0
+        },
+        "T3": {
+          "new_profit": 100,
+          "liquidity_impact": 0.5
+        },
+        "T4": {
+          "new_profit": 300,
+          "liquidity_impact": 0.5
+        }
+      }
+    ],
+    "input_lines": [
+      "[{\"trade_id\": \"T1\", \"priority\": 1, \"profit\": 10, \"dependencies\": []}, {\"trade_id\": \"T2\", \"priority\": 2, \"profit\": 20, \"dependencies\": [\"T1\"]}, {\"trade_id\": \"T3\", \"priority\": 3, \"profit\": 30, \"dependencies\": [\"T2\"]}, {\"trade_id\": \"T4\", \"priority\": 4, \"profit\": 40, \"dependencies\": [\"T2\", \"T3\"]}]",
+      "{\"T1\": {\"new_profit\": 50, \"liquidity_impact\": 0.0}, \"T2\": {\"new_profit\": 200, \"liquidity_impact\": 1.0}, \"T3\": {\"new_profit\": 100, \"liquidity_impact\": 0.5}, \"T4\": {\"new_profit\": 300, \"liquidity_impact\": 0.5}}"
+    ],
+    "focus": "Zero liquidity_impact at a root and multi-level downstream recomputation: tests propagation ordering and handling of L=0."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        {
+          "trade_id": "T2",
+          "priority": 9,
+          "profit": 20,
+          "dependencies": []
+        },
+        {
+          "trade_id": "T10",
+          "priority": 10,
+          "profit": 25,
+          "dependencies": []
+        },
+        {
+          "trade_id": "T1",
+          "priority": 11,
+          "profit": 30,
+          "dependencies": []
+        },
+        {
+          "trade_id": "T3",
+          "priority": 12,
+          "profit": 40,
+          "dependencies": [
+            "T10"
+          ]
+        }
+      ],
+      {
+        "T2": {
+          "new_profit": 50,
+          "liquidity_impact": 2.0
+        },
+        "T10": {
+          "new_profit": 25,
+          "liquidity_impact": 4.0
+        },
+        "T1": {
+          "new_profit": 100,
+          "liquidity_impact": 1.0
+        },
+        "T3": {
+          "new_profit": 150,
+          "liquidity_impact": 0.66
+        }
+      }
+    ],
+    "input_lines": [
+      "[{\"trade_id\": \"T2\", \"priority\": 9, \"profit\": 20, \"dependencies\": []}, {\"trade_id\": \"T10\", \"priority\": 10, \"profit\": 25, \"dependencies\": []}, {\"trade_id\": \"T1\", \"priority\": 11, \"profit\": 30, \"dependencies\": []}, {\"trade_id\": \"T3\", \"priority\": 12, \"profit\": 40, \"dependencies\": [\"T10\"]}]",
+      "{\"T2\": {\"new_profit\": 50, \"liquidity_impact\": 2.0}, \"T10\": {\"new_profit\": 25, \"liquidity_impact\": 4.0}, \"T1\": {\"new_profit\": 100, \"liquidity_impact\": 1.0}, \"T3\": {\"new_profit\": 150, \"liquidity_impact\": 0.66}}"
+    ],
+    "focus": "Format-sensitive lexicographic tie-break among IDs like 'T1', 'T10', 'T2' when scores are equal (ensures pure lexicographic comparison, not numeric)."
+  }
+]

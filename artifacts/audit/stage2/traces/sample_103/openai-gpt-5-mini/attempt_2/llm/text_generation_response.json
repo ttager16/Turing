@@ -1,0 +1,76 @@
+{
+  "id": "resp_097c0b2571ff285d0069c3353066208192b6d54b8b2d946e2c",
+  "object": "response",
+  "created_at": 1774400816,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774400844,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_097c0b2571ff285d0069c33530f7d881928dd90f019d6b00e1",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_097c0b2571ff285d0069c33531348c8192989a9e990414f74f",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Tuple\nimport random\nimport time\nimport collections\n\ndef can_secure_within_budget(\n        standard_exploits: List[str],\n        zero_day_threats: List[str],\n        patches: List[Tuple[int, List[str]]],\n        hardening_bonus: int,\n        cost_threshold: int\n) -> bool:\n    # Quick edge cases\n    if cost_threshold < 0:\n        return False\n    standards = list(standard_exploits)\n    zeros = list(zero_day_threats)\n    if not standards and not zeros:\n        return True\n\n    # Map vulnerabilities to indices\n    std_idx = {s: i for i, s in enumerate(standards)}\n    zero_idx = {z: i for i, z in enumerate(zeros)}\n\n    P = []\n    for cost, fixes in patches:\n        s_mask = 0\n        z_mask = 0\n        for v in fixes:\n            if v in std_idx:\n                s_mask |= 1 << std_idx[v]\n            if v in zero_idx:\n                z_mask |= 1 << zero_idx[v]\n        # skip patches that fix nothing relevant\n        if s_mask == 0 and z_mask == 0:\n            continue\n        P.append((cost, s_mask, z_mask))\n    if not P:\n        return False\n\n    n_std = len(standards)\n    n_zero = len(zeros)\n\n    # Feasibility quick check: each standard must be covered by at least one patch,\n    # and each standard cannot be forced to be covered by >1 in any selection check will handle exactness later.\n    cover_std = [False]*n_std\n    cover_zero = [False]*n_zero\n    for _, s_mask, z_mask in P:\n        for i in range(n_std):\n            if (s_mask >> i) & 1:\n                cover_std[i] = True\n        for i in range(n_zero):\n            if (z_mask >> i) & 1:\n                cover_zero[i] = True\n    if not all(cover_std) or not all(cover_zero):\n        return False\n\n    # Precompute useful heuristics: benefit per cost for patches.\n    def score_patch(cost, s_mask, z_mask):\n        s_count = s_mask.bit_count()\n        z_count = z_mask.bit_count()\n        # prioritize standards (must be exactly one) and zeros (redundancy valuable)\n        return (s_count * 10 + z_count * 3) / (cost + 1)\n\n    P_sorted = sorted(P, key=lambda x: -score_patch(*x))\n\n    # Greedy iterative randomized attempts within tiny time budget\n    deadline = time.time() + 0.02  # 20ms budget for heuristic\n    attempts = 0\n    max_attempts = 200\n    while time.time() < deadline and attempts < max_attempts:\n        attempts += 1\n        total_cost = 0\n        chosen = []\n        std_cover_count = [0]*n_std\n        zero_cover_count = [0]*n_zero\n\n        # Start with deterministic selection to cover standards exactly once:\n        # For each standard, pick a patch that covers it where selecting doesn't introduce another standard duplicate if possible.\n        # We'll randomize order slightly.\n        idxs = list(range(len(P_sorted)))\n        random.shuffle(idxs)\n        # Build lookup: patches covering each standard/zero\n        std_to_patches = [[] for _ in range(n_std)]\n        zero_to_patches = [[] for _ in range(n_zero)]\n        for pi, (cost, s_mask, z_mask) in enumerate(P_sorted):\n            for i in range(n_std):\n                if (s_mask >> i) & 1:\n                    std_to_patches[i].append(pi)\n            for i in range(n_zero):\n                if (z_mask >> i) & 1:\n                    zero_to_patches[i].append(pi)\n\n        feasible = True\n        # Cover standards: try to select one patch per standard without duplicating standards\n        used_patch = [False]*len(P_sorted)\n        # Order standards by fewest options first (heuristic)\n        std_order = sorted(range(n_std), key=lambda i: len(std_to_patches[i]))\n        for s in std_order:\n            candidates = std_to_patches[s]\n            if not candidates:\n                feasible = False\n                break\n            # prefer candidate that doesn't cover other already-covered standards\n            best = None\n            best_score = None\n            random.shuffle(candidates)\n            for pi in candidates:\n                cost, s_mask, z_mask = P_sorted[pi]\n                # if this patch would cause any other standard to have count>0 where we already assigned it by a different patch, it's ok only if that other standard currently uncovered\n                conflict = False\n                for j in range(n_std):\n                    if j != s and ((s_mask>>j)&1) and std_cover_count[j] > 0:\n                        conflict = True\n                        break\n                # prefer low cost and low conflict\n                sc = cost + (1000 if conflict else 0)\n                if best is None or sc < best_score:\n                    best = pi\n                    best_score = sc\n            if best is None:\n                feasible = False\n                break\n            # pick best\n            used_patch[best] = True\n            cost, s_mask, z_mask = P_sorted[best]\n            total_cost += cost\n            chosen.append(best)\n            for i in range(n_std):\n                if (s_mask >> i) & 1:\n                    std_cover_count[i] += 1\n            for i in range(n_zero):\n                if (z_mask >> i) & 1:\n                    zero_cover_count[i] += 1\n            if total_cost - sum(max(0, c-1)*hardening_bonus for c in zero_cover_count) > cost_threshold:\n                feasible = False\n                break\n        if not feasible:\n            continue\n\n        # Ensure zeros are covered at least once: pick cheapest patches to cover uncovered zeros\n        for z in range(n_zero):\n            if zero_cover_count[z] == 0:\n                # pick cheapest patch that covers z (consider net effect on standards)\n                candidates = zero_to_patches[z]\n                if not candidates:\n                    feasible = False\n                    break\n                best = None\n                best_score = None\n                for pi in candidates:\n                    if used_patch[pi]:\n                        # already used (should have covered it), skip\n                        continue\n                    cost, s_mask, z_mask = P_sorted[pi]\n                    # estimate added penalty: for any standard that would become duplicated (>1) it's forbidden, so disallow patches that would make any standard >1\n                    illegal = False\n                    for i in range(n_std):\n                        if (s_mask >> i) & 1 and std_cover_count[i] >= 1:\n                            # this would make standard covered more than once -> illegal\n                            illegal = True\n                            break\n                    if illegal:\n                        continue\n                    sc = cost / (1 + z_mask.bit_count())\n                    if best is None or sc < best_score:\n                        best = pi\n                        best_score = sc\n                if best is None:\n                    # As fallback, allow using already used patches (they already would have covered but zero_count==0 so none)\n                    feasible = False\n                    break\n                used_patch[best] = True\n                cost, s_mask, z_mask = P_sorted[best]\n                total_cost += cost\n                chosen.append(best)\n                for i in range(n_std):\n                    if (s_mask >> i) & 1:\n                        std_cover_count[i] += 1\n                for i in range(n_zero):\n                    if (z_mask >> i) & 1:\n                        zero_cover_count[i] += 1\n                if total_cost - sum(max(0, c-1)*hardening_bonus for c in zero_cover_count) > cost_threshold:\n                    feasible = False\n                    break\n        if not feasible:\n            continue\n\n        # At this point every standard has count>=1; but standards must be exactly 1. We constructed to avoid duplicates; verify\n        if any(c != 1 for c in std_cover_count):\n            # reject this attempt\n            continue\n        # Now try to add extra zero-day patches to reduce net cost (via bonuses) if beneficial\n        improved = True\n        # limit additions\n        additions = 0\n        while improved and additions < 50:\n            improved = False\n            best_gain = 0\n            best_pi = None\n            for pi, (cost, s_mask, z_mask) in enumerate(P_sorted):\n                if used_patch[pi]:\n                    continue\n                # cannot add if it would make any standard count >1\n                bad = False\n                for i in range(n_std):\n                    if (s_mask >> i) & 1 and std_cover_count[i] >= 1:\n                        bad = True\n                        break\n                if bad:\n                    continue\n                # compute marginal net cost change: cost - added bonuses for zeros covered that will have extra counts\n                added_bonus = 0\n                for i in range(n_zero):\n                    if (z_mask >> i) & 1:\n                        # if currently covered k>=1, extra patch gives +hardening_bonus\n                        if zero_cover_count[i] >= 1:\n                            added_bonus += hardening_bonus\n                net_increase = cost - added_bonus\n                if net_increase < best_gain or (best_pi is None and net_increase < 0):\n                    # net gain is negative cost (i.e., reduces net cost)\n                    best_gain = -net_increase  # positive if reduces net cost\n                    best_pi = pi\n            if best_pi is not None:\n                # apply\n                cost, s_mask, z_mask = P_sorted[best_pi]\n                used_patch[best_pi] = True\n                chosen.append(best_pi)\n                total_cost += cost\n                for i in range(n_std):\n                    if (s_mask >> i) & 1:\n                        std_cover_count[i] += 1\n                for i in range(n_zero):\n                    if (z_mask >> i) & 1:\n                        zero_cover_count[i] += 1\n                additions += 1\n                improved = True\n                # check threshold\n                net = total_cost - sum(max(0, c-1)*hardening_bonus for c in zero_cover_count)\n                if net <= cost_threshold:\n                    return True\n            else:\n                break\n\n        net = total_cost - sum(max(0, c-1)*hardening_bonus for c in zero_cover_count)\n        if net <= cost_threshold:\n            return True\n\n    return False"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1460,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2261,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3721
+  },
+  "user": null,
+  "metadata": {}
+}

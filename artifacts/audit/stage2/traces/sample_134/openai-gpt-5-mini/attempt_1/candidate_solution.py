@@ -1,0 +1,250 @@
+def evaluate_traffic_impact(
+    edges,
+    node_signal_delay,
+    base_blocked,
+    queries
+):
+    # Build adjacency with per-edge lanes info and minimal travel_time per mode
+    adj = {}
+    modes_set = set()
+    for e in edges:
+        u = int(e["from"])
+        v = int(e["to"])
+        lane_list = e.get("lanes", [])
+        # For an edge, store list of lanes
+        adj.setdefault(u, []).append((v, tuple((lane["mode"], int(lane["travel_time"]), int(lane["capacity"])) for lane in lane_list)))
+        for lane in lane_list:
+            modes_set.add(lane["mode"])
+    # Normalize node_signal_delay and base_blocked keys to int
+    base_delay = {int(k): int(v) for k, v in node_signal_delay.items()}
+    base_blocked_norm = {int(k): set(v) for k, v in base_blocked.items()}
+    # initialize mutable state
+    current_blocked = {n: set(m) for n, m in base_blocked_norm.items()}
+    current_delay = dict(base_delay)
+    # helper to check if a node allows at least one lane mode when entering edge used mode
+    def edge_allowed_at_node(node: int, mode: str) -> bool:
+        blocked = current_blocked.get(node, set())
+        return mode not in blocked
+    # cost of traversing edge (u->v) depends on chosen lane travel_time; also include signal delay at v (per-node)
+    # For each edge, multiple lane options; when computing shortest path, we can choose minimal lane that is allowed at both nodes (mode not blocked on u or v?)
+    # The problem states closing intersections by mode (e.g., close all "road" lanes at a node). We'll interpret that a lane is unusable if either from-node or to-node has that mode blocked.
+    def neighbors(u: int):
+        for (v, lanes) in adj.get(u, []):
+            # for this edge, yield list of allowed lanes
+            allowed = []
+            for mode, travel_time, capacity in lanes:
+                if edge_allowed_at_node(u, mode) and edge_allowed_at_node(v, mode):
+                    allowed.append((mode, travel_time))
+            if allowed:
+                yield v, allowed
+    # Dijkstra that tracks tie-breakers and returns path and used modes set and max delay
+    def dijkstra(src: int, dst: int):
+        # state: (total_cost, edges_count, path_nodes_tuple, node), prev map
+        # We'll store for node the best tuple and path
+        pq = []
+        start_delay = current_delay.get(src, 0)
+        # As per typical travel, signal delay is contributed per-node visited; sample seems to include intermediate node delays and destination node delays, but not source? Sample: path 1-2-3-4-6 travel times: 1->2(3),2->3(4),3->4(2),4->6(9)=18; node delays nodes 2,3,4,6? Given sample cost 20 suggests delays 1 at node2 and 2 at node3 total 3 -> 21? Hmm sample matches different; to align, include delays for intermediate and destination nodes but not source. We'll include delay for nodes when they are entered (not for src).
+        # So starting cost 0.
+        heapq.heappush(pq, (0, 0, (src,), src, frozenset()))  # cost, edges, path, current node, modes_set
+        seen = {}
+        while pq:
+            cost, edges_cnt, path, u, modes_used = heapq.heappop(pq)
+            if (u in seen) and (seen[u] <= (cost, edges_cnt, path)):
+                continue
+            seen[u] = (cost, edges_cnt, path)
+            if u == dst:
+                return cost, list(path), modes_used
+            for v, allowed_lanes in neighbors(u):
+                # choose lane that gives minimal incremental cost; tie-breaker: smaller travel_time then lex mode
+                best_lane = min(allowed_lanes, key=lambda x: (x[1], x[0]))
+                mode, travel_time = best_lane
+                enter_delay = current_delay.get(v, 0)
+                new_cost = cost + travel_time + enter_delay
+                new_edges = edges_cnt + 1
+                new_path = path + (v,)
+                new_modes = set(modes_used)
+                new_modes.add(mode)
+                # tie-breaker handled by heap ordering: cost, edges_cnt, path tuple
+                heapq.heappush(pq, (new_cost, new_edges, new_path, v, frozenset(new_modes)))
+        return None
+
+    # Yen's algorithm for k-shortest simple paths using above dijkstra that respects current blocking and delays
+    def k_shortest_paths(src: int, dst: int, k: int):
+        first = dijkstra(src, dst)
+        if not first:
+            return []
+        A = [first]  # list of tuples (cost, path, modes_set)
+        B = []
+        for kth in range(1, k):
+            for i in range(len(A[-1][1]) - 1):
+                spur_node = A[-1][1][i]
+                root_path = A[-1][1][:i+1]
+                # backup modifications
+                removed_edges = []
+                removed_block = []
+                # remove edges that share same root_path
+                for (cost_p, path_p, modes_p) in A:
+                    if len(path_p) > i and tuple(path_p[:i+1]) == tuple(root_path):
+                        u = path_p[i]
+                        v = path_p[i+1]
+                        # remove edge u->v temporarily by marking all its lanes blocked at u or v via a special marker
+                        # We'll simulate by removing the edge from adj copy: but adj is global; to avoid heavy copy, we mark by adding a temporary block of all modes on that specific directed edge via a set keyed by (u,v)
+                        # Simpler: create a set of banned edge pairs for this spur computation.
+                        removed_edges.append((u, v))
+                # Also block nodes in root path except spur node to avoid loops
+                blocked_nodes_backup = {}
+                for rp_node in root_path[:-1]:
+                    if rp_node not in current_blocked:
+                        blocked_nodes_backup[rp_node] = set()
+                    else:
+                        blocked_nodes_backup[rp_node] = set(current_blocked.get(rp_node, set()))
+                    # block all modes at rp_node to prevent revisit
+                    current_blocked[rp_node] = set(modes_set)
+                # Define a local neighbors function that respects removed_edges
+                def neighbors_spur(u_local: int, removed_edges_set):
+                    for (v_local, lanes) in adj.get(u_local, []):
+                        if (u_local, v_local) in removed_edges_set:
+                            continue
+                        allowed = []
+                        for mode, travel_time, capacity in lanes:
+                            if edge_allowed_at_node(u_local, mode) and edge_allowed_at_node(v_local, mode):
+                                allowed.append((mode, travel_time))
+                        if allowed:
+                            yield v_local, allowed
+                # Run spur Dijkstra from spur_node to dst with removed_edges set
+                def dijkstra_spur(spur, removed_edges_set, root_path_tuple):
+                    pq = []
+                    heapq.heappush(pq, (0, 0, (spur,), spur, frozenset()))
+                    seen = {}
+                    while pq:
+                        cost, edges_cnt, path, u_cur, modes_used = heapq.heappop(pq)
+                        if (u_cur in seen) and (seen[u_cur] <= (cost, edges_cnt, path)):
+                            continue
+                        seen[u_cur] = (cost, edges_cnt, path)
+                        if u_cur == dst:
+                            return cost, list(path), modes_used
+                        for v_local, allowed_lanes in neighbors_spur(u_cur, removed_edges_set):
+                            best_lane = min(allowed_lanes, key=lambda x: (x[1], x[0]))
+                            mode, travel_time = best_lane
+                            enter_delay = current_delay.get(v_local, 0)
+                            new_cost = cost + travel_time + enter_delay
+                            new_edges = edges_cnt + 1
+                            new_path = path + (v_local,)
+                            new_modes = set(modes_used)
+                            new_modes.add(mode)
+                            heapq.heappush(pq, (new_cost, new_edges, new_path, v_local, frozenset(new_modes)))
+                    return None
+                removed_set = set(removed_edges)
+                spur_res = dijkstra_spur(spur_node, removed_set, tuple(root_path))
+                # restore blocked nodes
+                for nnode, bset in blocked_nodes_backup.items():
+                    current_blocked[nnode] = bset
+                if spur_res:
+                    spur_cost, spur_path, spur_modes = spur_res
+                    # total path = root_path without duplicate spur_node + spur_path
+                    total_path = list(root_path[:-1]) + spur_path
+                    # compute root cost: compute cost along root_path edges including enter delays (excluding src)
+                    root_cost = 0
+                    root_modes = set()
+                    for idx in range(len(root_path)-1):
+                        uu = root_path[idx]
+                        vv = root_path[idx+1]
+                        # find best lane for uu->vv under current blocking (we must consider original blocks prior to our temporary changes)
+                        # For simplicity, recompute allowed lanes ignoring removed_set (we already removed edges); but since we restored current_blocked we can use edge_allowed_at_node
+                        lanes_uv = None
+                        for (vtmp, lanes) in adj.get(uu, []):
+                            if vtmp == vv:
+                                lanes_uv = lanes
+                                break
+                        if not lanes_uv:
+                            root_cost = None
+                            break
+                        allowed_uv = []
+                        for mode, travel_time, capacity in lanes_uv:
+                            if edge_allowed_at_node(uu, mode) and edge_allowed_at_node(vv, mode):
+                                allowed_uv.append((mode, travel_time))
+                        if not allowed_uv:
+                            root_cost = None
+                            break
+                        mode_sel, travel_time_sel = min(allowed_uv, key=lambda x: (x[1], x[0]))
+                        root_cost += travel_time_sel + current_delay.get(vv, 0)
+                        root_modes.add(mode_sel)
+                    if root_cost is None:
+                        continue
+                    total_cost = root_cost + spur_cost
+                    total_modes = set(root_modes) | set(spur_modes)
+                    candidate = (total_cost, len(total_path)-1, total_path, frozenset(total_modes))
+                    if candidate not in B:
+                        heapq.heappush(B, candidate)
+            if not B:
+                break
+            # select smallest from B with tie-breakers (cost, edges, lex path)
+            B_sorted = []
+            while B:
+                B_sorted.append(heapq.heappop(B))
+            B_sorted.sort(key=lambda x: (x[0], x[1], tuple(x[2])))
+            next_path = B_sorted.pop(0)
+            # push back remaining
+            for it in B_sorted:
+                heapq.heappush(B, it)
+            A.append((next_path[0], next_path[2], next_path[3]))
+        # Format A into list of (cost, path, modes)
+        res = [(item[0], item[1], item[2]) for item in A[:k]]
+        return res
+
+    outputs = []
+    for q in queries:
+        if q.get("reset", False):
+            current_blocked = {n: set(m) for n, m in base_blocked_norm.items()}
+            current_delay = dict(base_delay)
+        # apply block/unblock
+        for b in q.get("block", []):
+            node = int(b["node"])
+            mode = b["mode"]
+            current_blocked.setdefault(node, set()).add(mode)
+        for ub in q.get("unblock", []):
+            node = int(ub["node"])
+            mode = ub["mode"]
+            current_blocked.setdefault(node, set())
+            current_blocked[node].discard(mode)
+        # apply delay updates
+        for du in q.get("delay_updates", []):
+            node = int(du["node"])
+            delta = int(du["delta"])
+            current_delay[node] = current_delay.get(node, 0) + delta
+        src = int(q["src"])
+        dst = int(q["dst"])
+        k = int(q.get("k", 1))
+        paths = k_shortest_paths(src, dst, k)
+        if not paths:
+            outputs.append({
+                "query": {"src": src, "dst": dst},
+                "alternative_routes": [],
+                "impact": "disconnected"
+            })
+        else:
+            routes = []
+            # Need for each route compute total_cost, max_delay, number_of_modes
+            # For total_cost and modes, we have in paths entries
+            # But our paths include cost that counted enter delays; that aligns.
+            # For max_delay, compute max node delay along path excluding source? Problem sample max_delay=2 equals max delay among nodes in path (likely includes destination). We'll take max of delays for nodes in path (excluding src).
+            total_cost = None
+            max_delay = 0
+            modes_union = set()
+            for cost, path, modes in paths:
+                routes.append(path)
+                if total_cost is None:
+                    total_cost = cost
+                else:
+                    # choose primary cost as cost of first path per sample; for multiple alternatives unclear; we'll use cost of first
+                    pass
+                for n in path[1:]:
+                    max_delay = max(max_delay, current_delay.get(n, 0))
+                modes_union |= set(modes)
+            impact_str = f"cost={int(total_cost)}; max_delay={int(max_delay)}; modes={len(modes_union)}"
+            outputs.append({
+                "query": {"src": src, "dst": dst},
+                "alternative_routes": routes,
+                "impact": impact_str
+            })
+    return outputs

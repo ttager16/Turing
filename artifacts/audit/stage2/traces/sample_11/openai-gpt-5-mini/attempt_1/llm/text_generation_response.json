@@ -1,0 +1,76 @@
+{
+  "id": "resp_0e397b7500daeb0b0069c31a7f2a2081969f272d6aa9e92bda",
+  "object": "response",
+  "created_at": 1774393983,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774394000,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0e397b7500daeb0b0069c31a7f7b388196b6b33ad165cf2db1",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0e397b7500daeb0b0069c31a7fb9788196aed33808c655b370",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\nimport math\nfrom collections import defaultdict, deque\n\ndef maximize_station_spacing(locations: List[List[int]],\n                             tiers: List[int],\n                             bridges: List[List[int]],\n                             R: int,\n                             k: int) -> float:\n    # Union-find for tiers\n    max_tier = max(tiers) if tiers else -1\n    parent = {}\n    def find(a):\n        if parent.setdefault(a, a) != a:\n            parent[a] = find(parent[a])\n        return parent[a]\n    def union(a,b):\n        ra, rb = find(a), find(b)\n        if ra!=rb:\n            parent[rb]=ra\n    for a,b in bridges:\n        union(a,b)\n    # Map each point to tier component id\n    comp_tier = [find(t) for t in tiers]\n    n = len(locations)\n    # Build movement graph components: edges between points with same tier-component and dist <= R\n    # Use grid hashing with cell size = R to find neighbors efficiently\n    if n < k:\n        return -1.0\n    cell_size = R\n    def cell_key(x,y,cs):\n        return (x//cs, y//cs)\n    cells = defaultdict(list)\n    for i,(x,y) in enumerate(locations):\n        cells[cell_key(x,y,cell_size)].append(i)\n    adj = [[] for _ in range(n)]\n    R2 = R*R\n    for (cx,cy), idxs in list(cells.items()):\n        for i in idxs:\n            xi, yi = locations[i]\n            for dx in (-1,0,1):\n                for dy in (-1,0,1):\n                    nbcell = (cx+dx, cy+dy)\n                    for j in cells.get(nbcell,()):\n                        if j<=i: continue\n                        if comp_tier[i]!=comp_tier[j]: continue\n                        xj,yj = locations[j]\n                        dxij = xi-xj; dyij = yi-yj\n                        if dxij*dxij+dyij*dyij <= R2:\n                            adj[i].append(j)\n                            adj[j].append(i)\n    # Find connected components in movement graph\n    comp_id = [-1]*n\n    comps = []\n    cid = 0\n    for i in range(n):\n        if comp_id[i]!=-1: continue\n        # BFS\n        q=[i]; comp_id[i]=cid\n        for u in q:\n            for v in adj[u]:\n                if comp_id[v]==-1:\n                    comp_id[v]=cid\n                    q.append(v)\n        comps.append(q)\n        cid+=1\n    # Only components with size >= k are usable\n    usable = [c for c in comps if len(c)>=k]\n    if not usable:\n        return -1.0\n    # For each component, we will attempt greedy maximal independent set with min distance D using grid of cell size = D\n    def can_with_D(D):\n        Df = float(D)\n        D2 = Df*Df\n        for comp in usable:\n            # greedy select points in comp to get k spaced by >=D\n            if len(comp) < k: continue\n            if D==0.0:\n                if len(comp) >= k:\n                    return True\n                continue\n            cs = Df\n            grid = {}\n            selected = 0\n            for i in comp:\n                x,y = locations[i]\n                gx = int(math.floor(x/cs))\n                gy = int(math.floor(y/cs))\n                ok = True\n                for dx in (-1,0,1):\n                    for dy in (-1,0,1):\n                        cell = (gx+dx, gy+dy)\n                        for j in grid.get(cell,()):\n                            dxij = x - locations[j][0]\n                            dyij = y - locations[j][1]\n                            if dxij*dxij + dyij*dyij < D2 - 1e-9:\n                                ok = False\n                                break\n                        if not ok:\n                            break\n                    if not ok:\n                        break\n                if ok:\n                    grid.setdefault((gx,gy), []).append(i)\n                    selected += 1\n                    if selected >= k:\n                        return True\n        return False\n\n    # Binary search over D in [0, max_possible]\n    # max_possible can be bounding box diagonal\n    xs = [p[0] for p in locations]; ys = [p[1] for p in locations]\n    maxd = math.hypot(max(xs)-min(xs), max(ys)-min(ys))\n    lo = 0.0; hi = maxd\n    # if can't even pick k with D=0 (should be true) check\n    if not can_with_D(0.0):\n        return -1.0\n    for _ in range(40):\n        mid = (lo+hi)/2\n        if can_with_D(mid):\n            lo = mid\n        else:\n            hi = mid\n    return lo"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1100,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1080,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2180
+  },
+  "user": null,
+  "metadata": {}
+}

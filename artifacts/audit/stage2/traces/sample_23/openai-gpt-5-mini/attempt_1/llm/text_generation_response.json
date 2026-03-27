@@ -1,0 +1,76 @@
+{
+  "id": "resp_0eeb00b6724f7e6e0069c31d9ec4e881a08bea12b444d7ba14",
+  "object": "response",
+  "created_at": 1774394782,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774394805,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0eeb00b6724f7e6e0069c31d9f424c81a0b27494b13cc509a3",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0eeb00b6724f7e6e0069c31d9f68d481a0865f5f0245df55a8",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\nimport collections\nimport heapq\n\n# Layer bit positions\nLAY_SOURCE = 120\nLAY_CONSUMER = 121\nLAY_FAULT = 122\nLAY_REACTIVE = 123\nLAY_BALANCED = 124\nLAY_FAILOVER = 125\nHEARTBEAT_OK = 126\nHEARTBEAT_FAIL = 127\n\nB = 128  # number of bits considered\n\ndef _get_bit(x: int, i: int) -> int:\n    return (x >> i) & 1\n\ndef _set_bit(x: int, i: int) -> int:\n    return x | (1 << i)\n\ndef _clear_bit(x: int, i: int) -> int:\n    return x & ~(1 << i)\n\ndef _count_bits_mask(mask: int, upto: int) -> int:\n    # count bits in [0..upto)\n    if upto <= 0:\n        return 0\n    m = mask & ((1 << upto) - 1)\n    return m.bit_count()\n\ndef _clone_list(lst: List[int]) -> List[int]:\n    return [int(x) for x in lst]\n\n# Min-cost max-flow on bipartite per-bit supply->demand with cost |i-j|\n# We'll implement successive shortest augmenting paths with potentials.\ndef _min_cost_max_flow(supply: List[int], demand: List[int]):\n    n = len(supply)\n    m = len(demand)\n    N = 2 + n + m  # source + sink + supply nodes + demand nodes\n    SRC = 0\n    SNK = N - 1\n    # build adjacency\n    adj = [[] for _ in range(N)]\n    def add_edge(u, v, cap, cost):\n        adj[u].append([v, cap, cost, len(adj[v])])\n        adj[v].append([u, 0, -cost, len(adj[u]) - 1])\n    # source to supplies\n    for i in range(n):\n        if supply[i] > 0:\n            add_edge(SRC, 1 + i, supply[i], 0)\n    # demands to sink\n    for j in range(m):\n        if demand[j] > 0:\n            add_edge(1 + n + j, SNK, demand[j], 0)\n    # connect supply i -> demand j with large capacity and cost |i-j|\n    for i in range(n):\n        if supply[i] == 0: continue\n        for j in range(m):\n            if demand[j] == 0: continue\n            add_edge(1 + i, 1 + n + j, 10**9, abs(i - j))\n    flow = 0\n    cost = 0\n    INF = 10**18\n    potential = [0]*N\n    while True:\n        dist = [INF]*N\n        inq = [False]*N\n        pv = [(-1, -1)]*N\n        dist[SRC] = 0\n        heap = [(0, SRC)]\n        while heap:\n            d,u = heapq.heappop(heap)\n            if d!=dist[u]: continue\n            for ei, e in enumerate(adj[u]):\n                v, cap, ecost, rev = e\n                if cap<=0: continue\n                nd = d + ecost + potential[u] - potential[v]\n                if nd < dist[v]:\n                    dist[v] = nd\n                    pv[v] = (u, ei)\n                    heapq.heappush(heap, (nd, v))\n        if dist[SNK] == INF:\n            break\n        for v in range(N):\n            if dist[v] < INF:\n                potential[v] += dist[v]\n        # augment\n        addf = INF\n        v = SNK\n        while v != SRC:\n            u, ei = pv[v]\n            if u == -1:\n                addf = 0\n                break\n            addf = min(addf, adj[u][ei][1])\n            v = u\n        if addf == 0 or addf == INF:\n            break\n        v = SNK\n        while v != SRC:\n            u, ei = pv[v]\n            e = adj[u][ei]\n            e[1] -= addf\n            adj[v][e[3]][1] += addf\n            cost += addf * e[2]\n            v = u\n        flow += addf\n    return flow, cost\n\ndef optimize_energy_distribution(\n    nodes: List[int],\n    energy_sources: List[int],\n    energy_consumers: List[int],\n) -> List[int]:\n    # Deterministic, idempotent, does not mutate inputs.\n    if not nodes and not energy_sources and not energy_consumers:\n        return []\n    n_nodes = len(nodes)\n    nodes_out = _clone_list(nodes)\n    # Per-bit counts across provided source and consumer lists for bits [0..B)\n    perbit_supply = [0]*B\n    perbit_demand = [0]*B\n    for s in energy_sources:\n        for i in range(B):\n            if _get_bit(s, i):\n                perbit_supply[i] += 1\n    for c in energy_consumers:\n        for i in range(B):\n            if _get_bit(c, i):\n                perbit_demand[i] += 1\n    # Heartbeat detection per node\n    failed_nodes = [False]*n_nodes\n    for idx, v in enumerate(nodes):\n        hb_ok = _get_bit(v, HEARTBEAT_OK)\n        hb_fail = _get_bit(v, HEARTBEAT_FAIL)\n        if hb_fail and not hb_ok:\n            failed_nodes[idx] = True\n    # Reduce supply uniformly when faults exist: proportional to failed node count\n    total_failed = sum(1 for f in failed_nodes if f)\n    if total_failed > 0:\n        # reduction factor: floor of half supply per failed node proportion, deterministic\n        # compute total supply counts and reduce each bit by floor(total_failed / max(1,nodes))\n        denom = max(1, n_nodes)\n        reduction = total_failed // denom\n        if reduction > 0:\n            for i in range(B):\n                if perbit_supply[i] > 0:\n                    perbit_supply[i] = max(0, perbit_supply[i] - reduction)\n    # Build bipartite flow between bits with supply>0 and demand>0\n    # We'll compress to only bits that have nonzero counts to keep graph small.\n    supply_bits = [i for i in range(B) if perbit_supply[i] > 0]\n    demand_bits = [j for j in range(B) if perbit_demand[j] > 0]\n    if not supply_bits and not demand_bits:\n        # nothing to do; return nodes unchanged but satisfy empty inputs rule\n        return nodes_out.copy()\n    # Map compressed indices\n    s_map = {b:i for i,b in enumerate(supply_bits)}\n    d_map = {b:i for i,b in enumerate(demand_bits)}\n    supply_list = [perbit_supply[b] for b in supply_bits]\n    demand_list = [perbit_demand[b] for b in demand_bits]\n    flow, cost = _min_cost_max_flow(supply_list, demand_list)\n    total_demand = sum(demand_list)\n    balanced = (flow >= total_demand)\n    # Deterministic projection: set layered flags based on results\n    # For each node, derive per-bit supply/demand counts from its mask bits.\n    # We'll set LAY_SOURCE if node contributes to any supply bit that was used,\n    # LAY_CONSUMER if it has any demand bit, LAY_FAILOVER if node healthy and balanced, etc.\n    # First compute which bits participated in flow: a simple heuristic:\n    active_supply_bits = set()\n    active_demand_bits = set()\n    # mark supplies that exist and demands that exist; if flow>0 mark all as active proportionally\n    # Deterministic: if balanced, all supply bits become active; else only first K supply bits where K = flow units distribution\n    if balanced:\n        active_supply_bits.update(supply_bits)\n        active_demand_bits.update(demand_bits)\n    else:\n        # allocate flow greedily from lower bit indices deterministically\n        remaining = flow\n        for b, cnt in sorted(zip(supply_bits, supply_list), key=lambda x: x[0]):\n            if remaining <= 0:\n                break\n            take = min(cnt, remaining)\n            if take > 0:\n                active_supply_bits.add(b)\n                remaining -= take\n        remaining = flow\n        for b, cnt in sorted(zip(demand_bits, demand_list), key=lambda x: x[0]):\n            if remaining <= 0:\n                break\n            take = min(cnt, remaining)\n            if take > 0:\n                active_demand_bits.add(b)\n                remaining -= take\n    # Update nodes_out deterministically\n    for idx, orig in enumerate(nodes_out):\n        v = orig\n        is_failed = failed_nodes[idx]\n        # clear layered bits first to make idempotent\n        for bit in (LAY_SOURCE, LAY_CONSUMER, LAY_FAULT, LAY_REACTIVE, LAY_BALANCED, LAY_FAILOVER):\n            v = _clear_bit(v, bit)\n        # Source/consumer marking based on node's own bits presence\n        # If node has any bit set that is in active_supply_bits => mark source\n        node_supply_contrib = False\n        node_demand_contrib = False\n        for b in supply_bits:\n            if _get_bit(orig, b) and b in active_supply_bits:\n                node_supply_contrib = True\n                break\n        for b in demand_bits:\n            if _get_bit(orig, b) and b in active_demand_bits:\n                node_demand_contrib = True\n                break\n        if node_supply_contrib:\n            v = _set_bit(v, LAY_SOURCE)\n        if node_demand_contrib:\n            v = _set_bit(v, LAY_CONSUMER)\n        # Fault flag: set if node failed or if any original high-order LAY_FAULT was present\n        if is_failed or _get_bit(orig, LAY_FAULT):\n            v = _set_bit(v, LAY_FAULT)\n        # Reactive: set if node had any reactive-like bits in lower half (heuristic: any bit in [0..32))\n        reactive = any(_get_bit(orig, i) for i in range(0, 32))\n        if reactive:\n            v = _set_bit(v, LAY_REACTIVE)\n        # Balanced: set if global balanced and node not failed and participates\n        if balanced and not is_failed and (node_supply_contrib or node_demand_contrib):\n            v = _set_bit(v, LAY_BALANCED)\n        # Failover: set if node not failed and global had failures (we enable failover globally)\n        if not is_failed and total_failed > 0:\n            v = _set_bit(v, LAY_FAILOVER)\n        # Clear balanced on failed nodes\n        if is_failed:\n            v = _clear_bit(v, LAY_BALANCED)\n        nodes_out[idx] = v\n    # Ensure function is idempotent: if applied again, result stays same.\n    return nodes_out.copy()"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1359,
+    "input_tokens_details": {
+      "cached_tokens": 1280
+    },
+    "output_tokens": 2420,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3779
+  },
+  "user": null,
+  "metadata": {}
+}

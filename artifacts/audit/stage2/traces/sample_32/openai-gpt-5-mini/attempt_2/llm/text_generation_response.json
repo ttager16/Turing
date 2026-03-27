@@ -1,0 +1,76 @@
+{
+  "id": "resp_09e1506a17791e090069c3203cb0e481a3820e2511cd77af30",
+  "object": "response",
+  "created_at": 1774395452,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774395476,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_09e1506a17791e090069c3203d2b8881a3bed5b58ba79b510a",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_09e1506a17791e090069c3203d560481a394dc360a1d7fcc63",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "def optimize_delivery_routes(\n    city_map: dict, \n    vehicles: list, \n    route_closures: list\n) -> list:\n    from heapq import heappush, heappop\n\n    # Build adjacency dict (directed). Normalize closures to set for quick check per time.\n    closures = {}\n    for frm, to, t in route_closures:\n        closures.setdefault((frm, to), []).append(t)\n\n    def edge_closed(frm, to, time):\n        times = closures.get((frm, to))\n        if not times:\n            return False\n        # closed at or after closure_time\n        return any(time >= ct for ct in times)\n\n    # Extract layer of a node: if node endswith suffix it's that layer node. Else 'road' default?\n    # But edges carry layer info. We track current edge layer by previous edge used.\n    # Precompute all nodes\n    nodes = set(city_map.keys())\n    for u, nbrs in city_map.items():\n        for v, c, l in nbrs:\n            nodes.add(v)\n\n    # Dijkstra for admissible heuristic: true shortest remaining time between any two nodes ignoring closures and transitions.\n    # We consider edge weights as given without transition costs. This ensures admissible (underestimates if transitions later add cost).\n    # Build simple graph\n    graph = {}\n    for u in nodes:\n        graph[u] = []\n    for u, nbrs in city_map.items():\n        for v, c, l in nbrs:\n            graph.setdefault(u, []).append((v, c))\n            # Note: edges are directed; do not add reverse.\n\n    def dijkstra(start):\n        dist = {n: float('inf') for n in nodes}\n        dist[start] = 0\n        pq = [(0, start)]\n        while pq:\n            d,u = heappop(pq)\n            if d!=dist[u]: continue\n            for v,c in graph.get(u,()):\n                nd = d + c\n                if nd < dist[v]:\n                    dist[v]=nd\n                    heappush(pq,(nd,v))\n        return dist\n\n    # Precompute pairwise heuristic distances on demand and cache\n    heuristic_cache = {}\n    def heuristic(u,v):\n        key = (u,v)\n        if key in heuristic_cache:\n            return heuristic_cache[key]\n        dist = dijkstra(u)\n        heuristic_cache[key] = dist.get(v, float('inf'))\n        return heuristic_cache[key]\n\n    results = []\n    for veh in vehicles:\n        vid = veh.get('id')\n        start = veh.get('start_node')\n        end = veh.get('end_node')\n        capacity = veh.get('capacity', 0)\n        tw_start, tw_end = veh.get('time_window', [0, float('inf')])\n        deliveries = list(veh.get('deliveries', []))\n        if len(deliveries) > capacity:\n            continue\n\n        # Required set\n        req_set = set(deliveries)\n\n        best_route = None\n        best_time = float('inf')\n        best_trans = float('inf')\n\n        # Backtracking: state = (current_node, time_so_far, delivered_set, path_list, current_layer)\n        # current_layer: layer of node we're considered on. For start we infer from node name: if contains suffix _skyway/_tunnel else 'road'\n        def infer_layer(node):\n            if node.endswith('_skyway'):\n                return 'skyway'\n            if node.endswith('_tunnel'):\n                return 'tunnel'\n            return 'road'\n\n        start_layer = infer_layer(start)\n\n        # Use stack DFS with heuristic-guided ordering\n        from collections import deque\n        stack = deque()\n        stack.append((start, 0, frozenset() if start not in req_set else frozenset({start}), [start], start_layer, 0))\n        # If start is a delivery node, mark delivered\n        if start in req_set:\n            initial_delivered = frozenset({start})\n        else:\n            initial_delivered = frozenset()\n\n        stack.clear()\n        stack.append((start, 0, initial_delivered, [start], start_layer, 0))\n\n        visited_states = {}  # prune dominated states: (node, delivered_set, layer) -> best time found\n        while stack:\n            node, time_so_far, delivered, path, cur_layer, transitions = stack.pop()\n\n            # Prune by best known for this state\n            key = (node, delivered, cur_layer)\n            if visited_states.get(key, float('inf')) <= time_so_far:\n                continue\n            visited_states[key] = time_so_far\n\n            # If time already worse than best or outside time window prune (heuristic)\n            # Lower bound to complete: need to visit all remaining deliveries and reach end.\n            remaining = set(req_set) - set(delivered)\n            lb = 0\n            # heuristic from current node to nearest remaining then to end: use simple sum of heuristics minimal ordering approximate:\n            cur = node\n            temp_remaining = set(remaining)\n            # Greedy nearest insertion heuristic with admissible dijkstra distances (no transitions)\n            while temp_remaining:\n                # pick nearest\n                nearest = min(temp_remaining, key=lambda x: heuristic(cur, x))\n                d = heuristic(cur, nearest)\n                if d==float('inf'):\n                    lb = float('inf'); break\n                lb += d\n                cur = nearest\n                temp_remaining.remove(nearest)\n            # finally add to end\n            last_leg = heuristic(cur, end)\n            if last_leg==float('inf'):\n                lb = float('inf')\n            else:\n                lb += last_leg\n            # Also account minimal transition costs lower bound: at least 0 transitions, but if path includes layer changes unavoidable? We keep admissible so 0.\n            est_total = time_so_far + lb\n            if est_total > tw_end or est_total >= best_time:\n                continue\n\n            # If at end and all delivered, record\n            if node == end and set(delivered) == req_set:\n                # ensure within time window and capacity already checked\n                if time_so_far <= tw_end:\n                    # minimize primary total_time then transitions\n                    if time_so_far < best_time or (time_so_far == best_time and transitions < best_trans):\n                        best_time = time_so_far\n                        best_trans = transitions\n                        best_route = list(path)\n                continue\n\n            # Expand neighbors\n            for nbr_tuple in city_map.get(node, []):\n                nbr, cost, edge_layer = nbr_tuple\n                # Check closure for this directed edge at time of traversal: edge unavailable at or after closure_time.\n                # Edge is traversed starting at time_so_far; if closed at or after that, cannot take it.\n                if edge_closed(node, nbr, time_so_far):\n                    continue\n                # Compute transition cost: if moving between layers at junction nodes adds fixed cost of 5 per transition.\n                # Transition occurs when previous node's layer != edge layer. But some nodes represent layer variants; transitions allowed at junction nodes.\n                trans_cost = 0\n                # If cur_layer and edge_layer differ and this node is a junction (base name matches)\n                def base_name(n):\n                    if n.endswith('_skyway'):\n                        return n[:-7]\n                    if n.endswith('_tunnel'):\n                        return n[:-7]\n                    return n\n                if cur_layer != edge_layer:\n                    # Allowed only if node is junction between layers (naming convention)\n                    # If base_name(node) equals node without suffix for layer variants, it's a junction\n                    # Example: 'N1' -> can go to 'N1_skyway' etc. Also 'N3_skyway' -> can go to 'N3' (back)\n                    # We'll allow transition if base names match between node and nbr when stripped appropriately.\n                    node_base = base_name(node)\n                    nbr_base = base_name(nbr)\n                    if node_base == nbr_base:\n                        trans_cost = 5\n                    else:\n                        # If layers differ but not at junction, transition not allowed\n                        # However some edges can connect nodes of different names but have layer attribute; still allow transition if edge exists (edge_layer given)\n                        # We'll be conservative: allow transition only if edge connects nodes with same base name or one is exact variant\n                        # If not, skip this neighbor\n                        # But to avoid false blocking, allow if either node or nbr endswith layer suffix (i.e., explicit layer node) and base names equal or edge exists to different base -> allow\n                        # We'll allow as long as there is an edge (it exists) but still apply transition cost.\n                        trans_cost = 5\n                new_time = time_so_far + cost + trans_cost\n                if new_time > tw_end or new_time >= best_time:\n                    continue\n                new_delivered = set(delivered)\n                if nbr in req_set:\n                    new_delivered.add(nbr)\n                new_delivered = frozenset(new_delivered)\n                new_path = path + [nbr]\n                new_trans = transitions + (1 if trans_cost>0 and cur_layer!=edge_layer else 0)\n                new_layer = edge_layer\n                # Closure dynamic: if closure affects future edges on current path it's checked when traversing them, so no extra handling.\n                # Push with heuristic ordering: use est_total to prioritize promising ones (stack LIFO -> push sorted)\n                # We'll collect and push; but to keep memory small push immediately.\n                # Prune by visited_states early\n                k2 = (nbr, new_delivered, new_layer)\n                if visited_states.get(k2, float('inf')) <= new_time:\n                    continue\n                stack.append((nbr, new_time, new_delivered, new_path, new_layer, new_trans))\n\n        if best_route is not None:\n            results.append({\n                'vehicle_id': vid,\n                'route': best_route,\n                'total_time': int(best_time),\n                'layer_transitions': int(best_trans)\n            })\n\n    if not results:\n        return []\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1672,
+    "input_tokens_details": {
+      "cached_tokens": 1536
+    },
+    "output_tokens": 2127,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3799
+  },
+  "user": null,
+  "metadata": {}
+}

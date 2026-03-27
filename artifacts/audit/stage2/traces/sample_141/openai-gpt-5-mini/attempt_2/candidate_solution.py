@@ -1,0 +1,158 @@
+def in_bounds(r, c):
+    return 0 <= r < 5 and 0 <= c < 5
+
+def pos_to_idx(p):
+    return (p[0], p[1])
+
+def grid_clone(grid):
+    return tuple(tuple(row) for row in grid)
+
+def make_elev_key(grid):
+    return tuple(tuple(row) for row in grid)
+
+def neighbors_builder_moves(builder_pos, scout_pos, grid_elev, unstable_set):
+    r0, c0 = builder_pos
+    res = []
+    for dr, dc in DIRS8:
+        r, c = r0 + dr, c0 + dc
+        if not in_bounds(r, c): continue
+        if (r, c) == scout_pos: continue
+        if (r, c) in unstable_set: continue
+        h_new = grid_elev[r][c]
+        h_old = grid_elev[r0][c0]
+        if h_new == 4: continue
+        cost = 1 + max(0, h_new - h_old)
+        res.append(((r, c), cost))
+    return res
+
+def builder_build_actions(builder_pos, grid_elev, unstable_set, scout_pos):
+    # After moving, builder can build on any adjacent square (including diagonals)
+    r0, c0 = builder_pos
+    res = []
+    for dr, dc in DIRS8:
+        r, c = r0 + dr, c0 + dc
+        if not in_bounds(r, c): continue
+        if (r, c) == scout_pos: continue
+        if (r, c) in unstable_set: continue
+        if grid_elev[r][c] >= 4: continue
+        # build increases elevation by 1, cost 2
+        res.append(((r, c), 2))
+    return res
+
+def scout_moves(scout_pos, builder_pos, grid_elev, unstable_set):
+    res = []
+    r0, c0 = scout_pos
+    for dr, dc in DIRS8_STRAIGHT:
+        for dist in (1,2):
+            r, c = r0 + dr*dist, c0 + dc*dist
+            if not in_bounds(r, c): break
+            path_clear = True
+            # check intermediate cells (for dist==2, the mid cell)
+            for step in range(1, dist+1):
+                rr, cc = r0 + dr*step, c0 + dc*step
+                if (rr, cc) == builder_pos:
+                    path_clear = False; break
+                if (rr, cc) in unstable_set:
+                    path_clear = False; break
+                if grid_elev[rr][cc] == 4:
+                    path_clear = False; break
+            if not path_clear:
+                if dist == 1:
+                    break
+                else:
+                    continue
+            h_init = grid_elev[r0][c0]
+            h_final = grid_elev[r][c]
+            move_cost = (1 + max(0, h_final - h_init)) * dist
+            res.append(((r, c), move_cost))
+    return res
+
+def scan_actions(scout_pos, grid_elev, unstable_set, builder_pos):
+    r0, c0 = scout_pos
+    res = []
+    for dr, dc in DIRS8:
+        r, c = r0 + dr, c0 + dc
+        if not in_bounds(r, c): continue
+        if (r, c) in unstable_set:
+            # scanning makes it stable; cost 3
+            res.append(( (r,c), 3 ))
+    return res
+
+def serialize_state(builder_pos, scout_pos, grid_elev, unstable_set):
+    # grid_elev is tuple of tuples
+    # unstable_set as frozenset of coords
+    return (builder_pos[0], builder_pos[1], scout_pos[0], scout_pos[1], grid_elev, tuple(sorted(unstable_set)))
+
+def calculate_min_power(grid: List[List[int]], builder_pos: List[int], scout_pos: List[int],
+                        unstable_cells: List[List[int]], target_pos: List[int]) -> float:
+    start_grid = tuple(tuple(row) for row in grid)
+    unstable_set_start = frozenset((r,c) for r,c in unstable_cells)
+    start_state = serialize_state((builder_pos[0], builder_pos[1]),
+                                  (scout_pos[0], scout_pos[1]),
+                                  start_grid,
+                                  unstable_set_start)
+    pq = []
+    heapq.heappush(pq, (0.0, start_state))
+    dist = {start_state: 0.0}
+    target = (target_pos[0], target_pos[1])
+    while pq:
+        cost_so_far, state = heapq.heappop(pq)
+        if dist.get(state, float('inf')) < cost_so_far:
+            continue
+        b_r, b_c, s_r, s_c, grid_elev, unstable_tpl = state
+        unstable_set = frozenset(unstable_tpl)
+        # If builder at target, can finalize if its cell is not unstable and height < =4? Finalize only requires being at target_pos.
+        if (b_r, b_c) == target:
+            # finalize cost 10, but must ensure builder's cell isn't unstable (can't occupy unstable) - already ensured
+            final_cost = cost_so_far + 10
+            return float(final_cost)
+        # Generate Builder moves
+        bpos = (b_r, b_c)
+        spos = (s_r, s_c)
+        # Builder can move; after moving, can optionally build adjacent (build is separate action that costs 2 and changes elevation)
+        for (new_bpos, move_cost) in neighbors_builder_moves(bpos, spos, grid_elev, unstable_set):
+            nb_r, nb_c = new_bpos
+            # move-only state (builder moved but didn't build)
+            new_grid = grid_elev
+            new_unstable = unstable_set
+            new_state = serialize_state((nb_r, nb_c), spos, new_grid, new_unstable)
+            new_cost = cost_so_far + move_cost
+            if new_cost < dist.get(new_state, float('inf')):
+                dist[new_state] = new_cost
+                heapq.heappush(pq, (new_cost, new_state))
+            # builder build actions from new position
+            build_actions = builder_build_actions((nb_r, nb_c), grid_elev, unstable_set, spos)
+            for (build_pos, build_cost) in build_actions:
+                br, bc = build_pos
+                # apply elevation +1
+                if grid_elev[br][bc] >= 4: continue
+                grid_list = [list(row) for row in grid_elev]
+                grid_list[br][bc] += 1
+                new_grid2 = tuple(tuple(row) for row in grid_list)
+                new_state2 = serialize_state((nb_r, nb_c), spos, new_grid2, unstable_set)
+                new_cost2 = cost_so_far + move_cost + build_cost
+                if new_cost2 < dist.get(new_state2, float('inf')):
+                    dist[new_state2] = new_cost2
+                    heapq.heappush(pq, (new_cost2, new_state2))
+        # Scout moves
+        scout_moves_list = scout_moves(spos, bpos, grid_elev, unstable_set)
+        for (new_spos, smove_cost) in scout_moves_list:
+            ns_r, ns_c = new_spos
+            new_state = serialize_state(bpos, (ns_r, ns_c), grid_elev, unstable_set)
+            new_cost = cost_so_far + smove_cost
+            if new_cost < dist.get(new_state, float('inf')):
+                dist[new_state] = new_cost
+                heapq.heappush(pq, (new_cost, new_state))
+        # Scout scan actions
+        scan_list = scan_actions(spos, grid_elev, unstable_set, bpos)
+        for (scanned_cell, scan_cost) in scan_list:
+            sr, sc = scanned_cell
+            new_unstable = set(unstable_set)
+            if (sr, sc) not in new_unstable: continue
+            new_unstable.remove((sr, sc))
+            new_state = serialize_state(bpos, spos, grid_elev, frozenset(new_unstable))
+            new_cost = cost_so_far + scan_cost
+            if new_cost < dist.get(new_state, float('inf')):
+                dist[new_state] = new_cost
+                heapq.heappush(pq, (new_cost, new_state))
+    return float('inf')

@@ -1,0 +1,76 @@
+{
+  "id": "resp_01bbe9ebec69fa6c0069c33b8ee1d881958e532f7bd5e1c375",
+  "object": "response",
+  "created_at": 1774402446,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774402460,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_01bbe9ebec69fa6c0069c33b8f5dc081959ebf52ed4873e89b",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_01bbe9ebec69fa6c0069c33b8f88708195b38e52964cab43f1",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import collections\nfrom typing import List\nfrom collections import deque\n\ndef design_metro_system(\n    demand_matrix: List[List[int]],\n    cost_matrix: List[List[int]],\n    budget: int,\n    max_avg_time: float\n) -> bool:\n    n = len(demand_matrix)\n    # Quick checks\n    total_demand = 0\n    for i in range(n):\n        for j in range(n):\n            total_demand += demand_matrix[i][j]\n    if total_demand == 0:\n        return True  # no passengers, trivially meets requirement\n    if budget <= 0:\n        # If any demand between different stations, impossible\n        for i in range(n):\n            for j in range(n):\n                if i != j and demand_matrix[i][j] > 0:\n                    return False\n        return True\n\n    # Candidate edges with benefit score:\n    # Estimate benefit of an edge (u,v) as demand served by making direct connection:\n    # sum over all pairs (i,j) of decreased hop count if edge added approximated by\n    # considering paths that go through u-v as 1 hop between u and v.\n    # Simpler heuristic: weight edge by total demand involving its endpoints.\n    edges = []\n    for i in range(n):\n        for j in range(i+1, n):\n            c = cost_matrix[i][j]\n            if c <= 0:\n                continue\n            demand_endpoints = 0\n            for k in range(n):\n                demand_endpoints += demand_matrix[i][k] + demand_matrix[k][i] + demand_matrix[j][k] + demand_matrix[k][j]\n            # avoid zero demand edges getting priority; add small epsilon\n            score = demand_endpoints / c\n            edges.append(( -score, c, i, j ))  # negative for sorting descending\n\n    edges.sort()\n    # Build graph greedily by score, but ensure we don't exceed budget.\n    built = [[0]*n for _ in range(n)]\n    remaining_budget = budget\n    for negscore, c, u, v in edges:\n        if c <= remaining_budget:\n            # add edge\n            built[u][v] = built[v][u] = 1\n            remaining_budget -= c\n\n    # After initial build, ensure connectivity for demanded pairs.\n    # If some demanded pair disconnected, try to add cheapest path edges between components.\n    def bfs_components(adj):\n        comp = [-1]*n\n        cid = 0\n        for i in range(n):\n            if comp[i] != -1:\n                continue\n            q = deque([i])\n            comp[i] = cid\n            while q:\n                x = q.popleft()\n                for y in range(n):\n                    if adj[x][y] and comp[y] == -1:\n                        comp[y] = cid\n                        q.append(y)\n            cid += 1\n        return comp, cid\n\n    adj = built\n    comp, comp_count = bfs_components(adj)\n    # Try to connect components with cheapest inter-component edges until either all demanded pairs in same comp or budget exhausted.\n    # Build list of potential inter-component edges sorted by cost\n    while True:\n        # Check if any demanded pair lies in different components\n        need_connection = False\n        for i in range(n):\n            for j in range(n):\n                if demand_matrix[i][j] > 0 and comp[i] != comp[j]:\n                    need_connection = True\n                    break\n            if need_connection:\n                break\n        if not need_connection:\n            break\n        # find cheapest edge connecting two different components\n        best = None\n        for i in range(n):\n            for j in range(i+1, n):\n                if comp[i] != comp[j]:\n                    c = cost_matrix[i][j]\n                    if c <= remaining_budget:\n                        if best is None or c < best[0]:\n                            best = (c, i, j)\n        if best is None:\n            return False\n        c, u, v = best\n        if c > remaining_budget:\n            return False\n        adj[u][v] = adj[v][u] = 1\n        remaining_budget -= c\n        comp, comp_count = bfs_components(adj)\n\n    # Now compute all-pairs shortest path lengths (in hops) using BFS from each node\n    dist = [[None]*n for _ in range(n)]\n    for s in range(n):\n        d = [-1]*n\n        q = deque([s])\n        d[s] = 0\n        while q:\n            x = q.popleft()\n            for y in range(n):\n                if adj[x][y] and d[y] == -1:\n                    d[y] = d[x] + 1\n                    q.append(y)\n        for t in range(n):\n            dist[s][t] = d[t]\n\n    # If any demanded pair unreachable, fail\n    total_time = 0\n    for i in range(n):\n        for j in range(n):\n            if demand_matrix[i][j] > 0:\n                if dist[i][j] == -1 or dist[i][j] is None:\n                    return False\n                total_time += demand_matrix[i][j] * dist[i][j]\n\n    avg_time = total_time / total_demand\n    return avg_time <= max_avg_time"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1685,
+    "input_tokens_details": {
+      "cached_tokens": 1664
+    },
+    "output_tokens": 1134,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2819
+  },
+  "user": null,
+  "metadata": {}
+}

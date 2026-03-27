@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN7gsYmvy9WjYj8yN17NWRKrctAya",
+  "object": "chat.completion",
+  "created": 1774403478,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"{\\\"S\\\": {\\\"neighbors\\\": [{\\\"node\\\": \\\"X\\\", \\\"energy_cost\\\": 5.0, \\\"travel_time\\\": 1.0}, {\\\"node\\\": \\\"Y\\\", \\\"energy_cost\\\": 1000000000.0, \\\"travel_time\\\": 100.0}], \\\"station_constraints\\\": {\\\"charge_rate\\\": 0.0, \\\"capacity\\\": 0, \\\"open_windows\\\": [[0, 24]]}}, \\\"X\\\": {\\\"neighbors\\\": [{\\\"node\\\": \\\"T\\\", \\\"energy_cost\\\": 5.0, \\\"travel_time\\\": 1.0}], \\\"station_constraints\\\": {\\\"charge_rate\\\": 0.0, \\\"capacity\\\": 0, \\\"open_windows\\\": [[0, 24]]}}, \\\"Y\\\": {\\\"neighbors\\\": [{\\\"node\\\": \\\"T\\\", \\\"energy_cost\\\": 1000000000.0, \\\"travel_time\\\": 100.0}], \\\"station_constraints\\\": {\\\"charge_rate\\\": 10.0, \\\"capacity\\\": 1, \\\"open_windows\\\": [[0, 24]]}}, \\\"T\\\": {\\\"neighbors\\\": [], \\\"station_constraints\\\": {\\\"charge_rate\\\": 0.0, \\\"capacity\\\": 0, \\\"open_windows\\\": [[0, 24]]}}}\",\n        \"\\\"S\\\"\",\n        \"\\\"T\\\"\",\n        \"6.0\"\n      ],\n      \"focus\": \"Unreachable due to all viable charging stations being offline and alternate routes having effectively infinite energy cost.\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"A\\\": {\\\"neighbors\\\": [{\\\"node\\\": \\\"B\\\", \\\"energy_cost\\\": 1.0, \\\"travel_time\\\": 1.0}], \\\"station_constraints\\\": {\\\"charge_rate\\\": 0.0, \\\"capacity\\\": 0, \\\"open_windows\\\": [[0, 24]]}}, \\\"B\\\": {\\\"neighbors\\\": [{\\\"node\\\": \\\"C\\\", \\\"energy_cost\\\": -2.0, \\\"travel_time\\\": 1.0}], \\\"station_constraints\\\": {\\\"charge_rate\\\": 0.0, \\\"capacity\\\": 0, \\\"open_windows\\\": [[0, 24]]}}, \\\"C\\\": {\\\"neighbors\\\": [{\\\"node\\\": \\\"A\\\", \\\"energy_cost\\\": 0.5, \\\"travel_time\\\": 1.0}, {\\\"node\\\": \\\"D\\\", \\\"energy_cost\\\": 4.0, \\\"travel_time\\\": 2.0}], \\\"station_constraints\\\": {\\\"charge_rate\\\": 0.0, \\\"capacity\\\": 0, \\\"open_windows\\\": [[0, 24]]}}, \\\"D\\\": {\\\"neighbors\\\": [], \\\"station_constraints\\\": {\\\"charge_rate\\\": 0.0, \\\"capacity\\\": 0, \\\"open_windows\\\": [[0, 24]]}}}\",\n        \"\\\"A\\\"\",\n        \"\\\"D\\\"\",\n        \"1.0\"\n      ],\n      \"focus\": \"Graph contains a negative-energy regeneration cycle that could be exploited; tests cycle detection and safeguards against infinite energy loops.\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"P\\\": {\\\"neighbors\\\": [{\\\"node\\\": \\\"Q\\\", \\\"energy_cost\\\": 0.0, \\\"travel_time\\\": 0.0}], \\\"station_constraints\\\": {}}, \\\"Q\\\": {\\\"neighbors\\\": [{\\\"node\\\": \\\"R\\\", \\\"energy_cost\\\": 2.0, \\\"travel_time\\\": -1.0}], \\\"station_constraints\\\": {\\\"charge_rate\\\": 5.0, \\\"capacity\\\": 1, \\\"open_windows\\\": [[25, 26]]}}, \\\"R\\\": {\\\"neighbors\\\": [], \\\"station_constraints\\\": {}}}\",\n        \"\\\"P\\\"\",\n        \"\\\"R\\\"\",\n        \"1.0\"\n      ],\n      \"focus\": \"Format-sensitive edge values: zero travel/energy and negative travel_time plus time-window requiring wait >24h — tests clamping and MAX_WAIT_TIME enforcement.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2733,
+    "completion_tokens": 3387,
+    "total_tokens": 6120,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2560,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

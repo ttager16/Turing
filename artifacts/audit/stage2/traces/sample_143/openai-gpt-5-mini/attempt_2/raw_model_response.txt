@@ -1,0 +1,192 @@
+import heapq
+from typing import List, Dict, Any, Optional
+
+def prioritized_topological_sort(n: int, edges: List[List[int]], importance: List[int]) -> Optional[Dict[str, Any]]:
+    # Input validation
+    if not isinstance(n, int):
+        return {'error': 'n must be an integer'}
+    if n < 1 or n > 100000:
+        return {'error': 'n out of range'}
+    if not isinstance(edges, list):
+        return {'error': 'edges must be a list of lists'}
+    for e in edges:
+        if not (isinstance(e, list) and len(e) == 2):
+            return {'error': 'edges must be a list of lists'}
+        u, v = e
+        if not (isinstance(u, int) and isinstance(v, int)):
+            return {'error': 'edge must be a list of two integers'}
+        if not (0 <= u < n) or not (0 <= v < n):
+            return {'error': 'node id out of range'}
+        if u == v:
+            # self-loop implies cycle; but still valid input structurally; will be detected as cycle later
+            pass
+    if not isinstance(importance, list) or any(not isinstance(x, int) for x in importance):
+        return {'error': 'importance must be a list of integers'}
+    if len(importance) != n:
+        return {'error': 'importance length mismatch'}
+
+    # Build adjacency with duplicate-edge canonicalization
+    adj = [[] for _ in range(n)]
+    out_deg = [0]*n
+    in_deg = [0]*n
+    seen_edges = set()
+    for u, v in edges:
+        if u == v:
+            # keep as edge (will create cycle); still add to seen to avoid duplicates
+            key = (u, v)
+        else:
+            key = (u, v)
+        if key in seen_edges:
+            continue
+        seen_edges.add(key)
+        adj[u].append(v)
+        out_deg[u] += 1
+        in_deg[v] += 1
+
+    # save original in/out degrees
+    in_degrees = in_deg.copy()
+    out_degrees = out_deg.copy()
+    num_sources = sum(1 for d in in_degrees if d == 0)
+    num_sinks = sum(1 for d in out_degrees if d == 0)
+
+    # Kahn's with priority: heap of [-importance, id] as lists per requirement
+    heap = []
+    for i in range(n):
+        if in_deg[i] == 0:
+            heapq.heappush(heap, [-importance[i], i])
+
+    max_parallel_frontier = len(heap)
+    frontier_max_importance_sum = sum(importance[i] for (_, i) in [(None, None)] if False)  # placeholder
+    # compute frontier_max_importance_sum properly by tracking current frontier sum
+    current_frontier_sum = sum(importance[i] for (_, i) in [])  # placeholder empty
+    # We'll maintain current_frontier_sum explicitly
+    current_frontier_sum = 0
+    # initialize based on initial heap
+    current_frontier_sum = sum(importance[item[1]] for item in heap)
+    frontier_max_importance_sum = current_frontier_sum
+
+    order = []
+    processed = 0
+    levels = [0]*n
+    # For longest path length and latest_levels we need longest distance to sink etc.
+    # We'll compute longest path via DP after getting topo order if DAG.
+    tie_breaks_count = 0
+
+    # We need deterministic tie count: when multiple available tasks share same importance, and chosen id is smallest among them.
+    # To detect tie when top two have same importance. But must count number of times a tie on importance among available tasks was resolved by choosing smaller id.
+    # Implementation: before popping, if heap size >=2 and top two have same -importance, and chosen id is smaller than second id, that's a tie-break only if importance equal.
+    # However need to detect if there exists any other with same importance and smaller id? The heap ordering with [-importance, id] ensures smallest id chosen among same importance. The tie is when there exists at least one other with same importance and different id -> count if chosen id != max id? Simpler: if heap size>=2 and (-heap[0][0]) == (-heap[1][0]) then tie occurred and since we choose smallest id by heap ordering, increment tie_breaks_count if heap[0][1] < heap[1][1] or generally whenever equal importance and there is any with id != chosen id. We'll count tie when heap size>=2 and importance equal and there exists any with same importance and id > chosen id? That counts every selection where multiple share importance.
+    # We'll implement: if heap size>=2 and (-heap[0][0]) == (-heap[1][0]) then tie_breaks_count +=1
+
+    while heap:
+        if len(heap) >= 2:
+            if -heap[0][0] == -heap[1][0]:
+                tie_breaks_count += 1
+        # pop
+        imp_neg, u = heapq.heappop(heap)
+        order.append(u)
+        processed += 1
+        # update frontier sums: removing u
+        current_frontier_sum -= importance[u]
+        # process neighbors
+        for v in adj[u]:
+            in_deg[v] -= 1
+            if in_deg[v] == 0:
+                # set level of v to max(current, levels[u]+1)
+                new_level = levels[u] + 1
+                if new_level > levels[v]:
+                    levels[v] = new_level
+                heapq.heappush(heap, [-importance[v], v])
+                current_frontier_sum += importance[v]
+        # update stats
+        if len(heap) > max_parallel_frontier:
+            max_parallel_frontier = len(heap)
+        if current_frontier_sum > frontier_max_importance_sum:
+            frontier_max_importance_sum = current_frontier_sum
+
+    if processed < n:
+        return None
+
+    # priority_score
+    priority_score = 0
+    for idx, node in enumerate(order):
+        priority_score += importance[node] * (n - idx)
+
+    # level widths
+    max_level = max(levels) if levels else 0
+    level_widths = [0]*(max_level+1)
+    for lv in levels:
+        level_widths[lv] += 1
+
+    # topo_positions
+    topo_positions = [0]*n
+    for idx, node in enumerate(order):
+        topo_positions[node] = idx
+
+    # cumulative_importance_prefix
+    cumulative = []
+    s = 0
+    for node in order:
+        s += importance[node]
+        cumulative.append(s)
+
+    # longest_path_length: length in edges of longest directed path
+    # compute longest distance from sources via order
+    dist = [-10**18]*n
+    for i in range(n):
+        if in_degrees[i] == 0:
+            dist[i] = 0
+    for u in order:
+        if dist[u] < -1e17:
+            dist[u] = 0
+        for v in adj[u]:
+            if dist[v] < dist[u] + 1:
+                dist[v] = dist[u] + 1
+    longest_path_length = 0 if n==0 else max(dist)
+    if longest_path_length < 0:
+        longest_path_length = 0
+
+    # compute longest distance to any sink (for latest_levels)
+    rev_adj = [[] for _ in range(n)]
+    for u in range(n):
+        for v in adj[u]:
+            rev_adj[v].append(u)
+    dist_to_sink = [-10**18]*n
+    for i in range(n):
+        if out_degrees[i] == 0:
+            dist_to_sink[i] = 0
+    # process in reverse topo order
+    for u in reversed(order):
+        if dist_to_sink[u] < -1e17:
+            dist_to_sink[u] = 0
+        for v in adj[u]:
+            # u -> v, so distance to sink from u can be 1 + dist_to_sink[v]
+            if dist_to_sink[v] + 1 > dist_to_sink[u]:
+                dist_to_sink[u] = dist_to_sink[v] + 1
+    makespan = longest_path_length
+    latest_levels = [0]*n
+    for i in range(n):
+        latest_levels[i] = makespan - dist_to_sink[i]
+    slack = [latest_levels[i] - levels[i] for i in range(n)]
+
+    statistics = {
+        'is_dag': True,
+        'processed_count': processed,
+        'max_parallel_frontier': max_parallel_frontier,
+        'priority_score': priority_score,
+        'levels': levels,
+        'longest_path_length': longest_path_length,
+        'num_sources': num_sources,
+        'num_sinks': num_sinks,
+        'in_degrees': in_degrees,
+        'out_degrees': out_degrees,
+        'level_widths': level_widths,
+        'latest_levels': latest_levels,
+        'slack': slack,
+        'topo_positions': topo_positions,
+        'cumulative_importance_prefix': cumulative,
+        'frontier_max_importance_sum': frontier_max_importance_sum,
+        'tie_breaks_count': tie_breaks_count
+    }
+
+    return {'order': order, 'statistics': statistics}

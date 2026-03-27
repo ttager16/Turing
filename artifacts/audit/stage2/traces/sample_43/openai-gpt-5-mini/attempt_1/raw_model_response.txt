@@ -1,0 +1,285 @@
+import logging
+from typing import Dict, List, Union
+
+def optimize_drone_routes(
+    drones: List[Dict],
+    destinations: List[Dict],
+    weather_data: Dict,
+    traffic_data: Dict
+) -> Dict[str, List[Union[str, Dict]]]:
+    # Prepare output skeleton
+    out = {d['id']: [] for d in drones}
+    if not drones:
+        return {}
+    if not destinations:
+        return out
+
+    # Helper functions
+    def fuel_required_for(priority: int, workload: int):
+        return 20.0 * (1.0 + (priority - 1) * 0.15) * (1.0 + workload * 0.1)
+
+    # Environmental constraints
+    current_wind = weather_data.get('current', {}).get('wind_speed', 0.0)
+    forecast = weather_data.get('forecast', [])
+    # Build a map: for each drone whether forecast ever exceeds tolerance
+    # hubs availability
+    hub_connectivity = traffic_data.get('hub_connectivity') or {}
+    restricted_now = set(weather_data.get('current', {}).get('restricted_zones', []))
+    # hubs available = keys not in restricted_now
+    available_hubs = [h for h in hub_connectivity.keys() if h not in restricted_now]
+    # if hub_connectivity empty -> no hubs
+    if not hub_connectivity:
+        available_hubs = []
+    # pick best hub by most connections, tie alphabetically
+    def pick_hub():
+        if not available_hubs:
+            return None
+        best = None
+        best_count = -1
+        for h in sorted(available_hubs):
+            cnt = len(hub_connectivity.get(h, []))
+            if cnt > best_count or (cnt == best_count and (best is None or h < best)):
+                best = h
+                best_count = cnt
+        return best
+
+    best_hub = pick_hub()
+
+    # Traffic congestion check
+    air_lanes = traffic_data.get('air_lanes', [])
+    congestion_levels = [lane.get('congestion_level', '').lower() for lane in air_lanes]
+    traffic_limits_one = any(l in ('high', 'medium') for l in congestion_levels)
+
+    # Prepare drone state
+    drones_state = {}
+    for d in drones:
+        did = d['id']
+        fuel_level = float(d.get('fuel_level', 0.0))
+        max_fuel = float(d.get('max_fuel', 0.0))
+        wind_tol = float(d.get('wind_tolerance', 0.0))
+        # grounded if current wind > tolerance + 3.0
+        grounded = current_wind > (wind_tol + 3.0)
+        # forecast limit: if any forecast wind > tolerance then limited to 1 delivery
+        forecast_limit = False
+        for f in forecast:
+            if f.get('wind_speed', 0.0) > wind_tol:
+                forecast_limit = True
+                break
+        drones_state[did] = {
+            'id': did,
+            'fuel_level': fuel_level,
+            'max_fuel': max_fuel,
+            'wind_tolerance': wind_tol,
+            'grounded': grounded,
+            'forecast_limit': forecast_limit,
+            'workload': 0,
+            'assigned': [],
+            'refueled': False  # whether they performed refuel before first delivery
+        }
+
+    # Sort destinations by priority then penalty desc
+    dests = sorted(destinations, key=lambda x: (x.get('priority', 999), -x.get('penalty', 0)))
+    # group by priority numeric order: but problem wants 1 then 2 then 3+. Above sorts 1,2,3...
+    # Iterate destinations
+    for dest in dests:
+        dest_id = dest['id']
+        priority = int(dest.get('priority', 3))
+        penalty = dest.get('penalty', 0)
+        # Filter operational drones: not grounded and fuel_level > 0
+        candidates = []
+        for s in drones_state.values():
+            if s['grounded']:
+                continue
+            if s['fuel_level'] <= 0 and s['max_fuel'] <= 0:
+                continue
+            # Also enforce delivery limits due to weather forecast or traffic: but that is applied later via workload constraints
+            candidates.append(s)
+        if not candidates:
+            # no available drones
+            continue
+
+        # For each candidate compute fuel_required given current workload
+        cand_list = []
+        for s in candidates:
+            fr = fuel_required_for(priority, s['workload'])
+            cand_list.append((s, fr))
+        # Step1 Filter by fuel capability: include if fuel_level >= fuel_required OR max_fuel >= fuel_required
+        cand_list = [(s, fr) for (s, fr) in cand_list if (s['fuel_level'] >= fr) or (s['max_fuel'] >= fr)]
+        if not cand_list:
+            continue
+
+        # Step2 Filter by workload
+        workloads = [s['workload'] for (s, _) in cand_list]
+        min_workload = min(workloads) if workloads else 0
+        if priority in (1, 2):
+            cand_list = [(s, fr) for (s, fr) in cand_list if s['workload'] <= min_workload + 1]
+        else:
+            cand_list = [(s, fr) for (s, fr) in cand_list if s['workload'] == min_workload]
+        if not cand_list:
+            continue
+
+        # Step3 Categorize by Refueling Need using Standard Case only:
+        needing_refuel = []
+        not_needing_refuel = []
+        for s, fr in cand_list:
+            fuel_percentage = (s['fuel_level'] / s['max_fuel'] * 100.0) if s['max_fuel'] > 0 else 0.0
+            needs = (fuel_percentage <= 60.0) or (s['fuel_level'] < fr)
+            if needs:
+                needing_refuel.append((s, fr, fuel_percentage))
+            else:
+                not_needing_refuel.append((s, fr, fuel_percentage))
+
+        # Step4 Select best drone per priority rules
+        selected = None
+        selected_fr = None
+        if priority == 1:
+            if needing_refuel:
+                # select min by (-wind_tolerance, -fuel_percentage, drone_id) => equivalently max wind_tolerance, max fuel_percentage, then min drone_id
+                # implement deterministic sort
+                needing_refuel_sorted = sorted(needing_refuel, key=lambda x: (-x[0]['wind_tolerance'], -x[2], x[0]['id']))
+                selected, selected_fr, _ = needing_refuel_sorted[0]
+            else:
+                all_sorted = sorted(cand_list, key=lambda x: (-x[0]['fuel_level'], x[0]['id']))
+                selected, selected_fr = all_sorted[0]
+        elif priority == 2:
+            if needing_refuel:
+                needing_refuel_sorted = sorted(needing_refuel, key=lambda x: (x[2], x[0]['id']))
+                selected, selected_fr, _ = needing_refuel_sorted[0]
+            else:
+                all_sorted = sorted(cand_list, key=lambda x: (-x[0]['fuel_level'], x[0]['id']))
+                selected, selected_fr = all_sorted[0]
+        else:
+            if not_needing_refuel:
+                sorted_nn = sorted(not_needing_refuel, key=lambda x: (-x[0]['fuel_level'], x[0]['id']))
+                selected, selected_fr, _ = sorted_nn[0]
+            else:
+                if needing_refuel:
+                    sorted_n = sorted(needing_refuel, key=lambda x: (-x[0]['fuel_level'], x[0]['id']))
+                    selected, selected_fr, _ = sorted_n[0]
+                else:
+                    continue  # no candidate
+
+        # Before finalizing assignment, apply limits:
+        # If forecast predicts wind exceeding tolerance at any future time, limit that drone to max 1 delivery.
+        # If traffic_limits_one: limit all drones to max 1 delivery.
+        # So check if selected already at capacity
+        if selected is None:
+            continue
+        cap_limit = None
+        if selected['forecast_limit'] and True:
+            cap_limit = 1
+        if traffic_limits_one:
+            cap_limit = 1
+        if cap_limit is not None and selected['workload'] >= cap_limit:
+            # cannot assign this drone; try to find next candidate following same selection fallback order
+            # Build list of ordered candidates per same rule and iterate
+            if priority == 1:
+                ordered = []
+                if needing_refuel:
+                    ordered = [x[0] for x in sorted(needing_refuel, key=lambda x: (-x[0]['wind_tolerance'], -x[2], x[0]['id']))]
+                else:
+                    ordered = [x[0] for x in sorted(cand_list, key=lambda x: (-x[0]['fuel_level'], x[0]['id']))]
+            elif priority == 2:
+                if needing_refuel:
+                    ordered = [x[0] for x in sorted(needing_refuel, key=lambda x: (x[2], x[0]['id']))]
+                else:
+                    ordered = [x[0] for x in sorted(cand_list, key=lambda x: (-x[0]['fuel_level'], x[0]['id']))]
+            else:
+                if not_needing_refuel:
+                    ordered = [x[0] for x in sorted(not_needing_refuel, key=lambda x: (-x[0]['fuel_level'], x[0]['id']))]
+                else:
+                    ordered = [x[0] for x in sorted(needing_refuel, key=lambda x: (-x[0]['fuel_level'], x[0]['id']))]
+            found = False
+            for cand in ordered:
+                cap = None
+                if cand['forecast_limit']:
+                    cap = 1
+                if traffic_limits_one:
+                    cap = 1
+                if cap is not None and cand['workload'] >= cap:
+                    continue
+                # also ensure still fuel capability for this dest
+                fr = fuel_required_for(priority, cand['workload'])
+                if not ((cand['fuel_level'] >= fr) or (cand['max_fuel'] >= fr)):
+                    continue
+                selected = cand
+                selected_fr = fr
+                found = True
+                break
+            if not found:
+                continue  # skip dest
+
+        # Determine whether to refuel before first delivery using Exception vs Standard rules
+        # Exception: forecast_limit AND traffic_limits_one
+        exception_case = (selected['forecast_limit'] and traffic_limits_one)
+        fuel_percentage = (selected['fuel_level'] / selected['max_fuel'] * 100.0) if selected['max_fuel'] > 0 else 0.0
+        fr_needed = selected_fr if selected_fr is not None else fuel_required_for(priority, selected['workload'])
+        do_refuel = False
+        if exception_case:
+            if selected['fuel_level'] < fr_needed:
+                do_refuel = True
+            elif abs(fuel_percentage - 50.0) < 1e-9:
+                do_refuel = False
+            elif fuel_percentage < 50.0:
+                do_refuel = True
+            elif fuel_percentage <= 60.0:
+                do_refuel = True
+            else:
+                do_refuel = False
+        else:
+            if (fuel_percentage <= 60.0) or (selected['fuel_level'] < fr_needed):
+                do_refuel = True
+            else:
+                do_refuel = False
+
+        # If refuel needed but no hubs available: only allow if fuel_level >= fr_needed (cannot refuel)
+        if do_refuel and not best_hub:
+            if selected['fuel_level'] < fr_needed:
+                # cannot assign this drone; try to find alternative candidate (simpler: skip assignment)
+                # Try to find another suitable drone from candidates not yet at cap that can do without refuel
+                alt_found = False
+                for s, fr in cand_list:
+                    if s['id'] == selected['id']:
+                        continue
+                    # check cap
+                    cap = None
+                    if s['forecast_limit']:
+                        cap = 1
+                    if traffic_limits_one:
+                        cap = 1
+                    if cap is not None and s['workload'] >= cap:
+                        continue
+                    # compute standard refuel need
+                    fp = (s['fuel_level'] / s['max_fuel'] * 100.0) if s['max_fuel'] > 0 else 0.0
+                    needs_ref = (fp <= 60.0) or (s['fuel_level'] < fr)
+                    # we require that either s can do without refuel or can refuel (but no hubs => must do without)
+                    if s['fuel_level'] >= fr:
+                        selected = s
+                        selected_fr = fr
+                        do_refuel = False
+                        alt_found = True
+                        break
+                if not alt_found:
+                    continue  # skip dest
+
+        # If do_refuel and hub available, add refuel stop (only if not already refueled by this drone)
+        if do_refuel and best_hub:
+            # perform refuel: set fuel_level to max_fuel
+            selected['fuel_level'] = selected['max_fuel']
+            selected['refueled'] = True
+            out[selected['id']].append({'hub': best_hub, 'refuel': True})
+
+        # Assign destination
+        out[selected['id']].append(dest_id)
+        # Deduct fuel for this delivery
+        fr_after = fuel_required_for(priority, selected['workload'])
+        selected['fuel_level'] = max(0.0, selected['fuel_level'] - fr_after)
+        selected['workload'] += 1
+        selected['assigned'].append(dest_id)
+
+    # Ensure drones that are grounded have empty routes (they already may have none)
+    for s in drones_state.values():
+        if s['grounded']:
+            out[s['id']] = []
+
+    return out

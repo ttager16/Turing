@@ -1,0 +1,76 @@
+{
+  "id": "resp_0aafd6b1bfc63e670069c32f1e69b0819ebc04f30b6d78b0d0",
+  "object": "response",
+  "created_at": 1774399262,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774399274,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0aafd6b1bfc63e670069c32f1ec8fc819e9d6abb58e6d36b0b",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0aafd6b1bfc63e670069c32f1f03a8819ea1930f14edb0e620",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Union\n\ndef manage_inventory(operations: List[List[Union[str, int]]]) -> List[int]:\n    # 1-based Fenwick tree with dynamic resizing\n    tree: List[int] = [0]  # index 0 unused\n    vals: List[int] = [0]  # index 0 unused, store actual values per position\n    res: List[int] = []\n\n    def _ensure_size(n: int):\n        # ensure tree and vals length >= n+1\n        cur = len(tree) - 1\n        if n <= cur:\n            return\n        # grow by doubling until enough to amortize costs\n        new_size = max(n, max(2 * cur, 1))\n        tree.extend([0] * (new_size - cur))\n        vals.extend([0] * (new_size - cur))\n\n    def _bit_add(idx: int, delta: int):\n        n = len(tree) - 1\n        while idx <= n:\n            tree[idx] += delta\n            idx += idx & -idx\n\n    def _prefix_sum(idx: int) -> int:\n        if idx <= 0:\n            return 0\n        if idx > len(tree) - 1:\n            idx = len(tree) - 1\n        s = 0\n        while idx > 0:\n            s += tree[idx]\n            idx -= idx & -idx\n        return s\n\n    for op in operations:\n        if not op:\n            continue\n        cmd = op[0]\n        if cmd == \"add\":\n            if len(op) < 2:\n                continue\n            val = int(op[1])\n            # Prevent storing values that would be extremely large? Allow but ensure ints (Python big ints ok)\n            pos = len(vals)  # next index\n            _ensure_size(pos)\n            vals[pos] = val\n            _bit_add(pos, val)\n        elif cmd == \"remove\":\n            if len(op) < 2:\n                continue\n            idx = int(op[1])\n            if 1 <= idx < len(vals):\n                cur = vals[idx]\n                if cur != 0:\n                    # remove value\n                    _bit_add(idx, -cur)\n                    vals[idx] = 0\n                # Optionally shrink arrays if tail zeros - shrink while last is zero to maintain compactness\n                # Do not shrink below 1\n                # Efficiently shrink contiguous zero tail\n                last = len(vals) - 1\n                while last >= 1 and vals[last] == 0:\n                    last -= 1\n                # last is new true last index\n                new_len = last + 1\n                if new_len < len(vals):\n                    # rebuild tree to new_len to keep structure consistent\n                    # Create fresh tree and vals copy\n                    vals = vals[: new_len]\n                    tree = [0] * new_len\n                    # rebuild BIT from vals\n                    for i in range(1, new_len):\n                        v = vals[i]\n                        if v:\n                            j = i\n                            while j < new_len:\n                                tree[j] += v\n                                j += j & -j\n        elif cmd == \"update\":\n            if len(op) < 3:\n                continue\n            idx = int(op[1])\n            delta = int(op[2])\n            if 1 <= idx < len(vals):\n                new_val = vals[idx] + delta\n                # prevent negative stock propagation: ignore updates that would make value negative\n                if new_val < 0:\n                    continue\n                vals[idx] = new_val\n                _bit_add(idx, delta)\n        elif cmd == \"query\":\n            if len(op) < 2:\n                res.append(0)\n                continue\n            idx = int(op[1])\n            if idx <= 0:\n                res.append(0)\n            else:\n                # cap idx to current max index\n                max_idx = len(vals) - 1\n                if idx > max_idx:\n                    idx = max_idx\n                res.append(_prefix_sum(idx))\n        else:\n            # unknown command: ignore\n            continue\n\n    return res"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1026,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 882,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1908
+  },
+  "user": null,
+  "metadata": {}
+}

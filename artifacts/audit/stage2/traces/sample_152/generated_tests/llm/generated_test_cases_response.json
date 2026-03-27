@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN877pROkmw4THx3Rn9yMjxdeY7ZM",
+  "object": "chat.completion",
+  "created": 1774405105,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"1e-16\",\"0.0\",\"5\",\"0.0\"],\"focus\":\"division-safety-small-alpha-beta-sum\"},{\"input_lines\":[\"10.0\",\"0.5\",\"30\",\"1.0\"],\"focus\":\"boundary-x-one-coefficient-sum-high-degree\"},{\"input_lines\":[\"-0.999999\",\"0.123456789\",\"3\",\"-1.0\"],\"focus\":\"alpha-near-minus-one-format-sensitive-x-minus-one\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2652,
+    "completion_tokens": 1907,
+    "total_tokens": 4559,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1792,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

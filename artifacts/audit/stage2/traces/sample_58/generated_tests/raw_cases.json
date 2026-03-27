@@ -1,0 +1,62 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [],
+      [
+        10,
+        20,
+        30
+      ]
+    ],
+    "input_lines": [
+      "[]",
+      "[10, 20, 30]"
+    ],
+    "focus": "Empty processors list (rule 24): ensure function returns the mandated empty/zero-shaped result when no processors are provided."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        5,
+        0,
+        5,
+        10
+      ],
+      []
+    ],
+    "input_lines": [
+      "[5, 0, 5, 10]",
+      "[]"
+    ],
+    "focus": "Non-empty processors with empty task list (rule 25): preserves initial loads, single snapshot in load_history, and zero tasks handling."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        0,
+        9990,
+        5000
+      ],
+      [
+        0,
+        1,
+        1,
+        2,
+        2,
+        2,
+        50,
+        50,
+        100,
+        100
+      ]
+    ],
+    "input_lines": [
+      "[0, 9990, 5000]",
+      "[0, 1, 1, 2, 2, 2, 50, 50, 100, 100]"
+    ],
+    "focus": "Format- and tie-sensitive case: includes zero-cost tasks and many duplicate sizes to exercise priority tie-breakers, locality/affinity scoring, and deterministic assignment behavior."
+  }
+]

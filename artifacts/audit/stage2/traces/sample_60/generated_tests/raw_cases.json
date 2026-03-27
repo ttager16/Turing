@@ -1,0 +1,159 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        [
+          "insert",
+          100
+        ],
+        [
+          "insert",
+          100
+        ],
+        [
+          "bulk_insert",
+          100
+        ],
+        [
+          "query",
+          100
+        ],
+        [
+          "rollback",
+          2
+        ],
+        [
+          "query",
+          100
+        ],
+        [
+          "delete",
+          100
+        ],
+        [
+          "query",
+          100
+        ],
+        [
+          "rollback",
+          1
+        ],
+        [
+          "query",
+          100
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[\"insert\", 100], [\"insert\", 100], [\"bulk_insert\", 100], [\"query\", 100], [\"rollback\", 2], [\"query\", 100], [\"delete\", 100], [\"query\", 100], [\"rollback\", 1], [\"query\", 100]]"
+    ],
+    "focus": "Duplicates, bulk insert around the same value, repeated rollbacks and deletes to exercise instance-level removals and rollback ordering."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        [
+          "insert",
+          -10
+        ],
+        [
+          "insert",
+          0
+        ],
+        [
+          "insert",
+          5
+        ],
+        [
+          "query",
+          -10
+        ],
+        [
+          "rollback",
+          3
+        ],
+        [
+          "query",
+          0
+        ],
+        [
+          "bulk_insert",
+          0
+        ],
+        [
+          "query",
+          1
+        ],
+        [
+          "delete",
+          0
+        ],
+        [
+          "query",
+          1
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[\"insert\", -10], [\"insert\", 0], [\"insert\", 5], [\"query\", -10], [\"rollback\", 3], [\"query\", 0], [\"bulk_insert\", 0], [\"query\", 1], [\"delete\", 0], [\"query\", 1]]"
+    ],
+    "focus": "Negative and zero prices, full rollback of recent history, then bulk insert at zero and deletes — edge cases for zero/negative handling and rollbacks that remove multiple operations."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        [
+          "query",
+          1000
+        ],
+        [
+          "insert",
+          1
+        ],
+        [
+          "insert",
+          2
+        ],
+        [
+          "insert",
+          3
+        ],
+        [
+          "bulk_insert",
+          1000000
+        ],
+        [
+          "query",
+          999999
+        ],
+        [
+          "delete",
+          2
+        ],
+        [
+          "rollback",
+          2
+        ],
+        [
+          "query",
+          2
+        ],
+        [
+          "rollback",
+          10
+        ],
+        [
+          "query",
+          1000000
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[\"query\", 1000], [\"insert\", 1], [\"insert\", 2], [\"insert\", 3], [\"bulk_insert\", 1000000], [\"query\", 999999], [\"delete\", 2], [\"rollback\", 2], [\"query\", 2], [\"rollback\", 10], [\"query\", 1000000]]"
+    ],
+    "focus": "Format-sensitive large values and queries on an initially empty structure, deletes and rollbacks (including rollback exceeding history) to test robustness under extreme/large inputs."
+  }
+]

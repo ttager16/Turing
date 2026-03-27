@@ -1,0 +1,76 @@
+{
+  "id": "resp_015f59e2c2d4a4550069c32ac65b5c819280676f25c86068fb",
+  "object": "response",
+  "created_at": 1774398150,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398157,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_015f59e2c2d4a4550069c32ac69bdc8192a00663554cf32682",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_015f59e2c2d4a4550069c32ac6c3b48192ab13459c64a7b191",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\nimport collections, collections.abc\n\ndef manage_trust_relationships(participants: List[str], operations: List[List[str]]) -> List[bool]:\n    # Validation of participants\n    if participants is None or operations is None:\n        return []\n    if not isinstance(participants, list) or not isinstance(operations, list):\n        return []\n    # Participants must be unique, non-empty strings of letters\n    seen = set()\n    for p in participants:\n        if not isinstance(p, str) or p == \"\" or not p.isalpha():\n            return []\n        if p in seen:\n            return []\n        seen.add(p)\n    # Determine deterministic ordering of nodes\n    nodes = sorted(participants)\n\n    node_set = set(nodes)\n\n    # Validate operations structure and content\n    if not all(isinstance(op, list) and len(op) == 3 for op in operations):\n        return []\n    valid_ops = {\"union\", \"split\", \"rekey\", \"find\"}\n    for op in operations:\n        typ, a, b = op\n        if not (isinstance(typ, str) and isinstance(a, str) and isinstance(b, str)):\n            return []\n        if typ not in valid_ops:\n            return []\n        if a == \"\" or b == \"\" or not a.isalpha() or not b.isalpha():\n            return []\n        if a not in node_set or b not in node_set:\n            return []\n        if a == b:\n            return []\n    # Represent undirected edges as frozenset of two nodes; but for deterministic iteration, store tuple sorted\n    # Maintain adjacency dict mapping node -> sorted list of neighbors (kept as set but deterministic when traversing)\n    adj = {n: set() for n in nodes}\n    direct_edges = set()  # store as tuple (min,max)\n\n    # Helper to edge key\n    def edge_key(u, v):\n        return (u, v) if u < v else (v, u)\n\n    # Helper to do deterministic BFS/DFS for connectivity - use BFS with queue respecting lexicographic order\n    def connected(u, v):\n        if u == v:\n            return True\n        visited = set()\n        # queue as list for deterministic pop(0)\n        q = [u]\n        visited.add(u)\n        while q:\n            cur = q.pop(0)\n            # neighbors in sorted order\n            nbrs = sorted(adj[cur])\n            for nb in nbrs:\n                if nb == v:\n                    return True\n                if nb not in visited:\n                    visited.add(nb)\n                    q.append(nb)\n        return False\n\n    results = []\n    # Process operations in order\n    for typ, a, b in operations:\n        ek = edge_key(a, b)\n        if typ == \"union\":\n            # If direct edge exists -> invalid\n            if ek in direct_edges:\n                return []\n            # Add direct edge\n            direct_edges.add(ek)\n            adj[a].add(b)\n            adj[b].add(a)\n        elif typ == \"split\":\n            if ek not in direct_edges:\n                return []\n            direct_edges.remove(ek)\n            # remove adjacency\n            adj[a].remove(b)\n            adj[b].remove(a)\n        elif typ == \"rekey\":\n            # no-op\n            continue\n        elif typ == \"find\":\n            res = connected(a, b)\n            results.append(bool(res))\n        else:\n            return []\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1171,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 735,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1906
+  },
+  "user": null,
+  "metadata": {}
+}

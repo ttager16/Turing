@@ -1,0 +1,152 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+In a modern smart-city infrastructure, a cybersecurity operations system is responsible for maintaining continuous connectivity between service nodes such as traffic lights, environmental sensors, and public transport controllers, and the city’s control nodes, which act as central coordination servers. Each service node must remain linked to at least one active control node to function correctly. When disruptions occur, whether due to hardware failures, network outages, or deliberate cyberattacks. The system must automatically reconfigure these connections, restoring stability and ensuring that the highest possible number of services remain operational.
+
+You are asked to implement a self-stabilizing matching algorithm in Python that:
+* Repairs the service-to-control matching when disruptions occur
+* Skips unavailable nodes (failed or quarantined) and
+* Produces deterministic, minimal-latency connections while ensuring the maximum number of services are matched.
+
+
+### Objectives
+
+1. **Maximize active services:**
+   The algorithm must always produce a matching that connects the maximum possible number of service nodes to available control nodes.
+2. **Minimize total latency:**
+   Among all maximum-cardinality matchings, choose the one with the lowest total latency cost (sum of all matched edge costs).
+3. **Deterministic tie-breaking:**
+   If multiple matchings have equal cardinality and total cost, select the lexicographically smallest mapping when sorted by service IDs, using the comparator rule defined below.
+4. **Handle dynamic disruptions:**
+   When nodes fail, are attacked, or are restored, update their operational states and recalculate the valid matching.
+   * "fail" or "attack" -> node becomes unavailable.
+   * "restore" -> node becomes available again.
+   * Disruptions referencing unknown nodes must be ignored safely.
+   * If a node ID appears both as a service and as a control, a disruption applies to both roles simultaneously (the node is considered unavailable across the system).
+
+
+### Constraints
+
+* Implemented in pure Python, no external libraries.
+* Costs may be negative, zero, or positive integers.
+* The result must be deterministic for identical inputs.
+* Multiple disruptions may occur in a single batch.
+* Any validation or schema violation must cause the function to return {} immediately.
+* If both graph and disruptions are empty, return {} immediately.
+* Input structure
+  * graph must be a dictionary with string keys (service IDs) and list values (neighbor lists).
+    Any non-dict, non-string key, or non-list value the function must immediately return {}.
+  * disruptions must be a list of lists, where each inner list is exactly [event, node_id].
+    Any malformed entry the function must immediately return {}.
+* Neighbor schema
+  * Each neighbor in graph[service_id] must be either:
+    1. A string control ID (cost = 0), or
+    2. A two-element list [control_id, cost].
+  * For case (2):
+    * control_id must be a non-empty string.
+    * cost must be an integer (negative, zero, or positive).
+    * Any invalid type or empty string the function must immediately return {}.
+  * Tuples, dicts, or wrong-length lists the function must immediately return {}.
+* Disruption schema
+  * Each disruption must be [event, node_id], where:
+    * The event must be a string value, and it can only be one of the following three options: "fail", "attack", or "restore".
+    * node_id is a non-empty string, Any other form the function must immediately return {}.
+  * Unknown nodes are ignored, duplicate or redundant disruptions are idempotent.
+* Duplicate edges and costs
+  * If the same (service, control) pair appears multiple times with different costs, the effective edge cost for matching is the minimum of those costs.
+  * All appearances (including duplicates) still count toward that control’s capacity.
+* Capacity definition
+  * The capacity of a control node equals the total number of times its ID appears across the neighbor lists of services that are operational after disruptions are applied (including duplicates within the same service).
+  * Repeated mentions of the same control by the same service count fully toward that control’s capacity.
+  * A control must not be assigned to more services than its capacity.
+* Operational states
+  * After applying disruptions atomically:
+    * "fail" / "attack" -> mark node unavailable.
+    * "restore" -> mark node available.
+    * Disruptions apply to both service and control roles if a node appears in both sets.
+* Matching behavior
+  1. Maximize the number of matched services (cardinality).
+  2. Among all max-cardinality matchings, minimize total latency (sum of effective edge costs).
+  3. Apply lexicographic tie-breaking as defined below.
+  4. Services with no valid neighbors are omitted from the output.
+  5. If no services can be matched, return {}.
+* Lexicographic comparator
+  * Among matchings that tie on cardinality and total cost:
+    1. Compare the sorted list of matched service IDs (ascending, as strings). The matching with the lexicographically smaller service-ID sequence is preferred.
+    2. If those lists are identical, build the sequence of matched control IDs in that same service order and compare those control sequences lexicographically (as strings).
+    3. The matching with the lexicographically smaller control-ID sequence is chosen as the deterministic output.
+
+
+### Function Signature
+
+```python
+def self_stabilizing_matching(graph: Dict[str, List], disruptions: List[List[str]]) -> Dict[str, str]:
+    """
+    graph: maps each service node (string) to a list of possible control connections.
+           Each neighbor may be:
+             - a string control_id (cost = 0), or
+             - a two-element list [control_id, cost] (cost = int, can be negative).
+
+    disruptions: list of [event, node_id] where event is one of the ['fail', 'attack', 'restore'].
+
+    returns: dictionary {service_id: control_id} containing valid operational matches.
+             Returns {} immediately on any structural or type violation.
+    """
+```
+
+
+### Sample Input
+
+```python
+graph = {
+    "1": ["101", ["102", 1], "105"],
+    "2": [["101", 1], "103"],
+    "3": [["104", 2], ["105", 2]],
+    "4": [["102", 1], ["104", 1]],
+    "5": [["102", 1], "105", "105"]
+}
+
+disruptions = [
+    ["fail", "101"],
+    ["attack", "3"],
+    ["attack", "5"]
+]
+```
+
+
+### Expected Output
+
+```python
+{"1": "105", "2": "103", "4": "102"}
+```
+
+
+### Explanation
+
+* Control "101" fails and is excluded from all matchings.
+* Services "3" and "5" are quarantined and skipped.
+* Remaining operational services: "1", "2", "4".
+  * "1" -> "105" (lower cost 0 vs "102" cost 1)
+  * "2" -> "103" (only available control)
+  * "4" -> "102" (tie between "102" and "104" cost 1, resolved lexicographically)
+* The resulting configuration:
+  * Matches 3 services (maximum possible cardinality).
+  * Has total cost = 0 + 0 + 1 = 1 (minimum among all such matchings).
+  * Satisfies the lexicographic comparator rule.
+* On any schema, type, or structural violation, the function returns {} immediately.
+
+Starter Code:
+```python
+from typing import Dict, List
+from collections import deque
+
+def self_stabilizing_matching(graph: Dict[str, List], disruptions: List[List[str]]) -> Dict[str, str]:
+```

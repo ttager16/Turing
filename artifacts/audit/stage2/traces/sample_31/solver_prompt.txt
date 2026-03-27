@@ -1,0 +1,155 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+Develop a comprehensive Python-based electric vehicle (EV) charging schedule optimizer for smart city infrastructure. This system serves as a critical component for urban mobility platforms that require real-time allocation of EVs to charging stations while minimizing wait times, energy consumption, and grid load. The system must implement advanced graph-based optimization algorithms including min-cost flow with Johnson's reweighting technique and segment trees for efficient capacity tracking, enabling dynamic scheduling that adapts to real-time traffic patterns, EV battery levels, and station availability constraints.
+
+## Problem Description
+
+The system optimizes EV charging station assignments using a combination of min-cost flow optimization and priority-based scheduling. The framework must implement:
+
+### Core Features
+
+1. **Traffic-Aware Routing**: Calculate travel time based on geographic distance and real-time congestion levels
+2. **Min-Cost Flow Optimization**: Implement successive shortest paths algorithm using Dijkstra with potential functions
+3. **Johnson's Reweighting**: Use Bellman-Ford for initial potential computation to handle negative edge costs
+4. **Segment Tree Capacity Tracking**: Efficient O(log n) range queries and updates for station availability over time
+5. **Priority-Based Scheduling**: Prioritize EVs by battery level with immediate priority for critical (<20%) levels
+6. **Peak Hour Restrictions**: Apply capacity constraints (60% limit) when congestion exceeds threshold
+7. **Dynamic Cost Calculation**: Adjust costs based on station load and capacity utilization ratios
+8. **Iterative Refinement**: Perform flow-based assignment with post-optimization for better solutions
+9. **Time Slot Allocation**: Find earliest available charging slots using segment tree queries
+10. **Real-time Constraint Validation**: Check feasibility of EV-station assignments before graph construction
+
+### Algorithm Components
+
+The implementation requires three main algorithmic components:
+
+**FlowGraph Class**: Implements min-cost flow using successive shortest paths
+- Store edges in defaultdict(list), capacity/cost/flow in dictionaries keyed by (u,v) tuples
+- For each edge (u,v) with capacity cap and cost c, also create reverse edge (v,u) with capacity 0 and cost -c
+- Skip adding edges if capacity <= 0
+- Bellman-Ford initializes potentials by relaxing edges up to V-1 times with early termination if no updates
+- Dijkstra uses heap with (distance, node) tuples and visited set to avoid reprocessing nodes
+- After finding shortest path, update potentials: `potential[node] += dist[node]` for all reachable nodes
+- Augment flow along path by minimum residual capacity, update flow on forward and reverse edges
+
+**SegmentTree Class**: Tracks station capacity availability over time windows
+- Build segment tree recursively storing minimum values in each node
+- Lazy propagation defers updates by storing pending values in lazy array
+- Update range by adding value to all elements in [l, r]; query minimum in [l, r]
+- Handle empty tree case (n=0) by returning early from operations
+- Query returns `float('inf')` when no valid range overlaps
+
+**EVChargingOptimizer Class**: Orchestrates the optimization process
+- Initialize traffic_map, station_map, ev_map, station_segment_trees, station_occupancy dictionaries
+- Build flow graph only including EV nodes that have at least one feasible nearby station
+- Extract assignments by processing EVs in priority order (pop from priority queue)
+- Find earliest available slot by iterating from arrival_time, checking segment tree capacity
+- Update segment tree with -1 when assigning, +1 when removing assignments during refinement
+- During refinement, temporarily remove assignment to test alternatives, then restore if not better
+
+## Function Signature
+
+```python
+def optimize_ev_charging_schedule(traffic_data: list, ev_data: list, station_data: list) -> list:
+    """
+    Optimize EV charging schedule using min-cost flow and segment tree algorithms.
+    
+    Parameters:
+        traffic_data (list): List of lists [location_id, congestion_level] representing traffic conditions
+        ev_data (list): List of dictionaries with keys: 'id', 'battery_level', 'location_id', 'desired_charge'
+        station_data (list): List of dictionaries with keys: 'id', 'capacity', 'location_id', 'max_power'
+    
+    Returns:
+        list: List of dictionaries with keys 'ev_id', 'station_id', 'start_time' representing optimal assignments
+    """
+    pass
+```
+
+## Constraints
+
+1. **Libraries**: Only standard Python libraries allowed: heapq, collections.defaultdict
+2. **Distance Calculation**: Use absolute difference between location IDs: `abs(ev_location - station_location)`
+3. **Distance Limit**: Maximum reachable distance is 5 units; return `float('inf')` for distances strictly greater than 5
+4. **Travel Time Formula**: `distance * (1 + congestion_level / 10)` where congestion_level comes from traffic_data
+5. **Charging Duration**: Compute the charging duration as the number of whole time units required by dividing the EV's requested energy (desired_charge) by the station's maximum charging power (max_power) and taking the integer part (i.e., round down).
+6. **Arrival Time Calculation**: `arrival_time = current_time + int(travel_time)` where current_time defaults to 0
+7. **Peak Hour Definition**: A location is in peak hour when its congestion level is strictly greater than 7
+8. **Peak Hour Capacity**: During peak hours, effective capacity is `int(capacity * 0.6)`
+9. **Battery Priority Levels**: priority 0 for <20%, priority 1 for [20,50), priority 2 for [50,80), priority 3 for >=80%
+10. **Cost Multipliers**: Low battery (<20%) multiplies total_cost by 0.1, high battery (>80%) multiplies by 2.0
+11. **Base Cost**: Dynamic cost calculation uses base_cost = 1 as the starting value
+12. **Capacity Ratio Cost**: If capacity_ratio >= 0.9 return base_cost * 3, elif >= 0.6 return base_cost * 2, else return base_cost
+13. **Flow Graph Source/Sink**: Use string literals 'source' and 'sink' as source and sink node identifiers
+14. **Flow Graph Nodes**: EV nodes formatted as `f"ev_{ev['id']}"`, station nodes as `f"station_{station['id']}"`
+15. **Cost Scaling**: Scale edge costs by multiplying by 100 and converting to int: `int(total_cost * 100)`
+16. **Segment Tree Size**: Initialize with 1000 time units as maximum time horizon (max_time_horizon = 1000)
+17. **Segment Tree Array Size**: Use `4 * n` for tree and lazy arrays where n is the data length
+18. **Segment Tree Indexing**: Use 1-based indexing for nodes with root at index 1; left child at 2*node, right at 2*node+1
+19. **Time Slot Search**: Limit earliest slot search to maximum 50 attempts to prevent infinite loops
+20. **Future Scheduling Limit**: Do not schedule EVs more than 500 time units beyond arrival time
+21. **Iterative Refinement**: Perform exactly 2 iterations of refinement loop after initial flow-based assignment
+22. **Improvement Threshold**: Only switch stations if new_cost < current_cost * 0.9 (10% improvement required)
+23. **Empty Input Handling**: Return empty list `[]` when ev_data is empty, station_data is empty, or no feasible assignments exist
+24. **Traffic Data Requirement**: EVs at locations not in traffic_map cannot be assigned (check `ev['location_id'] not in traffic_map`)
+25. **Feasibility Nearby Filter**: Only consider stations that are within five location units of the EV — in other words, filter to stations whose location ID differs from the EV's location ID by no more than five — before performing further feasibility checks.
+26. **Priority Queue Structure**: Use heapq with tuples (priority, ev_id, ev_dict) for EV prioritization
+27. **Flow Graph Edge Capacity**: Each EV-to-station edge has capacity 1, source-to-EV edges have capacity 1
+28. **Station Sink Edges**: Station-to-sink edges have capacity equal to available capacity after accounting for current occupancy
+29. **Residual Capacity Check**: During Dijkstra, ignore any edge whose residual capacity is zero or negative — i.e., skip edges where the current flow on (u, v) is greater than or equal to its capacity.
+30. **Reduced Cost Formula**: The reduced cost is the edge's actual cost adjusted by adding the source node potential and subtracting the target node potential.
+
+## Sample Input
+
+```python
+traffic_data = [[1, 3], [2, 5], [3, 2]]
+ev_data = [
+    {'id': 'ev1', 'battery_level': 15, 'location_id': 1, 'desired_charge': 50},
+    {'id': 'ev2', 'battery_level': 60, 'location_id': 2, 'desired_charge': 30},
+    {'id': 'ev3', 'battery_level': 85, 'location_id': 3, 'desired_charge': 20}
+]
+station_data = [
+    {'id': 's1', 'capacity': 2, 'location_id': 1, 'max_power': 10},
+    {'id': 's2', 'capacity': 3, 'location_id': 2, 'max_power': 15},
+    {'id': 's3', 'capacity': 1, 'location_id': 3, 'max_power': 20}
+]
+```
+
+## Sample Output
+
+```python
+[
+    {'ev_id': 'ev1', 'station_id': 's1', 'start_time': 0},
+    {'ev_id': 'ev2', 'station_id': 's2', 'start_time': 0},
+    {'ev_id': 'ev3', 'station_id': 's3', 'start_time': 0}
+]
+```
+
+## Output Format
+
+- Return value: List of dictionaries representing optimal EV-to-station assignments
+- Each dictionary must contain exactly three keys: 'ev_id', 'station_id', 'start_time'
+- 'ev_id': String identifier matching the 'id' field from ev_data
+- 'station_id': String identifier matching the 'id' field from station_data
+- 'start_time': Integer representing the time unit when charging begins
+- Return empty list `[]` when no feasible assignments exist
+- Assignments should be ordered by priority (low battery EVs first) when possible
+- Multiple EVs can be assigned to the same station if capacity allows and time slots don't overlap
+- Start times must be non-negative integers and account for travel time from EV location to station
+
+Starter Code:
+```python
+import heapq
+from collections import defaultdict
+
+def optimize_ev_charging_schedule(traffic_data: list, ev_data: list, station_data: list) -> list:
+    pass
+```

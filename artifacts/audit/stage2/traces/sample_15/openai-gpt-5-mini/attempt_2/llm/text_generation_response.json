@@ -1,0 +1,76 @@
+{
+  "id": "resp_0a055b7f3b5619740069c31b89935c81a1a2fc951269694227",
+  "object": "response",
+  "created_at": 1774394249,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774394267,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0a055b7f3b5619740069c31b89d18081a19208e5412fa13fe5",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0a055b7f3b5619740069c31b8a02ec81a180e31f715d7383c4",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Set, Tuple\nfrom collections import defaultdict, deque\nimport itertools\n\ndef allocate_minimum_workshops(\n    workshop_slots: List[List[int]],\n    student_preferences: List[List[int]]\n) -> int:\n    # Validate inputs\n    if not isinstance(workshop_slots, list) or not isinstance(student_preferences, list):\n        raise ValueError(\"workshop_slots and student_preferences must be lists\")\n    m = len(workshop_slots)\n    n = len(student_preferences)\n    for i, w in enumerate(workshop_slots):\n        if not isinstance(w, list) or len(w) < 4:\n            raise ValueError(f\"workshop_slots[{i}] must be a list of at least 4 ints [campus,timeslot,capacity,instructor]\")\n        campus, timeslot, capacity, instructor = w[:4]\n        if not isinstance(campus, int) or not isinstance(timeslot, int) or not isinstance(capacity, int) or not isinstance(instructor, int):\n            raise ValueError(f\"workshop_slots[{i}] entries must be ints\")\n        if capacity < 0:\n            raise ValueError(f\"workshop_slots[{i}] has negative capacity\")\n    for i, prefs in enumerate(student_preferences):\n        if not isinstance(prefs, list):\n            raise ValueError(f\"student_preferences[{i}] must be a list\")\n        if len(prefs) == 0:\n            # no feasible option\n            return -1\n        for idx in prefs:\n            if not isinstance(idx, int) or idx < 0 or idx >= m:\n                raise ValueError(f\"student_preferences[{i}] contains invalid workshop index {idx}\")\n\n    # Build auxiliary data\n    # For instructors, enforce a limit: to model \"escalating logistical cost\" we'll treat that each instructor can teach unlimited but we prefer fewer workshops overall.\n    # We must find minimal set of workshops such that all students can be assigned respecting capacities and that no student assigned to overlapping timeslots on different campuses (student can't be double-booked).\n    # Since each student needs exactly one workshop, \"double-booking\" for students is avoided by assignment to single chosen workshop.\n    # The main combinatorial problem reduces to choosing minimal subset of workshops S such that a bipartite matching from students to workshops in S respecting capacities exists.\n    # We'll brute-force over subsets by increasing size (m expected small for realistic input). If m large, this may be slow but meets spec.\n\n    # Precompute student->workshop adjacency\n    student_opts = [set(p) for p in student_preferences]\n\n    # Quick impossibility: any student with no preferences already handled.\n    # Also if total capacity of all workshops < n then impossible\n    total_capacity = sum(w[2] for w in workshop_slots)\n    if total_capacity < n:\n        return -1\n\n    # Helper: check if subset of workshops (indices) can accommodate all students via flow (bipartite matching with capacities)\n    def can_assign(subset: Set[int]) -> bool:\n        # Build network: source -> each student (cap 1) -> allowed workshops in subset -> sink (cap = workshop capacity)\n        # Implement Dinic\n        # Node indexing: source=0, students 1..n, workshops n+1 .. n+len(subset), sink = last\n        idx_map = {}\n        wlist = sorted(subset)\n        for i, w in enumerate(wlist):\n            idx_map[w] = n + 1 + i\n        src = 0\n        sink = n + 1 + len(wlist)\n        N = sink + 1\n        adj = [[] for _ in range(N)]\n        def add_edge(u, v, c):\n            adj[u].append([v, c, len(adj[v])])\n            adj[v].append([u, 0, len(adj[u]) - 1])\n        for si in range(n):\n            add_edge(src, 1 + si, 1)\n            for w in student_opts[si]:\n                if w in subset:\n                    add_edge(1 + si, idx_map[w], 1)\n        for w in wlist:\n            cap = workshop_slots[w][2]\n            add_edge(idx_map[w], sink, cap)\n        # Dinic\n        level = [0]*N\n        it = [0]*N\n        def bfs():\n            for i in range(N):\n                level[i] = -1\n            q = deque()\n            level[src] = 0\n            q.append(src)\n            while q:\n                u = q.popleft()\n                for v, c, rev in adj[u]:\n                    if c > 0 and level[v] < 0:\n                        level[v] = level[u] + 1\n                        q.append(v)\n            return level[sink] >= 0\n        def dfs(u, f):\n            if u == sink:\n                return f\n            for i in range(it[u], len(adj[u])):\n                v, c, rev = adj[u][i]\n                if c > 0 and level[v] == level[u] + 1:\n                    ret = dfs(v, min(f, c))\n                    if ret > 0:\n                        adj[u][i][1] -= ret\n                        adj[v][adj[u][i][2]][1] += ret\n                        return ret\n                it[u] += 1\n            return 0\n        flow = 0\n        while bfs():\n            it = [0]*N\n            while True:\n                pushed = dfs(src, 10**9)\n                if pushed == 0:\n                    break\n                flow += pushed\n                if flow == n:\n                    return True\n        return flow == n\n\n    # Iterate subset sizes from 1..m\n    # Quick prune: any workshop with capacity 0 can be ignored\n    nonzero_ws = [i for i, w in enumerate(workshop_slots) if w[2] > 0]\n    if not nonzero_ws:\n        return -1\n    # If number of workshops is small, brute force combinations; else use greedy lower bound and heuristics\n    MAX_BRUTE = 20  # threshold\n    if len(nonzero_ws) <= MAX_BRUTE:\n        for k in range(1, len(nonzero_ws)+1):\n            for comb in itertools.combinations(nonzero_ws, k):\n                subset = set(comb)\n                # quick capacity prune\n                cap_sum = sum(workshop_slots[w][2] for w in subset)\n                if cap_sum < n:\n                    continue\n                if can_assign(subset):\n                    return k\n        return -1\n    else:\n        # Heuristic: greedy select workshops that cover most yet-unassigned students per capacity-weighted score, then try to shrink\n        remaining = set(range(m))\n        selected = set()\n        uncovered_students = set(range(n))\n        while uncovered_students:\n            # score each workshop by number of uncovered students that prefer it, capped by capacity\n            best = None\n            best_score = -1\n            for w in remaining:\n                cap = workshop_slots[w][2]\n                if cap <= 0:\n                    continue\n                canserve = sum(1 for s in uncovered_students if w in student_opts[s])\n                score = min(canserve, cap)\n                if score > best_score:\n                    best_score = score\n                    best = w\n            if best is None or best_score == 0:\n                return -1\n            selected.add(best)\n            remaining.remove(best)\n            # simulate assigning up to capacity arbitrary uncovered students who prefer it\n            cap = workshop_slots[best][2]\n            assigned = 0\n            to_remove = []\n            for s in list(uncovered_students):\n                if best in student_opts[s]:\n                    to_remove.append(s)\n                    assigned += 1\n                    if assigned >= cap:\n                        break\n            for s in to_remove:\n                uncovered_students.remove(s)\n        # Now we have a candidate selected set. Try to minimize by testing subsets of selected\n        sel_list = sorted(selected)\n        best_count = len(sel_list)\n        for k in range(1, best_count+1):\n            for comb in itertools.combinations(sel_list, k):\n                subset = set(comb)\n                if sum(workshop_slots[w][2] for w in subset) < n:\n                    continue\n                if can_assign(subset):\n                    return k\n        # if no smaller subset found, verify full selected works\n        if can_assign(selected):\n            return len(selected)\n        return -1"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1269,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1797,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3066
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,253 @@
+from typing import List, Optional, Any
+import heapq
+import copy
+
+def real_time_stock_stack(operations: List[List[Any]]) -> List[Optional[int]]:
+    # Validation helpers
+    valid_ops = {"push", "pop", "get_min", "get_max", "merge_clusters", "range_sum"}
+    if operations is None:
+        return []
+    if not isinstance(operations, list):
+        return []
+    if operations == []:
+        return []
+    # Structures per symbol:
+    # symbols: dict id -> {
+    #   'stack': list of values (history of current elements),
+    #   'min_stack': list of current mins parallel to stack,
+    #   'max_stack': list of current maxs parallel to stack,
+    #   'ever_sum': int sum of all pushes ever to this symbol,
+    #   'last_merge_sum': int baseline for range_sum (set on merge to current ever_sum)
+    # }
+    symbols = {}
+    next_symbol_id = 1  # since active 0 exists
+    symbols[0] = {
+        'stack': [],
+        'min_stack': [],
+        'max_stack': [],
+        'ever_sum': 0,
+        'last_merge_sum': 0
+    }
+    active = 0
+    # MRU routing: record last pushed-to symbol id; None if none yet
+    last_pushed = None
+    # After a merge, the first subsequent push should route to the new symbol (one-shot redirect).
+    one_shot_redirect = None  # holds symbol id to which next push is redirected
+    # For global min/max, maintain two heaps with entry counters to avoid stale leakage.
+    # We'll use lazy removal by checking against current symbol min/max top.
+    # Global min-heap: entries (value, symbol_id)
+    # Global max-heap: entries (-value, symbol_id)
+    global_min_heap = []
+    global_max_heap = []
+    # Output list
+    out: List[Optional[int]] = []
+
+    # helper to validate symbol id param
+    def valid_symbol_param(x):
+        if x is None:
+            return True
+        if isinstance(x, int) and x >= 0:
+            return True
+        return False
+
+    # helper to push global heaps for a symbol when its current min/max changes
+    def publish_symbol_minmax(sym_id):
+        sym = symbols[sym_id]
+        if sym['min_stack']:
+            heapq.heappush(global_min_heap, (sym['min_stack'][-1], sym_id))
+        if sym['max_stack']:
+            heapq.heappush(global_max_heap, (-sym['max_stack'][-1], sym_id))
+
+    # helper to get symbol current min/max
+    def symbol_min(sym_id):
+        sym = symbols.get(sym_id)
+        if not sym or not sym['min_stack']:
+            return None
+        return sym['min_stack'][-1]
+
+    def symbol_max(sym_id):
+        sym = symbols.get(sym_id)
+        if not sym or not sym['max_stack']:
+            return None
+        return sym['max_stack'][-1]
+
+    # Validate whole operations list elements types and basic format first
+    for op in operations:
+        if not isinstance(op, list) or len(op) != 2:
+            return []
+        name, arg = op[0], op[1]
+        if not isinstance(name, str) or name not in valid_ops:
+            return []
+        if name == 'push':
+            if not isinstance(arg, int):
+                return []
+            if arg < -10**9 or arg > 10**9:
+                return []
+        elif name in ('pop', 'merge_clusters'):
+            if arg is not None:
+                return []
+        elif name in ('get_min', 'get_max', 'range_sum'):
+            if not valid_symbol_param(arg):
+                return []
+        else:
+            return []
+
+    # Process operations
+    for op in operations:
+        name, arg = op[0], op[1]
+        if name == 'push':
+            price = arg
+            # decide target symbol
+            if one_shot_redirect is not None:
+                target = one_shot_redirect
+                one_shot_redirect = None
+            else:
+                target = active
+            # ensure symbol exists
+            if target not in symbols:
+                return []
+            sym = symbols[target]
+            # push to stack
+            sym['stack'].append(price)
+            # update min/max stacks
+            if sym['min_stack']:
+                sym['min_stack'].append(min(sym['min_stack'][-1], price))
+            else:
+                sym['min_stack'].append(price)
+            if sym['max_stack']:
+                sym['max_stack'].append(max(sym['max_stack'][-1], price))
+            else:
+                sym['max_stack'].append(price)
+            # update ever_sum
+            sym['ever_sum'] += price
+            # update last pushed
+            last_pushed = target
+            # publish into global heaps
+            publish_symbol_minmax(target)
+            out.append(None)
+        elif name == 'pop':
+            # target is MRU pushed-to symbol if exists, else active
+            if last_pushed is not None:
+                target = last_pushed
+            else:
+                target = active
+            if target not in symbols:
+                return []
+            sym = symbols[target]
+            if not sym['stack']:
+                out.append(None)
+                # popping empty returns None but does not change last_pushed? keep MRU as is
+                continue
+            # pop most recent
+            sym['stack'].pop()
+            sym['min_stack'].pop()
+            sym['max_stack'].pop()
+            # Note: per constraints, popping does not reduce ever_sum or last_merge_sum
+            # publish updated min/max
+            publish_symbol_minmax(target)
+            out.append(None)
+        elif name == 'merge_clusters':
+            # create deep snapshot of active
+            src = active
+            if src not in symbols:
+                return []
+            new_id = next_symbol_id
+            next_symbol_id += 1
+            # deep snapshot: independent copy
+            src_sym = symbols[src]
+            symbols[new_id] = {
+                'stack': list(src_sym['stack']),
+                'min_stack': list(src_sym['min_stack']),
+                'max_stack': list(src_sym['max_stack']),
+                'ever_sum': src_sym['ever_sum'],
+                'last_merge_sum': src_sym['ever_sum']
+            }
+            # per rule: first subsequent push after a merge routes to new symbol (one-shot)
+            one_shot_redirect = new_id
+            # do not switch active
+            # publish new symbol min/max
+            publish_symbol_minmax(new_id)
+            out.append(None)
+        elif name == 'get_min':
+            sid = arg
+            if sid is None:
+                # global min: pop lazy until top matches current symbol min
+                val = None
+                while global_min_heap:
+                    v, sid0 = global_min_heap[0]
+                    cur = symbol_min(sid0)
+                    if cur is None or cur != v:
+                        heapq.heappop(global_min_heap)
+                        continue
+                    val = v
+                    break
+                out.append(val)
+            else:
+                if sid not in symbols:
+                    out.append(None)
+                else:
+                    out.append(symbol_min(sid))
+        elif name == 'get_max':
+            sid = arg
+            if sid is None:
+                val = None
+                while global_max_heap:
+                    nv, sid0 = global_max_heap[0]
+                    v = -nv
+                    cur = symbol_max(sid0)
+                    if cur is None or cur != v:
+                        heapq.heappop(global_max_heap)
+                        continue
+                    val = v
+                    break
+                out.append(val)
+            else:
+                if sid not in symbols:
+                    out.append(None)
+                else:
+                    out.append(symbol_max(sid))
+        elif name == 'range_sum':
+            sid = arg
+            if sid is None:
+                return []
+            if sid not in symbols:
+                out.append(None)
+            else:
+                sym = symbols[sid]
+                # If has last_merge_sum set (non-zero or zero), return that; if never merged return ever_sum
+                # The spec: returns sum of values that existed in symbol s at time of its most recent merge event involving s,
+                # if s has never merged, return sum of all values ever pushed so far to s.
+                if sym['last_merge_sum'] != 0 or (sym['last_merge_sum'] == 0 and sym['ever_sum'] == 0 and sym['stack'] == []):
+                    # Need to determine whether a merge involving s ever happened.
+                    # We set last_merge_sum at merge to ever_sum; for symbols created at init last_merge_sum=0 meaning no merge.
+                    # But if a symbol had merge and last_merge_sum==0 legitimately (sum zero), we still need to know.
+                    # We'll track merges by checking if symbol id >=1 and was created by merge: for created copies we set last_merge_sum to ever_sum.
+                    # For symbol 0 initial last_merge_sum ==0 and no merge.
+                    # For created symbols at merge, last_merge_sum was set to snapshot value.
+                    # Use presence of attribute: if symbol was created via merge we set an extra flag.
+                    pass
+                # To track merges, we can detect by comparing ever_sum at creation vs last_merge_sum. But simplest: if symbol has ever had 'created_by_merge' flag.
+                # We'll adjust: ensure when creating via merge we set 'created_by_merge': True
+                # But earlier code didn't set; adapt by checking presence.
+                created_by_merge = symbols[sid].get('created_by_merge', False)
+                if created_by_merge:
+                    out.append(sym['last_merge_sum'])
+                else:
+                    # For symbol 0 it may have last_merge_sum==0 but not created_by_merge; treat as never merged.
+                    out.append(sym['ever_sum'])
+        else:
+            return []
+
+        # Ensure created_by_merge flag set at creation time (we adjust here since creation happened earlier)
+        # But to handle created ones we must set flag when creating; we forgot earlier. Fix retroactively:
+        # After processing potential merge, ensure any symbol lacking 'created_by_merge' when its id >=1 and its last_merge_sum equals ever_sum -> mark created_by_merge
+        # Iterate symbols to set flag for those that appear to be snapshots (heuristic)
+        for sid_check, sdict in symbols.items():
+            if 'created_by_merge' not in sdict:
+                # if this symbol's last_merge_sum equals ever_sum and sid_check != 0, assume created by merge
+                if sid_check != 0 and sdict.get('last_merge_sum', None) == sdict.get('ever_sum', None):
+                    sdict['created_by_merge'] = True
+                else:
+                    sdict['created_by_merge'] = False
+
+    return out

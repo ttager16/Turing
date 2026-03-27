@@ -1,0 +1,164 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        "Stable"
+      ],
+      [
+        "Risky",
+        "Safe"
+      ],
+      {
+        "Stable": {
+          "Risky": {
+            "Stable": 1.0
+          },
+          "Safe": {
+            "Stable": 1.0
+          }
+        }
+      },
+      {
+        "Stable": {
+          "Risky": 5,
+          "Safe": 5
+        }
+      },
+      0.95,
+      1e-06
+    ],
+    "input_lines": [
+      "[\"Stable\"]",
+      "[\"Risky\", \"Safe\"]",
+      "{\"Stable\": {\"Risky\": {\"Stable\": 1.0}, \"Safe\": {\"Stable\": 1.0}}}",
+      "{\"Stable\": {\"Risky\": 5, \"Safe\": 5}}",
+      "0.95",
+      "1e-6"
+    ],
+    "focus": "Single-state self-loop with two actions that yield identical returns to test tie-breaking (choose first action) and single-state value computation."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        "Active",
+        "Dormant",
+        "Exit"
+      ],
+      [
+        "Invest",
+        "Divest"
+      ],
+      {
+        "Active": {
+          "Invest": {
+            "Dormant": 1.0
+          },
+          "Divest": {
+            "Active": 1.0
+          }
+        },
+        "Dormant": {
+          "Invest": {
+            "Exit": 1.0
+          },
+          "Divest": {
+            "Dormant": 1.0
+          }
+        },
+        "Exit": {
+          "Invest": {
+            "Exit": 1.0
+          },
+          "Divest": {
+            "Exit": 1.0
+          }
+        }
+      },
+      {
+        "Active": {
+          "Invest": 10,
+          "Divest": 2
+        },
+        "Dormant": {
+          "Invest": -1,
+          "Divest": 0
+        },
+        "Exit": {
+          "Invest": 0,
+          "Divest": 0
+        }
+      },
+      0.99,
+      0.0001
+    ],
+    "input_lines": [
+      "[\"Active\", \"Dormant\", \"Exit\"]",
+      "[\"Invest\", \"Divest\"]",
+      "{\"Active\": {\"Invest\": {\"Dormant\": 1.0}, \"Divest\": {\"Active\": 1.0}}, \"Dormant\": {\"Invest\": {\"Exit\": 1.0}, \"Divest\": {\"Dormant\": 1.0}}, \"Exit\": {\"Invest\": {\"Exit\": 1.0}, \"Divest\": {\"Exit\": 1.0}}}",
+      "{\"Active\": {\"Invest\": 10, \"Divest\": 2}, \"Dormant\": {\"Invest\": -1, \"Divest\": 0}, \"Exit\": {\"Invest\": 0, \"Divest\": 0}}",
+      "0.99",
+      "0.0001"
+    ],
+    "focus": "Deterministic transitions with an absorbing zero-reward state and mixed positive/negative rewards; high gamma to exercise propagation and convergence behavior."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        "S1",
+        "S2",
+        "S3"
+      ],
+      [
+        "Hold"
+      ],
+      {
+        "S1": {
+          "Hold": {
+            "S1": 0.3333333,
+            "S2": 0.3333333,
+            "S3": 0.3333333
+          }
+        },
+        "S2": {
+          "Hold": {
+            "S1": 0.3333333,
+            "S2": 0.3333333,
+            "S3": 0.3333333
+          }
+        },
+        "S3": {
+          "Hold": {
+            "S1": 0.3333333,
+            "S2": 0.3333333,
+            "S3": 0.3333333
+          }
+        }
+      },
+      {
+        "S1": {
+          "Hold": 0
+        },
+        "S2": {
+          "Hold": 5
+        },
+        "S3": {
+          "Hold": -2
+        }
+      },
+      0.5,
+      1e-08
+    ],
+    "input_lines": [
+      "[\"S1\", \"S2\", \"S3\"]",
+      "[\"Hold\"]",
+      "{\"S1\": {\"Hold\": {\"S1\": 0.3333333, \"S2\": 0.3333333, \"S3\": 0.3333333}}, \"S2\": {\"Hold\": {\"S1\": 0.3333333, \"S2\": 0.3333333, \"S3\": 0.3333333}}, \"S3\": {\"Hold\": {\"S1\": 0.3333333, \"S2\": 0.3333333, \"S3\": 0.3333333}}}",
+      "{\"S1\": {\"Hold\": 0}, \"S2\": {\"Hold\": 5}, \"S3\": {\"Hold\": -2}}",
+      "0.5",
+      "1e-8"
+    ],
+    "focus": "Single-action MDP with floating-point transition sums (0.9999999) to test tolerance handling and propagation with sparse/non-integer probabilities."
+  }
+]

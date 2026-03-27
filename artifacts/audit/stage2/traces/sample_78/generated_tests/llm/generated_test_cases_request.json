@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: adaptive_heap_update\n\nProblem Statement:\n### Problem Statement\n\nA leading financial trading firm is developing a Python-based system to efficiently manage and analyze stock data from multiple exchanges, with the objective of uncovering profitable arbitrage opportunities. The platform employs a custom heap-based priority architecture with adaptive merging strategies, ensuring that stock priorities are dynamically recalculated as new market data arrives. Each stock’s ranking is determined by its volatility and trading volume, allowing traders to instantly identify high-impact opportunities.\n\nThe trading firm continuously receives updates from several exchanges, where each update includes a stock’s symbol, volatility, and volume. The goal is to consolidate this information into a single global ranking of stocks, ordered by their combined priority score derived from volatility and volume.\n\nYour task is to implement an algorithm that:\n\n* Integrates updates from multiple exchanges.\n* Uses a custom heap / priority queue to maintain dynamically changing stock priorities, with k-way adaptive merge across per-exchange priority structures.\n* Outputs a ranked list of stock symbols in descending priority order, using clear, deterministic tie-breaking rules.\n\n\n### Objectives\n\n1. **Heap-Based Data Integration**\n   * Treat each exchange’s list of [stock_symbol, volatility, volume] as a separate max-priority structure (e.g., an array-backed binary heap with manual sift-up / sift-down).\n   * Build a global coordinator priority structure (also custom) to perform a k-way merge across the per-exchange structures so the next highest-priority candidate is always available.\n2. **Adaptive Priority Calculation (deterministic tie-breaking)**\n   * Compute priority per list:\n     1. priority = volatility * (volume ** 0.25)\n   * Deterministic tie-breaking rules (applied whenever priorities are equal):\n     1. Higher volatility,\n     2. If still equal, lexicographically smaller stock_symbol.\n   * Use lazy re-insertion with versioning (no decrease-key): when a better priority for the same symbol appears later, insert it again; when extracting, discard stale entries whose version is outdated.\n\n\n### Constraints\n\n- Must be implemented in pure Python (no external libraries allowed).\n- At least 3 exchanges are provided, on violation the function must immediately return [].\n- stock_symbol should contain only uppercase English letters [A–Z], on violation return [].\n- Each exchange contains a list of lists [stock_symbol, volatility, volume], where stock_symbol is a str, volatility is a float, and volume is an int; on any violation, the function must immediately return [].\n- Validity rules, on violation the function must immediately return []:\n  * 0.0 <= volatility <= 1.0\n  * volume is a positive integer\n\n\n\n### Function Signature\n\n```python\ndef adaptive_heap_update(data_streams: List[List[List]]) -> List[str]:\n```\n\n\n### Sample Input\n\n```python\n[\n    [['AAPL', 0.05, 1000], ['GOOGL', 0.03, 1500]],\n    [['MSFT', 0.06, 2000], ['TSLA', 0.07, 1800]],\n    [['AMZN', 0.04, 1200], ['NFLX', 0.08, 1600]]\n]\n```\n\n\n### Sample Output\n\n```python\n['NFLX', 'TSLA', 'MSFT', 'AAPL', 'AMZN', 'GOOGL']\n```\n\n\n### Expected Output Format\n\nA single list of stock symbols, sorted in descending order of consolidated priority, where priority represents each stock’s significance in potential trading opportunities based on volatility and volume, with deterministic tie-breaking and lazy stale-entry elimination.\n\nStarter Code:\n```python\nfrom typing import List\n\ndef adaptive_heap_update(data_streams: List[List[List]]) -> List[str]:\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[[[\\\"AAPL\\\", 0.05, 1200], [\\\"GOOGL\\\", 0.03, 1500]], [[\\\"MSFT\\\", 0.06, 2100], [\\\"TSLA\\\", 0.07, 1850]], [[\\\"AMZN\\\", 0.04, 1100], [\\\"NFLX\\\", 0.08, 1600]]]\",\n    \"output\": \"[\\\"NFLX\\\", \\\"TSLA\\\", \\\"MSFT\\\", \\\"AAPL\\\", \\\"AMZN\\\", \\\"GOOGL\\\"]\"\n  },\n  {\n    \"input\": \"[[[\\\"X\\\", 0.52, 260]], [[\\\"Y\\\", 0.41, 1380]], [[\\\"Z\\\", 0.63, 95]]]\",\n    \"output\": \"[\\\"Y\\\", \\\"X\\\", \\\"Z\\\"]\"\n  },\n  {\n    \"input\": \"[[[\\\"AAA\\\", 0.5, 1600]], [[\\\"BBB\\\", 0.6, 1000]], [[\\\"CCC\\\", 0.3, 400]]]\",\n    \"output\": \"[\\\"BBB\\\", \\\"AAA\\\", \\\"CCC\\\"]\"\n  }\n]\n"
+    }
+  ]
+}

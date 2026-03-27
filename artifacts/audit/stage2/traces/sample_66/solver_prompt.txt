@@ -1,0 +1,114 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+In a cutting-edge research initiative focused on secure multi-party computation (MPC), a global consortium of researchers is developing a cryptographic coordination framework that manages dynamic trust relationships among a large set of participants. The system serves as the backbone of a real-time MPC environment, where multiple entities collaborate securely without revealing their private data. As participants join, leave, or reconfigure their trust links, the framework must dynamically maintain which entities are currently part of the same connected trust group. This ensures that secure computation tasks can continue smoothly, while maintaining strict isolation between untrusted or disconnected parties.
+
+To achieve this, the framework leverages dynamic connectivity structures inspired by the Disjoint-Set (Union-Find) model. It must efficiently process frequent connectivity changes, enforce strong validation rules to prevent invalid operations, and guarantee deterministic outcomes for every connectivity query. The structure should remain stable even under rapid trust updates, invalid merges, or attempts to remove non-existent edges, ensuring robustness and reproducibility in a cryptographic setting.
+
+Supported operations:
+
+* union(u, v) - merge the groups containing u and v and add a direct edge between them.
+* split(u, v) - remove the direct edge between u and v. This operation is edge-only and must not affect other edges or paths.
+* rekey(u, v) - a logical event that does not modify connectivity.
+* find(u, v) - check if u and v are currently in the same connected group.
+
+The system must maintain connectivity efficiently under repeated merges and splits.
+
+
+### Objectives
+
+1. Implement a deterministic, high-performance dynamic connectivity structure that supports union, split (edge-only), and find operations.
+2. Ensure deterministic results for identical inputs and guarantee reproducibility.
+4. Handle multiple operations in sequence or batches without breaking deterministic order.
+5. Maintain lexicographically consistent traversal and output order under all valid scenarios.
+
+
+### Constraints
+
+* Implemented in pure Python, no external libraries.
+* A typical connectivity update (union or split) should execute in O(n log n) time or better.
+* The result must be deterministic for identical inputs.
+* If both participants and operations are empty, return [] immediately.
+* participants must be a list of unique, all names must consist only of english letters and non-empty strings, on any violation return [].
+* operations must be a list of lists, where each inner list is exactly [operation_type, participant_a, participant_b]. Each element must be a string, otherwise return [].
+* operation_type must be one of the following: "union", "split", "rekey", "find".
+**Connectivity rules**
+* union(u, v)
+  * Adds a direct edge between u and v if no such edge exists.
+  * If a direct edge already exists between u and v (in either order), return [].
+  * If u and v are already connected indirectly but have no direct edge, the union succeeds and adds exactly one direct edge.
+* split(u, v)
+  * Removes only the direct edge between u and v.
+  * If there is no direct edge between them, return [].
+  * Removing this edge may disconnect the component, this is allowed. No other edges are modified.
+* rekey(u, v)
+  * Logical event with no effect on connectivity.
+* find(u, v)
+  * Returns True if u and v are in the same connected component, otherwise False.
+  * Must not modify connectivity or internal state.
+**Validation and failure conditions**
+* Any self-loop operation must return [].
+* Any repeated union(u, v) call for an already-existing direct edge must return [].
+* Any split(u, v) call for a non-existent direct edge must return [].
+**Deterministic behavior**
+* All internal traversal, set, or dictionary operations must produce deterministic results.
+* When multiple participants are processed, iteration order must be lexicographically sorted by participant IDs.
+* Any structure relying on hashing or unordered sets must be normalized to a deterministic order before comparison or output.
+
+
+### Function Signature
+
+```python
+def manage_trust_relationships(participants: List[str], operations: List[List[str]]) -> List[bool]:
+    pass
+```
+
+
+### Sample Input/Output
+
+Input
+
+```python
+participants = ['alice', 'bob', 'charlie', 'david', 'eve']
+operations = [
+    ['union', 'alice', 'bob'],
+    ['union', 'bob', 'charlie'],
+    ['split', 'bob', 'charlie'],
+    ['rekey', 'alice', 'bob'],
+    ['union', 'charlie', 'david'],
+    ['find', 'alice', 'bob'],
+    ['find', 'bob', 'david'],
+    ['union', 'david', 'eve'],
+    ['split', 'david', 'eve'],
+    ['find', 'alice', 'eve']
+]
+```
+
+Output
+
+```python
+[True, False, False]
+```
+
+
+### Expected Output Format
+- Return a list of booleans for all find operations in order.
+- If there are no find operations, return an empty list [].
+- If any input or operation violates the constraints, return [] immediately.
+
+Starter Code:
+```python
+from typing import List
+import collections
+
+def manage_trust_relationships(participants: List[str], operations: List[List[str]]) -> List[bool]:
+    pass
+```

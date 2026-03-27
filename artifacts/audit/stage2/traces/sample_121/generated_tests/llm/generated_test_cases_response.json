@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN7MYpJIpatQqlHBBdutexBpSjBnS",
+  "object": "chat.completion",
+  "created": 1774402218,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[]\",\n        \"{}\"\n      ],\n      \"focus\": \"empty_graph_no_edges\"\n    },\n    {\n      \"input_lines\": [\n        \"[[0, 1, 2, {\\\"p1\\\": 100, \\\"p2\\\": 50}], [1, 2, 2, {\\\"p1\\\": 150, \\\"p2\\\": 50}], [2, 3, 5, {\\\"p1\\\": 100, \\\"p2\\\": 100}], [0, 2, 4, {\\\"p1\\\": 80, \\\"p2\\\": 50}], [1, 3, 7, {\\\"p1\\\": 200, \\\"p2\\\": 50}], [3, 0, 6, {\\\"p1\\\": 100}]]\",\n        \"{\\\"0,1,p1\\\": 60, \\\"1,0,p1\\\": 40, \\\"0,1,p2\\\": 30, \\\"1,0,p2\\\": 20, \\\"1,2,p1\\\": 100, \\\"2,1,p1\\\": 50, \\\"1,2,p2\\\": 25, \\\"2,1,p2\\\": 25, \\\"2,3,p1\\\": 30, \\\"3,2,p1\\\": 10, \\\"2,3,p2\\\": 40, \\\"3,2,p2\\\": 20, \\\"0,2,p1\\\": 50, \\\"2,0,p1\\\": 10, \\\"0,2,p2\\\": 20, \\\"2,0,p2\\\": 10, \\\"1,3,p1\\\": 70, \\\"3,1,p1\\\": 10, \\\"1,3,p2\\\": 10, \\\"3,1,p2\\\": 5}\"\n      ],\n      \"focus\": \"phase_universality_and_cost_tie_boundary_loads\"\n    },\n    {\n      \"input_lines\": [\n        \"[[0, 1, 3, {\\\"a\\\": 10}], [1, 2, 3, {\\\"a\\\": 10}], [2, 3, 3, {\\\"a\\\": 10}], [3, 4, 3, {\\\"a\\\": 10}], [4, 0, 3, {\\\"a\\\": 10}], [0, 2, 4, {\\\"a\\\": 5}]]\",\n        \"{\\\"0,1,a\\\": 15, \\\"1,0,a\\\": 0, \\\"1,2,a\\\": 12, \\\"2,1,a\\\": 0, \\\"2,3,a\\\": 20, \\\"3,2,a\\\": 0, \\\"3,4,a\\\": 11, \\\"4,3,a\\\": 0, \\\"4,0,a\\\": 14, \\\"0,4,a\\\": 0, \\\"0,2,a\\\": 6, \\\"2,0,a\\\": 0}\"\n      ],\n      \"focus\": \"all_edges_exceed_capacity_no_valid_mst\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 4529,
+    "completion_tokens": 2963,
+    "total_tokens": 7492,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2304,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

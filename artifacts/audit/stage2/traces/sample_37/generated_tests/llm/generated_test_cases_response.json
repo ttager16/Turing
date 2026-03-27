@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5i9l0Me2QDWQv4iPb9tfyBpygmh",
+  "object": "chat.completion",
+  "created": 1774395869,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"{\\\"X\\\": 50.0, \\\"Y\\\": 75.0}\",\n        \"{\\\"X\\\": [[\\\"Y\\\", 0.9]], \\\"Y\\\": [[\\\"X\\\", 0.9]]}\",\n        \"4\",\n        \"0.0\",\n        \"0.001\",\n        \"7\"\n      ],\n      \"focus\": \"Capital zero edge: triggers 'No capital available for trading.' single-result behavior\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"B\\\": 120.0, \\\"A\\\": 80.0, \\\"C\\\": 60.0}\",\n        \"{\\\"B\\\": [[\\\"A\\\", 0.85], [\\\"C\\\", 0.1]], \\\"A\\\": [[\\\"B\\\", 0.85], [\\\"C\\\", 0.2]], \\\"C\\\": [[\\\"A\\\", 0.2], [\\\"B\\\", 0.1]]}\",\n        \"6\",\n        \"500.0\",\n        \"0.005\",\n        \"123\"\n      ],\n      \"focus\": \"High-correlation pair with limited capital to exercise pair-trading, buy-threshold logic, and deterministic asset sorting (unsorted input keys)\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"AssetZ\\\": 10.0, \\\"AssetY\\\": 20.0, \\\"AssetX\\\": 30.0, \\\"AssetW\\\": 40.0}\",\n        \"{\\\"AssetW\\\": [[\\\"AssetX\\\", 0.6], [\\\"AssetY\\\", 0.4]], \\\"AssetX\\\": [[\\\"AssetW\\\", 0.6], [\\\"AssetY\\\", 0.3]], \\\"AssetY\\\": [[\\\"AssetX\\\", 0.3]]}\",\n        \"3\",\n        \"1000.0\",\n        \"0.0\",\n        \"1\"\n      ],\n      \"focus\": \"Zero transaction cost and an asset (AssetZ) missing from correlation_graph to test skip-no-correlation logic and rounding behavior\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 5295,
+    "completion_tokens": 2742,
+    "total_tokens": 8037,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2304,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

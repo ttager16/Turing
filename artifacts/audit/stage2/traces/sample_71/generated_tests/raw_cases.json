@@ -1,0 +1,104 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {},
+      [
+        [
+          "S",
+          "A",
+          8
+        ],
+        [
+          "S",
+          "A",
+          5
+        ],
+        [
+          "S",
+          "B",
+          7
+        ],
+        [
+          "B",
+          "E",
+          3
+        ],
+        [
+          "A",
+          "X",
+          0
+        ],
+        [
+          "S",
+          "C",
+          6
+        ],
+        [
+          "C",
+          "E",
+          20
+        ]
+      ],
+      "S",
+      "E"
+    ],
+    "input_lines": [
+      "{}",
+      "[[\"S\", \"A\", 8], [\"S\", \"A\", 5], [\"S\", \"B\", 7], [\"B\", \"E\", 3], [\"A\", \"X\", 0], [\"S\", \"C\", 6], [\"C\", \"E\", 20]]",
+      "\"S\"",
+      "\"E\""
+    ],
+    "focus": "Empty initial graph, last-write-wins on repeated updates, closed edge creates a sink — verifies sink penalty and that constructed graph from updates is used."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "A": {
+          "B": 5,
+          "C": 4
+        },
+        "B": {
+          "D": 5
+        },
+        "C": {
+          "D": 6
+        },
+        "D": {}
+      },
+      [],
+      "A",
+      "D"
+    ],
+    "input_lines": [
+      "{\"A\": {\"B\": 5, \"C\": 4}, \"B\": {\"D\": 5}, \"C\": {\"D\": 6}, \"D\": {}}",
+      "[]",
+      "\"A\"",
+      "\"D\""
+    ],
+    "focus": "Tie on total cost and hops between A->B->D and A->C->D — enforces lexicographic tie-breaker after cost and hop comparisons."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {},
+      [
+        [
+          "X",
+          "X",
+          3
+        ]
+      ],
+      "X",
+      "Y"
+    ],
+    "input_lines": [
+      "{}",
+      "[[\"X\", \"X\", 3]]",
+      "\"X\"",
+      "\"Y\""
+    ],
+    "focus": "Self-loop introduced in updates — should trigger immediate return [] (self-loop detection in updates)."
+  }
+]

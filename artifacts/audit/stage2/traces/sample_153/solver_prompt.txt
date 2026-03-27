@@ -1,0 +1,158 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+Develop a comprehensive Python-based computational fluid dynamics simulation framework for analyzing airflow over aircraft surfaces using Chebyshev polynomial approximations. This system serves as a critical component for aerospace engineering platforms that require efficient boundary layer equation solutions with high accuracy and reduced computational cost. The framework must implement Chebyshev polynomials to achieve superior numerical stability while enabling real-time flow analysis, gradient computation, and deterministic performance essential for iterative aircraft design optimization processes.
+
+## Problem Description
+
+The system models flow networks using Chebyshev polynomial approximations for optimal interpolation and smooth derivative computation. The framework must implement:
+
+### Core Features
+
+1. **Chebyshev Polynomial Evaluation**: Compute first kind polynomials using recurrence relations
+2. **Optimal Node Generation**: Generate Chebyshev-Gauss nodes for optimal interpolation
+3. **Flow Network Modeling**: Directed graph structure with capacity-weighted edges and boundary conditions
+4. **Chebyshev Interpolation**: Discrete Chebyshev transform for function approximation from sampled values
+5. **Flow Optimization**: Compute flow potentials, edge flows, and comprehensive optimization metrics
+
+## Function Signature
+
+```python
+def compute_advanced_airflow_network(num_nodes: int, edges: list, boundary_conditions: list) -> dict:
+    """
+    Constructs and optimizes a multi-layer flow network using Chebyshev polynomial 
+    approximations for real-time CFD-inspired analysis.
+    
+    Parameters:
+        num_nodes (int): Number of nodes in the flow network
+        edges (list): List of lists [source, dest, capacity] representing directed edges
+        boundary_conditions (list): List of boundary values (floats) for each node
+    
+    Returns:
+        dict: Dictionary with optimization metrics, flow analysis, and metadata
+    """
+    pass
+```
+
+## Constraints
+
+1. **Chebyshev First Kind Recurrence**: Compute T_n(x) iteratively using the three-term recurrence relation
+2. **Chebyshev Nodes Formula**: Generate Chebyshev-Gauss nodes (roots of T_n(x)) for optimal interpolation points
+3. **Taylor Series Cosine**: Compute cosine using Taylor series expansion with 20 terms for deterministic results
+4. **Angle Normalization**: Normalize angles to [-pi, pi] range before Taylor series computation
+5. **PI Constant**: Use pi with 15 decimal places of precision for all trigonometric calculations
+6. **Interpolator Node Generation**: Initialize interpolator with degree + 1 Chebyshev nodes for a given degree
+7. **Discrete Chebyshev Transform**: Compute coefficients using discrete transform with normalization factor 1/n for k=0 and 2/n for k>0
+8. **Clenshaw Algorithm**: Evaluate Chebyshev series using standard backward recurrence for stable polynomial evaluation
+9. **Derivative Coefficients**: Compute Chebyshev derivative coefficients by accumulating weighted higher-order terms with odd parity difference, then halve the first coefficient
+10. **Flow Potential Calculation**: Compute node potential as boundary value plus 0.3 times the capacity-weighted average of neighbor boundary values (only add contribution if total capacity exceeds threshold)
+11. **Domain Mapping**: Map values to [-1, 1] using linear normalization; return all zeros if range is below threshold
+12. **Linear Interpolation Sampling**: Map Chebyshev nodes to index space and interpolate between mapped potentials; when mapped index is at or beyond the last valid index (index_int >= num_nodes - 1), clamp to the last potential value
+13. **Edge Flow Computation**: Calculate flow = capacity * (potential_source - potential_dest)
+14. **Optimal Degree Selection**: Select Chebyshev interpolation degree as half the number of nodes, clamped between minimum 4 and maximum 12
+15. **Composite Flow Metric**: Compute weighted combination with coefficients 0.4 for energy, 2.0 for efficiency, and -0.1 for smoothness
+16. **Smoothness Computation**: Calculate mean of absolute derivative values across all node positions
+17. **Input Validation**: Return error dictionary {"error": "<message>"} for invalid inputs with the following validation sequence:
+    - "Number of nodes must be a positive integer."
+    - "Edges must be a list of lists with at least 3 elements each."
+    - "Boundary conditions must be a list of length equal to number of nodes."
+    - "All boundary conditions must be numeric values."
+18. **Edge Validation**: Only add edges where both source and destination are valid node indices (0 ≤ u, v < num_nodes)
+19. **Empty Nodes Handling**: Return empty list for Chebyshev nodes when n ≤ 0
+20. **Zero Coefficient Handling**: Return 0.0 when evaluating with empty coefficients, return c_0 when only one coefficient
+21. **Single Coefficient Derivative**: Return 0.0 for derivative when coefficients length ≤ 1
+22. **Precision Thresholds**: Use 1e-10 for capacity sum comparison and domain mapping range check
+23. **Node Position Mapping**: Map node index i to Chebyshev domain using x = -1.0 + 2.0 * i / max(1, num_nodes - 1)
+24. **Potential Smoothing**: Evaluate Chebyshev interpolation at each node position and map back to original domain
+25. **Network Structure**: Use adjacency list storing (neighbor, capacity) tuples and separate edges list storing (u, v, capacity) tuples
+26. **Approximation Error Calculation**: Compute as mean absolute difference between raw potentials and smoothed node potentials in the original domain
+27. **Spectral Entropy Computation**: Calculate as negative sum of (prob * sqrt(prob)) where prob = abs(flow) / total_abs_flow for each edge flow; only include flows with prob > 1e-10
+28. **Convergence Rate Calculation**: Compute mean of ratios abs(coeff[i] / coeff[i-1]) for consecutive coefficients where abs(coeff[i-1]) > 1e-10; return 0.0 if less than 2 coefficients
+29. **Node Imbalance Tracking**: For each edge flow, subtract from source node and add to destination node; compute max and average of absolute imbalances
+30. **Curvature Approximation**: Use finite difference method with h=0.001 to compute second derivative as (deriv(x+h) - deriv(x-h)) / (2h) at each node position; only compute when |x+-h| ≤ 1.0
+31. **Resilience Score Formula**: Calculate as 1.0 / (1.0 + gradient_variance) where gradient_variance is variance of absolute potential differences across all edges
+32. **Rounding Requirements**: All rounding operations should be done only at the final output stage to ensure precision during calculations
+
+## Sample Input
+
+```python
+num_nodes = 5
+edges = [
+    [0, 1, 0.5],
+    [1, 2, 0.3],
+    [2, 3, 1.0],
+    [1, 4, 2.5],
+    [0, 3, 0.2]
+]
+boundary_conditions = [0.8, 0.9, 0.7, 1.2, 0.6]
+```
+
+## Sample Output
+
+```python
+{
+    'optimized_flow_metric': 2.15426,
+    'total_energy': 4.4212,
+    'network_efficiency': 0.3117,
+    'average_smoothness': 2.3755,
+    'flow_variance': 0.28965,
+    'max_potential_gradient': 0.53173,
+    'approximation_error': 0.0350375,
+    'total_flow': 1.40248,
+    'spectral_entropy': -0.931947,
+    'convergence_rate': 0.970159,
+    'max_node_imbalance': 1.32933,
+    'avg_node_imbalance': 0.558028,
+    'average_curvature': 3.41693,
+    'max_curvature': 7.64772,
+    'resilience_score': 0.96082,
+    'edge_flows': [0.004, 0.003, -0.058, 1.329, -0.008],
+    'node_potentials': [1.07734, 1.06993, 1.06, 1.11828, 0.5382],
+    'raw_potentials': [1.09571, 1.08321, 1.06, 1.2, 0.6],
+    'chebyshev_coefficients': [0.32886, -0.545326, -0.420387, -0.353238, -0.215914],
+    'num_nodes': 5,
+    'num_edges': 5,
+    'chebyshev_degree': 4
+}
+```
+
+## Output Format
+
+- Return value: Dictionary with exact keys as specified
+- `optimized_flow_metric`: Float rounded to 5 decimal places representing composite optimization score
+- `total_energy`: Float rounded to 4 decimal places representing sum of capacity-weighted squared flows
+- `network_efficiency`: Float rounded to 4 decimal places representing flow utilization ratio
+- `average_smoothness`: Float rounded to 4 decimal places representing mean gradient magnitude
+- `flow_variance`: Float rounded to 5 decimal places measuring flow distribution uniformity
+- `max_potential_gradient`: Float rounded to 5 decimal places showing maximum potential difference
+- `approximation_error`: Float rounded to 7 decimal places showing Chebyshev approximation accuracy
+- `total_flow`: Float rounded to 5 decimal places representing total absolute flow
+- `spectral_entropy`: Float rounded to 6 decimal places measuring flow distribution disorder (modified entropy using square root probability)
+- `convergence_rate`: Float rounded to 6 decimal places representing mean ratio of consecutive Chebyshev coefficients
+- `max_node_imbalance`: Float rounded to 5 decimal places showing maximum flow conservation deficit at any node
+- `avg_node_imbalance`: Float rounded to 6 decimal places showing average flow conservation deficit across nodes
+- `average_curvature`: Float rounded to 5 decimal places representing mean potential field second derivative magnitude
+- `max_curvature`: Float rounded to 5 decimal places representing maximum potential field second derivative magnitude
+- `resilience_score`: Float rounded to 5 decimal places representing network stability (1 / (1 + gradient_variance))
+- `edge_flows`: List of floats rounded to 3 decimal places, one per edge in order added
+- `node_potentials`: List of floats rounded to 5 decimal places representing smoothed potentials
+- `raw_potentials`: List of floats rounded to 5 decimal places representing original computed potentials
+- `chebyshev_coefficients`: List of floats rounded to 6 decimal places from discrete transform
+- `num_nodes`: Integer matching input parameter
+- `num_edges`: Integer counting valid edges added to network
+- `chebyshev_degree`: Integer showing polynomial degree used for interpolation
+- `error`: String with error message (only present when validation fails)
+
+Starter Code:
+```python
+def compute_advanced_airflow_network(num_nodes: int, edges: list, boundary_conditions: list) -> dict:
+    pass
+```

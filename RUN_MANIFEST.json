@@ -1,0 +1,104 @@
+{
+  "project": "Turing Take-Home Audit Workflow",
+  "authoritative_run": {
+    "status": "authoritative",
+    "reason": "This is the final full-dataset Stage 1 to Stage 3 run reflected by the stable root-level outputs and frozen submission artifacts.",
+    "canonical_run_timestamp_utc": "2026-03-26T09:29:15.069089+00:00",
+    "entrypoint": "python main.py",
+    "dataset_path": "artifacts/provided/Samples.jsonl",
+    "dataset_sha256": "6a12f3318de8220054e06c50dadd380b12db1be6bed74a3349ae8f6bfdfcc15d",
+    "dataset_size": 155,
+    "git_commit": null,
+    "git_commit_note": "Git was not available in the execution environment used for this manifest refresh."
+  },
+  "environment": {
+    "python_version": "3.14.3",
+    "os": "Windows-11-10.0.26200-SP0",
+    "installation_method": "python -m pip install -r requirements.txt",
+    "nondeterminism_note": "LLM-backed stages are nondeterministic across reruns even when the code and inputs are unchanged."
+  },
+  "reviewer_entrypoint": "README.md",
+  "audit_bundle": "artifacts/audit/",
+  "canonical_outputs": {
+    "combined_workbook": {
+      "path": "outputs/dataset_analysis.xlsx",
+      "size_bytes": 542431,
+      "modified_utc": "2026-03-26T09:29:14.432783+00:00"
+    },
+    "combined_json": {
+      "path": "outputs/dataset_analysis.json",
+      "size_bytes": 46642932,
+      "modified_utc": "2026-03-26T09:29:15.069089+00:00"
+    },
+    "stage1_workbook": {
+      "path": "outputs/sample_requirements_analysis/guideline_audit.xlsx",
+      "size_bytes": 341352,
+      "modified_utc": "2026-03-26T05:25:32.561121+00:00"
+    },
+    "stage2_sample_results": {
+      "path": "outputs/sample_efficacy_analysis/sample_results.csv",
+      "size_bytes": 35894,
+      "modified_utc": "2026-03-26T05:25:34.336246+00:00"
+    },
+    "stage2_model_results": {
+      "path": "outputs/sample_efficacy_analysis/sample_model_results.csv",
+      "size_bytes": 32869,
+      "modified_utc": "2026-03-26T05:25:34.341898+00:00"
+    },
+    "stage3_workbook": {
+      "path": "outputs/dataset_analysis/dataset_analysis.xlsx",
+      "size_bytes": 62599,
+      "modified_utc": "2026-03-26T05:33:22.006645+00:00"
+    },
+    "stage3_json": {
+      "path": "outputs/dataset_analysis/dataset_analysis.json",
+      "size_bytes": 497687,
+      "modified_utc": "2026-03-26T05:33:21.841842+00:00"
+    }
+  },
+  "stages": {
+    "stage1": {
+      "status": "implemented",
+      "canonical_workbook": "outputs/sample_requirements_analysis/guideline_audit.xlsx",
+      "records_evaluated": 155,
+      "records_skipped": 0,
+      "records_errored": 0,
+      "notes": "Stage 1 is workbook-first because it preserves the original section-based audit layout."
+    },
+    "stage2": {
+      "status": "implemented",
+      "canonical_dir": "outputs/sample_efficacy_analysis",
+      "run_manifest": "outputs/sample_efficacy_analysis/run_manifest.json",
+      "records_evaluated": 155,
+      "records_skipped": 0,
+      "records_errored": 0,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "attempts_per_sample": 2,
+      "generated_tests_per_sample": 3,
+      "suspicious_rows": 6,
+      "needs_audit_rows": 6
+    },
+    "stage3": {
+      "status": "implemented",
+      "canonical_dir": "outputs/dataset_analysis",
+      "run_manifest": "outputs/dataset_analysis/run_manifest.json",
+      "records_evaluated": 155,
+      "records_skipped": 0,
+      "records_errored": 0,
+      "embedding_model": "text-embedding-nomic-embed-text-v1.5",
+      "critical_priority_rows": 9
+    },
+    "stage4": {
+      "status": "implemented",
+      "canonical_dir": "outputs/manual_audit",
+      "run_manifest": "outputs/manual_audit/run_manifest.json",
+      "notes": "Stage 4 is human-in-the-loop and reviewer-authored. Its artifacts are separate from the authoritative automated Stage 1 to Stage 3 run."
+    }
+  }
+}

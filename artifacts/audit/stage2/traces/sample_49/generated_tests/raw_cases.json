@@ -1,0 +1,243 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        {
+          "id": 0,
+          "capacity": 120,
+          "base_cost": 1.5,
+          "efficiency_factor": 1.0
+        },
+        {
+          "id": 1,
+          "capacity": 100,
+          "base_cost": 1.5,
+          "efficiency_factor": 1.0
+        },
+        {
+          "id": 2,
+          "capacity": 80,
+          "base_cost": 1.5,
+          "efficiency_factor": 1.0
+        }
+      ],
+      [
+        {
+          "id": 0,
+          "demand": 60,
+          "priority_level": 1
+        },
+        {
+          "id": 1,
+          "demand": 80,
+          "priority_level": 2
+        },
+        {
+          "id": 2,
+          "demand": 40,
+          "priority_level": 1
+        },
+        {
+          "id": 3,
+          "demand": 20,
+          "priority_level": 3
+        }
+      ],
+      [
+        [
+          25.0,
+          30.0,
+          25.0,
+          28.0
+        ],
+        [
+          25.0,
+          28.0,
+          27.0,
+          28.0
+        ],
+        [
+          26.0,
+          35.0,
+          24.0,
+          29.0
+        ]
+      ],
+      [
+        [
+          0,
+          24
+        ],
+        [
+          12,
+          36
+        ],
+        [
+          24,
+          48
+        ],
+        [
+          0,
+          72
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[{\"id\": 0, \"capacity\": 120, \"base_cost\": 1.5, \"efficiency_factor\": 1.0}, {\"id\": 1, \"capacity\": 100, \"base_cost\": 1.5, \"efficiency_factor\": 1.0}, {\"id\": 2, \"capacity\": 80, \"base_cost\": 1.5, \"efficiency_factor\": 1.0}]",
+      "[{\"id\": 0, \"demand\": 60, \"priority_level\": 1}, {\"id\": 1, \"demand\": 80, \"priority_level\": 2}, {\"id\": 2, \"demand\": 40, \"priority_level\": 1}, {\"id\": 3, \"demand\": 20, \"priority_level\": 3}]",
+      "[[25.0, 30.0, 25.0, 28.0], [25.0, 28.0, 27.0, 28.0], [26.0, 35.0, 24.0, 29.0]]",
+      "[[0, 24], [12, 36], [24, 48], [0, 72]]"
+    ],
+    "focus": "Multiple distribution centers with tied transportation costs and mixed priorities; tests tie-breaking, capacity tracking, and urgency weighting with large max time span."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        {
+          "id": 0,
+          "capacity": 150,
+          "base_cost": 0.5,
+          "efficiency_factor": 1.5
+        }
+      ],
+      [
+        {
+          "id": 0,
+          "demand": 50,
+          "priority_level": 1
+        },
+        {
+          "id": 1,
+          "demand": 50,
+          "priority_level": 1
+        },
+        {
+          "id": 2,
+          "demand": 50,
+          "priority_level": 1
+        }
+      ],
+      [
+        [
+          20.0,
+          20.0,
+          20.0
+        ]
+      ],
+      [
+        [
+          10,
+          11
+        ],
+        [
+          11,
+          12
+        ],
+        [
+          12,
+          13
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[{\"id\": 0, \"capacity\": 150, \"base_cost\": 0.5, \"efficiency_factor\": 1.5}]",
+      "[{\"id\": 0, \"demand\": 50, \"priority_level\": 1}, {\"id\": 1, \"demand\": 50, \"priority_level\": 1}, {\"id\": 2, \"demand\": 50, \"priority_level\": 1}]",
+      "[[20.0, 20.0, 20.0]]",
+      "[[10, 11], [11, 12], [12, 13]]"
+    ],
+    "focus": "Single distribution center with demands exactly matching capacity and very tight time windows (minimal time span); tests midpoint scheduling and small urgency weighting."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        {
+          "id": 0,
+          "capacity": 100,
+          "base_cost": 2.0,
+          "efficiency_factor": 1.0
+        },
+        {
+          "id": 1,
+          "capacity": 80,
+          "base_cost": 2.0,
+          "efficiency_factor": 1.0
+        }
+      ],
+      [
+        {
+          "id": 0,
+          "demand": 40,
+          "priority_level": 2
+        },
+        {
+          "id": 1,
+          "demand": 40,
+          "priority_level": 1
+        },
+        {
+          "id": 2,
+          "demand": 40,
+          "priority_level": 3
+        },
+        {
+          "id": 3,
+          "demand": 40,
+          "priority_level": 2
+        },
+        {
+          "id": 4,
+          "demand": 40,
+          "priority_level": 1
+        }
+      ],
+      [
+        [
+          30.0,
+          30.0,
+          30.0,
+          30.0,
+          30.0
+        ],
+        [
+          30.0,
+          30.0,
+          30.0,
+          30.0,
+          30.0
+        ]
+      ],
+      [
+        [
+          0,
+          48
+        ],
+        [
+          0,
+          48
+        ],
+        [
+          12,
+          36
+        ],
+        [
+          0,
+          24
+        ],
+        [
+          24,
+          72
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[{\"id\": 0, \"capacity\": 100, \"base_cost\": 2.0, \"efficiency_factor\": 1.0}, {\"id\": 1, \"capacity\": 80, \"base_cost\": 2.0, \"efficiency_factor\": 1.0}]",
+      "[{\"id\": 0, \"demand\": 40, \"priority_level\": 2}, {\"id\": 1, \"demand\": 40, \"priority_level\": 1}, {\"id\": 2, \"demand\": 40, \"priority_level\": 3}, {\"id\": 3, \"demand\": 40, \"priority_level\": 2}, {\"id\": 4, \"demand\": 40, \"priority_level\": 1}]",
+      "[[30.0, 30.0, 30.0, 30.0, 30.0], [30.0, 30.0, 30.0, 30.0, 30.0]]",
+      "[[0, 48], [0, 48], [12, 36], [0, 24], [24, 72]]"
+    ],
+    "focus": "Total demand exceeds total capacity; identical costs across centers to force priority-based selection and leave unassigned destinations when capacity runs out."
+  }
+]

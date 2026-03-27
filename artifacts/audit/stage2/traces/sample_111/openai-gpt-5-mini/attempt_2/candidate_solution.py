@@ -1,0 +1,133 @@
+def max_flow_simulator(graph: Dict[str, List[Dict[str, int]]], source: int, sink: int) -> Dict:
+    # Normalize nodes as integers and build adjacency with capacities
+    # graph keys are strings per spec
+    adj = defaultdict(dict)  # adj[u][v] = capacity
+    nodes = set()
+    for u_str, edges in graph.items():
+        u = int(u_str)
+        nodes.add(u)
+        for e in edges:
+            v = int(e["neighbor"])
+            cap = int(e["capacity"])
+            nodes.add(v)
+            # If multiple parallel edges u->v provided, sum capacities
+            adj[u][v] = adj[u].get(v, 0) + cap
+
+    max_node = max(nodes) if nodes else 0
+    # Build residual capacities and flow trackers
+    residual = defaultdict(lambda: defaultdict(int))
+    flow = defaultdict(lambda: defaultdict(int))
+    for u in adj:
+        for v, cap in adj[u].items():
+            residual[u][v] += cap
+            # ensure reverse edge exists in residual with 0 if not present
+            residual[v].setdefault(u, 0)
+            flow[u][v] = 0
+
+    # Ensure all nodes present in residual
+    for n in nodes:
+        residual.setdefault(n, defaultdict(int))
+
+    algorithm_steps = []
+    explanations = []
+    total_flow = 0
+    step_num = 0
+
+    # Deterministic BFS using sorted neighbors to respect tie-breaking
+    def bfs():
+        parent = {}
+        visited = set()
+        q = deque()
+        q.append(source)
+        visited.add(source)
+        while q:
+            u = q.popleft()
+            # iterate neighbors in sorted order for determinism
+            for v in sorted(residual[u].keys()):
+                if v not in visited and residual[u][v] > 0:
+                    visited.add(v)
+                    parent[v] = u
+                    if v == sink:
+                        # reconstruct path
+                        path = []
+                        cur = sink
+                        while cur != source:
+                            prev = parent[cur]
+                            path.append((prev, cur))
+                            cur = prev
+                        path.reverse()
+                        return path
+                    q.append(v)
+        return None
+
+    while True:
+        path = bfs()
+        if not path:
+            break
+        # compute bottleneck
+        bottleneck = min(residual[u][v] for u, v in path)
+        # apply flow along path (update flow and residuals), careful with anti-parallel edges
+        for u, v in path:
+            # If original forward edge exists in flow dict, increase; else decrease reverse flow
+            if v in flow[u]:
+                flow[u][v] += bottleneck
+            else:
+                # If no explicit forward flow recorded (edge not in original direction),
+                # this means we're sending flow on a reverse of an original edge: decrease flow[v][u]
+                flow[v][u] -= bottleneck
+            residual[u][v] -= bottleneck
+            residual[v][u] += bottleneck
+        total_flow += bottleneck
+        step_num += 1
+
+        # Prepare residual_edges snapshot (only original edges and their residuals and any currently existing residual edges)
+        residual_edges = []
+        # include all pairs where residual >0 for consistent display (sorted)
+        seen_pairs = set()
+        for u in sorted(residual.keys()):
+            for v in sorted(residual[u].keys()):
+                if (u, v) in seen_pairs:
+                    continue
+                seen_pairs.add((u, v))
+                if residual[u][v] >= 0:
+                    residual_edges.append({"from": u, "to": v, "residual": residual[u][v]})
+
+        # Prepare path representation
+        path_repr = [{"from": u, "to": v} for u, v in path]
+
+        algorithm_steps.append({
+            "step": step_num,
+            "path": path_repr,
+            "bottleneck": bottleneck,
+            "flow_increase": bottleneck,
+            "residual_edges": residual_edges
+        })
+
+        # Explanation under 200 words
+        expl = (
+            f"Step {step_num}: Selected augmenting path " +
+            "→".join(str(p["from"]) for p in path_repr) + f"→{path_repr[-1]['to']}" if path_repr else f"Step {step_num}: No path."
+        )
+        # build concise further text
+        if path_repr:
+            expl = (f"Step {step_num}: Selected augmenting path " +
+                    "→".join(str(p["from"]) for p in path_repr) + f"→{path_repr[-1]['to']}" +
+                    f" with bottleneck capacity {bottleneck}. Increased flow by {bottleneck} units. "
+                    f"Residual capacities updated to reflect forward capacity decreases and backward capacity increases, preserving flow conservation.")
+        explanations.append(expl)
+
+    # Build edge_flows for original edges in input format "u->v"
+    edge_flows = {}
+    for u in sorted(adj.keys()):
+        for v in sorted(adj[u].keys()):
+            f = flow[u].get(v, 0)
+            res = residual[u].get(v, 0)
+            edge_flows[f"{u}->{v}"] = {"flow": f, "residual_capacity": res}
+
+    result = {
+        "total_flow": total_flow,
+        "edge_flows": edge_flows,
+        "algorithm_steps": algorithm_steps,
+        "explanations": explanations
+    }
+    return result

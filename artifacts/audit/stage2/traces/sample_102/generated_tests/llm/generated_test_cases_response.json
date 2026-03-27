@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6xrWA86Tp1G3vM5IiucxmliLc7U",
+  "object": "chat.completion",
+  "created": 1774400687,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[{\\\"truck_id\\\": 0, \\\"capacity\\\": 1000, \\\"operational_hours\\\": 12, \\\"base_cost_per_hour\\\": 80, \\\"maintenance_window\\\": {\\\"start_hour\\\": 23, \\\"end_hour\\\": 5}, \\\"truck_type\\\": \\\"heavy\\\", \\\"current_location\\\": {\\\"x\\\": 100, \\\"y\\\": 100}}, {\\\"truck_id\\\": 1, \\\"capacity\\\": 1200, \\\"operational_hours\\\": 10, \\\"base_cost_per_hour\\\": 90, \\\"maintenance_window\\\": {\\\"start_hour\\\": 2, \\\"end_hour\\\": 4}, \\\"truck_type\\\": \\\"medium\\\", \\\"current_location\\\": {\\\"x\\\": 200, \\\"y\\\": 250}}]\",\"[{\\\"route_id\\\": 0, \\\"load_requirement\\\": 300, \\\"estimated_duration\\\": 4, \\\"priority_level\\\": 1, \\\"start_time_window\\\": 6, \\\"end_time_window\\\": 12, \\\"base_assignment_cost\\\": 200, \\\"route_complexity\\\": 1.2, \\\"destination_coordinates\\\": {\\\"x\\\": 400, \\\"y\\\": 500}}, {\\\"route_id\\\": 1, \\\"load_requirement\\\": 400, \\\"estimated_duration\\\": 3, \\\"priority_level\\\": 2, \\\"start_time_window\\\": 8, \\\"end_time_window\\\": 14, \\\"base_assignment_cost\\\": 250, \\\"route_complexity\\\": 1.1, \\\"destination_coordinates\\\": {\\\"x\\\": 600, \\\"y\\\": 300}}, {\\\"route_id\\\": 2, \\\"load_requirement\\\": 200, \\\"estimated_duration\\\": 2, \\\"priority_level\\\": 3, \\\"start_time_window\\\": 10, \\\"end_time_window\\\": 16, \\\"base_assignment_cost\\\": 150, \\\"route_complexity\\\": 1.0, \\\"destination_coordinates\\\": {\\\"x\\\": 700, \\\"y\\\": 800}}]\",\"[{\\\"dependency_id\\\": 0, \\\"prerequisite_route_id\\\": 0, \\\"dependent_route_id\\\": 1, \\\"dependency_type\\\": \\\"sequential\\\", \\\"minimum_gap_hours\\\": 1}, {\\\"dependency_id\\\": 1, \\\"prerequisite_route_id\\\": 1, \\\"dependent_route_id\\\": 2, \\\"dependency_type\\\": \\\"sequential\\\", \\\"minimum_gap_hours\\\": 1}, {\\\"dependency_id\\\": 2, \\\"prerequisite_route_id\\\": 2, \\\"dependent_route_id\\\": 0, \\\"dependency_type\\\": \\\"sequential\\\", \\\"minimum_gap_hours\\\": 1}]\",\"{\\\"max_routes_per_truck\\\": 3, \\\"fuel_cost_per_km\\\": 1.0, \\\"overtime_multiplier\\\": 1.5, \\\"priority_weight_factor\\\": 1.2}\"], \"focus\":\"circular dependency detection\"}, {\"input_lines\":[\"[{\\\"truck_id\\\": 0, \\\"capacity\\\": 800, \\\"operational_hours\\\": 9, \\\"base_cost_per_hour\\\": 70, \\\"maintenance_window\\\": {\\\"start_hour\\\": 22, \\\"end_hour\\\": 6}, \\\"truck_type\\\": \\\"medium\\\", \\\"current_location\\\": {\\\"x\\\": 0, \\\"y\\\": 0}}, {\\\"truck_id\\\": 1, \\\"capacity\\\": 900, \\\"operational_hours\\\": 10, \\\"base_cost_per_hour\\\": 85, \\\"maintenance_window\\\": {\\\"start_hour\\\": 1, \\\"end_hour\\\": 3}, \\\"truck_type\\\": \\\"heavy\\\", \\\"current_location\\\": {\\\"x\\\": 1000, \\\"y\\\": 1000}}]\",\"[{\\\"route_id\\\": 0, \\\"load_requirement\\\": 700, \\\"estimated_duration\\\": 5, \\\"priority_level\\\": 1, \\\"start_time_window\\\": 10, \\\"end_time_window\\\": 11, \\\"base_assignment_cost\\\": 300, \\\"route_complexity\\\": 2.0, \\\"destination_coordinates\\\": {\\\"x\\\": 1000, \\\"y\\\": 0}}, {\\\"route_id\\\": 1, \\\"load_requirement\\\": 750, \\\"estimated_duration\\\": 6, \\\"priority_level\\\": 2, \\\"start_time_window\\\": 12, \\\"end_time_window\\\": 18, \\\"base_assignment_cost\\\": 400, \\\"route_complexity\\\": 1.5, \\\"destination_coordinates\\\": {\\\"x\\\": 0, \\\"y\\\": 1000}}, {\\\"route_id\\\": 2, \\\"load_requirement\\\": 650, \\\"estimated_duration\\\": 4, \\\"priority_level\\\": 1, \\\"start_time_window\\\": 8, \\\"end_time_window\\\": 12, \\\"base_assignment_cost\\\": 250, \\\"route_complexity\\\": 1.8, \\\"destination_coordinates\\\": {\\\"x\\\": 500, \\\"y\\\": 500}}]\",\"[{\\\"dependency_id\\\": 0, \\\"prerequisite_route_id\\\": 0, \\\"dependent_route_id\\\": 2, \\\"dependency_type\\\": \\\"sequential\\\", \\\"minimum_gap_hours\\\": 1}]\",\"{\\\"max_routes_per_truck\\\": 2, \\\"fuel_cost_per_km\\\": 2.0, \\\"overtime_multiplier\\\": 2.0, \\\"priority_weight_factor\\\": 1.5}\"], \"focus\":\"tight time windows, high capacity-penalty and extreme distances\"}, {\"input_lines\":[\"[{\\\"truck_id\\\": 0, \\\"capacity\\\": 500, \\\"operational_hours\\\": 8, \\\"base_cost_per_hour\\\": 60, \\\"maintenance_window\\\": {\\\"start_hour\\\": 0, \\\"end_hour\\\": 2}, \\\"truck_type\\\": \\\"light\\\", \\\"current_location\\\": {\\\"x\\\": 100, \\\"y\\\": 100}}, {\\\"truck_id\\\": 1, \\\"capacity\\\": 600, \\\"operational_hours\\\": 9, \\\"base_cost_per_hour\\\": 70, \\\"maintenance_window\\\": {\\\"start_hour\\\": 3, \\\"end_hour\\\": 5}, \\\"truck_type\\\": \\\"medium\\\", \\\"current_location\\\": {\\\"x\\\": 200, \\\"y\\\": 200}}]\",\"[{\\\"route_id\\\": 0, \\\"load_requirement\\\": 700, \\\"estimated_duration\\\": 5, \\\"priority_level\\\": 1, \\\"start_time_window\\\": 6, \\\"end_time_window\\\": 15, \\\"base_assignment_cost\\\": 500, \\\"route_complexity\\\": 1.5, \\\"destination_coordinates\\\": {\\\"x\\\": 300, \\\"y\\\": 300}}, {\\\"route_id\\\": 1, \\\"load_requirement\\\": 400, \\\"estimated_duration\\\": 6, \\\"priority_level\\\": 2, \\\"start_time_window\\\": 9, \\\"end_time_window\\\": 18, \\\"base_assignment_cost\\\": 350, \\\"route_complexity\\\": 2.0, \\\"destination_coordinates\\\": {\\\"x\\\": 400, \\\"y\\\": 500}}]\",\"[]\",\"{\\\"max_routes_per_truck\\\": 2, \\\"fuel_cost_per_km\\\": 1.0, \\\"overtime_multiplier\\\": 1.5, \\\"priority_weight_factor\\\": 1.0}\"], \"focus\":\"route load exceeding available truck capacity -> route validation\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 5313,
+    "completion_tokens": 4350,
+    "total_tokens": 9663,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2880,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

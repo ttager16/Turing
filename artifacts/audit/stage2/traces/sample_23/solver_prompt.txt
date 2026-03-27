@@ -1,0 +1,96 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+In the modern era of interconnected smart grids, a new paradigm for energy distribution has emerged—one that requires simultaneous coordination of multiple data layers, each capturing real-time conditions, network topologies, operational constraints, and fault-tolerance requirements. You must design a Python-based AI framework that uses advanced graph algorithms (e.g Min-Cost Max-Flow) together with bitmask representation to orchestrate the efficient routing of energy across a large-scale network of heterogeneous nodes. These nodes can be power-generating facilities, storage units, or consumers with variable consumption patterns. The framework should perform multi-step energy flow optimization under shifting constraints and must dynamically update its decisions to handle complex real-world scenarios, such as partial outages and changing market demands.
+
+### Objectives:
+
+1. **Multi-Layer Bitmask Encoding:** Develop a compound bitmask system that represents not only node availability and demand but also additional, layered states like fault tolerance triggers and reactive load balancing rules. Each bit (or grouped bits) should be tied to specific real-time properties that can dynamically evolve. Specify that bits 120–127 are reserved for layered status and heartbeat flags; compute per-bit supply and demand from counts of set bits across [0..B) in the source and consumer masks; treat heartbeat flags as properties of node states.
+
+2. **Graph-Based Flow Optimization:** Implement a robust, multi-phase Min-Cost Max-Flow algorithm that accounts for variable flow capacities, and dynamic constraints. Use efficient graph structures (e.g., adjacency lists) and advanced decomposition techniques to ensure high throughput and minimal latency. Construct a bipartite flow graph with a super-source to per-bit supply nodes, per-bit demand nodes to a super-sink, capacities based on per-bit counts with a uniform reduction when faults exist, and edge costs equal to |i−j|; define the system as balanced when the failover flow meets or exceeds total demand, and deterministically project results to set layered flags for source, consumer, balanced, reactive, fault, and failover.
+
+3. **Adaptive Data Structure Utilization:** Leverage specialized data structures (e.g., segment trees, disjoint-set unions) for real-time maintenance of sub-network states. These data structures should enable quick updates when node or edge conditions (represented in bitmasks) change, thereby providing continuous optimization without total recomputation. Maintain connectivity groups among healthy nodes and per-bit count aggregates that support point updates and efficient total queries; ensure the process is deterministic and idempotent.
+
+4. **Fault Tolerance and Redundancy:** Outline a failover mechanism that re-configures the flow graph. This mechanism must detect node failures (via a combination of heartbeat bits in the bitmask) and reroute distribution flows seamlessly. Detect failures when heartbeat-fail is present and heartbeat-ok is absent; reduce available supply proportionally to the number of failed nodes, reroute via minimum-cost paths with |i−j| costs, set failover and fault flags globally, and clear the balanced flag on failed nodes.
+
+### Constraints:
+
+- The bitmask must encode more than 64 states, allowing for compound status tracking (e.g., normal operation, high-demand flags, partial outage markers, maintenance modes).
+- The function must not mutate nodes, energy_sources, or energy_consumers inputs.
+- The output must be deterministic.
+- If both energy_sources and energy_consumers are empty, output == nodes.
+- Applying the function twice yields the same result as once
+- With all empty inputs, returns [].
+
+### Constraints for layered bitmask semantics (ensures >64 states support):
+
+- LAY_SOURCE: Indicates node is an energy source (bit 120)
+- LAY_CONSUMER: Indicates node is an energy consumer (bit 121)
+- LAY_FAULT: Fault status flag (bit 122)
+- LAY_REACTIVE: Reactive load balancing enabled (bit 123)
+- LAY_BALANCED: Node is in balanced operational state (bit 124)
+- LAY_FAILOVER: Node has failover enabled (bit 125)
+- HEARTBEAT_OK: Node heartbeat signal is healthy (bit 126)
+- HEARTBEAT_FAIL: Node heartbeat signal failed (bit 127)
+
+### Function Signature
+
+```python
+def optimize_energy_distribution(
+    nodes: List[int],
+    energy_sources: List[int],
+    energy_consumers: List[int],
+) -> List[int]:
+    """
+    Optimize energy distribution using layered bitmask semantics and
+    deterministic flow projection with failover considerations.
+
+    Args:
+        nodes: List of node states with operational parameters
+        energy_sources: List of source bitmasks indicating supply capabilities
+        energy_consumers: List of consumer bitmasks indicating demand patterns
+
+    Returns:
+        List of optimized node states with updated flow allocations and flags
+    """
+    pass
+```
+
+### Sample Input/Output:
+
+- **Input:**
+
+  - nodes = [0b1011011001, 0b1100010111, 0b1011111100, 0b1001100101]  
+    (each entry signifies a node’s operational parameters, including load capacity, fault status, and demand patterns)
+  - energy_sources = [0b1000000000, 0b1100000001]  
+    (bitmask states indicate large-scale power plants, renewable generators, or backup diesel plants)
+  - energy_consumers = [0b0010000010, 0b0000010011, 0b1010000001]  
+    (varied consumer types, each with different consumption patterns and scheduling requirements)
+
+- **Output:**
+  - [0b1011011101, 0b1100011111, 0b1011111111, 0b1001100111]  
+    (optimized node states reflecting redistributed energy flows, resolved bottlenecks, and toggled fault bits)
+
+### Expected Output Format:
+
+The output must be a list of integers. Each integer’s bitmask indicates the new configuration after complex flow analysis, including any rerouted streams or updated fault/maintenance status flags.
+
+Starter Code:
+```python
+from typing import List
+
+def optimize_energy_distribution(
+    nodes: List[int],
+    energy_sources: List[int],
+    energy_consumers: List[int],
+) -> List[int]:
+    ...
+```

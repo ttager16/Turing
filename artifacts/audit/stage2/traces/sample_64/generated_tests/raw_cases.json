@@ -1,0 +1,251 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        {
+          "id": 4,
+          "type": "residential",
+          "coordinates": [
+            [
+              0,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              2,
+              2
+            ],
+            [
+              0,
+              2
+            ]
+          ],
+          "resources": {
+            "water": {
+              "capacity": 50,
+              "routes": [
+                [
+                  [
+                    1,
+                    1
+                  ],
+                  [
+                    2,
+                    1
+                  ]
+                ]
+              ]
+            },
+            "roads": {
+              "density": 1,
+              "connections": [
+                [
+                  [
+                    0,
+                    1
+                  ],
+                  [
+                    2,
+                    1
+                  ]
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "id": 8,
+          "type": "residential",
+          "coordinates": [
+            [
+              2,
+              2
+            ],
+            [
+              4,
+              2
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              2,
+              4
+            ]
+          ],
+          "resources": {
+            "water": {
+              "capacity": 50,
+              "routes": [
+                [
+                  [
+                    2,
+                    2
+                  ],
+                  [
+                    4,
+                    3
+                  ]
+                ]
+              ]
+            },
+            "roads": {
+              "density": 0,
+              "connections": []
+            }
+          }
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"id\":4,\"type\":\"residential\",\"coordinates\":[[0,0],[2,0],[2,2],[0,2]],\"resources\":{\"water\":{\"capacity\":50,\"routes\":[[[1,1],[2,1]]]},\"roads\":{\"density\":1,\"connections\":[[[0,1],[2,1]]]}}},{\"id\":8,\"type\":\"residential\",\"coordinates\":[[2,2],[4,2],[4,4],[2,4]],\"resources\":{\"water\":{\"capacity\":50,\"routes\":[[[2,2],[4,3]]]},\"roads\":{\"density\":0,\"connections\":[]}}}]"
+    ],
+    "focus": "touching_corner_overlap_should_merge_if_boundary_intersection_counted"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        {
+          "id": 1,
+          "type": "park",
+          "coordinates": [
+            [
+              0,
+              0
+            ],
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              0,
+              3
+            ]
+          ],
+          "resources": {
+            "water": {
+              "capacity": 60,
+              "routes": [],
+              "max_water_capacity": 100
+            },
+            "roads": {
+              "density": 1,
+              "connections": [
+                [
+                  [
+                    1,
+                    0
+                  ],
+                  [
+                    2,
+                    0
+                  ]
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "id": 2,
+          "type": "park",
+          "coordinates": [
+            [
+              2,
+              0
+            ],
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              3
+            ],
+            [
+              2,
+              3
+            ]
+          ],
+          "resources": {
+            "water": {
+              "capacity": 50,
+              "routes": []
+            },
+            "roads": {
+              "density": 2,
+              "connections": [
+                [
+                  [
+                    3,
+                    0
+                  ],
+                  [
+                    4,
+                    0
+                  ]
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "id": 3,
+          "type": "park",
+          "coordinates": [
+            [
+              4,
+              0
+            ],
+            [
+              7,
+              0
+            ],
+            [
+              7,
+              3
+            ],
+            [
+              4,
+              3
+            ]
+          ],
+          "resources": {
+            "water": {
+              "capacity": 30,
+              "routes": []
+            },
+            "roads": {
+              "density": 1,
+              "connections": [
+                [
+                  [
+                    5,
+                    0
+                  ],
+                  [
+                    6,
+                    0
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"id\":1,\"type\":\"park\",\"coordinates\":[[0,0],[3,0],[3,3],[0,3]],\"resources\":{\"water\":{\"capacity\":60,\"routes\":[],\"max_water_capacity\":100},\"roads\":{\"density\":1,\"connections\":[[[1,0],[2,0]]]}}},{\"id\":2,\"type\":\"park\",\"coordinates\":[[2,0],[5,0],[5,3],[2,3]],\"resources\":{\"water\":{\"capacity\":50,\"routes\":[]},\"roads\":{\"density\":2,\"connections\":[[[3,0],[4,0]]]}}},{\"id\":3,\"type\":\"park\",\"coordinates\":[[4,0],[7,0],[7,3],[4,3]],\"resources\":{\"water\":{\"capacity\":30,\"routes\":[]},\"roads\":{\"density\":1,\"connections\":[[[5,0],[6,0]]]}}}]"
+    ],
+    "focus": "max_water_capacity_blocks_merge_but_allows_chain_merging_with_third_zone"
+  }
+]

@@ -1,0 +1,229 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+Develop a comprehensive Python-based multi-phase capacity-constrained network optimization system for large-scale telecommunication infrastructure. This system serves as a critical component for data routing platforms that must balance cost minimization with complex capacity requirements across multiple operational phases (peak hours, off-peak periods, priority tiers). The framework must implement a modified Minimum Spanning Tree algorithm that simultaneously considers edge costs and multi-dimensional capacity constraints to ensure optimal data flow while maintaining network reliability under varying load conditions.
+
+## Problem Description
+
+The system constructs an optimal spanning tree for telecommunication networks where each link has both a cost and phase-specific capacity limits. The framework must implement:
+
+### Core Features
+
+1. **Cost-Optimized Network Construction**: Build minimum cost spanning tree connecting all network nodes
+2. **Multi-Phase Capacity Validation**: Ensure edges satisfy capacity constraints across all operational phases
+3. **Network Performance Analysis**: Compute utilization metrics, efficiency rankings, and bottleneck detection
+4. **Topology Optimization**: Identify cost savings, network density, and degree distribution
+
+## Function Signature
+
+```python
+def compute_mst_with_capacity(graph: List[List], data_loads: Dict[str, int]) -> dict:
+    """
+    Compute minimum spanning tree with multi-phase capacity constraints.
+    
+    Parameters:
+        graph: List of edges where each edge is [start_node, end_node, base_cost, capacity_map]
+               capacity_map is a dictionary mapping phase names (strings) to capacity values (integers)
+        data_loads: Dictionary mapping "u,v,phase" strings to load values (integers)
+                   Format: "start_node,end_node,phase_name" -> load_value
+    
+    Returns:
+        dict: Dictionary with MST edges, costs, validation status, and comprehensive analysis metrics
+    """
+    pass
+```
+
+## Constraints
+
+1. **Libraries**: Use only standard Python libraries without external dependencies, time module, or random module
+2. **Graph Representation**: Each edge contains four elements: start node, end node, cost, and capacity map, where nodes are non-negative integers
+3. **Capacity Map Structure**: Phase names are stored as string keys mapping to positive integer capacity values
+4. **Data Loads Format**: Load keys follow the pattern "u,v,phase" where u and v are node identifiers and phase is the phase name
+5. **MST Algorithm**: Implement Kruskal's algorithm using Union-Find data structure for cycle detection
+6. **Union-Find Initialization**: Each node starts as its own parent with rank zero
+7. **Path Compression**: During find operations, update parent pointers recursively to point directly to the root
+8. **Union by Rank**: When merging sets, attach the tree with lower rank to the root with higher rank, incrementing rank on ties
+9. **Edge Filtering**: Remove edges violating capacity constraints before building the spanning tree
+10. **Capacity Validation**: An edge fails validation if any phase has total load exceeding its capacity
+11. **Bidirectional Load Aggregation**: Sum loads for both "u,v,phase" and "v,u,phase" key patterns when checking edge capacity
+12. **Edge Normalization**: Represent edges consistently using the smaller node ID first and larger node ID second
+13. **Phase Universality**: Exclude edges that lack capacity definitions for any phase present in the graph
+14. **Node Count Calculation**: Determine total nodes by finding the maximum node ID across all edges and adding one
+15. **Validity Check**: A spanning tree is valid when edge count equals node count minus one and node count exceeds zero
+16. **Cost-Based Sorting**: Order edges by ascending cost using a stable sorting method
+17. **Early Termination**: Stop adding edges once the spanning tree contains exactly n-1 edges for n nodes
+18. **Empty Input Handling**: When no valid MST exists, return empty edge list, zero cost, zero edge count, and false validity
+19. **Utilization Calculation**: Compute utilization as load divided by capacity times 100, rounded to 2 decimal places
+20. **Average Utilization**: Calculate the mean of each edge's average phase utilization across all MST edges
+21. **Bottleneck Detection**: Flag edges as bottlenecks when maximum phase utilization exceeds 80 percent
+22. **Underutilization Detection**: Flag edges as underutilized when average phase utilization falls below 30 percent
+23. **Cost Savings Calculation**: Measure savings as the difference between total available edge costs and MST cost, divided by total costs, times 100
+24. **Density Calculation**: Compute density as MST edge count divided by maximum possible edges, times 100, where maximum equals n(n-1)/2
+25. **Critical Phase Selection**: Identify the phase with the highest total utilization summed across all MST edges
+26. **Efficiency Metric**: Define efficiency as total load across all phases divided by edge cost, rounded to 2 decimals
+27. **Efficiency Ranking**: Order MST edges by efficiency in descending order for comprehensive reporting
+28. **Phase Statistics**: Aggregate total loads and capacities by summing across all MST edges for each phase
+29. **Input Validation**: Return error dictionary with key 'error' containing specific messages: "Graph must be a list of edges." for non-list graphs, "Data loads must be a dictionary." for non-dictionary loads, "Each edge must be a list of [start, end, cost, capacity_map]." for malformed edges, "Edge cost must be a number." for non-numeric costs, "Edge capacity_map must be a dictionary." for non-dictionary capacity maps
+
+## Sample Input
+
+```python
+graph = [
+    [0, 1, 5,  {'day': 100, 'night': 80}],
+    [1, 2, 8,  {'day': 60,  'night': 120}],
+    [2, 3, 14, {'day': 200, 'night': 150}],
+    [3, 0, 20, {'day': 50,  'night': 50}],
+    [1, 3, 18, {'day': 70,  'night': 110}]
+]
+
+data_loads = {
+    "0,1,day": 60,  
+    "0,1,night": 80,
+    "1,2,day": 50, 
+    "1,2,night": 120,
+    "2,3,day": 100,
+    "2,3,night": 140,
+    "0,3,day": 10,
+    "0,3,night": 30,
+    "1,3,day": 60,
+    "1,3,night": 70
+}
+```
+
+## Sample Output
+
+```python
+{
+    'mst': [
+        [0, 1, 5],
+        [1, 2, 8],
+        [2, 3, 14]
+    ],
+    'total_cost': 27,
+    'edge_count': 3,
+    'valid': True,
+    'capacity_analysis': {
+        'average_utilization': 81.11,
+        'max_utilization': 91.67,
+        'min_utilization': 71.67,
+        'bottleneck_edges': [
+            [0, 1, 100.0],
+            [1, 2, 100.0],
+            [2, 3, 93.33]
+        ],
+        'underutilized_edges': []
+    },
+    'graph_metrics': {
+        'node_count': 4,
+        'density': 50.0,
+        'cost_savings_percent': 58.46,
+        'pruned_edges': 2,
+        'average_degree': 1.5,
+        'max_degree': 2,
+        'min_degree': 1
+    },
+    'phase_analysis': {
+        'phases': ['day', 'night'],
+        'total_phases': 2,
+        'critical_phase': 'night',
+        'phase_details': {
+            'night': {
+                'total_load': 340,
+                'total_capacity': 350,
+                'utilization': 97.14,
+                'edge_count': 3
+            },
+            'day': {
+                'total_load': 210,
+                'total_capacity': 360,
+                'utilization': 58.33,
+                'edge_count': 3
+            }
+        }
+    },
+    'edge_efficiency': {
+        'most_efficient_edge': {
+            'edge': [0, 1],
+            'cost': 5,
+            'total_load': 140,
+            'efficiency': 28.0
+        },
+        'least_efficient_edge': {
+            'edge': [2, 3],
+            'cost': 14,
+            'total_load': 240,
+            'efficiency': 17.14
+        },
+        'average_efficiency': 22.13,
+        'all_edges': [
+            {
+                'edge': [0, 1],
+                'cost': 5,
+                'total_load': 140,
+                'efficiency': 28.0
+            },
+            {
+                'edge': [1, 2],
+                'cost': 8,
+                'total_load': 170,
+                'efficiency': 21.25
+            },
+            {
+                'edge': [2, 3],
+                'cost': 14,
+                'total_load': 240,
+                'efficiency': 17.14
+            }
+        ]
+    }
+}
+```
+
+## Output Format
+
+- Return value: Dictionary with exact keys as specified
+- `mst`: List of lists [[start, end, cost], ...] representing edges in the spanning tree, sorted by cost
+- `total_cost`: Integer sum of all edge costs in the MST
+- `edge_count`: Integer count of edges selected in the MST
+- `valid`: Boolean true if MST forms valid spanning tree (edge_count == node_count - 1 and node_count > 0)
+- `capacity_analysis`: Dictionary containing:
+  - `average_utilization`: Float (2 decimals) - mean of per-edge average utilizations
+  - `max_utilization`: Float (2 decimals) - maximum utilization across all edges and phases
+  - `min_utilization`: Float (2 decimals) - minimum utilization across all edges and phases
+  - `bottleneck_edges`: List of [start, end, max_util] for edges with max_util > 80
+  - `underutilized_edges`: List of [start, end, avg_util] for edges with avg_util < 30
+- `graph_metrics`: Dictionary containing:
+  - `node_count`: Integer total unique nodes
+  - `density`: Float (2 decimals) - percentage of possible edges used
+  - `cost_savings_percent`: Float (2 decimals) - cost reduction vs using all edges
+  - `pruned_edges`: Integer count of edges excluded from MST
+  - `average_degree`: Float (2 decimals) - mean connections per node
+  - `max_degree`: Integer highest node degree in MST
+  - `min_degree`: Integer lowest node degree in MST
+- `phase_analysis`: Dictionary containing:
+  - `phases`: Sorted list of phase names (strings)
+  - `total_phases`: Integer count of unique phases
+  - `critical_phase`: String name of phase with highest utilization (or None if no MST)
+  - `phase_details`: Dictionary mapping phase names to dictionaries with total_load, total_capacity, utilization, edge_count
+- `edge_efficiency`: Dictionary containing:
+  - `most_efficient_edge`: Dictionary with edge, cost, total_load, efficiency (or None if no MST)
+  - `least_efficient_edge`: Dictionary with edge, cost, total_load, efficiency (or None if no MST)
+  - `average_efficiency`: Float (2 decimals) - mean efficiency across all MST edges
+  - `all_edges`: List of edge dictionaries sorted by efficiency descending
+
+Starter Code:
+```python
+from typing import List, Dict, Tuple, Set, Any
+
+
+def compute_mst_with_capacity(graph: List[List], data_loads: Dict[str, int]) -> dict:
+    pass
+```

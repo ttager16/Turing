@@ -1,0 +1,76 @@
+{
+  "id": "resp_04cb762e7042bcb50069c31f10b65481908451a90f34564dc6",
+  "object": "response",
+  "created_at": 1774395152,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774395182,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_04cb762e7042bcb50069c31f11377881909e3c2ad2de4c6781",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_04cb762e7042bcb50069c31f11638c81909a89105659b9bd82",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any\nimport copy\nimport math\n\ndef simulate_decision_tree(\n    suppliers: List[Dict[str, Any]],\n    distribution_centers: List[Dict[str, Any]],\n    warehouses: List[Dict[str, Any]],\n    events: List[Dict[str, Any]]\n) -> Dict[str, Any]:\n    # Deep copies to avoid mutating inputs\n    suppliers = copy.deepcopy(suppliers)\n    distribution_centers = copy.deepcopy(distribution_centers)\n    warehouses = copy.deepcopy(warehouses)\n    events = copy.deepcopy(events)\n\n    # Indexing helpers\n    sup_map = {s[\"id\"]: s for s in suppliers}\n    wh_map = {w[\"id\"]: w for w in warehouses}\n    dc_map = {d[\"id\"]: d for d in distribution_centers}\n\n    # Determine number of phases from inputs (max length among inventory/demand/capacity), but limited 1-4\n    max_phases = 0\n    for s in suppliers:\n        max_phases = max(max_phases, len(s.get(\"inventory\", [])))\n    for d in distribution_centers:\n        max_phases = max(max_phases, len(d.get(\"demand\", [])))\n    for w in warehouses:\n        max_phases = max(max_phases, len(w.get(\"capacity\", [])))\n    phases = max(1, min(4, max_phases))\n\n    # Prepare event structures: apply from phase (1-indexed) onward\n    # Build maps: closed_routes set of tuples (from, to) that are closed from current phase onward\n    closed_routes_by_phase = [set() for _ in range(phases + 1)]  # index 1..phases\n    capacity_changes_by_phase = [[] for _ in range(phases + 1)]\n    for ev in events:\n        ph = ev.get(\"phase\", 1)\n        if ph < 1:\n            ph = 1\n        if ph > phases:\n            continue\n        action = ev.get(\"action\")\n        details = ev.get(\"details\", {})\n        if action == \"route_closure\":\n            from_n = details.get(\"from\")\n            to_n = details.get(\"to\")\n            if from_n is not None and to_n is not None:\n                closed_routes_by_phase[ph].add((from_n, to_n))\n        elif action == \"capacity_change\":\n            wid = details.get(\"warehouse_id\")\n            new_cap = details.get(\"new_capacity\")\n            if wid is not None and isinstance(new_cap, int):\n                capacity_changes_by_phase[ph].append((wid, new_cap))\n\n    # Function to apply events at a phase (mutates route maps and warehouse capacities)\n    persistent_closed = set()\n    for_phase_capacity_override = {}  # (phase, warehouse_id) -> capacity applied from that phase onward\n    # Apply capacity changes as persistent from that phase onward by updating warehouse.capacity lists for subsequent phases\n    # We'll apply progressively in loop below\n\n    multi_phase_routes = []\n    total_cost = 0\n    total_time = 0\n\n    # Track delivered units to DCs across phases\n    delivered = {d[\"id\"]: 0 for d in distribution_centers}\n\n    # Track persistent closed routes set across phases\n    persistent_closed = set()\n\n    # For termination bound: sum of all demand across phases\n    total_demand_units = 0\n    for d in distribution_centers:\n        for ph in range(min(phases, len(d.get(\"demand\", [])))):\n            total_demand_units += d[\"demand\"][ph]\n\n    # For each phase\n    for phase in range(1, phases + 1):\n        # Apply route closures that start this phase\n        persistent_closed.update(closed_routes_by_phase[phase])\n        # Apply capacity changes that start this phase: override warehouse capacity for this and later phases\n        for (wid, new_cap) in capacity_changes_by_phase[phase]:\n            if wid in wh_map:\n                w = wh_map[wid]\n                # ensure capacity list long enough\n                cap_list = w.get(\"capacity\", [])\n                if len(cap_list) < phases:\n                    cap_list = cap_list + [cap_list[-1] if cap_list else 0] * (phases - len(cap_list))\n                # apply from this phase onward (1-indexed)\n                for pidx in range(phase - 1, phases):\n                    cap_list[pidx] = new_cap\n                w[\"capacity\"] = cap_list\n                wh_map[wid][\"capacity\"] = cap_list\n\n        # Prepare phase-specific mutable resources\n        # supplier inventories for this phase\n        sup_inv = {}\n        for s in suppliers:\n            inv_list = s.get(\"inventory\", [])\n            qty = inv_list[phase - 1] if phase - 1 < len(inv_list) else 0\n            sup_inv[s[\"id\"]] = qty\n        # warehouse remaining throughput capacity for this phase (mutable)\n        wh_remaining = {}\n        for w in warehouses:\n            cap_list = w.get(\"capacity\", [])\n            cap = cap_list[phase - 1] if phase - 1 < len(cap_list) else 0\n            wh_remaining[w[\"id\"]] = cap\n        # dc remaining demand for this phase\n        dc_remaining = {}\n        for d in distribution_centers:\n            dem_list = d.get(\"demand\", [])\n            dem = dem_list[phase - 1] if phase - 1 < len(dem_list) else 0\n            dc_remaining[d[\"id\"]] = dem\n\n        phase_routes = []\n\n        # Decision loop bounded by sum of demands for this phase\n        max_iters = sum(dc_remaining.values())\n        iters = 0\n        while iters < max_iters:\n            iters += 1\n            # Build list of all feasible S-W-DC triples\n            feasible_options = []\n            for s in suppliers:\n                sid = s[\"id\"]\n                if sup_inv.get(sid, 0) <= 0:\n                    continue\n                # supplier->warehouse routes\n                for wid, route_sw in s.get(\"routes\", {}).items():\n                    # check route not closed\n                    if (sid, wid) in persistent_closed:\n                        continue\n                    if wid not in wh_map:\n                        continue\n                    # warehouse->dc routes\n                    wobj = wh_map[wid]\n                    for dc in distribution_centers:\n                        did = dc[\"id\"]\n                        if dc_remaining.get(did, 0) <= 0:\n                            continue\n                        # check warehouse has route to dc\n                        route_wd = wobj.get(\"routes\", {}).get(did)\n                        if not route_wd:\n                            continue\n                        # check route not closed\n                        if (wid, did) in persistent_closed:\n                            continue\n                        # check warehouse has capacity\n                        if wh_remaining.get(wid, 0) <= 0:\n                            continue\n                        # feasible amount is min(supplier inventory, warehouse capacity, dc demand)\n                        feasible_units = min(sup_inv[sid], wh_remaining[wid], dc_remaining[did])\n                        if feasible_units <= 0:\n                            continue\n                        # compute cost and time per unit, apply coalition if applicable\n                        coalition_used = s.get(\"coalition_id\")\n                        # base costs/times\n                        cost_sw = int(route_sw.get(\"cost\", 0))\n                        time_sw = int(route_sw.get(\"time\", 0))\n                        cost_wd = int(route_wd.get(\"cost\", 0))\n                        time_wd = int(route_wd.get(\"time\", 0))\n                        unit_cost = cost_sw + cost_wd\n                        unit_time = time_sw + time_wd\n                        if coalition_used:\n                            # apply discounts\n                            unit_cost = math.floor(unit_cost * 0.85)\n                            unit_time = math.floor(unit_time * 0.80)\n                        # For selection: primary minimize unit_cost, secondary unit_time\n                        feasible_options.append({\n                            \"supplier\": sid,\n                            \"warehouse\": wid,\n                            \"dc\": did,\n                            \"units\": feasible_units,\n                            \"unit_cost\": unit_cost,\n                            \"unit_time\": unit_time,\n                            \"coalition_used\": coalition_used\n                        })\n            if not feasible_options:\n                break  # no feasible routes this iteration -> end phase\n\n            # Brute-force enumeration requirement: we already enumerated all; now select best by criteria\n            # Choose option with minimal unit_cost, then minimal unit_time, then maximal units (to reduce unmet)\n            feasible_options.sort(key=lambda x: (x[\"unit_cost\"], x[\"unit_time\"], -x[\"units\"]))\n            best = feasible_options[0]\n\n            # Commit shipping maximum feasible units on that route\n            ship_units = best[\"units\"]\n            sid = best[\"supplier\"]\n            wid = best[\"warehouse\"]\n            did = best[\"dc\"]\n            coalition_used = best[\"coalition_used\"]\n            unit_cost = best[\"unit_cost\"]\n            unit_time = best[\"unit_time\"]\n\n            # Update resources\n            sup_inv[sid] -= ship_units\n            wh_remaining[wid] -= ship_units\n            delivered[did] += ship_units\n            dc_remaining[did] -= ship_units\n\n            # Record route in phase_routes\n            phase_routes.append({\n                \"path\": [sid, wid, did],\n                \"units_shipped\": ship_units,\n                \"coalition_used\": coalition_used,\n                \"phase_cost\": unit_cost,\n                \"phase_time\": unit_time\n            })\n\n            total_cost += unit_cost * ship_units\n            total_time += unit_time * ship_units\n\n            # Termination checks: if all dc_remaining zero -> break\n            if all(v <= 0 for v in dc_remaining.values()):\n                break\n            # also if all supplier inventory zero\n            if all(v <= 0 for v in sup_inv.values()):\n                break\n\n        # End of phase decision loop\n        multi_phase_routes.append({\"phase\": phase, \"routes\": phase_routes})\n\n        # Aggregate unmet demand for this phase into delivered totals already tracked.\n        # No need to persist supplier inventory across phases beyond each phase's per-phase inventory.\n        # Proceed to next phase after applying persistent events already handled.\n\n    # After all phases, compute unmet_demand per DC: total demand across phases minus delivered\n    unmet = {}\n    any_positive_demand = False\n    for d in distribution_centers:\n        total_dem = sum(d.get(\"demand\", [])[:phases])\n        delivered_amt = delivered.get(d[\"id\"], 0)\n        shortfall = max(0, total_dem - delivered_amt)\n        unmet[d[\"id\"]] = shortfall\n        if shortfall > 0:\n            any_positive_demand = True\n\n    # Validate if at least one valid routing exists: if any DC has demand and no route ever available then return {}\n    # We check simple impossibility: for any DC with positive total demand, if there is no path S->W->DC available across any phase (respecting closures/events), then impossible.\n    # Build effective route existence considering persistent closures and events applied across phases\n    # Reconstruct closures cumulatively across phases to see if any phase allowed path\n    # First build per-phase closures cumulative\n    cumulative_closed = set()\n    possible_flag = True\n    for phase in range(1, phases + 1):\n        cumulative_closed.update(closed_routes_by_phase[phase])\n        # apply capacity changes simulated earlier already in wh_map capacities\n        # check for each DC with demand whether some supplier->warehouse and warehouse->dc route exists not closed and some capacity > 0 and supplier has some inventory in that phase\n        found_any = {}\n        for d in distribution_centers:\n            did = d[\"id\"]\n            total_dem = sum(d.get(\"demand\", [])[:phases])\n            if total_dem <= 0:\n                found_any[did] = True\n                continue\n            found_any[did] = False\n        for s in suppliers:\n            sid = s[\"id\"]\n            inv_list = s.get(\"inventory\", [])\n            inv = inv_list[phase - 1] if phase - 1 < len(inv_list) else 0\n            if inv <= 0:\n                continue\n            for wid, route_sw in s.get(\"routes\", {}).items():\n                if (sid, wid) in cumulative_closed:\n                    continue\n                if wid not in wh_map:\n                    continue\n                wobj = wh_map[wid]\n                # capacity for that phase\n                cap_list = wobj.get(\"capacity\", [])\n                cap = cap_list[phase - 1] if phase - 1 < len(cap_list) else 0\n                if cap <= 0:\n                    continue\n                for d in distribution_centers:\n                    did = d[\"id\"]\n                    if (wid, did) in cumulative_closed:\n                        continue\n                    if d[\"id\"] in wobj.get(\"routes\", {}):\n                        found_any[did] = True\n        # after checking this phase, if any DC impossible across all phases, we will check after loop\n        for did, ok in found_any.items():\n            if not ok:\n                possible_flag = False\n                break\n        if not possible_flag:\n            break\n\n    if not possible_flag:\n        return {}\n\n    return {\n        \"multi_phase_routes\": multi_phase_routes,\n        \"total_cost\": int(total_cost),\n        \"total_time\": int(total_time),\n        \"unmet_demand\": unmet\n    }"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2647,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2825,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 5472
+  },
+  "user": null,
+  "metadata": {}
+}

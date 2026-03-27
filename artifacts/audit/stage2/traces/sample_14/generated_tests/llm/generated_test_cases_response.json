@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5GHY0jzOeYxFMnHCGA4N2k0em1Z",
+  "object": "chat.completion",
+  "created": 1774394141,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[[100, 1, 0], [200, 1, 0], [50, 0, 0]]\\n[[0, 1]]\\n300\"],\"focus\":\"Synergy group with internal conflict — should return -1 due to conflict inside the same synergy group (conflict between members 0 and 1).\"},{\"input_lines\":[\"[[400, 1, 0], [200, 1, 0], [50, 0, 0]]\\n[]\\n500\"],\"focus\":\"Synergy group total capacity exceeds session capacity — group sum (600) > session_capacity (500) should trigger impossible (-1).\"},{\"input_lines\":[\"[[150, 1, 0], [100, 1, 0], [200, 2, 0], [50, 2, 0], [50, 0, 0], [100, 0, 0], [150, 0, 0]]\\n[[0, 6]]\\n300\"],\"focus\":\"Complex packing with multiple synergy groups and a cross-group conflict to force nontrivial minimal-session assignment (tests optimal packing under constraints).\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1152,
+    "completion_tokens": 3982,
+    "total_tokens": 5134,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3712,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

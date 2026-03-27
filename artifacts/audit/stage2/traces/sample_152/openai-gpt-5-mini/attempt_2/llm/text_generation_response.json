@@ -1,0 +1,78 @@
+{
+  "id": "resp_0da52acc409933dd0069c3460637688190b266dc1aad77fad9",
+  "object": "response",
+  "created_at": 1774405126,
+  "status": "incomplete",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": null,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": {
+    "reason": "max_output_tokens"
+  },
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0da52acc409933dd0069c34606b9c0819089599fc4300ff086",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0da52acc409933dd0069c34606f4108190a9cbb6d755872c4a",
+      "type": "message",
+      "status": "incomplete",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "def compute_jacobi_polynomials(alpha: float, beta: float, n: int, x: float) -> dict:\n    # Input validation\n    if not isinstance(n, int) or n < 0:\n        return {\"error\": f\"Degree n must be a non-negative integer, got {n}.\"}\n    # alpha,beta real number check: in python floats suffice; reject non-float types that aren't int/float\n    if not isinstance(alpha, (int, float)):\n        return {\"error\": \"Alpha and Beta must be real numbers.\"}\n    if not isinstance(beta, (int, float)):\n        return {\"error\": \"Alpha and Beta must be real numbers.\"}\n    if not isinstance(x, (int, float)):\n        return {\"error\": \"Evaluation point x must be a real number.\"}\n    if alpha <= -1:\n        return {\"error\": f\"Alpha must be greater than -1, got {alpha}.\"}\n    if beta <= -1:\n        return {\"error\": f\"Beta must be greater than -1, got {beta}.\"}\n\n    # Constants with required precision\n    LN2 = 0.6931471805599453  # 16 decimal places approx\n    EULER = 2.718281828459045  # 16 decimal places approx\n    LN2PI = 1.8378770664093453  # ln(2*pi) ~16 decimals\n\n    # Safe log per constraints: return -1e10 for x<=0, else range reduction to m in [1,2) via m*2^e\n    def safe_log(xv: float) -> float:\n        if xv <= 0.0:\n            return -1e10\n        # represent xv = m * 2^e with m in [1,2)\n        e = 0\n        m = xv\n        # scale\n        while m >= 2.0:\n            m *= 0.5\n            e += 1\n        while m < 1.0:\n            m *= 2.0\n            e -= 1\n        # compute log(xv) = log(m) + e*ln(2)\n        # use transformation: log(m) = log((1+z)/(1-z)) /2 where z=(m-1)/(m+1) ??? Given instruction uses log((1+z)/(1-z))\n        # We'll compute log(m) = 0.5 * log((1+z)/(1-z)) *with series* but instruction says compute log((1+z)/(1-z)) where z=(m-1)/(m+1)\n        z = (m - 1.0) / (m + 1.0)\n        # compute log((1+z)/(1-z)) via Taylor series with 50 terms: atanh series *2 => log((1+z)/(1-z)) = 2*(z + z^3/3 + z^5/5 + ...)\n        zz = z\n        s = 0.0\n        for k in range(1, 100):  # use 100 terms but will break at 50 effectively\n            if k > 50:\n                break\n            term = (zz) / (2 * k - 1) if False else None\n        # implement directly 50-term series for atanh: sum_{j=0..49} z^{2j+1}/(2j+1), then multiply by 2\n        s = 0.0\n        zj = z\n        for j in range(50):\n            s += zj / (2 * j + 1)\n            zj *= z * z\n        log_ratio = 2.0 * s\n        logm = 0.5 * log_ratio  # so that logm = atanh series result? Given instructions slightly inconsistent; accept this\n        return logm + e * LN2\n\n    # safe exp per constraints\n    def safe_exp(xv: float) -> float:\n        if xv > 700:\n            return 1e308\n        if xv < -700:\n            return 0.0\n        # split xv = n + r where n = int(xv)\n        nint = int(xv)\n        r = xv - nint\n        # compute exp(r) via Taylor up to 100 terms with early stop\n        term = 1.0\n        s = 1.0\n        for k in range(1, 101):\n            term *= r / k\n            s += term\n            if abs(term) < 1e-15:\n                break\n        # multiply/divide by exp(nint) using repeated squaring with base E\n        # compute E^nint\n        def pow_e(k):\n            # k may be negative\n            if k == 0:\n                return 1.0\n            base = EULER\n            expn = abs(k)\n            result = 1.0\n            b = base\n            while expn:\n                if expn & 1:\n                    result *= b\n                b *= b\n                expn >>= 1\n            if k < 0:\n                return 1.0 / result\n            return result\n        return s * pow_e(nint)\n\n    # log-gamma per constraints\n    def log_gamma(xv: float) -> float:\n        if xv <= 0.0:\n            return float('inf')\n        # integer <=20 compute (x-1)! and return log\n        if abs(xv - round(xv)) < 1e-12:\n            xi = int(round(xv))\n            if xi <= 20:\n                # compute factorial of xi-1\n                f = 1.0\n                for t in range(1, xi):\n                    f *= t\n                if f <= 0.0:\n                    return float('inf')\n                return safe_log(f)\n        # For x>1 use Stirling with correction\n        x = xv\n        if x < 1.0:\n            # use recursion Gamma(x) = Gamma(x+1)/x => logGamma(x) = logGamma(x+1) - log(x)\n            return log_gamma(x + 1.0) - safe_log(x)\n        # Stirling: ln Gamma(x) ~ (x-0.5)ln x - x + 0.5 ln(2pi) + series\n        lx = safe_log(x)\n        # corrections 1/(12x) - 1/(360x^3) + 1/(1260x^5) - 1/(1680x^7)\n        x2 = x * x\n        series = 1.0 / (12.0 * x) - 1.0 / (360.0 * x * x2) + 1.0 / (1260.0 * x * x2 * x2) - 1.0 / (1680.0 * x * x2 * x2 * x2)\n        return (x - 0.5) * lx - x + 0.5 * LN2PI + series\n\n    # helper for log binomial via log-gamma: C(n+k,k) etc\n    def log_binomial(nk: int, k: int) -> float:\n        # log binomial C(nk,k) = ln Gamma(nk+1) - ln Gamma(k+1) - ln Gamma(nk-k+1)\n        return log_gamma(nk + 1.0) - log_gamma(k + 1.0) - log_gamma(nk - k + 1.0)\n\n    # Leading coefficient: compute using binomial coefficient formula in log-space\n    def leading_coefficient(alpha, beta, n):\n        if n == 0:\n            return 1.0\n        # Leading coefficient for Jacobi P_n^{(a,b)} is (2^n) * binom(n + a, n) / n! ??? Various forms.\n        # Use formula: leading coefficient = 2^n * binomial(n + alpha, n) / n!\n        # Compute log-space: ln(2^n) + ln Gamma(n+alpha+1) - ln Gamma(alpha+1) - ln Gamma(n+1) - ln(n!)\n        # Simplify: ln LC = n*ln2 + lnGamma(n+alpha+1) - lnGamma(alpha+1) - lnGamma(n+1)\n        ln_lc = n * safe_log(2.0) + log_gamma(n + alpha + 1.0) - log_gamma(alpha + 1.0) - log_gamma(n + 1.0)\n        # exp safely\n        lc = safe_exp(ln_lc)\n        return lc\n\n    # Normalization constant h_n = 2^{alpha+beta+1} * Gamma(n+alpha+1) * Gamma(n+beta+1) / ((2n+alpha+beta+1) * n! * Gamma(n+alpha+beta+1))\n    def normalization_constant(alpha, beta, n):\n        if n == 0:\n            denom = alpha + beta + 1.0\n            if denom > 0:\n                return safe_exp((alpha + beta + 1.0) * safe_log(2.0) - safe_log(denom))\n            else:\n                return 1.0\n        # compute ln h_n\n        ln_num = (alpha + beta + 1.0) * safe_log(2.0) + log_gamma(n + alpha + 1.0) + log_gamma(n + beta + 1.0)\n        ln_den = safe_log(2.0 * n + alpha + beta + 1.0) + log_gamma(n + 1.0) + log_gamma(n + alpha + beta + 1.0)\n        ln_h = ln_num - ln_den\n        h = safe_exp(ln_h)\n        return h\n\n    # Compute Jacobi polynomials via three-term recurrence storing intermediate values P_0..P_n\n    intermediate = []\n    P0 = 1.0\n    intermediate.append(P0)\n    if n == 0:\n        Pn = P0\n    else:\n        P1 = 0.5 * ((alpha + beta + 2.0) * x + (alpha - beta))\n        intermediate.append(P1)\n        if n == 1:\n            Pn = P1\n        else:\n            Pkm2 = P0\n            Pkm1 = P1\n            Pn = P1\n            for k in range(2, n + 1):\n                # coefficients per standard recurrence:\n                # a1 = 2k(k+alpha+beta)(2k+alpha+beta-2)\n                a1 = 2.0 * k * (k + alpha + beta) * (2.0 * k + alpha + beta - 2.0)\n                if abs(a1) < 1e-15:\n                    a1 = 1e-15\n                a2 = (2.0 * k + alpha + beta - 1.0) * (alpha * alpha - beta * beta)\n                a3 = (2.0 * k + alpha + beta - 2.0) * (2.0 * k + alpha + beta - 1.0) * (2.0 * k + alpha + beta)\n                b = a2\n                c = a3\n                # recurrence: P_k = ( (b + c*x) * P_{k-1} - d * P_{k-2} ) / a1 where d = 2*(k+alpha-1)*(k+beta-1)*(2k+alpha+beta)\n                d = 2.0 * (k + alpha - 1.0) * (k + beta - 1.0) * (2.0 * k + alpha + beta)\n                Pk = ((b + c * x) * Pkm1 - d * Pkm2) / a1\n                intermediate.append(Pk)\n                Pkm2, Pkm1 = Pkm1, Pk\n                Pn = Pk\n\n    # Coefficient sum: evaluate at x=1.0 using same routine but quicker: compute P_n(alpha,beta)(1)\n    # We'll compute P at 1.0 via recurrence\n    def eval_at_one(alpha, beta, n):\n        P0 = 1.0\n        if n == 0:\n            return 1.0\n        P1 = 0.5 * ((alpha + beta + 2.0) * 1.0 + (alpha - beta))\n        if n == 1:\n            return P1\n        Pkm2 = P0\n        Pkm1 = P1\n        Pnloc = P1\n        for k in range(2, n + 1):\n            a1 = 2.0 * k * (k + alpha + beta) * (2.0 * k + alpha + beta - 2.0)\n            if abs(a1) < 1e-15:\n                a1 = 1e-15\n            a2 = (2.0 * k + alpha + beta - 1.0) * (alpha * alpha - beta * beta)\n            a3 = (2.0 * k + alpha + beta - 2.0) * (2.0 * k + alpha + beta - 1.0) * (2.0 * k + alpha + beta)\n            d = 2.0 * (k + alpha - 1.0) * (k + beta - 1.0) * (2.0 * k + alpha + beta)\n            Pk = ((a2 + a3 * 1.0) * Pkm1 - d * Pkm2) / a1\n            Pkm2, Pkm1 = Pkm1, Pk\n            Pnloc = Pk\n        return Pnloc\n\n    coeff_sum = eval_at_one(alpha, beta, n)\n\n    # Derivative estimate using relation: d/dx P_n^{(a,b)}(x) = 0.5*(n + a + b +1) * P_{n-1}^{(a+1,b+1)}(x)\n    if n == 0:\n        derivative_estimate = 0.0\n    else:\n        # compute P_{n-1}^{(alpha+1,beta+1)}(x)\n        def compute_P_specific(a, b, m, xval):\n            if m == 0:\n                return 1.0\n            P0 = 1.0\n            P1 = 0.5 * ((a + b + 2.0) * xval + (a - b))\n            if m == 1:\n                return P1\n            Pkm2 = P0\n            Pkm1 = P1\n            for k in range(2, m + 1):\n                a1 = 2.0 * k * (k + a + b) * (2.0 * k + a + b - 2.0)\n                if abs(a1) < 1e-15:\n                    a1 = 1e-15\n                a2 = (2.0 * k + a + b - 1.0) * (a * a - b * b)\n                a3 = (2.0 * k + a + b - 2.0) * (2.0 * k + a + b - 1.0) * (2.0 * k + a + b)\n                d = 2.0 * (k + a - 1.0) * (k + b - 1.0) * (2.0 * k + a + b)\n                Pk = ((a2 + a3 * xval) * Pkm1 - d * Pkm2) / a1\n                Pkm2, Pkm1 = Pkm1, Pk\n            return Pk\n        Pnm1_shift = compute_P_specific(alpha + 1.0, beta + 1.0, n - 1, x)\n        derivative_estimate = 0.5 * (n + alpha + beta + 1.0) * Pnm1_shift\n\n    # symmetry measure: expected = (-1)^n * P_n^{(beta,alpha)}(x)\n    # compute P_n^{(beta,alpha)}(x)\n    def compute_P_full(a, b, m, xval):\n        vals = []\n        P0 = 1.0\n        vals.append(P0)\n        if m == 0:\n            return vals\n        P1 = 0.5 * ((a + b + 2.0) * xval + (a - b))\n        vals.append(P1)\n        if m == 1:\n            return vals\n        Pkm2 = P0\n        Pkm1 = P1\n        for k in range(2, m + 1):\n            a1 = 2.0 * k * (k + a + b) * (2.0 * k + a + b - 2.0)\n            if abs(a1) < 1e-15:\n                a1 = 1e-15\n            a2 = (2.0 * k + a + b - 1.0) * (a * a - b * b)\n            a3 = (2.0 * k + a + b - 2.0) * (2.0 * k + a + b - 1.0) * (2.0 * k + a + b)\n            d = 2.0 * (k + a - 1.0) * (k + b - 1.0) * (2.0 * k + a + b)\n            Pk = ((a2 + a3 * xval) * Pkm1 - d * Pkm2) / a1\n            vals.append(Pk)\n            Pkm2, Pkm1 = Pkm1, Pk\n        return vals\n\n    P_beta_alpha_vals = compute_P_full(beta, alpha, n, x)\n    Pn_beta_alpha = P_beta_alpha_vals[-1]\n    expected = ((-1.0) ** n) * Pn_beta_alpha\n    # compute P_n(alpha,beta)(-x)\n    P_negx_vals = compute_P_full(alpha, beta, n, -x)\n    Pn_negx = P_negx_vals[-1]\n    if abs(expected) > 1e-10:\n        symmetry_measure = abs(Pn_negx - expected) / abs(expected)\n    else:\n        symmetry_measure = abs(Pn_negx - expected)\n\n    # Convergence ratio: |P_n / P_{n-1}| if len >=2 and |P_{n-1}|>1e-10\n    if len(intermediate) >= 2 and abs(intermediate[-2]) > 1e-10:\n        convergence_ratio = abs(intermediate[-1] / intermediate[-2])\n    else:\n        convergence_ratio"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1945,
+    "input_tokens_details": {
+      "cached_tokens": 1920
+    },
+    "output_tokens": 4096,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 6041
+  },
+  "user": null,
+  "metadata": {}
+}

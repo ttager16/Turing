@@ -1,0 +1,76 @@
+{
+  "id": "resp_0f841a43778829a10069c32cf15ca4819c8470d88f3d3e701c",
+  "object": "response",
+  "created_at": 1774398705,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398718,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0f841a43778829a10069c32cf19d3c819c81560533b49e7c41",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0f841a43778829a10069c32cf1d818819c958f24464b36417b",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Any, Dict, List, Tuple, Optional\nimport threading\nfrom collections import defaultdict, deque\n\ndef manage_trades(trade_data: List[Dict[str, Any]], market_data: Dict[str, Any]) -> List[Dict[str, Any]]:\n    # Build trade map and dependency graph (edges: u -> v means v depends on u)\n    trades = {}\n    deps = defaultdict(list)          # trade -> list of its dependencies (direct)\n    rev = defaultdict(list)           # dependency -> list of dependents (downstream)\n    for t in trade_data:\n        tid = t['trade_id']\n        trades[tid] = {\n            'trade_id': tid,\n            'profit': t.get('profit', None),\n            'dependencies': list(t.get('dependencies', []))\n        }\n        deps[tid] = list(t.get('dependencies', []))\n        for d in deps[tid]:\n            rev[d].append(tid)\n\n    # Ensure all mentioned trades exist (if market_data references new ones, create)\n    for tid in set(list(trades.keys()) + list(market_data.keys())):\n        if tid not in trades:\n            trades[tid] = {'trade_id': tid, 'profit': None, 'dependencies': []}\n            deps[tid] = []\n    # Deterministic score function\n    def compute_score(tid: str) -> float:\n        md = market_data.get(tid, {})\n        P = md.get('new_profit', trades[tid]['profit'] if trades[tid]['profit'] is not None else 0)\n        L = md.get('liquidity_impact', 1.0)\n        D = len(deps.get(tid, []))\n        return P * L - 5 * D\n\n    # Topological sort to order recomputation downstream (detect cycles: treat cycles by breaking deterministically)\n    # Kahn's algorithm using explicit graph where edge u->v if v depends on u (rev gives that)\n    nodes = list(trades.keys())\n    indeg = {n: 0 for n in nodes}\n    for u in nodes:\n        for v in rev.get(u, []):\n            indeg[v] += 1\n    q = deque([n for n in nodes if indeg[n] == 0])\n    topo = []\n    while q:\n        u = q.popleft()\n        topo.append(u)\n        for v in rev.get(u, []):\n            indeg[v] -= 1\n            if indeg[v] == 0:\n                q.append(v)\n    # If cycle nodes remain, append them in deterministic order\n    remaining = [n for n in nodes if n not in topo]\n    remaining.sort()\n    topo.extend(remaining)\n\n    # Segment tree over score list: support point updates and range max queries if needed.\n    # We'll store array as per topo order.\n    index_of = {tid: i for i, tid in enumerate(topo)}\n    n = len(topo)\n    size = 1\n    while size < n:\n        size <<= 1\n    seg = [float('-inf')] * (2 * size)\n\n    lock = threading.Lock()\n\n    def seg_build():\n        for tid, i in index_of.items():\n            seg[size + i] = compute_score(tid)\n        for i in range(size - 1, 0, -1):\n            seg[i] = max(seg[2 * i], seg[2 * i + 1])\n\n    def seg_point_update(pos: int, value: float):\n        i = size + pos\n        seg[i] = value\n        i //= 2\n        while i:\n            seg[i] = max(seg[2 * i], seg[2 * i + 1])\n            i //= 2\n\n    seg_build()\n\n    # Determine which trades have P or L updates in market_data\n    changed = set()\n    for tid in market_data:\n        if tid in trades:\n            if 'new_profit' in market_data[tid] or 'liquidity_impact' in market_data[tid]:\n                changed.add(tid)\n\n    # Propagate: when a trade changes, recompute its score then all downstream dependents in topo order\n    # We'll collect all affected nodes by BFS/DFS on rev edges, then sort by topo index\n    affected = set()\n    for tid in changed:\n        affected.add(tid)\n        dq = deque([tid])\n        while dq:\n            u = dq.popleft()\n            for v in rev.get(u, []):\n                if v not in affected:\n                    affected.add(v)\n                    dq.append(v)\n    # Recompute profits and segment tree updates in topo order for determinism\n    affected_list = sorted(list(affected), key=lambda x: index_of[x])\n    with lock:\n        for tid in affected_list:\n            md = market_data.get(tid, {})\n            if 'new_profit' in md:\n                trades[tid]['profit'] = md['new_profit']\n            # recompute score and update seg\n            s = compute_score(tid)\n            seg_point_update(index_of[tid], s)\n\n    # After propagation, compute final scores for all (ensure seg reflects all)\n    # Extract scores and prepare sorting as specified: by descending score, tie-breaker smaller D, then lexicographic trade_id.\n    final_scores = {}\n    for tid in nodes:\n        # ensure profit updated if market_data provides\n        md = market_data.get(tid, {})\n        if 'new_profit' in md:\n            trades[tid]['profit'] = md['new_profit']\n        final_scores[tid] = compute_score(tid)\n\n    def sort_key(tid: str):\n        D = len(deps.get(tid, []))\n        return (-final_scores[tid], D, tid)\n\n    sorted_trades = sorted(nodes, key=sort_key)\n    # Assign 1-based priorities\n    output = []\n    for rank, tid in enumerate(sorted_trades, start=1):\n        output.append({\n            'trade_id': tid,\n            'priority': rank,\n            'profit': trades[tid]['profit'],\n            'dependencies': list(deps.get(tid, []))\n        })\n    return output"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1177,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1312,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2489
+  },
+  "user": null,
+  "metadata": {}
+}

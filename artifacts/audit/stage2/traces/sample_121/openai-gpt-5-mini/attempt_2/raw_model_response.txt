@@ -1,0 +1,271 @@
+from typing import List, Dict, Tuple, Set, Any
+from collections import defaultdict
+
+def compute_mst_with_capacity(graph: List[List], data_loads: Dict[str, int]) -> dict:
+    # Input validation
+    if not isinstance(graph, list):
+        return {'error': "Graph must be a list of edges."}
+    if not isinstance(data_loads, dict):
+        return {'error': "Data loads must be a dictionary."}
+    # Normalize and validate edges
+    edges = []
+    phases_set = set()
+    max_node = -1
+    for e in graph:
+        if not (isinstance(e, list) and len(e) == 4):
+            return {'error': "Each edge must be a list of [start, end, cost, capacity_map]."}
+        u, v, cost, capmap = e
+        if not (isinstance(cost, (int, float))):
+            return {'error': "Edge cost must be a number."}
+        if not isinstance(capmap, dict):
+            return {'error': "Edge capacity_map must be a dictionary."}
+        try:
+            u_int = int(u); v_int = int(v)
+        except Exception:
+            u_int = u; v_int = v
+        a, b = (u_int, v_int) if u_int <= v_int else (v_int, u_int)
+        edges.append([a, b, cost, dict(capmap)])
+        phases_set.update(capmap.keys())
+        max_node = max(max_node, a, b)
+    n = max_node + 1 if max_node >= 0 else 0
+    # Phase universality: exclude edges that lack any phase
+    all_phases = set(phases_set)
+    # Bidirectional load aggregation helper
+    def get_load(u, v, phase):
+        key1 = f"{u},{v},{phase}"
+        key2 = f"{v},{u},{phase}"
+        return data_loads.get(key1, 0) + data_loads.get(key2, 0)
+    # Filter edges: must have capacity for all phases present
+    filtered_edges = []
+    pruned_count = 0
+    for a, b, cost, capmap in edges:
+        if not all(p in capmap for p in all_phases):
+            pruned_count += 1
+            continue
+        # capacity validation: fails if any phase total load > capacity
+        violates = False
+        for p in all_phases:
+            load = get_load(a, b, p)
+            cap = capmap.get(p, 0)
+            if load > cap:
+                violates = True
+                break
+        if violates:
+            pruned_count += 1
+            continue
+        filtered_edges.append([a, b, cost, capmap])
+    # If no nodes or no edges after filtering handle empty MST
+    if n == 0 or len(filtered_edges) == 0:
+        return {
+            'mst': [],
+            'total_cost': 0,
+            'edge_count': 0,
+            'valid': False,
+            'capacity_analysis': {
+                'average_utilization': 0.0,
+                'max_utilization': 0.0,
+                'min_utilization': 0.0,
+                'bottleneck_edges': [],
+                'underutilized_edges': []
+            },
+            'graph_metrics': {
+                'node_count': n,
+                'density': 0.0,
+                'cost_savings_percent': 0.0,
+                'pruned_edges': pruned_count,
+                'average_degree': 0.0,
+                'max_degree': 0,
+                'min_degree': 0
+            },
+            'phase_analysis': {
+                'phases': sorted(list(all_phases)),
+                'total_phases': len(all_phases),
+                'critical_phase': None,
+                'phase_details': {}
+            },
+            'edge_efficiency': {
+                'most_efficient_edge': None,
+                'least_efficient_edge': None,
+                'average_efficiency': 0.0,
+                'all_edges': []
+            }
+        }
+    # Kruskal with Union-Find
+    parent = {i: i for i in range(n)}
+    rank = {i: 0 for i in range(n)}
+    def find(x):
+        if parent[x] != x:
+            parent[x] = find(parent[x])
+        return parent[x]
+    def union(x, y):
+        rx, ry = find(x), find(y)
+        if rx == ry:
+            return False
+        if rank[rx] < rank[ry]:
+            parent[rx] = ry
+        elif rank[ry] < rank[rx]:
+            parent[ry] = rx
+        else:
+            parent[ry] = rx
+            rank[rx] += 1
+        return True
+    # Sort edges by cost stable
+    sorted_edges = sorted(filtered_edges, key=lambda x: x[2])
+    mst_edges = []
+    total_cost = 0
+    for a, b, cost, capmap in sorted_edges:
+        if union(a, b):
+            mst_edges.append([a, b, cost, capmap])
+            total_cost += cost
+            if len(mst_edges) == n - 1:
+                break
+    valid = (len(mst_edges) == n - 1 and n > 0)
+    if not valid:
+        return {
+            'mst': [],
+            'total_cost': 0,
+            'edge_count': 0,
+            'valid': False,
+            'capacity_analysis': {
+                'average_utilization': 0.0,
+                'max_utilization': 0.0,
+                'min_utilization': 0.0,
+                'bottleneck_edges': [],
+                'underutilized_edges': []
+            },
+            'graph_metrics': {
+                'node_count': n,
+                'density': 0.0,
+                'cost_savings_percent': 0.0,
+                'pruned_edges': pruned_count,
+                'average_degree': 0.0,
+                'max_degree': 0,
+                'min_degree': 0
+            },
+            'phase_analysis': {
+                'phases': sorted(list(all_phases)),
+                'total_phases': len(all_phases),
+                'critical_phase': None,
+                'phase_details': {}
+            },
+            'edge_efficiency': {
+                'most_efficient_edge': None,
+                'least_efficient_edge': None,
+                'average_efficiency': 0.0,
+                'all_edges': []
+            }
+        }
+    # Capacity analysis per edge
+    per_edge_phase_utils = {}
+    edge_avg_utils = []
+    bottlenecks = []
+    underutilized = []
+    max_util = -1.0
+    min_util = 1e9
+    for a, b, cost, capmap in mst_edges:
+        utils = {}
+        sum_util = 0.0
+        cnt = 0
+        max_edge_util = -1.0
+        for p in sorted(list(all_phases)):
+            cap = capmap.get(p, 0)
+            load = get_load(a, b, p)
+            util = (load / cap * 100) if cap > 0 else 0.0
+            util = round(util, 4)
+            utils[p] = {'load': load, 'capacity': cap, 'util': util}
+            sum_util += util
+            cnt += 1
+            if util > max_edge_util: max_edge_util = util
+            if util > max_util: max_util = util
+            if util < min_util: min_util = util
+        avg_util = (sum_util / cnt) if cnt > 0 else 0.0
+        avg_util = round(avg_util, 4)
+        per_edge_phase_utils[(a, b)] = {'per_phase': utils, 'avg_util': avg_util, 'max_util': round(max_edge_util,4)}
+        edge_avg_utils.append(avg_util)
+        if max_edge_util > 80.0:
+            bottlenecks.append([a, b, round(max_edge_util,2)])
+        if avg_util < 30.0:
+            underutilized.append([a, b, round(avg_util,2)])
+    average_utilization = round((sum(edge_avg_utils) / len(edge_avg_utils)) if edge_avg_utils else 0.0, 2)
+    max_util = round(max_util, 2) if max_util >= 0 else 0.0
+    min_util = round(min_util, 2) if min_util < 1e9 else 0.0
+    # Graph metrics
+    total_available_cost = sum([e[2] for e in edges])
+    cost_savings_percent = round(((total_available_cost - total_cost) / total_available_cost * 100) if total_available_cost > 0 else 0.0, 2)
+    max_possible_edges = n * (n - 1) / 2 if n > 0 else 1
+    density = round((len(mst_edges) / max_possible_edges * 100) if max_possible_edges > 0 else 0.0, 2)
+    # degrees
+    degree = [0] * n
+    for a, b, _, _ in mst_edges:
+        degree[a] += 1
+        degree[b] += 1
+    avg_degree = round((sum(degree) / n) if n > 0 else 0.0, 2)
+    max_deg = max(degree) if degree else 0
+    min_deg = min(degree) if degree else 0
+    # Phase analysis aggregation
+    phase_details = {}
+    for p in sorted(list(all_phases)):
+        total_load = 0
+        total_capacity = 0
+        cnt_edges = 0
+        for a, b, _, capmap in mst_edges:
+            total_load += get_load(a, b, p)
+            total_capacity += capmap.get(p, 0)
+            cnt_edges += 1
+        util = round((total_load / total_capacity * 100) if total_capacity > 0 else 0.0, 2)
+        phase_details[p] = {
+            'total_load': total_load,
+            'total_capacity': total_capacity,
+            'utilization': util,
+            'edge_count': cnt_edges
+        }
+    # critical phase: highest total utilization summed across MST edges
+    crit_phase = None
+    if phase_details:
+        crit_phase = max(phase_details.items(), key=lambda x: x[1]['utilization'])[0]
+    # Edge efficiency
+    edge_eff_list = []
+    for a, b, cost, capmap in mst_edges:
+        total_load = sum(get_load(a, b, p) for p in all_phases)
+        eff = round((total_load / cost) if cost != 0 else 0.0, 2)
+        edge_eff_list.append({'edge': [a, b], 'cost': cost, 'total_load': total_load, 'efficiency': eff})
+    edge_eff_list_sorted = sorted(edge_eff_list, key=lambda x: x['efficiency'], reverse=True)
+    avg_eff = round((sum(e['efficiency'] for e in edge_eff_list) / len(edge_eff_list)) if edge_eff_list else 0.0, 2)
+    most_eff = edge_eff_list_sorted[0] if edge_eff_list_sorted else None
+    least_eff = edge_eff_list_sorted[-1] if edge_eff_list_sorted else None
+    # Prepare mst output sorted by cost ascending
+    mst_out = sorted([[a, b, cost] for a, b, cost, _ in mst_edges], key=lambda x: x[2])
+    return {
+        'mst': mst_out,
+        'total_cost': total_cost,
+        'edge_count': len(mst_out),
+        'valid': True,
+        'capacity_analysis': {
+            'average_utilization': average_utilization,
+            'max_utilization': max_util,
+            'min_utilization': min_util,
+            'bottleneck_edges': [[e[0], e[1], round(e[2],2)] for e in bottlenecks],
+            'underutilized_edges': [[e[0], e[1], round(e[2],2)] for e in underutilized]
+        },
+        'graph_metrics': {
+            'node_count': n,
+            'density': density,
+            'cost_savings_percent': cost_savings_percent,
+            'pruned_edges': pruned_count,
+            'average_degree': avg_degree,
+            'max_degree': max_deg,
+            'min_degree': min_deg
+        },
+        'phase_analysis': {
+            'phases': sorted(list(all_phases)),
+            'total_phases': len(all_phases),
+            'critical_phase': crit_phase,
+            'phase_details': phase_details
+        },
+        'edge_efficiency': {
+            'most_efficient_edge': most_eff,
+            'least_efficient_edge': least_eff,
+            'average_efficiency': avg_eff,
+            'all_edges': edge_eff_list_sorted
+        }
+    }

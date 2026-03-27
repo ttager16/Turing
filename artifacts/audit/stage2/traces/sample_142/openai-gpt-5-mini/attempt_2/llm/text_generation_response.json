@@ -1,0 +1,76 @@
+{
+  "id": "resp_0e5bf90be736b59c0069c342c1798881a0b72e273344ce16d2",
+  "object": "response",
+  "created_at": 1774404289,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774404325,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0e5bf90be736b59c0069c342c200f881a0b77db3eb7ea0cde0",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0e5bf90be736b59c0069c342c256a881a0b92df37fae382763",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import logging\nfrom typing import Dict, List, Tuple\nfrom collections import defaultdict\nimport heapq\nimport threading\nimport time\n\n# Lightweight thread-safe dynamic edge store with per-lane capacities and security.\nclass DynamicGraph:\n    def __init__(self, input_graph: Dict[str, List[int]]):\n        # adjacency: u -> list of (v, cost, security, edge_id)\n        self.adj = defaultdict(list)\n        # lock per node for concurrent updates\n        self.locks = defaultdict(threading.RLock)\n        # store lanes per edge_id: list of (lane_id, capacity, security)\n        self.edge_lanes = {}  # edge_id -> list of lanes\n        # edge metadata\n        self.edge_meta = {}  # edge_id -> (u, v, base_cost)\n        self._build_from_input(input_graph)\n\n    def _parse_key(self, key: str) -> Tuple[int, int]:\n        u_s, v_s = key.split(\",\")\n        return int(u_s), int(v_s)\n\n    def _build_from_input(self, input_graph: Dict[str, List[int]]):\n        # For each input edge, create an edge_id and initialize with a single lane\n        for key, val in input_graph.items():\n            u, v = self._parse_key(key)\n            if not (isinstance(val, list) and len(val) == 2):\n                continue\n            cost, security = int(val[0]), int(val[1])\n            edge_id = key  # use key as edge_id to keep deterministic mapping\n            with self.locks[u]:\n                self.adj[u].append((v, cost, security, edge_id))\n            # one lane initially with capacity large (simulate available capacity) and same security\n            self.edge_lanes[edge_id] = [{\"lane_id\": 0, \"capacity\": 10**9, \"security\": security}]\n            self.edge_meta[edge_id] = (u, v, cost)\n\n    # O(log N) style interface simulated with simple lock and update (amortized)\n    def update_edge_security(self, edge_id: str, lane_idx: int, new_security: int):\n        if edge_id not in self.edge_lanes:\n            return\n        u, v, cost = self.edge_meta[edge_id]\n        with self.locks[u]:\n            lanes = self.edge_lanes[edge_id]\n            if 0 <= lane_idx < len(lanes):\n                lanes[lane_idx][\"security\"] = new_security\n            # also update adjacency entry security to reflect max lane security for pruning\n            max_sec = max(l[\"security\"] for l in lanes) if lanes else 0\n            # update adj list entries\n            lst = self.adj[u]\n            for i, (vv, cc, ss, eid) in enumerate(lst):\n                if eid == edge_id:\n                    lst[i] = (vv, cc, max_sec, eid)\n                    break\n\n    def update_edge_capacity(self, edge_id: str, lane_idx: int, delta_capacity: int):\n        if edge_id not in self.edge_lanes:\n            return\n        u, v, cost = self.edge_meta[edge_id]\n        with self.locks[u]:\n            lanes = self.edge_lanes[edge_id]\n            if 0 <= lane_idx < len(lanes):\n                lanes[lane_idx][\"capacity\"] += delta_capacity\n\n    def add_temporary_closure(self, edge_id: str, duration_sec: float):\n        # mark capacity 0 for all lanes for duration in a separate thread, then restore\n        if edge_id not in self.edge_lanes:\n            return\n        u, v, cost = self.edge_meta[edge_id]\n        with self.locks[u]:\n            old_caps = [l[\"capacity\"] for l in self.edge_lanes[edge_id]]\n            for l in self.edge_lanes[edge_id]:\n                l[\"capacity\"] = 0\n            # update adjacency security to 0 to prune\n            lst = self.adj[u]\n            for i, (vv, cc, ss, eid) in enumerate(lst):\n                if eid == edge_id:\n                    lst[i] = (vv, cc, 0, eid)\n                    break\n\n        def restore():\n            time.sleep(duration_sec)\n            with self.locks[u]:\n                for idx, l in enumerate(self.edge_lanes[edge_id]):\n                    l[\"capacity\"] = old_caps[idx]\n                # restore adjacency security to max lane security\n                max_sec = max(l[\"security\"] for l in self.edge_lanes[edge_id]) if self.edge_lanes[edge_id] else 0\n                lst = self.adj[u]\n                for i, (vv, cc, ss, eid) in enumerate(lst):\n                    if eid == edge_id:\n                        lst[i] = (vv, cc, max_sec, eid)\n                        break\n\n        t = threading.Thread(target=restore, daemon=True)\n        t.start()\n\n    # Reserve capacity along a path per time window (naive but thread-safe)\n    def reserve_path_capacity(self, edge_path: List[str], required: int) -> bool:\n        # attempt to decrease capacity on one lane per edge that has sufficient capacity and security\n        # Acquire locks for involved edges' source nodes to avoid races; sort to avoid deadlock\n        nodes = sorted({self.edge_meta[eid][0] for eid in edge_path})\n        locks = [self.locks[n] for n in nodes]\n        for lk in locks:\n            lk.acquire()\n        try:\n            # check availability\n            for eid in edge_path:\n                lanes = self.edge_lanes.get(eid, [])\n                ok = False\n                for l in lanes:\n                    if l[\"capacity\"] >= required:\n                        ok = True\n                        break\n                if not ok:\n                    return False\n            # apply reservation (take from first sufficient lane)\n            for eid in edge_path:\n                lanes = self.edge_lanes[eid]\n                for l in lanes:\n                    if l[\"capacity\"] >= required:\n                        l[\"capacity\"] -= required\n                        break\n            return True\n        finally:\n            for lk in reversed(locks):\n                lk.release()\n\n    # Get adjacency snapshot filtered by min_security and requiring capacity >=1\n    def neighbors(self, u: int, min_security_level: int) -> List[Tuple[int, int, str]]:\n        with self.locks[u]:\n            res = []\n            for v, cost, ss, eid in self.adj.get(u, []):\n                lanes = self.edge_lanes.get(eid, [])\n                max_lane_sec = max((l[\"security\"] for l in lanes), default=0)\n                max_cap = max((l[\"capacity\"] for l in lanes), default=0)\n                effective_security = max(ss, max_lane_sec)\n                if effective_security >= min_security_level and max_cap > 0:\n                    res.append((v, cost, eid))\n            return res\n\n# Dijkstra with security and capacity checks. O(E log V)\ndef dijkstra_with_security(dg: DynamicGraph, start: int, end: int, min_security_level: int) -> List[int]:\n    dist = {}\n    prev = {}\n    pq = []\n    heapq.heappush(pq, (0, start, None, None))  # cost, node, prev_node, via_edge\n    while pq:\n        cost_u, u, prev_u, via_eid = heapq.heappop(pq)\n        if u in dist:\n            continue\n        dist[u] = cost_u\n        if prev_u is not None:\n            prev[u] = (prev_u, via_eid)\n        if u == end:\n            break\n        for v, w, eid in dg.neighbors(u, min_security_level):\n            if v in dist:\n                continue\n            heapq.heappush(pq, (cost_u + w, v, u, eid))\n    if end not in dist:\n        return []\n    # reconstruct path nodes\n    path_nodes = []\n    cur = end\n    while cur != start:\n        path_nodes.append(cur)\n        cur_prev, _ = prev[cur]\n        cur = cur_prev\n    path_nodes.append(start)\n    path_nodes.reverse()\n    return path_nodes\n\ndef compute_secure_shortest_path(\n    graph: Dict[str, List[int]],\n    start: int,\n    end: int,\n    min_security_level: int\n) -> List[int]:\n    \"\"\"\n    Entry function required by the problem. Returns a list of node ids forming a path from start to end\n    satisfying per-edge security >= min_security_level. Internally uses a dynamic graph structure\n    that supports concurrent updates. For this task we focus on security and basic capacity presence.\n    \"\"\"\n    dg = DynamicGraph(graph)\n    # Simple attempt: run Dijkstra filtered by security & available capacity\n    path = dijkstra_with_security(dg, start, end, min_security_level)\n    return path\n\n# Example quick test when run as script (not required by interface)\nif __name__ == \"__main__\":\n    graph = {\n      \"1,2\": [5, 6],\n      \"2,3\": [4, 8],\n      \"2,4\": [10, 9],\n      \"1,4\": [3, 2]\n    }\n    print(compute_secure_shortest_path(graph, 1, 4, 5))"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1287,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1977,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3264
+  },
+  "user": null,
+  "metadata": {}
+}

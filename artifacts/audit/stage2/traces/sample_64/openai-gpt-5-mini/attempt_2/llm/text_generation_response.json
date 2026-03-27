@@ -1,0 +1,76 @@
+{
+  "id": "resp_0116d5ecd817df0a0069c32a70725081958dda552a6ef88d6b",
+  "object": "response",
+  "created_at": 1774398064,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398082,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0116d5ecd817df0a0069c32a70feb481958e1df8323e42020e",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0116d5ecd817df0a0069c32a7128248195babe8d45c2ff102a",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Tuple\n\ndef optimize_city_layout(zones: List[Dict[str, Any]]) -> List[Dict[str, Any]]:\n    # Disjoint set (union-find)\n    n = len(zones)\n    id_to_index = {z['id']: i for i, z in enumerate(zones)}\n    parent = list(range(n))\n    rank = [0]*n\n\n    def find(i):\n        while parent[i] != i:\n            parent[i] = parent[parent[i]]\n            i = parent[i]\n        return i\n\n    def union(i, j):\n        ri, rj = find(i), find(j)\n        if ri == rj:\n            return False\n        if rank[ri] < rank[rj]:\n            parent[ri] = rj\n        else:\n            parent[rj] = ri\n            if rank[ri] == rank[rj]:\n                rank[ri] += 1\n        return True\n\n    # Compute axis-aligned bounding boxes\n    bboxes: List[Tuple[float,float,float,float]] = []\n    for z in zones:\n        coords = z.get('coordinates', [])\n        if not coords:\n            bboxes.append((0.0,0.0,0.0,0.0))\n            continue\n        xs = [c[0] for c in coords]\n        ys = [c[1] for c in coords]\n        xmin, xmax = min(xs), max(xs)\n        ymin, ymax = min(ys), max(ys)\n        bboxes.append((xmin, ymin, xmax, ymax))\n\n    # Helper: bbox intersection (non-empty)\n    def bbox_intersect(a, b):\n        ax0, ay0, ax1, ay1 = a\n        bx0, by0, bx1, by1 = b\n        return not (ax1 < bx0 or bx1 < ax0 or ay1 < by0 or by1 < ay0)\n\n    # Resource compatibility: currently only water has global threshold check.\n    # If zones have per-zone max_water_capacity, merging must keep total <= min of provided maxes? \n    # Spec: \"If any zone has max_water_capacity and the sum exceeds it, those zones should not have been unioned\"\n    # Interpret as: if any zone provides max_water_capacity, then merged sum must be <= that zone's max; to be conservative, require sum <= min(max_water_capacity among the pair if present).\n    def water_compatible(i, j):\n        zi = zones[i].get('resources', {}).get('water', {})\n        zj = zones[j].get('resources', {}).get('water', {})\n        cap_i = zi.get('capacity', 0)\n        cap_j = zj.get('capacity', 0)\n        total = (cap_i or 0) + (cap_j or 0)\n        # collect any max constraints from either zone\n        max_i = zones[i].get('resources', {}).get('max_water_capacity', None)\n        max_j = zones[j].get('resources', {}).get('max_water_capacity', None)\n        # If both None, compare to global threshold\n        # Define global threshold\n        MAX_WATER_CAPACITY = 1000000  # large default; can be tuned\n        # If either provides max, use min of provided as constraint\n        if max_i is not None or max_j is not None:\n            constraints = [v for v in (max_i, max_j) if v is not None]\n            limit = min(constraints) if constraints else MAX_WATER_CAPACITY\n        else:\n            limit = MAX_WATER_CAPACITY\n        return total <= limit\n\n    # For general compatibility: if water resource exists in either zone, require water_compatible.\n    def resources_compatible(i, j):\n        ri = zones[i].get('resources', {})\n        rj = zones[j].get('resources', {})\n        # Check water compatibility if any has water\n        if 'water' in ri or 'water' in rj:\n            if not water_compatible(i, j):\n                return False\n        # roads have optional max_density per input; if present, ensure sum densities <= min(max_density) if provided\n        if 'roads' in ri or 'roads' in rj:\n            di = ri.get('roads', {}).get('density', 0) or 0\n            dj = rj.get('roads', {}).get('density', 0) or 0\n            total_d = di + dj\n            max_i = ri.get('roads', {}).get('max_density', None)\n            max_j = rj.get('roads', {}).get('max_density', None)\n            if max_i is not None or max_j is not None:\n                constraints = [v for v in (max_i, max_j) if v is not None]\n                limit = min(constraints) if constraints else None\n                if limit is not None and total_d > limit:\n                    return False\n        # Other resources: assume compatible\n        return True\n\n    # Phase 1 & 2: find adjacency pairs and union if compatible\n    # Using simple O(n^2) check (n <= 2000)\n    for i in range(n):\n        for j in range(i+1, n):\n            if bbox_intersect(bboxes[i], bboxes[j]):\n                if resources_compatible(i, j):\n                    union(i, j)\n\n    # Phase 3: aggregate per set\n    groups: Dict[int, List[int]] = {}\n    for i in range(n):\n        r = find(i)\n        groups.setdefault(r, []).append(i)\n\n    merged = []\n    for leader in sorted(groups.keys(), key=lambda x: min(zones[i]['id'] for i in groups[x])):\n        members = groups[leader]\n        # sort members by original zone id ascending for deterministic concatenation\n        members_sorted = sorted(members, key=lambda i: zones[i]['id'])\n        ids = [zones[i]['id'] for i in members_sorted]\n        count = len(ids)\n        new_id = min(ids) * 100 + count\n        types = [zones[i].get('type') for i in members_sorted]\n        merged_type = types[0] if all(t == types[0] for t in types) else 'mixed'\n        # coordinates concatenation in ascending original id order\n        coords = []\n        for i in members_sorted:\n            coords.extend(zones[i].get('coordinates', []))\n        # resources aggregation\n        agg_resources: Dict[str, Any] = {}\n        # collect all resource keys present\n        resource_keys = []\n        for i in members_sorted:\n            resource_keys.extend(list(zones[i].get('resources', {}).keys()))\n        resource_keys = sorted(set(resource_keys))\n        for key in resource_keys:\n            if key == 'water':\n                total_cap = 0\n                routes = []\n                for i in members_sorted:\n                    w = zones[i].get('resources', {}).get('water', {})\n                    total_cap += w.get('capacity', 0) or 0\n                    rts = w.get('routes', [])\n                    if rts:\n                        routes.extend(rts)\n                agg_resources['water'] = {'capacity': total_cap, 'routes': routes}\n                # If any zone had max_water_capacity, preserve min as metadata? Spec doesn't require storing it.\n            elif key == 'roads':\n                total_density = 0\n                connections = []\n                for i in members_sorted:\n                    rd = zones[i].get('resources', {}).get('roads', {})\n                    total_density += rd.get('density', 0) or 0\n                    conns = rd.get('connections', [])\n                    if conns:\n                        connections.extend(conns)\n                agg_resources['roads'] = {'density': total_density, 'connections': connections}\n            else:\n                # conservative aggregation: numeric sum, lists concat, others -> list of values\n                vals = [zones[i].get('resources', {}).get(key) for i in members_sorted]\n                # detect numeric\n                numeric = True\n                list_like = True\n                for v in vals:\n                    if isinstance(v, (int, float)):\n                        list_like = False\n                    elif isinstance(v, list):\n                        numeric = False\n                    else:\n                        numeric = False\n                        list_like = False\n                if numeric:\n                    agg_resources[key] = sum((v or 0) for v in vals)\n                elif list_like:\n                    out = []\n                    for v in vals:\n                        if v:\n                            out.extend(v)\n                    agg_resources[key] = out\n                else:\n                    agg_resources[key] = vals\n        merged.append({\n            'id': new_id,\n            'type': merged_type,\n            'coordinates': coords,\n            'resources': agg_resources\n        })\n\n    # Deterministic ordering: sort by id ascending\n    merged.sort(key=lambda z: z['id'])\n    return merged\n\n# Note: For higher fidelity spatial queries, integrate an R-tree (e.g., rtree library) to index bounding boxes\n# and replace the O(n^2) adjacency loop. For true polygon unions use libraries like shapely."
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1839,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1932,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3771
+  },
+  "user": null,
+  "metadata": {}
+}

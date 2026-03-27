@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5aUa8ob8evmoHqE27g4IFILtiNJ",
+  "object": "chat.completion",
+  "created": 1774395394,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"{\\\"N1\\\": [[\\\"N2\\\", 10, \\\"road\\\"], [\\\"N1_skyway\\\", 0, \\\"road\\\"]], \\\"N2\\\": [[\\\"N3\\\", 5, \\\"road\\\"], [\\\"N4\\\", 7, \\\"road\\\"]], \\\"N3\\\": [[\\\"N4\\\", 5, \\\"road\\\"]], \\\"N4\\\": [], \\\"N1_skyway\\\": [[\\\"N3_skyway\\\", 12, \\\"skyway\\\"]], \\\"N3_skyway\\\": [[\\\"N3\\\", 0, \\\"skyway\\\"]]}\",\n        \"[{\\\"id\\\": \\\"V1\\\", \\\"start_node\\\": \\\"N1\\\", \\\"end_node\\\": \\\"N4\\\", \\\"capacity\\\": 1, \\\"time_window\\\": [0, 50], \\\"deliveries\\\": [\\\"N3\\\", \\\"N2\\\"]}, {\\\"id\\\": \\\"V2\\\", \\\"start_node\\\": \\\"N1\\\", \\\"end_node\\\": \\\"N4\\\", \\\"capacity\\\": 2, \\\"time_window\\\": [0, 30], \\\"deliveries\\\": [\\\"N3\\\"]}]\",\n        \"[[\\\"N2\\\", \\\"N3\\\", 15]]\"\n      ],\n      \"focus\": \"Edge-case: closure at an exact arrival time (inclusive blocking) and a vehicle with deliveries > capacity; ensures algorithm handles closure time inclusivity and skips infeasible vehicles while routing others (layer transition costs matter).\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"N1\\\": [[\\\"N2\\\", 8, \\\"road\\\"], [\\\"N1_skyway\\\", 0, \\\"road\\\"]], \\\"N2\\\": [[\\\"N3\\\", 6, \\\"road\\\"], [\\\"N4\\\", 10, \\\"road\\\"]], \\\"N3\\\": [[\\\"N4\\\", 4, \\\"road\\\"]], \\\"N4\\\": [[\\\"N5\\\", 5, \\\"road\\\"]], \\\"N5\\\": [], \\\"N1_skyway\\\": [[\\\"N3_skyway\\\", 5, \\\"skyway\\\"]], \\\"N3_skyway\\\": [[\\\"N3\\\", 0, \\\"skyway\\\"]], \\\"N10\\\": [[\\\"N5\\\", 50, \\\"road\\\"]]}\",\n        \"[{\\\"id\\\": \\\"V1\\\", \\\"start_node\\\": \\\"N1\\\", \\\"end_node\\\": \\\"N5\\\", \\\"capacity\\\": 2, \\\"time_window\\\": [0, 25], \\\"deliveries\\\": [\\\"N2\\\", \\\"N4\\\"]}]\",\n        \"[]\"\n      ],\n      \"focus\": \"Format- and ordering-sensitive case: multiple deliveries where visiting order matters; includes confusing node name N10 to catch string-matching mistakes and ensure true cost-based ordering and transition counting.\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"N1\\\": [[\\\"N2\\\", 8, \\\"road\\\"], [\\\"N1_skyway\\\", 0, \\\"road\\\"]], \\\"N2\\\": [[\\\"N3\\\", 8, \\\"road\\\"], [\\\"N2_tunnel\\\", 0, \\\"road\\\"]], \\\"N3\\\": [[\\\"N4\\\", 6, \\\"road\\\"]], \\\"N4\\\": [[\\\"N5\\\", 6, \\\"road\\\"], [\\\"N3\\\", 3, \\\"road\\\"]], \\\"N5\\\": [[\\\"N6\\\", 4, \\\"road\\\"]], \\\"N1_skyway\\\": [[\\\"N4_skyway\\\", 8, \\\"skyway\\\"]], \\\"N4_skyway\\\": [[\\\"N4\\\", 0, \\\"skyway\\\"]], \\\"N2_tunnel\\\": [[\\\"N5_tunnel\\\", 6, \\\"tunnel\\\"]], \\\"N5_tunnel\\\": [[\\\"N5\\\", 0, \\\"tunnel\\\"]]}\",\n        \"[{\\\"id\\\": \\\"V1\\\", \\\"start_node\\\": \\\"N1\\\", \\\"end_node\\\": \\\"N6\\\", \\\"capacity\\\": 3, \\\"time_window\\\": [0, 40], \\\"deliveries\\\": [\\\"N3\\\", \\\"N5\\\"]}, {\\\"id\\\": \\\"V2\\\", \\\"start_node\\\": \\\"N2\\\", \\\"end_node\\\": \\\"N5\\\", \\\"capacity\\\": 1, \\\"time_window\\\": [0, 20], \\\"deliveries\\\": [\\\"N3\\\"]}]\",\n        \"[[\\\"N2\\\", \\\"N3\\\", 0]]\"\n      ],\n      \"focus\": \"Multi-vehicle independence and alternate-layer routing: one vehicle must use layer transitions/alternate paths to satisfy deliveries; the other becomes unreachable due to an immediate closure. Tests independent processing, transition cost accounting, and closure handling.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2367,
+    "completion_tokens": 6043,
+    "total_tokens": 8410,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 5056,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

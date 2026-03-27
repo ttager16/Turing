@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN7zDjytIvDgtlrrtbZmrK6PZG30v",
+  "object": "chat.completion",
+  "created": 1774404615,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"{\\\"deliveries\\\": [\\\"A\\\", \\\"B\\\", \\\"A\\\", null], \\\"constraints\\\": [[\\\"A\\\"], [\\\"B\\\", \\\"B\\\"], [\\\"X\\\", \\\"A\\\"], [\\\"A\\\", \\\"Y\\\"], [\\\"A\\\", \\\"B\\\"], [\\\"A\\\", \\\"B\\\"]], \\\"new_constraints\\\": [[\\\"B\\\", \\\"A\\\"], [\\\"A\\\", \\\"B\\\"]]}\"],\"focus\":\"validation_errors_duplicates_none_and_various_constraint_issues\"},{\"input_lines\":[\"{\\\"deliveries\\\": [\\\"node1\\\", \\\"node2\\\", \\\"node3\\\", \\\"node4\\\", \\\"node5\\\", \\\"node6\\\", \\\"node7\\\", \\\"node8\\\", \\\"node9\\\", \\\"node10\\\"], \\\"constraints\\\": [[\\\"node1\\\", \\\"node2\\\"], [\\\"node1\\\", \\\"node3\\\"], [\\\"node2\\\", \\\"node4\\\"], [\\\"node3\\\", \\\"node4\\\"], [\\\"node4\\\", \\\"node5\\\"], [\\\"node5\\\", \\\"node6\\\"], [\\\"node1\\\", \\\"node5\\\"], [\\\"node7\\\", \\\"node8\\\"], [\\\"node7\\\", \\\"node9\\\"], [\\\"node9\\\", \\\"node10\\\"]]}\"],\"focus\":\"larger_acyclic_graph_multiple_clusters_redundant_edges_deterministic_ordering\"},{\"input_lines\":[\"{\\\"deliveries\\\": [\\\"A\\\", \\\"B\\\", \\\"C\\\", \\\"D\\\", \\\"E\\\", \\\"F\\\"], \\\"constraints\\\": [[\\\"A\\\", \\\"B\\\"], [\\\"B\\\", \\\"C\\\"], [\\\"D\\\", \\\"E\\\"], [\\\"E\\\", \\\"F\\\"]], \\\"new_constraints\\\": [[\\\"C\\\", \\\"A\\\"], [\\\"F\\\", \\\"D\\\"]]}\"],\"focus\":\"multiple_new_constraints_creating_separate_cycles_update_log_uniform_result\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 4593,
+    "completion_tokens": 2379,
+    "total_tokens": 6972,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1984,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

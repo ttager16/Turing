@@ -1,0 +1,76 @@
+{
+  "id": "resp_0c3c7a8b8fc6bdfc0069c32db8188c819c9abacccdc84838bd",
+  "object": "response",
+  "created_at": 1774398904,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398917,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0c3c7a8b8fc6bdfc0069c32db85a90819c8e9cbbe4234252ff",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0c3c7a8b8fc6bdfc0069c32db88770819cb3f4b5acd3cd039c",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Any\nfrom collections import defaultdict\nimport re\n\nREF_RE = re.compile(r\"^REF_([^_]+)_(\\d+)$\")\n\ndef manage_device_logs(device_logs: List[List[Any]]) -> List[List[Any]]:\n    # Δ_stale\n    DELTA = 1\n\n    # Track newest timestamp per device\n    newest = defaultdict(lambda: -10**18)\n    for dev, ts, _ in device_logs:\n        try:\n            t = int(ts)\n        except Exception:\n            continue\n        if t > newest[dev]:\n            newest[dev] = t\n\n    # First pass: apply stale and duplicate rules; preserve order by marking valid candidates\n    candidates = []\n    for entry in device_logs:\n        if not isinstance(entry, list) or len(entry) < 3:\n            continue\n        dev, ts, payload = entry[0], entry[1], entry[2]\n        try:\n            t = int(ts)\n        except Exception:\n            # malformed timestamp -> discard\n            continue\n        # Duplicate payload rule\n        if payload == \"duplicate_entry\":\n            continue\n        # Stale rule: if there exists newer_timestamp such that newer - ts > DELTA\n        if newest.get(dev, -10**18) - t > DELTA:\n            continue\n        candidates.append([dev, t, payload])\n\n    # Build set of (device, timestamp) present after stale/dup removal for reference validation\n    present = set((dev, ts) for dev, ts, _ in candidates)\n\n    # Second pass: validate references; remove invalid/malformed refs\n    # Also we must ensure no cyclical dependencies: detect simple cycles via graph and remove offending logs\n    # Build reference edges\n    edges = defaultdict(list)  # from index to referenced (device,ts)\n    idx_to_entry = {}\n    for idx, (dev, ts, payload) in enumerate(candidates):\n        idx_to_entry[idx] = (dev, ts, payload)\n        m = REF_RE.match(payload)\n        if m:\n            ref_dev, ref_ts_s = m.group(1), m.group(2)\n            try:\n                ref_ts = int(ref_ts_s)\n            except Exception:\n                continue\n            edges[idx].append((ref_dev, ref_ts))\n\n    # Map referenced (dev,ts) to candidate indices (could be multiple but match existence matters)\n    ref_to_idxs = defaultdict(list)\n    for idx, (dev, ts, payload) in idx_to_entry.items():\n        ref_to_idxs[(dev, ts)].append(idx)\n\n    # Validate references: remove entries whose referenced target doesn't exist in present\n    valid_mask = [True] * len(candidates)\n    for idx, refs in edges.items():\n        for (rdev, rts) in refs:\n            if (rdev, rts) not in present:\n                valid_mask[idx] = False\n                break\n\n    # After removing invalid refs, we must remove cycles. Build index-level graph among valid nodes referencing valid targets.\n    # Build directed graph idx -> idx_target (choose any one matching index if multiple; pick first)\n    graph = {}\n    for idx, refs in edges.items():\n        if not valid_mask[idx]:\n            continue\n        for (rdev, rts) in refs:\n            # find a target index among candidates matching (rdev,rts)\n            targets = ref_to_idxs.get((rdev, rts), [])\n            # filter to those currently considered valid (or will be checked)\n            chosen = None\n            for t_idx in targets:\n                # avoid self-reference unless allowed; treat self-reference as cycle\n                chosen = t_idx\n                break\n            if chosen is not None:\n                graph[idx] = chosen\n\n    # Detect cycles via DFS\n    visited = [0] * len(candidates)  # 0=unseen,1=visiting,2=done\n    def dfs_cycle(u):\n        stack = []\n        while True:\n            if visited[u] == 0:\n                visited[u] = 1\n                stack.append(u)\n                v = graph.get(u)\n                if v is None:\n                    # unwind\n                    while stack:\n                        visited[stack.pop()] = 2\n                    return None\n                u = v\n                if visited[u] == 1:\n                    # found cycle, return cycle nodes\n                    cycle = []\n                    # collect from stack until u\n                    while stack:\n                        n = stack.pop()\n                        cycle.append(n)\n                        if n == u:\n                            break\n                    for n in cycle:\n                        visited[n] = 2\n                    return cycle\n                elif visited[u] == 2:\n                    # reached done node; unwind stack\n                    while stack:\n                        visited[stack.pop()] = 2\n                    return None\n                else:\n                    continue\n            else:\n                return None\n\n    # Collect cycles and invalidate their nodes (rollback)\n    for i in range(len(candidates)):\n        if not valid_mask[i]:\n            continue\n        if visited[i] == 0:\n            cycle = dfs_cycle(i)\n            if cycle:\n                # invalidate all nodes in cycle\n                for n in cycle:\n                    valid_mask[n] = False\n\n    # Recompute present after removals to ensure references now valid; iterate until stable\n    changed = True\n    while changed:\n        changed = False\n        present = set((dev, ts) for (dev, ts, payload), ok in zip(candidates, valid_mask) if ok)\n        for idx, (dev, ts, payload) in enumerate(candidates):\n            if not valid_mask[idx]:\n                continue\n            m = REF_RE.match(payload)\n            if m:\n                rdev, rts_s = m.group(1), m.group(2)\n                try:\n                    rts = int(rts_s)\n                except Exception:\n                    valid_mask[idx] = False\n                    changed = True\n                    continue\n                if (rdev, rts) not in present:\n                    valid_mask[idx] = False\n                    changed = True\n\n    # Final output: preserve original order of valid logs\n    output = []\n    for entry, ok in zip(candidates, valid_mask):\n        if ok:\n            output.append([entry[0], entry[1], entry[2]])\n    return output"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1227,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1327,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2554
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,222 @@
+from typing import Any, Dict, List, Tuple
+import heapq
+import math
+
+def compute_dynamic_shortest_paths(
+    graph: Dict[str, List[List[Any]]],
+    updates: List[List[Any]],
+    time_of_day: int
+) -> Dict[str, List[str]]:
+    # Validation: graph must be dict
+    if not isinstance(graph, dict):
+        return {}
+    # time_of_day check
+    if not isinstance(time_of_day, int) or not (0 <= time_of_day < 24):
+        return {}
+    # Deep-copy and validate edges structure
+    G: Dict[str, List[Tuple[str, int, Dict[str, Any]]]] = {}
+    allowed_keys = {"traffic", "maintenance", "capacity_tier", "time_window_start", "time_window_end"}
+    for u, edges in graph.items():
+        if not isinstance(u, str) or u == "":
+            return {}
+        if not isinstance(edges, list):
+            return {}
+        G[u] = []
+        for e in edges:
+            if not isinstance(e, list) or len(e) != 3:
+                return {}
+            v, base_cost, constraints = e
+            if not isinstance(v, str) or v == "":
+                return {}
+            if v == u:
+                # self-loop: ignore this edge entirely (not an error)
+                continue
+            if not isinstance(base_cost, int) or base_cost < 0:
+                return {}
+            if not isinstance(constraints, dict):
+                return {}
+            # validate constraint keys types; unknown keys ignored
+            c_clean: Dict[str, Any] = {}
+            for k, val in constraints.items():
+                if k not in allowed_keys:
+                    continue
+                if k in ("traffic", "maintenance"):
+                    if not (isinstance(val, float) or isinstance(val, int)):
+                        return {}
+                    val_f = float(val)
+                    if not (val_f > 0):
+                        return {}
+                    c_clean[k] = val_f
+                elif k == "capacity_tier":
+                    if not isinstance(val, int):
+                        return {}
+                    if val < 1:
+                        return {}
+                    c_clean[k] = val
+                elif k in ("time_window_start", "time_window_end"):
+                    if not isinstance(val, int):
+                        return {}
+                    if not (0 <= val <= 24):
+                        return {}
+                    c_clean[k] = val
+            # Additional rule: value 24 valid only as end bound
+            if ("time_window_start" in c_clean and c_clean["time_window_start"] == 24):
+                return {}
+            if ("time_window_end" in c_clean and c_clean["time_window_end"] == 24):
+                # ok only as end bound
+                pass
+            G[u].append((v, base_cost, c_clean))
+    # If both graph and updates empty -> return {}
+    if len(G) == 0 and (not updates):
+        return {}
+    # Apply updates: each update [u,v,constraints], only if edge exists already
+    if not isinstance(updates, list):
+        return {}
+    for up in updates:
+        if (not isinstance(up, list)) or len(up) != 3:
+            return {}
+        u, v, upd_constraints = up
+        if not isinstance(u, str) or not isinstance(v, str):
+            return {}
+        if not isinstance(upd_constraints, dict):
+            return {}
+        # find edge in G
+        if u not in G:
+            continue
+        # find first matching edge with destination v
+        idx = None
+        for i, (dst, base_cost, cons) in enumerate(G[u]):
+            if dst == v:
+                idx = i
+                break
+        if idx is None:
+            continue
+        # validate update constraint types same as before; ignore unknown keys
+        cons_existing = dict(G[u][idx][2])
+        for k, val in upd_constraints.items():
+            if k not in allowed_keys:
+                continue
+            if k in ("traffic", "maintenance"):
+                if not (isinstance(val, float) or isinstance(val, int)):
+                    return {}
+                val_f = float(val)
+                if not (val_f > 0):
+                    return {}
+                cons_existing[k] = val_f
+            elif k == "capacity_tier":
+                if not isinstance(val, int):
+                    return {}
+                if val < 1:
+                    return {}
+                cons_existing[k] = val
+            elif k in ("time_window_start", "time_window_end"):
+                if not isinstance(val, int):
+                    return {}
+                if not (0 <= val <= 24):
+                    return {}
+                if k == "time_window_start" and val == 24:
+                    return {}
+                cons_existing[k] = val
+        G[u][idx] = (G[u][idx][0], G[u][idx][1], cons_existing)
+    # Build adjacency with effective costs and availability
+    adj: Dict[str, List[Tuple[str, float, Dict[str, Any]]]] = {}
+    # include all nodes present as keys or destinations
+    nodes = set(G.keys())
+    for u in G:
+        for v, base_cost, cons in G[u]:
+            nodes.add(v)
+    for n in nodes:
+        adj[n] = []
+    INF = float('inf')
+    for u in G:
+        for v, base_cost, cons in G[u]:
+            # skip self-loops already removed
+            # determine availability by time window
+            tws = cons.get("time_window_start", None)
+            twe = cons.get("time_window_end", None)
+            available = True
+            if (tws is not None or twe is not None):
+                # if one bound missing treat as always available per spec; but earlier said if either bound missing treat as always available
+                if tws is None or twe is None:
+                    available = True
+                else:
+                    # inclusive
+                    if not (tws <= time_of_day <= twe):
+                        available = False
+            if not available:
+                continue
+            traffic = cons.get("traffic", 1.0)
+            maintenance = cons.get("maintenance", 1.0)
+            capacity_tier = cons.get("capacity_tier", 1)
+            # compute effective cost
+            mult = float(traffic) * float(maintenance) * (1.0 + 0.25 * max(capacity_tier - 1, 0))
+            eff = float(base_cost) * mult
+            # ensure non-negative
+            if eff < 0:
+                return {}
+            adj[u].append((v, eff, cons.copy()))
+    # Determine terminals: nodes with no outgoing usable edges (consider adj)
+    terminals = set()
+    for n in nodes:
+        if not adj.get(n):
+            terminals.add(n)
+    # For each node, compute shortest path to any terminal.
+    # Reverse Dijkstra from all terminals on reversed graph.
+    rev_adj: Dict[str, List[Tuple[str, float]]] = {n: [] for n in nodes}
+    for u in adj:
+        for v, cost, _ in adj[u]:
+            rev_adj[v].append((u, cost))
+    # Multi-source Dijkstra: distances and path strings for tie-breaking
+    dist: Dict[str, float] = {n: math.inf for n in nodes}
+    path: Dict[str, List[str]] = {n: [n] for n in nodes}
+    hops: Dict[str, int] = {n: 0 for n in nodes}
+    # Initialize terminals with zero cost and path [t]
+    heap = []
+    for t in terminals:
+        dist[t] = 0.0
+        path[t] = [t]
+        hops[t] = 0
+        heapq.heappush(heap, (0.0, tuple(path[t]), 0, t))  # (cost, path_tuple, hops, node)
+    while heap:
+        d, p_tuple, h, u = heapq.heappop(heap)
+        if d > dist[u] + 1e-12:
+            continue
+        # relax predecessors
+        for pred, ecost in rev_adj.get(u, []):
+            nd = d + ecost
+            # candidate path from pred is [pred] + path[u]
+            cand_path = [pred] + list(p_tuple)
+            cand_tuple = tuple(cand_path)
+            cand_hops = h + 1
+            better = False
+            if nd < dist[pred] - 1e-12:
+                better = True
+            elif abs(nd - dist[pred]) <= 1e-12:
+                # tie-break 2: lexicographically smallest full path
+                cur_tuple = tuple(path[pred])
+                if cand_tuple < cur_tuple:
+                    better = True
+                elif cand_tuple == cur_tuple:
+                    # tie-break 3 fewer hops
+                    if cand_hops < hops[pred]:
+                        better = True
+                    elif cand_hops == hops[pred]:
+                        # tie-break 4 lexicographically smaller next hop
+                        # next hop is cand_path[1] vs path[pred][1] if exists
+                        def next_hop(tpl):
+                            return tpl[1] if len(tpl) > 1 else ""
+                        if next_hop(cand_tuple) < next_hop(cur_tuple):
+                            better = True
+            if better:
+                dist[pred] = nd
+                path[pred] = cand_path
+                hops[pred] = cand_hops
+                heapq.heappush(heap, (nd, tuple(cand_path), cand_hops, pred))
+    # Build result: for every city in original graph keys and any destinations? spec: Every city appears once. Use nodes set.
+    result: Dict[str, List[str]] = {}
+    for n in sorted(nodes):
+        if dist[n] == math.inf:
+            result[n] = [n]
+        else:
+            result[n] = path[n]
+    return result

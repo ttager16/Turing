@@ -1,0 +1,151 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### **Problem Statement**
+
+The city of Metropolia is designing a new subway system to connect its key districts. As the lead urban planner, your task is to create a network layout that minimizes the average commute time for its citizens, all while staying within a strict construction budget.
+
+The city has identified $N$ potential locations for stations. You are given:
+
+1.  A **demand matrix**, where `demand[i][j]` is the number of passengers traveling from station `i` to station `j` each day.
+2.  A **cost matrix**, where `cost[i][j]` is the expense of building a direct tunnel between station `i` and `j`.
+
+Your goal is to select a set of tunnels to build. The total cost of these tunnels must not exceed the given **budget**. Once the network is built, the travel time between any two connected stations is the number of stops (or edges) on the shortest path between them. The objective is to produce a network design where the **average travel time** across all passengers is as low as possible.
+
+-----
+
+### **Objectives**
+
+1.  **Model Formulation:**
+      * Represent the potential stations and tunnels as a graph.
+      * Use the demand and cost matrices to guide your decision-making.
+2.  **Heuristic Network Design:**
+      * Implement an efficient **heuristic algorithm** to select which tunnels to build. Exact algorithms with high time complexity are not encouraged.
+      * The algorithm must intelligently choose tunnels that provide the best value, considering both their cost and their impact on the travel times of a large number of passengers.
+3.  **Feasibility Reporting:**
+      * After designing the network, calculate the resulting average travel time.
+      * **Crucially, if any pair of stations `(i, j)` with non-zero demand is not connected in your final network, the design is considered a failure.**
+      * The function must return `True` if a valid, connected network is built within budget and its average time is less than or equal to `max_avg_time`. Otherwise, it must return `False`.
+
+-----
+
+### **Implementation Guidance**
+
+  * This is a network design problem, a class of problems that is typically NP-hard. An exhaustive search trying all combinations of tunnels is computationally infeasible and will time out.
+  * You are expected to implement a **heuristic-based or greedy algorithm**. A good heuristic might prioritize building tunnels that offer the largest reduction in total travel time for the lowest cost.
+  * After your heuristic selects the tunnels, you will need to calculate all-pairs shortest paths on the resulting graph to find the travel time for each pair of stations. An algorithm like Breadth-First Search (BFS) starting from each node or the Floyd-Warshall algorithm is suitable for this.
+  * The `max_avg_time` threshold provided in the test cases is **intentionally conservative**. This means a well-designed heuristic that finds a good, but not necessarily perfect, network should be sufficient to pass. 
+
+#### **Edge Case Handling**
+
+  * **Unserviceable Demand:** If your final network design leaves any two stations `i` and `j` disconnected, but `demand[i][j] > 0`, the average travel time is effectively **infinite**. Your function must return `False`.
+  * **Zero Budget:** Be mindful of scenarios where `budget = 0`. If there is any demand between two *different* stations in this case (i.e., `demand[i][j] > 0` for `i != j`), it's impossible to build a connecting tunnel, so the function should return `False`.
+
+-----
+
+### **Constraints**
+
+  * The number of potential stations, $N$, will be up to 50.
+  * Demand and cost values will be non-negative integers.
+  * The solution should not be an exhaustive brute-force 
+  * No external libraries (e.g., numpy, scipy, networkx) are permitted.
+
+-----
+
+### **Function Signature**
+
+```python
+from typing import List
+
+def design_metro_system(
+    demand_matrix: List[List[int]],
+    cost_matrix: List[List[int]],
+    budget: int,
+    max_avg_time: float
+) -> bool:
+```
+
+-----
+
+### **Sample Input/Output**
+
+**Input:**
+
+```python
+# 4 stations. High demand between 0 and 3.
+demand_matrix = [
+    [0, 1, 5, 100],
+    [1, 0, 1, 5],
+    [5, 1, 0, 1],
+    [100, 5, 1, 0]
+]
+
+# Costs to connect stations. A direct link (0-3) is very expensive.
+# The path 0-1-2-3 is cheaper.
+cost_matrix = [
+    [0, 10, 99, 100],
+    [10, 0, 10, 99],
+    [99, 10, 0, 10],
+    [100, 99, 10, 0]
+]
+
+# Total budget for construction.
+budget = 30
+
+# The required average travel time performance.
+max_avg_time = 2.0
+```
+
+**Output:**
+
+```python
+True
+```
+
+**Reasoning:**
+
+A smart heuristic would aim to connect the high-demand stations (0 and 3) efficiently within the budget.
+
+1.  **Analyze Options:**
+
+      * The direct tunnel `(0, 3)` costs 100, which is over the budget of 30.
+      * The path `0-1-2-3` provides a complete connection for all passengers. The total cost is `cost(0,1) + cost(1,2) + cost(2,3) = 10 + 10 + 10 = 30`. This uses the entire budget.
+
+2.  **Construct Network:**
+
+      * A greedy heuristic that prioritizes connecting the network cheaply would choose to build the tunnels `(0,1)`, `(1,2)`, and `(2,3)`. The final network is a line: `0 -- 1 -- 2 -- 3`. This network connects all pairs with non-zero demand.
+
+3.  **Calculate Average Time:**
+
+      * Total passengers: `1 + 5 + 100 + 1 + 1 + 5 + ... = 220`.
+      * Calculate total travel time for all passengers on this network:
+          * **Trip (0 -\> 3):** 100 passengers, time = 3 stops. Total = `100 * 3 = 300`.
+          * **Trip (3 -\> 0):** 100 passengers, time = 3 stops. Total = `100 * 3 = 300`.
+          * **Trip (0 -\> 2):** 5 passengers, time = 2 stops. Total = `5 * 2 = 10`.
+          * ... and so on for all other demand pairs.
+      * The sum of all travel times is approximately 400.
+      * Average time = `Total Time / Total Passengers` = `400 / 220 ≈ 1.82`.
+
+Since the calculated average time `1.82` is less than `max_avg_time` of `2.0`, the function returns `True`.
+
+Starter Code:
+```python
+import math
+import random
+import time
+from typing import List, Set, FrozenSet
+
+def design_metro_system(
+    demand_matrix: List[List[int]],
+    cost_matrix: List[List[int]],
+    budget: int,
+    max_avg_time: float
+) -> bool:
+    pass
+```

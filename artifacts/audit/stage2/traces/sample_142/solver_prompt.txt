@@ -1,0 +1,81 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+In the context of a large-scale smart city simulation platform, city planners must coordinate autonomous vehicles, emergency services, and delivery fleets under rapidly changing security, road-capacity, and real-time event conditions. The software must simultaneously track each intersection's multi-period security rating, each road segment’s evolving capacity constraints, and a citywide set of critical “safe passage” rules. Road segments are composed of multiple “lanes” with varying security thresholds and can be closed or repurposed on-the-fly.
+
+When the system receives an emergency service dispatch or a commercial routing request, it has to compute a route that not only satisfies a minimum security level but also respects dynamic capacity constraints and interference from concurrent tasks (e.g., road maintenance, sensor calibration, or other vehicles’ real-time path reservations). This requires an advanced data structure that can efficiently handle partial updates to road capacities and intersection security indices in near real-time, without recalculating the entire city graph from scratch.
+
+Vehicles must be guided along a path that is feasible in terms of:  
+1) Security measures at each intersection and along each lane.  
+2) Current and projected capacity constraints on each road segment over the next time window.  
+3) Ongoing critical-event blocks that alter traffic patterns (e.g., temporary closures).  
+
+The routing system must process concurrent updates and queries: new events may arrive while a route is being computed, forcing partial recomputation that must not invalidate already-secured lanes for other vehicles. Ultimately, the system will output the safest possible route that adheres to all constraints—if such a route exists.
+
+#### Objectives
+1. Implement an advanced graph representation that accommodates per-lane capacity, multi-interval security ratings, and dynamic closures or reroutes issued by a centralized traffic authority.  
+2. Devise a complex algorithm (e.g., compressed heavy-light decomposition or a dynamic tree-based structure) to track and update minimum-security constraints, available lane capacities, and intersection viability without performing a full graph rebuild.  
+3. Guarantee that path computations incorporate both spatial (node and edge security) and temporal (time-window capacity reservations) considerations, ensuring no partial or greedy route violates future constraints.  
+4. Architect concurrent update mechanisms to process real-time data changes—potentially triggered by a new threat-level input or an event-based closure—while preserving partial solutions for unaffected regions of the city, thereby avoiding extensive recalculations.  
+
+#### Constraints
+- The dynamic graph must allow partial updates to node and edge security levels, as well as per-lane capacity reservations, in O(log N) time complexity.  
+- The path-search component must run in O(E log V) or better for large city-scale graphs, integrating advanced pruning or tree-decomposition to handle concurrency.  
+- Each node (intersection) can have multiple lanes with different security ratings. Any lane or intersection with a security rating falling below the global minimum threshold is off-limits.  
+- Multiple concurrent updates (e.g., security changes, partial closures) must not cause data-race conditions. The solution must maintain consistency across all partial updates.  
+- Security levels are integer-valued from 1 (lowest) to 10 (highest). Temporary updates to road segments must also incorporate time-dependent capacity constraints, ensuring no route segment is oversubscribed.  
+
+#### Function Signature
+```python
+def compute_secure_shortest_path(graph: Dict[str, List[int]], start: int, end: int, min_security_level: int) -> List[int]:
+```
+Note:  
+• The graph parameter must store, for each directed edge (u, v), a string key "u,v" mapping to a list [travel_cost, security_rating].  
+• Edge keys must be strings in the format "u,v" for JSON compatibility (e.g., "1,2" for edge from node 1 to node 2).  
+• Edge values must be lists with exactly two integers: [cost, security], where cost is the travel cost and security is the security rating (1-10).  
+• For advanced implementations, expand "graph" internally to track multi-lane capacity partitions, but preserve the external dictionary format for input compatibility.  
+
+#### Sample Input/Output
+Input:  
+graph = {  
+  "1,2": [5, 6],   # Intersection 1 to 2 has cost=5, security=6  
+  "2,3": [4, 8],   # Intersection 2 to 3 has cost=4, security=8 (multiple lanes might exist internally)  
+  "2,4": [10, 9],  # Intersection 2 to 4 has cost=10, security=9  
+  "1,4": [3, 2]    # Intersection 1 to 4 has cost=3, security=2  
+},  
+start = 1,  
+end = 4,  
+min_security_level = 5  
+
+Output:  
+[1, 2, 4]  
+
+Explanation:  
+• Although the direct edge (1→4) has a lower travel cost, its security rating is below the threshold (2 < 5).  
+• The path (1→2→4) provides sufficient security (both edges have security ratings 6 and 9, which exceed 5) and remains the shortest route under those constraints.  
+
+#### Expected Output Format
+- A list of integer node IDs representing a feasible path from “start” to “end” that satisfies per-edge security≥min_security_level and capacity constraints (if implicitly maintained). If no path meets the criteria, return an empty list.
+
+Starter Code:
+```python
+import logging
+from typing import Dict, List
+from collections import defaultdict
+import heapq
+
+
+def compute_secure_shortest_path(
+    graph: Dict[str, List[int]], 
+    start: int, 
+    end: int, 
+    min_security_level: int
+) -> List[int]:
+```

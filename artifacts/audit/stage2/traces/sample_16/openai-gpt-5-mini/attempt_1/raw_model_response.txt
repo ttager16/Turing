@@ -1,0 +1,79 @@
+from typing import List
+from functools import lru_cache
+
+def maxProductKIncreasing(nums: List[int], K: int, D: int) -> int:
+    n = len(nums)
+    if K > n: 
+        return 0
+
+    # Precompute for each index i the list of next indices j>i with nums[j]-nums[i]>=D and nums[j]>nums[i]
+    nxt = [[] for _ in range(n)]
+    for i in range(n):
+        for j in range(i+1, n):
+            if nums[j] - nums[i] >= D and nums[j] > nums[i]:
+                nxt[i].append(j)
+
+    # We will DP over positions and a tuple of "last indices" for each subsequence.
+    # But state space huge. Alternative approach: build K sequences greedily via DP counting lengths combinations:
+    # Transform to: we must partition sequence order into K increasing-with-gap subsequences.
+    # Use DP by masks is impossible. Instead use dynamic programming computing maximum product of lengths via
+    # dynamic programming where we sequentially assign each element to one of K groups tracking last value and length.
+    # Represent last by index (-1 means empty). Use memoization over pos and tuple of lasts.
+    from functools import lru_cache
+
+    # For comparison of last values, we store last index for each channel; -1 means empty.
+    @lru_cache(None)
+    def dp(i, lasts):
+        if i == n:
+            # check all channels non-empty
+            for idx in lasts:
+                if idx == -1:
+                    return 0
+            # compute product of lengths by counting occurrences of each last via reconstructing lengths:
+            # We need lengths; but we didn't track them. Instead store lengths in state too.
+            return 0  # placeholder; unreachable because we always track lengths below
+
+    # Revised: include lengths in state.
+    @lru_cache(None)
+    def dp2(i, lasts, lens):
+        if i == n:
+            # all channels must be non-empty
+            for L in lens:
+                if L == 0:
+                    return 0
+            prod = 1
+            for L in lens:
+                prod *= L
+            return prod
+        best = 0
+        a = nums[i]
+        lasts_list = list(lasts)
+        lens_list = list(lens)
+        # try assign to any channel
+        for c in range(K):
+            last_idx = lasts_list[c]
+            if last_idx == -1:
+                # can always start new subsequence with current element
+                lasts_list[c] = i
+                lens_list[c] += 1
+                val = dp2(i+1, tuple(lasts_list), tuple(lens_list))
+                if val > best:
+                    best = val
+                lasts_list[c] = last_idx
+                lens_list[c] -= 1
+            else:
+                # need nums[i] > nums[last_idx] and diff >= D and i > last_idx (true)
+                if nums[i] > nums[last_idx] and nums[i] - nums[last_idx] >= D:
+                    lasts_list[c] = i
+                    lens_list[c] += 1
+                    val = dp2(i+1, tuple(lasts_list), tuple(lens_list))
+                    if val > best:
+                        best = val
+                    lasts_list[c] = last_idx
+                    lens_list[c] -= 1
+        return best
+
+    # initial lasts all -1, lens all 0
+    init_lasts = tuple([-1]*K)
+    init_lens = tuple([0]*K)
+    return dp2(0, init_lasts, init_lens)

@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[\"In a surprise, Apple Inc. (AAPL) reports upbeat revenue; analysts are positive.\", \"Quarterly notes: Apple Incorporated (AAPL) posts mixed results but recorta costs afterward.\", \"NAZDAQ had notable volatility; some reports were bullish.\", \"Analysts remain cautious on the Nasdaq Composite amid mixed signals.\", \"新闻：纳斯达克 表现稳健。\"]",
+    "output_text": "{\"Company\": [\"Apple Inc.\"], \"Stock Symbol\": [\"AAPL\"], \"Market Index\": [\"Nasdaq Composite\"], \"Sentiment\": [\"positive\", \"negative\", \"neutral\", \"neutral\", \"neutral\"]}"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[\"apple inc. expands operations in Europe; AAPL shows strength.\", \"Applr Inc (AAPL) posts flat revenue.\", \"Investors are POSITIVE on aapl despite headwinds.\"]",
+    "output_text": "{\"Company\": [\"Apple Inc.\"], \"Stock Symbol\": [\"AAPL\"], \"Market Index\": [], \"Sentiment\": [\"positive\", \"neutral\", \"positive\"]}"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[\"Market note: positive signals then negative; overall the final word is negative.\", \"Company brief: Apple Inc.\", \"Ticker brief: AAPL\", \"Combined: Apple Inc. and AAPL are discussed but no sentiment words.\", \"Mirror: Apple Incorporated AAPL performance is under review; analysts remain upbeat.\"]",
+    "output_text": "{\"Company\": [\"Apple Inc.\"], \"Stock Symbol\": [\"AAPL\"], \"Market Index\": [], \"Sentiment\": [\"negative\", \"neutral\", \"neutral\", \"neutral\", \"neutral\"]}"
+  }
+]

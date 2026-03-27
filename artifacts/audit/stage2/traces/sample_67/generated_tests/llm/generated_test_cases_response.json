@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6JAFBnmwcva4q4TKnOjXYizGfNC",
+  "object": "chat.completion",
+  "created": 1774398164,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[[\\\"union\\\", 1, 2, 0, 5], [\\\"attributes\\\", 2, 2, 1, null], [\\\"find\\\", 3, 4, 1, null], [\\\"branch\\\", null, null, 1, null], [\\\"union\\\", 3, 4, 2, 7], [\\\"merge_versions\\\", null, null, 1, 3], [\\\"find\\\", 1, 4, 4, null], [\\\"attributes\\\", 1, 4, 4, null]]\"],\"focus\":\"attributes when a==b, disconnected queries, branching then merging disjoint components\"},{\"input_lines\":[\"[[\\\"union\\\", 1, 2, 0, 5], [\\\"branch\\\", null, null, 1, null], [\\\"union\\\", 2, 3, 2, -2], [\\\"merge_versions\\\", null, null, 1, 3], [\\\"find\\\", 2, 3, 3, null], [\\\"find\\\", 2, 3, 1, null]]\"],\"focus\":\"merge failure due to negative-capacity edge and verifying original versions unchanged\"},{\"input_lines\":[\"[[\\\"union\\\", 100000, 200000, 0, 10], [\\\"union\\\", 200000, 300000, 1, 20], [\\\"union\\\", 300000, 400000, 2, 30], [\\\"attributes\\\", 100000, 400000, 3, null], [\\\"split\\\", 200000, 300000, 3, null], [\\\"find\\\", 100000, 400000, 4, null], [\\\"find\\\", 100000, 400000, 3, null], [\\\"branch\\\", null, null, 1, null], [\\\"union\\\", 400000, 500000, 5, 5], [\\\"attributes\\\", 400000, 500000, 6, null]]\"],\"focus\":\"large node IDs, long-chain attributes, splitting middle edge, branch immutability and later union in branched timeline\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2109,
+    "completion_tokens": 2778,
+    "total_tokens": 4887,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2304,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

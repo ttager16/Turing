@@ -1,0 +1,76 @@
+{
+  "id": "resp_0f346a1d8bfdf8970069c33b4bbf4081a39075707bf70ef71f",
+  "object": "response",
+  "created_at": 1774402379,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774402406,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0f346a1d8bfdf8970069c33b4c085c81a3b6d1b49c2a8ade76",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0f346a1d8bfdf8970069c33b4c371081a3bc130946cd6f288d",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Set, Tuple\nfrom collections import defaultdict, deque\n\ndef prioritize_mst(\n    graph: List[List],\n    priorities: List[List],\n    updates: List[List]\n) -> List[List[int]]:\n    # Build adjacency with costs\n    adj: Dict[int, Dict[int, float]] = defaultdict(dict)\n    nodes: Set[int] = set()\n    for u, v, c in graph:\n        adj[u][v] = min(adj[u].get(v, float('inf')), float(c))\n        adj[v][u] = min(adj[v].get(u, float('inf')), float(c))\n        nodes.add(u); nodes.add(v)\n    n = max(nodes) + 1 if nodes else 0\n\n    # Apply updates to priorities list (extend if necessary)\n    for vid, new_pr, new_rel in updates:\n        if vid >= len(priorities):\n            # extend with defaults\n            for _ in range(len(priorities), vid + 1):\n                priorities.append([0, 0.0])\n        priorities[vid][0] = int(new_pr)\n        priorities[vid][1] = float(new_rel)\n\n    # Helper: compute a minimum spanning tree with Kruskal\n    parent = list(range(n))\n    rank = [0]*n\n    def find(x):\n        while parent[x]!=x:\n            parent[x]=parent[parent[x]]\n            x=parent[x]\n        return x\n    def union(a,b):\n        ra, rb = find(a), find(b)\n        if ra==rb: return False\n        if rank[ra]<rank[rb]:\n            parent[ra]=rb\n        else:\n            parent[rb]=ra\n            if rank[ra]==rank[rb]:\n                rank[ra]+=1\n        return True\n\n    edges = []\n    for u in adj:\n        for v,c in adj[u].items():\n            if u < v:\n                edges.append((c, u, v))\n    edges.sort(key=lambda x: x[0])\n\n    mst_edges: Set[Tuple[int,int]] = set()\n    parent = list(range(n)); rank = [0]*n\n    for c,u,v in edges:\n        if union(u,v):\n            mst_edges.add((u,v))\n    # Ensure connectivity: if graph disconnected, include cheapest edges to connect components\n    # (Kruskal did that for all nodes present in edges)\n\n    # For each high-priority node, ensure two edge-disjoint paths to 0.\n    # Approach: augment MST by adding cheapest additional edges that create a second edge-disjoint path.\n    # We'll treat edge-disjointness: second path requires adding an edge that is not in the unique tree path's edges (i.e., adding any non-tree edge between node and some ancestor gives cycle).\n    # For each high-priority node v != 0, find tree path from 0 to v; need at least one extra independent edge not sharing edges with first path -> minimal way is to add one non-tree edge that connects any node on path to any node outside path such that cycle provides alternative route.\n    # Simplified heuristic: for each hp node, if there is at least one non-tree edge that connects any vertex on its tree path to any vertex not equal to its immediate tree-edge, add cheapest such non-tree edge. Repeat until all have 2 edge-disjoint paths or no more edges.\n    # This is a heuristic aiming to satisfy constraints and keep cost low.\n\n    # Build tree adjacency\n    tree_adj = defaultdict(list)\n    for u,v in mst_edges:\n        tree_adj[u].append(v); tree_adj[v].append(u)\n\n    # parent_tree and path retrieval via BFS from 0\n    def build_tree_parent():\n        par = [-1]*n\n        depth = [-1]*n\n        q = deque([0]) if 0 in nodes else deque()\n        if q:\n            par[0]=0; depth[0]=0\n        while q:\n            x=q.popleft()\n            for y in tree_adj.get(x,[]):\n                if depth[y]==-1:\n                    depth[y]=depth[x]+1\n                    par[y]=x\n                    q.append(y)\n        return par, depth\n\n    par, depth = build_tree_parent()\n\n    def tree_path(u,v):\n        # return edges (a,b) along tree path u->v with ordered tuple (min,max)\n        path_u=[]; path_v=[]\n        a=u; b=v\n        du = depth[a] if a<n and a>=0 else -1\n        dv = depth[b] if b<n and b>=0 else -1\n        if du==-1 or dv==-1:\n            return []\n        while a!=b:\n            if du>=dv:\n                pa = par[a]\n                path_u.append((min(a,pa), max(a,pa)))\n                a=pa; du-=1\n            else:\n                pb = par[b]\n                path_v.append((min(b,pb), max(b,pb)))\n                b=pb; dv-=1\n        return path_u + path_v[::-1]\n\n    # Set of non-tree edges\n    non_tree = []\n    tree_edge_set = set(mst_edges)\n    for c,u,v in edges:\n        key = (u,v) if u<v else (v,u)\n        if key not in tree_edge_set:\n            non_tree.append((c,u,v))\n\n    # Function to check edge-disjoint count between node and 0: compute two edge-disjoint paths existence via simple check:\n    # If there are at least two edge-disjoint paths in current selected edges set. We'll test by computing max-flow with unit capacities on edges (undirected => split into two directed). Use Edmonds-Karp.\n    def has_two_edge_disjoint(v, selected_edges_set):\n        if v==0: return True\n        # build directed graph\n        idx = defaultdict(list)\n        cap = {}\n        for a,b in selected_edges_set:\n            # add both directions with capacity 1\n            idx[a].append(b); idx[b].append(a)\n            cap[(a,b)] = cap.get((a,b),0) + 1\n            cap[(b,a)] = cap.get((b,a),0) + 1\n        # Edmonds-Karp from 0 to v\n        def bfs(s,t,parent):\n            q=deque([s])\n            visited=set([s])\n            while q:\n                x=q.popleft()\n                for y in idx.get(x,[]):\n                    if (x,y) in cap and cap[(x,y)]>0 and y not in visited:\n                        visited.add(y)\n                        parent[y]=x\n                        if y==t: return True\n                        q.append(y)\n            return False\n        flow=0\n        parent={}\n        s=0; t=v\n        while bfs(s,t,parent):\n            # find min residual\n            path=[]\n            cur=t\n            f=float('inf')\n            while cur!=s:\n                p=parent[cur]\n                f=min(f, cap[(p,cur)])\n                cur=p\n            # apply\n            cur=t\n            while cur!=s:\n                p=parent[cur]\n                cap[(p,cur)] -= f\n                cap[(cur,p)] = cap.get((cur,p),0) + f\n                cur=p\n            flow += f\n            if flow>=2: return True\n            parent={}\n        return flow>=2\n\n    # Selected edges start as MST edges\n    selected = set(tree_edge_set)\n\n    # Iteratively try to satisfy each high-priority node\n    hp_nodes = {i for i in range(len(priorities)) if i < n and int(priorities[i][0])==1}\n    # greedy add cheapest non-tree edges when they help any hp node lacking redundancy\n    non_tree.sort()\n    changed = True\n    while True:\n        lacking = [v for v in hp_nodes if not has_two_edge_disjoint(v, selected)]\n        if not lacking:\n            break\n        added_any = False\n        # evaluate non-tree edges sorted by cost, pick one that increases count of satisfied hp nodes most per cost (greedy)\n        best_pick = None\n        best_gain = 0\n        for c,u,v in non_tree:\n            key = (u,v) if u<v else (v,u)\n            if key in selected: continue\n            # simulate adding\n            sim_selected = set(selected)\n            sim_selected.add(key)\n            gain = 0\n            for node in lacking:\n                if has_two_edge_disjoint(node, sim_selected):\n                    gain += 1\n            if gain>0:\n                # score = gain / cost ; choose best gain then min cost\n                if best_pick is None or (gain>best_gain) or (gain==best_gain and c < best_pick[0]):\n                    best_pick = (c,u,v,key)\n                    best_gain = gain\n        if best_pick:\n            _,u,v,key = best_pick\n            selected.add(key)\n            # if edge is not in tree, also add to tree_adj for future path computations (we keep tree separate; but adding edges to selected)\n            added_any = True\n            # continue to next iteration\n        if not added_any:\n            # cannot satisfy more; break\n            break\n\n    # Ensure overall connectivity across all nodes: selected edges should connect all nodes; if not, add cheapest edges to connect components\n    parent = list(range(n))\n    def findp(x):\n        while parent[x]!=x:\n            parent[x]=parent[parent[x]]\n            x=parent[x]\n        return x\n    def unionp(a,b):\n        ra,rb=findp(a),findp(b)\n        if ra==rb: return False\n        parent[rb]=ra\n        return True\n    for a,b in selected:\n        unionp(a,b)\n    for c,u,v in edges:\n        key = (u,v) if u<v else (v,u)\n        if findp(u)!=findp(v):\n            selected.add(key)\n            unionp(u,v)\n    # Final output as list of [u,v]\n    res = [[u,v] for u,v in sorted(selected)]\n    return res"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1983,
+    "input_tokens_details": {
+      "cached_tokens": 1920
+    },
+    "output_tokens": 2149,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4132
+  },
+  "user": null,
+  "metadata": {}
+}

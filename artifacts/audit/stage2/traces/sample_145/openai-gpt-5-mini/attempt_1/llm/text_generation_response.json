@@ -1,0 +1,76 @@
+{
+  "id": "resp_0468ed64afab2a8d0069c343eb6048819e8239e060df05fa46",
+  "object": "response",
+  "created_at": 1774404587,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774404609,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0468ed64afab2a8d0069c343ebb1f8819e932c5ec0d44f251a",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0468ed64afab2a8d0069c343ec14b0819eb747f99b294ad184",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List, Tuple, Set, Optional\nimport heapq\n\ndef optimize_delivery_route(\n    graph: Dict[str, List[List[float]]],\n    fuel_stations: List[int],\n    vehicle_capacity: float,\n    fuel_consumption: float,\n    start: int,\n    destination: int,\n    inspections: List[int]\n) -> List[int]:\n    # Normalize graph keys to int\n    int_graph = {}\n    for k, v in graph.items():\n        try:\n            ik = int(k)\n        except:\n            continue\n        int_graph[ik] = [(int(dst), float(dist)) for dst, dist in v]\n    # ensure nodes exist in graph\n    nodes = set(int_graph.keys())\n    for lst in int_graph.values():\n        for dst, _ in lst:\n            nodes.add(dst)\n    for n in nodes:\n        int_graph.setdefault(n, [])\n    stations = set(fuel_stations)\n    inspections_set = set(inspections)\n    # Represent inspection progress as bitmask for efficiency\n    inspection_list = sorted(list(inspections_set))\n    idx_map = {node: i for i, node in enumerate(inspection_list)}\n    target_ins_mask = 0\n    for node in inspection_list:\n        target_ins_mask |= (1 << idx_map[node])\n    # Dijkstra over state: (distance_so_far, node, fuel_remaining, ins_mask)\n    # To avoid continuous fuel states, quantize fuel to small epsilon to allow float handling.\n    # Use continuous floats but maintain visited with best-known fuel for (node, ins_mask) at given distance.\n    # We'll store visited as dict mapping (node, ins_mask) -> best distance seen for some fuel; and track seen with fuel threshold.\n    # Use priority queue ordered by total distance traveled.\n    start_fuel = vehicle_capacity\n    start_mask = 0\n    if start in idx_map:\n        start_mask |= (1 << idx_map[start])\n    pq = []\n    # state: (total_distance, node, fuel_remaining, ins_mask, parent_state_id)\n    # We'll store parent pointers keyed by unique ids\n    state_id = 0\n    parents = {}  # id -> (prev_id, node)\n    states = {}   # id -> (node, fuel, mask, dist)\n    entry_id = state_id\n    heapq.heappush(pq, (0.0, state_id))\n    states[state_id] = (start, start_fuel, start_mask, 0.0)\n    parents[state_id] = (None, None)\n    state_id += 1\n    # For pruning: best_known[(node, mask, fuel_rounded)] = best distance; but fuel continuous so we keep for (node,mask) the max fuel seen at <= distance\n    # Instead, keep for (node,mask) best distance found; if we reach same (node,mask) with larger distance and less/equal fuel, skip.\n    best = {}  # (node,mask) -> list of tuples (dist, fuel)\n    while pq:\n        dist_so_far, sid = heapq.heappop(pq)\n        node, fuel, mask, dist_recorded = states[sid]\n        # if popped outdated (distance mismatch), skip\n        if abs(dist_so_far - dist_recorded) > 1e-9:\n            continue\n        # Check if reached destination with all inspections done\n        if node == destination and mask == target_ins_mask:\n            # reconstruct path\n            path = []\n            cur = sid\n            while cur is not None:\n                n = states[cur][0]\n                path.append(n)\n                cur = parents[cur][0]\n            return list(reversed(path))\n        # Prune using best list\n        key = (node, mask)\n        prune = False\n        if key in best:\n            to_remove = []\n            for (bdist, bfuel) in best[key]:\n                # if there's a previous state with <= distance and >= fuel, current is dominated\n                if bdist <= dist_so_far + 1e-9 and bfuel >= fuel - 1e-9:\n                    prune = True\n                    break\n                # if current dominates previous, mark previous for removal\n                if dist_so_far <= bdist + 1e-9 and fuel >= bfuel - 1e-9:\n                    to_remove.append((bdist, bfuel))\n            if prune:\n                continue\n            for item in to_remove:\n                best[key].remove(item)\n            best[key].append((dist_so_far, fuel))\n        else:\n            best[key] = [(dist_so_far, fuel)]\n        # Option to refuel if station present: we assume refueling fills to full instantly (no time cost), and station availability is static per problem input\n        if node in stations and fuel < vehicle_capacity - 1e-9:\n            new_fuel = vehicle_capacity\n            new_mask = mask\n            if node in idx_map:\n                new_mask = mask | (1 << idx_map[node])\n            new_dist = dist_so_far\n            sid_new = state_id\n            states[sid_new] = (node, new_fuel, new_mask, new_dist)\n            parents[sid_new] = (sid, None)  # parent pointer to previous state id\n            state_id += 1\n            heapq.heappush(pq, (new_dist, sid_new))\n        # Explore outgoing edges\n        for (dst, d) in int_graph.get(node, []):\n            fuel_needed = d * fuel_consumption\n            if fuel + 1e-9 < fuel_needed:\n                continue\n            new_fuel = fuel - fuel_needed\n            new_mask = mask\n            if dst in idx_map:\n                new_mask = mask | (1 << idx_map[dst])\n            new_dist = dist_so_far + d\n            sid_new = state_id\n            states[sid_new] = (dst, new_fuel, new_mask, new_dist)\n            parents[sid_new] = (sid, None)\n            state_id += 1\n            heapq.heappush(pq, (new_dist, sid_new))\n    return []"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1599,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1304,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2903
+  },
+  "user": null,
+  "metadata": {}
+}

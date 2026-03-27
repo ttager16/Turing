@@ -1,0 +1,76 @@
+{
+  "id": "resp_0acb92689bf0d8650069c33097201081a28df03527ce960d8e",
+  "object": "response",
+  "created_at": 1774399639,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774399670,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0acb92689bf0d8650069c33097b19081a2984e542fcdd26860",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0acb92689bf0d8650069c33097ee2081a28ba4179132e02f7a",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from decimal import Decimal, getcontext, ROUND_HALF_UP\nfrom typing import Optional, List, Dict, Any\n\ngetcontext().prec = 28\n\ndef manage_stock_data(operations: list) -> list:\n    # Internal state\n    companies = {}  # ticker -> dict with keys: length, audit (list per day), init_prices (list Decimal)\n    outputs = []\n\n    def err(msg):\n        outputs.append(msg)\n\n    for op in operations:\n        if not isinstance(op, list) or len(op) == 0:\n            err(\"Error: Invalid input.\")\n            continue\n        cmd = op[0]\n        if cmd == \"init\":\n            # [\"init\", ticker: str, prices: list[float]]\n            if len(op) != 3:\n                err(\"Error: Invalid input.\")\n                continue\n            ticker, prices = op[1], op[2]\n            if not isinstance(ticker, str) or not isinstance(prices, list) or len(prices) == 0:\n                err(\"Error: All companies must have non-empty price lists of equal length.\")\n                continue\n            # validate all positive floats\n            try:\n                decs = [Decimal(str(p)) for p in prices]\n            except Exception:\n                err(\"Error: All companies must have non-empty price lists of equal length.\")\n                continue\n            if any((p <= 0 for p in decs)):\n                err(\"Error: Invalid price. Must be positive.\")\n                continue\n            # Ensure equal length across existing companies\n            length = len(decs)\n            if companies:\n                for other in companies.values():\n                    if other['length'] != length:\n                        err(\"Error: All companies must have non-empty price lists of equal length.\")\n                        break\n                else:\n                    # proceed\n                    companies[ticker] = {\n                        'length': length,\n                        'init_prices': decs[:],\n                        'audit': [[] for _ in range(length)]  # list per day of updates; each entry is dict\n                    }\n                    outputs.append(None)\n                    continue\n                continue\n            else:\n                companies[ticker] = {\n                    'length': length,\n                    'init_prices': decs[:],\n                    'audit': [[] for _ in range(length)]\n                }\n                outputs.append(None)\n                continue\n\n        elif cmd == \"update\":\n            # [\"update\", ticker: str, day: int, new_price: float]\n            if len(op) != 4:\n                err(\"Error: Invalid input.\")\n                continue\n            ticker, day, new_price = op[1], op[2], op[3]\n            if ticker not in companies:\n                err(\"Error: Invalid ticker.\")\n                continue\n            if not isinstance(day, int) or day < 0 or day >= companies[ticker]['length']:\n                err(\"Error: Invalid ticker or day index.\")\n                continue\n            try:\n                newp = Decimal(str(new_price))\n            except Exception:\n                err(\"Error: Invalid price. Must be positive.\")\n                continue\n            if newp <= 0:\n                err(\"Error: Invalid price. Must be positive.\")\n                continue\n            # Create update record\n            audit_list = companies[ticker]['audit'][day]\n            # Determine current active price at day before this update\n            # Search audit_list for last active; else use init\n            current = None\n            for rec in reversed(audit_list):\n                if rec['active']:\n                    current = rec['new_price']\n                    break\n            if current is None:\n                current = companies[ticker]['init_prices'][day]\n            rec = {\n                'new_price': newp,\n                'prev_price': current,\n                'active': True\n            }\n            audit_list.append(rec)\n            outputs.append(None)\n            continue\n\n        elif cmd == \"rollback\":\n            # [\"rollback\", ticker, steps, day(optional)]\n            if len(op) not in (3,4):\n                err(\"Error: Invalid input.\")\n                continue\n            ticker = op[1]\n            if ticker not in companies:\n                err(\"Error: Invalid ticker.\")\n                continue\n            steps = op[2]\n            if not isinstance(steps, int) or steps <= 0:\n                err(\"Error: Invalid input.\")\n                continue\n            if len(op) == 4:\n                day = op[3]\n                if not isinstance(day, int) or day < 0 or day >= companies[ticker]['length']:\n                    err(\"Error: Invalid ticker or day index.\")\n                    continue\n            else:\n                day = companies[ticker]['length'] - 1\n            # We need to revert most recent 'steps' updates affecting the specified day.\n            audit_list = companies[ticker]['audit'][day]\n            # Count active updates in that day's audit history from the end\n            active_indices = [i for i,rec in enumerate(audit_list) if rec['active']]\n            if len(active_indices) < steps:\n                err(\"Error: Rollback exceeds update history.\")\n                continue\n            # deactivate last 'steps' active updates in that day\n            to_remove = steps\n            # traverse reversed to mark\n            for rec in reversed(audit_list):\n                if to_remove == 0:\n                    break\n                if rec['active']:\n                    rec['active'] = False\n                    to_remove -= 1\n            outputs.append(None)\n            continue\n\n        elif cmd == \"query\":\n            # [\"query\", ticker, mode, start_day, end_day]\n            if len(op) != 5:\n                err(\"Error: Invalid input.\")\n                continue\n            ticker, mode, start_day, end_day = op[1], op[2], op[3], op[4]\n            if ticker not in companies:\n                err(\"Error: Invalid ticker.\")\n                continue\n            if not isinstance(start_day, int) or not isinstance(end_day, int):\n                err(\"Error: Invalid query range.\")\n                continue\n            if start_day < 0 or end_day < 0 or start_day >= companies[ticker]['length'] or end_day >= companies[ticker]['length'] or start_day > end_day:\n                err(\"Error: Invalid query range.\")\n                continue\n            mode = str(mode)\n            if mode not in (\"sum\",\"average\",\"max\",\"volatility\"):\n                err(\"Error: Invalid query mode.\")\n                continue\n            # collect active prices for days in range\n            prices = []\n            for d in range(start_day, end_day+1):\n                audit_list = companies[ticker]['audit'][d]\n                val = None\n                for rec in reversed(audit_list):\n                    if rec['active']:\n                        val = rec['new_price']\n                        break\n                if val is None:\n                    val = companies[ticker]['init_prices'][d]\n                prices.append(val)\n            n = len(prices)\n            if n == 0:\n                err(\"Error: Invalid query range.\")\n                continue\n            if mode == \"sum\":\n                s = sum(prices, Decimal(0))\n                res = s\n            elif mode == \"average\":\n                s = sum(prices, Decimal(0))\n                res = s / Decimal(n)\n            elif mode == \"max\":\n                res = max(prices)\n            else:  # volatility population std dev\n                if n == 1:\n                    res = Decimal(0)\n                else:\n                    s = sum(prices, Decimal(0))\n                    mu = s / Decimal(n)\n                    ss = sum((p - mu) * (p - mu) for p in prices)\n                    var = ss / Decimal(n)\n                    # sqrt of Decimal: use quantize via Decimal.sqrt not available; use context\n                    try:\n                        res = var.sqrt()\n                    except Exception:\n                        # fallback via float but ensure non-negative\n                        vf = float(var) if var >= 0 else 0.0\n                        res = Decimal(str(vf**0.5))\n            # Round to 4 decimal places with HALF_UP\n            q = res.quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)\n            outputs.append(float(q))\n            continue\n\n        elif cmd == \"snapshot\":\n            # [\"snapshot\", ticker]\n            if len(op) != 2:\n                err(\"Error: Invalid input.\")\n                continue\n            ticker = op[1]\n            if ticker not in companies:\n                err(\"Error: Invalid ticker.\")\n                continue\n            comp = companies[ticker]\n            active_prices = []\n            for d in range(comp['length']):\n                audit_list = comp['audit'][d]\n                val = None\n                for rec in reversed(audit_list):\n                    if rec['active']:\n                        val = rec['new_price']\n                        break\n                if val is None:\n                    val = comp['init_prices'][d]\n                active_prices.append(val)\n            if len(active_prices) == 0:\n                err(\"Error: All companies must have non-empty price lists of equal length.\")\n                continue\n            latest = active_prices[-1]\n            avg = sum(active_prices, Decimal(0)) / Decimal(len(active_prices))\n            q1 = latest.quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)\n            q2 = avg.quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)\n            outputs.append({\"latest\": float(q1), \"average\": float(q2)})\n            continue\n\n        else:\n            err(\"Error: Invalid input.\")\n            continue\n\n    return outputs"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1598,
+    "input_tokens_details": {
+      "cached_tokens": 1536
+    },
+    "output_tokens": 1973,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3571
+  },
+  "user": null,
+  "metadata": {}
+}

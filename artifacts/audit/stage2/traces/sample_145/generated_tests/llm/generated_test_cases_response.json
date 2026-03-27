@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN7yBY1D8uqqtblt6Sa8MBsA7a137",
+  "object": "chat.completion",
+  "created": 1774404551,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"{\\\"1\\\": []}\",\n        \"[]\",\n        \"5.0\",\n        \"1.0\",\n        \"1\",\n        \"1\",\n        \"[1]\"\n      ],\n      \"focus\": \"Start equals destination with mandatory inspection at the same node (zero-travel edge case; check if start satisfies inspection).\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"0\\\": [[1, 6.0], [3, 15.0]], \\\"1\\\": [[2, 6.0], [0, 6.0]], \\\"2\\\": [[4, 4.0]], \\\"3\\\": [[4, 20.0]], \\\"4\\\": []}\",\n        \"[1]\",\n        \"10.0\",\n        \"1.0\",\n        \"0\",\n        \"4\",\n        \"[2]\"\n      ],\n      \"focus\": \"Requires refueling at an intermediate station and may involve cycles/backtracking; tests correct handling of fuel state and stations.\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"0\\\": [[1, 5.0]], \\\"1\\\": [[2, 5.0]], \\\"2\\\": [[3, 2.5]], \\\"3\\\": []}\",\n        \"[1]\",\n        \"10.0\",\n        \"1.0\",\n        \"0\",\n        \"3\",\n        \"[1, 2]\"\n      ],\n      \"focus\": \"Precision/boundary case where fuel usage matches capacity exactly unless refueled; multiple mandatory inspections in order-sensitive path.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2041,
+    "completion_tokens": 2071,
+    "total_tokens": 4112,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1728,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

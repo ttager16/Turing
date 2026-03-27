@@ -1,0 +1,113 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        100,
+        50
+      ],
+      [
+        40,
+        60
+      ],
+      [
+        [
+          0,
+          1,
+          0
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[100, 50]",
+      "[40, 60]",
+      "[[0, 1, 0]]"
+    ],
+    "focus": "Zero synergy limit between two populated regions — forces cross-region allocation (tests zero-limit handling and infeasibility conditions)."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        0,
+        200,
+        200
+      ],
+      [
+        100,
+        100,
+        200
+      ],
+      [
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          1,
+          2,
+          3
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[0, 200, 200]",
+      "[100, 100, 200]",
+      "[[0, 1, 2], [1, 2, 3]]"
+    ],
+    "focus": "Zero-player region appearing in synergies and mixed connectivity — tests zero-player handling and local vs connected balancing."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        1000,
+        999,
+        1000,
+        999,
+        1000
+      ],
+      [
+        200,
+        250,
+        200,
+        250,
+        200
+      ],
+      [
+        [
+          0,
+          1,
+          7
+        ],
+        [
+          1,
+          2,
+          7
+        ],
+        [
+          2,
+          3,
+          7
+        ],
+        [
+          3,
+          4,
+          7
+        ],
+        [
+          4,
+          0,
+          7
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[1000, 999, 1000, 999, 1000]",
+      "[200, 250, 200, 250, 200]",
+      "[[0, 1, 7], [1, 2, 7], [2, 3, 7], [3, 4, 7], [4, 0, 7]]"
+    ],
+    "focus": "Cyclic chain with tight limits causing cascading rebalances — stresses iterative resolution, sorting by excess, and termination."
+  }
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "case_index": 1,
+    "input_text": "[{\"customer_id\": \"Z1\", \"amount\": 150, \"location\": \"DE\", \"timestamp\": 1701000000, \"linked_accounts\": [\"Y2\"]}, {\"customer_id\": \"M2\", \"amount\": 10, \"location\": \"DE\", \"timestamp\": 1701000300, \"linked_accounts\": [\"N3\"]}]\n{\"Z1\": [{\"amount\": 100, \"location\": \"DE\", \"timestamp\": 1691000000, \"linked_accounts\": []}, {\"amount\": 100, \"location\": \"DE\", \"timestamp\": 1691003600, \"linked_accounts\": []}, {\"amount\": 100, \"location\": \"DE\", \"timestamp\": 1691007200, \"linked_accounts\": []}], \"M2\": []}",
+    "output_text": "[{\"customer_id\": \"Z1\", \"anomaly\": true}, {\"customer_id\": \"M2\", \"anomaly\": false}]"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[{\"customer_id\": \"H1\", \"amount\": 5, \"location\": \"US\", \"timestamp\": 1702000000, \"linked_accounts\": [\"K1\"]}, {\"customer_id\": \"H1\", \"amount\": 6, \"location\": \"US\", \"timestamp\": 1702000100, \"linked_accounts\": [\"K2\"]}, {\"customer_id\": \"H1\", \"amount\": 7, \"location\": \"US\", \"timestamp\": 1702000200, \"linked_accounts\": [\"K3\"]}, {\"customer_id\": \"H1\", \"amount\": 8, \"location\": \"US\", \"timestamp\": 1702000300, \"linked_accounts\": [\"K4\"]}, {\"customer_id\": \"H1\", \"amount\": 9, \"location\": \"US\", \"timestamp\": 1702000400, \"linked_accounts\": [\"K5\"]}, {\"customer_id\": \"H1\", \"amount\": 10, \"location\": \"US\", \"timestamp\": 1702000500, \"linked_accounts\": [\"K6\"]}, {\"customer_id\": \"O2\", \"amount\": 200, \"location\": \"US\", \"timestamp\": 1702000600, \"linked_accounts\": [\"P3\"]}]\n{\"H1\": [{\"amount\": 4, \"location\": \"US\", \"timestamp\": 1699000000, \"linked_accounts\": []}, {\"amount\": 5, \"location\": \"US\", \"timestamp\": 1699003600, \"linked_accounts\": []}], \"O2\": [{\"amount\": 190, \"location\": \"US\", \"timestamp\": 1699050000, \"linked_accounts\": []}], \"K1\": [], \"K2\": [], \"K3\": [], \"K4\": [], \"K5\": [], \"K6\": [], \"P3\": []}",
+    "output_text": "[{\"customer_id\": \"H1\", \"anomaly\": true}, {\"customer_id\": \"H1\", \"anomaly\": true}, {\"customer_id\": \"H1\", \"anomaly\": true}, {\"customer_id\": \"H1\", \"anomaly\": true}, {\"customer_id\": \"H1\", \"anomaly\": true}, {\"customer_id\": \"H1\", \"anomaly\": true}, {\"customer_id\": \"O2\", \"anomaly\": false}]"
+  }
+]

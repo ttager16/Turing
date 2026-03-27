@@ -1,0 +1,134 @@
+from typing import List, Tuple
+
+def adaptive_heap_update(data_streams: List[List[List]]) -> List[str]:
+    # Validation
+    if not isinstance(data_streams, list) or len(data_streams) < 3:
+        return []
+    for ex in data_streams:
+        if not isinstance(ex, list):
+            return []
+        for item in ex:
+            if (not isinstance(item, list)) or len(item) != 3:
+                return []
+            sym, vol, volm = item
+            if not isinstance(sym, str) or not sym.isupper() or not sym.isalpha():
+                return []
+            if not (isinstance(vol, float) or isinstance(vol, int)):
+                return []
+            vol = float(vol)
+            if not (0.0 <= vol <= 1.0):
+                return []
+            if not isinstance(volm, int) or volm <= 0:
+                return []
+    # Helper: compute priority tuple for comparison (max-heap)
+    def make_priority(sym: str, volatility: float, volume: int) -> Tuple[float, float, str]:
+        p = volatility * (volume ** 0.25)
+        # Return tuple so that larger is better: (priority, volatility, negative lexicographic)
+        # For deterministic tie-break: higher volatility, then lexicographically smaller symbol.
+        # Since we want max-heap, we keep symbol as negative by using normal comparison: smaller symbol should be considered larger => we invert by using tuple with negative ords impossible; instead,
+        # We'll use (p, volatility, inverse symbol) where inverse symbol is negative by using "-" not possible. So to get lexicographically smaller preferred, we use symbol with negative ordering by using a tuple that compares symbol with reversed sign: use tuple (p, volatility, lexicographically_negated)
+        # Simpler: we'll return (p, volatility, inverse_rank) where inverse_rank is a string that sorts reversed: we use chr(255 - ord(c)) mapping to produce reversed order.
+        def inv(s):
+            return ''.join(chr(255 - ord(c)) for c in s)
+        return (p, volatility, inv(sym))
+    # Implement array-backed binary max-heap with manual sift-up/sift-down
+    class MaxHeap:
+        def __init__(self):
+            self.a = []
+        def push(self, key, value):
+            self.a.append((key, value))
+            self._sift_up(len(self.a)-1)
+        def pop(self):
+            if not self.a:
+                return None
+            top = self.a[0]
+            last = self.a.pop()
+            if self.a:
+                self.a[0] = last
+                self._sift_down(0)
+            return top
+        def peek(self):
+            return self.a[0] if self.a else None
+        def _sift_up(self, i):
+            while i>0:
+                p=(i-1)//2
+                if self.a[i][0] > self.a[p][0]:
+                    self.a[i], self.a[p] = self.a[p], self.a[i]
+                    i=p
+                else:
+                    break
+        def _sift_down(self, i):
+            n=len(self.a)
+            while True:
+                l=2*i+1; r=2*i+2; largest=i
+                if l<n and self.a[l][0] > self.a[largest][0]:
+                    largest=l
+                if r<n and self.a[r][0] > self.a[largest][0]:
+                    largest=r
+                if largest==i:
+                    break
+                self.a[i], self.a[largest] = self.a[largest], self.a[i]
+                i=largest
+        def __len__(self):
+            return len(self.a)
+    # Build per-exchange heaps
+    exch_heaps = []
+    for ex in data_streams:
+        h = MaxHeap()
+        for sym, volatility, volume in ex:
+            volatility = float(volatility)
+            key = make_priority(sym, volatility, volume)
+            h.push(key, (sym, volatility, volume))
+        exch_heaps.append(h)
+    # Global coordinator heap holds entries from exchanges: key includes priority and exchange index
+    # We'll store entries: key = (priority_tuple, exchange_index), value = (symbol, volatility, volume, version)
+    global_heap = MaxHeap()
+    # versioning per symbol: map symbol -> latest version id (incrementing int)
+    version = {}
+    ver_counter = 1
+    # Initialize by pushing top of each exchange heap
+    for idx, h in enumerate(exch_heaps):
+        top = h.pop()
+        if top:
+            key, (sym, volatility, volume) = top
+            vid = ver_counter; ver_counter += 1
+            version[sym] = vid
+            # Compose global key: priority tuple extended with exchange index negative to break ties deterministically
+            # We want deterministic cross-exchange tie-break: use exchange index smaller preferred? Not specified; keep by priority then volatility then symbol already encoded.
+            global_key = key + ( -idx, )
+            global_heap.push(global_key, (sym, volatility, volume, vid, idx))
+    result = []
+    seen_output = set()
+    # Extract until global heap empty
+    while len(global_heap) > 0:
+        top = global_heap.pop()
+        if top is None:
+            break
+        key, (sym, volatility, volume, vid, ex_idx) = top
+        # Check version staleness
+        if version.get(sym, None) != vid:
+            # stale, skip
+            # But we still need to advance from the exchange that provided this entry: pop next from that exchange and push
+            h = exch_heaps[ex_idx]
+            nxt = h.pop()
+            if nxt:
+                nkey, (nsym, nvolatility, nvolume) = nxt
+                nvid = ver_counter; ver_counter += 1
+                version[nsym] = nvid
+                global_key = nkey + ( -ex_idx, )
+                global_heap.push(global_key, (nsym, nvolatility, nvolume, nvid, ex_idx))
+            continue
+        # fresh entry: output symbol if not already output (deduplicate outputs)
+        if sym not in seen_output:
+            result.append(sym)
+            seen_output.add(sym)
+        # Advance from that exchange
+        h = exch_heaps[ex_idx]
+        nxt = h.pop()
+        if nxt:
+            nkey, (nsym, nvolatility, nvolume) = nxt
+            nvid = ver_counter; ver_counter += 1
+            version[nsym] = nvid
+            global_key = nkey + ( -ex_idx, )
+            global_heap.push(global_key, (nsym, nvolatility, nvolume, nvid, ex_idx))
+    return result

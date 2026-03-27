@@ -1,0 +1,140 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problrm Statement
+
+In a large-scale IoT network, a Python developer must design a multi-layer graph-based data pipeline to manage and reconcile real-time device logs.
+Each of thousands of devices continuously generates timestamped logs, often referencing other devices’ logs (cross-device dependencies).
+The goal is to build a robust system that maintains global consistency, detects conflicts, resolves dependencies, and ensures data integrity even under concurrent updates.
+
+---
+
+### Objectives
+
+1. **Construct a Hybrid Data Structure:**
+   Build a structure combining Segment Trees (for time-based interval queries) and Union-Find (Disjoint Sets) (for conflict and merge tracking).
+   The Segment Tree efficiently partitions logs by time intervals and detects overlapping timestamps or stale data.
+   The Union-Find structure tracks merges between related or duplicate logs and supports rollback on invalid merges.
+   *(Note: For this problem, you will simulate the filtering logic conceptually; actual data structure implementation is not required.)*
+
+2. **Implement Multi-Step Reconciliation Algorithms:**
+   Develop routines to iteratively reconcile partial merges, resolve cyclical dependencies, and handle stale or duplicate entries.
+   These routines must apply rollback mechanisms when incorrect merges or unreliable device data are detected.
+
+3. **Introduce Conflict and Dependency Detection:**
+   Formulate a deterministic conflict resolution process that validates references between device logs and removes invalid or stale data.
+   This process must detect invalid references, remove or reorder them, and ensure valid data streams remain intact.
+
+4. **Enable Real-Time Concurrent Merging:**
+   Design the logic such that multiple log updates can be handled concurrently, ensuring the result is consistent and deterministic even under parallel insertions.
+
+5. **Advanced Data Integrity Checks:**
+   Enforce consistency constraints to ensure there are no cyclical merges, invalid device references, or timestamp violations.
+   Any inconsistencies must be flagged and removed before returning the reconciled output.
+
+---
+
+### Constraints
+
+1. The system must support up to 1000 devices.
+2. Log reconciliation and conflict detection must complete within 1 second per update cycle, even under high concurrency.
+3. The merging process must handle at least 1000 logs per second.
+4. Any cyclical dependency or invalid reference discovered must trigger a rollback and correction process.
+5. No external libraries are allowed, adhere to the built-in Python libraries
+
+---
+
+### Function Signature
+
+```python
+from typing import List, Any
+
+def manage_device_logs(device_logs: List[List[Any]]) -> List[List[Any]]:
+    pass
+```
+
+---
+
+### Input Description
+
+* `device_logs`: a list of logs, where each log is represented as a 3-element list
+  `[device_id: str, timestamp: int, payload: str]`
+
+---
+
+### Rules and Processing Logic
+
+1. **Stale Data Rule:**
+   Each device has a defined “freshness window” (Δ_stale = 1).
+   A log `[device_id, timestamp, payload]` is considered **stale** if a newer log exists for the same device such that:
+
+   ```
+   newer_timestamp - timestamp > Δ_stale
+   ```
+
+   Stale logs must be discarded.
+
+2. **Duplicate Entry Rule:**
+   Any log with a payload exactly equal to `"duplicate_entry"` must be removed.
+   This is an explicit rule and not dependent on comparison with other entries.
+
+3. **Reference Validation Rule:**
+   Some payloads reference other logs using the format:
+   `"REF_<device_id>_<timestamp>"`
+   Such a log is valid only if there exists a corresponding log `[device_id, timestamp, ...]` in the current dataset (after applying the stale and duplicate rules).
+   Invalid or malformed references must be discarded.
+
+4. **Order Preservation Rule:**
+   The final output must preserve the original order of valid logs. No sorting or reordering is allowed.
+
+---
+
+### Sample Input
+
+```python
+[
+    ["device_1", 1625235600, "data_1"],
+    ["device_2", 1625235601, "REF_device_1_1625235600"],
+    ["device_3", 1625235600, "out_of_order_data"],
+    ["device_2", 1625235599, "stale_data"],
+    ["device_1", 1625235602, "data_2_reference"],
+    ["device_2", 1625235602, "duplicate_entry"]
+]
+```
+
+---
+
+### Sample Output
+
+```python
+[
+    ["device_1", 1625235600, "data_1"],
+    ["device_2", 1625235601, "REF_device_1_1625235600"],
+    ["device_3", 1625235600, "out_of_order_data"],
+    ["device_1", 1625235602, "data_2_reference"]
+]
+```
+
+---
+
+### Output Clarification
+
+* `["device_2", 1625235599, "stale_data"]` is stale because `"device_2"` has a newer log at 1625235601, and Δ_stale = 1.
+* `["device_2", 1625235601, "REF_device_1_1625235600"]` is valid because `"device_1"` at 1625235600 exists.
+* `["device_2", 1625235602, "duplicate_entry"]` is explicitly removed under the duplicate entry rule.
+
+Starter Code:
+```python
+from typing import List, Any
+from collections import defaultdict
+import re
+
+def manage_device_logs(device_logs: List[List[Any]]) -> List[List[Any]]:
+    pass
+```

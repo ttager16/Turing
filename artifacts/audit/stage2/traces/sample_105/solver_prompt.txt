@@ -1,0 +1,137 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+Metropolia's transportation network is represented as a multilayer, undirected multigraph: intersections are nodes and roads may appear in one or more layers (surface, elevated, underground, etc.). A single intersection or road closure can change connectivity within one or more layers and may have cross-layer implications.
+
+A realistic example: a mid-sized city may have surface streets, an elevated expressway, and an underground rail tunnel that each connect the same pair of districts. Scheduled maintenance that closes a single tunnel segment or a critical interchange can sever connectivity in the tunnel layer while diverting traffic onto surface and elevated layers, disrupting emergency routing and public-transit schedules. Municipal datasets (for example, OpenStreetMap extracts combined with transit-agency feeds) often encode layer information explicitly, which motivates a layer-aware vulnerability analysis that is actionable.
+
+
+---
+
+### Objectives:
+1. Model and input format (explicit edge-instance model):
+  - Represent each road instance as a list [u, v, layer_id]. Multiple entries with the same endpoints and different layer_id indicate distinct layered road instances.
+  - Input accepted forms: the preferred form is an edge list `edges: List[List[int]]` where each inner list is `[u, v, layer_id]`. Alternatively, an adjacency dict mapping `int -> List[List[int]]` is allowed where each neighbor entry is `[neighbor, layer_id]` and the mapping is symmetric for undirected edges.
+
+2. Removal semantics and precise definitions (required outputs):
+  - Physical removal: removing a node removes that node and all its incident road instances in every layer. Removing a physical road removes all its layer instances.
+  - Per-layer articulation pairs (required): the function must compute and return a list of `[node, layer_id]` pairs that are articulation points within a specific layer (i.e., removing the node from that layer's subgraph increases that layer's component count).
+  - Physical-layer articulation nodes (required): the function must compute and return a list of node ids whose physical removal (removing the node across all layers) increases the number of connected components in at least one layer.
+  - Layer-bridging roads (required): the function must compute and return for every physical road `[min(u,v), max(u,v)]` the list of layers whose connectivity would be disrupted by physically removing that road. A road is classified as "layer-bridging" when the affected-layers list contains two or more layer ids.
+
+3. Function signature and outputs (required):
+  - Required signature (edge-centric) and return format:
+    def analyze_road_network(edges: List[List[int]]) -> List:
+    - Returns a three-element list: `[physical_layered_articulation_nodes, per_layer_articulation_pairs, layer_bridging_list]`
+      - `physical_layered_articulation_nodes`: List[int] — sorted node ids whose physical removal disconnects at least one layer.
+      - `per_layer_articulation_pairs`: List[List[int]] — each element is `[node, layer_id]` for nodes that are articulation points in a particular layer; sort this list lexicographically by node then layer_id.
+      - `layer_bridging_list`: List[List] — each element is `[[u, v], affected_layers_list]` where `[u, v]` are sorted endpoints and `affected_layers_list` is a sorted List[int]; sort the outer list lexicographically by `[u,v]`.
+
+---
+
+### Constraints
+
+- Use only Python's standard library (no external packages).
+- The entire implementation must live inside a single top-level function `analyze_road_network(edges)` (helper functions or classes may be nested inside it). Only module-level imports are allowed outside the function.
+- Do not rely on global mutable state; the function must be pure with respect to inputs (no hidden state across calls).
+- Deterministic outputs: the function must return lists in canonical sorted order where ordering is not otherwise specified (e.g., sort the list of articulation node ids ascending; sort each road's endpoints so the smaller id comes first; sort the outer `layer_bridging_list` lexicographically by endpoints).
+
+### Input constraints, validation
+
+- Input schema (single canonical form):
+  - `edges` MUST be a List[List[int]] where each inner list is exactly three integers: `[u, v, layer_id]`.
+  - `u` and `v` are integer intersection identifiers (may be negative or positive). `layer_id` MUST be a non-negative integer.
+  - Implementations MUST NOT accept an alternative adjacency-dict form; callers who have adjacency dicts must first normalize them to the canonical edge-list form.
+
+- Error reporting contract: for invalid inputs the function MUST return an exact error-message string (do NOT raise exceptions).
+
+Exact error messages (function must RETURN the exact string):
+- If `edges` is not a list: "analyze_road_network: edges must be a list of [u, v, layer_id] integer triples"
+- If an edge is not a list: "analyze_road_network: edge at index {i} must be a list of three integers [u, v, layer_id]"
+- If an edge list has length != 3: "analyze_road_network: edge at index {i} has invalid length {len}; expected 3"
+- If any component of an edge is not an int: "analyze_road_network: edge at index {i} contains non-integer component {component!r}"
+- If layer_id is negative: "analyze_road_network: edge at index {i} has invalid layer_id {layer_id}; must be >= 0"
+- If an adjacency-like value is encountered (caller provided a dict): "analyze_road_network: input must be an edge-list; convert adjacency dict to edge-list before calling"
+- For any other invalid structural inputs, return a string starting with "analyze_road_network:" followed by a short description.
+
+
+Formal bridging test:
+- For each physical road `r = [min(u,v), max(u,v)]` present in the input, compute `affected_layers(r)` as the sorted list of layer ids `L` such that removing the physical road `r` (i.e., removing all edge instances between `u` and `v` in every layer) increases the number of connected components in layer `l` for each `l in L`.
+- A road `r` is considered "layer-bridging" iff `len(affected_layers(r)) >= 2`.
+- The function's `layer_bridging_list` output MUST include every physical road `r` in lexicographic order with its corresponding `affected_layers(r)` (possibly empty).
+
+---
+### Function Signature and Input format:
+```python
+from typing import List
+
+def analyze_road_network(edges: List[List[int]]) -> List:
+    """
+    edges: list of [u, v, layer_id] triples (ints)
+
+    Returns a three-element list:
+      [physical_layered_articulation_nodes,
+       per_layer_articulation_pairs,
+       layer_bridging_list]
+
+    - physical_layered_articulation_nodes: List[int]
+      Sorted list of node ids whose physical removal disconnects at least one layer.
+
+    - per_layer_articulation_pairs: List[List[int]]
+      Each entry is [node, layer_id]; sorted lexicographically by node then layer_id.
+
+    - layer_bridging_list: List[List]
+      Each entry is [[u, v], affected_layers_list]. [u, v] are sorted endpoints (u <= v)
+      and affected_layers_list is a sorted List[int] of layer ids. The outer list is
+      sorted lexicographically by [u, v].
+    """
+```
+
+### Input:
+- `edges`: a list of lists where each inner list is `[u, v, layer_id]`. Multiple inner lists with the same `[u, v]` but different `layer_id` indicate distinct layered connections. This explicit edge-centric format is required for deterministic behavior.
+
+### Output:
+- A three-element list:
+  1. `physical_layered_articulation_nodes`: List[int] — sorted intersection identifiers whose physical removal disconnects at least one layer.
+  2. `per_layer_articulation_pairs`: List[List[int]] — each entry is `[node, layer_id]` for nodes that are articulation points in a particular layer (sorted lexicographically).
+  3. `layer_bridging_list`: List[List] — each entry is `[[u, v], affected_layers_list]` where `[u, v]` are the sorted endpoints of the physical road and `affected_layers_list` is a sorted List[int] of layers whose connectivity would be disrupted by removing that physical road.
+
+### Sample Input (edge-list form):
+```python
+edges = [
+    [0, 1, 0], [0, 2, 0], [1, 2, 0],
+    [2, 3, 0], [3, 4, 0], [4, 5, 0],
+    [4, 6, 0], [5, 6, 0], [6, 7, 0]
+]
+```
+
+### Sample Output (matching the sample input):
+```python
+[ 
+  [2, 3, 4, 6],                       # physical_layered_articulation_nodes
+  [[2, 0], [3, 0], [4, 0], [6, 0]],   # per_layer_articulation_pairs (node, layer)
+  [
+    [[0, 1], []], [[0, 2], []], [[1, 2], []],
+    [[2, 3], [0]], [[3, 4], [0]], [[4, 5], []],
+    [[4, 6], []], [[5, 6], []], [[6, 7], [0]]
+  ]
+]
+```
+
+
+### Description:
+In this complex scenario, node 2’s removal severs critical connectivity between the lower-layer districts and the main city, and node 4 controls multiple paths in different strata of Metropolia’s road system. The roads (3, 4) and (6, 7) each act as cross-layer connectors; disabling either interrupts traffic flow through both the main thoroughfares and at least one alternate route (such as an elevated bypass). A sophisticated approach, employing augmented DFS or other advanced data-structure-driven techniques, is required to track these node and edge vulnerabilities across multiple layer distinctions. The solution should accommodate hidden corner cases: for example, an intersection that appears unimportant until considered in conjunction with particular layered edges, or subgraphs that remain connected only via multi-layer redundancy. Careful design of indexing, depth arrays, low-link values, or tree decomposition data structures will be critical for tackling the sheer scale and complexity of Metropolia’s modern, interconnected transit system.
+
+Starter Code:
+```python
+from typing import List
+
+def analyze_road_network(edges: List[List[int]]) -> List:
+```

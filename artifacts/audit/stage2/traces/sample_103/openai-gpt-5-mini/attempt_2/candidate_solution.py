@@ -1,0 +1,244 @@
+def can_secure_within_budget(
+        standard_exploits: List[str],
+        zero_day_threats: List[str],
+        patches: List[Tuple[int, List[str]]],
+        hardening_bonus: int,
+        cost_threshold: int
+) -> bool:
+    # Quick edge cases
+    if cost_threshold < 0:
+        return False
+    standards = list(standard_exploits)
+    zeros = list(zero_day_threats)
+    if not standards and not zeros:
+        return True
+
+    # Map vulnerabilities to indices
+    std_idx = {s: i for i, s in enumerate(standards)}
+    zero_idx = {z: i for i, z in enumerate(zeros)}
+
+    P = []
+    for cost, fixes in patches:
+        s_mask = 0
+        z_mask = 0
+        for v in fixes:
+            if v in std_idx:
+                s_mask |= 1 << std_idx[v]
+            if v in zero_idx:
+                z_mask |= 1 << zero_idx[v]
+        # skip patches that fix nothing relevant
+        if s_mask == 0 and z_mask == 0:
+            continue
+        P.append((cost, s_mask, z_mask))
+    if not P:
+        return False
+
+    n_std = len(standards)
+    n_zero = len(zeros)
+
+    # Feasibility quick check: each standard must be covered by at least one patch,
+    # and each standard cannot be forced to be covered by >1 in any selection check will handle exactness later.
+    cover_std = [False]*n_std
+    cover_zero = [False]*n_zero
+    for _, s_mask, z_mask in P:
+        for i in range(n_std):
+            if (s_mask >> i) & 1:
+                cover_std[i] = True
+        for i in range(n_zero):
+            if (z_mask >> i) & 1:
+                cover_zero[i] = True
+    if not all(cover_std) or not all(cover_zero):
+        return False
+
+    # Precompute useful heuristics: benefit per cost for patches.
+    def score_patch(cost, s_mask, z_mask):
+        s_count = s_mask.bit_count()
+        z_count = z_mask.bit_count()
+        # prioritize standards (must be exactly one) and zeros (redundancy valuable)
+        return (s_count * 10 + z_count * 3) / (cost + 1)
+
+    P_sorted = sorted(P, key=lambda x: -score_patch(*x))
+
+    # Greedy iterative randomized attempts within tiny time budget
+    deadline = time.time() + 0.02  # 20ms budget for heuristic
+    attempts = 0
+    max_attempts = 200
+    while time.time() < deadline and attempts < max_attempts:
+        attempts += 1
+        total_cost = 0
+        chosen = []
+        std_cover_count = [0]*n_std
+        zero_cover_count = [0]*n_zero
+
+        # Start with deterministic selection to cover standards exactly once:
+        # For each standard, pick a patch that covers it where selecting doesn't introduce another standard duplicate if possible.
+        # We'll randomize order slightly.
+        idxs = list(range(len(P_sorted)))
+        random.shuffle(idxs)
+        # Build lookup: patches covering each standard/zero
+        std_to_patches = [[] for _ in range(n_std)]
+        zero_to_patches = [[] for _ in range(n_zero)]
+        for pi, (cost, s_mask, z_mask) in enumerate(P_sorted):
+            for i in range(n_std):
+                if (s_mask >> i) & 1:
+                    std_to_patches[i].append(pi)
+            for i in range(n_zero):
+                if (z_mask >> i) & 1:
+                    zero_to_patches[i].append(pi)
+
+        feasible = True
+        # Cover standards: try to select one patch per standard without duplicating standards
+        used_patch = [False]*len(P_sorted)
+        # Order standards by fewest options first (heuristic)
+        std_order = sorted(range(n_std), key=lambda i: len(std_to_patches[i]))
+        for s in std_order:
+            candidates = std_to_patches[s]
+            if not candidates:
+                feasible = False
+                break
+            # prefer candidate that doesn't cover other already-covered standards
+            best = None
+            best_score = None
+            random.shuffle(candidates)
+            for pi in candidates:
+                cost, s_mask, z_mask = P_sorted[pi]
+                # if this patch would cause any other standard to have count>0 where we already assigned it by a different patch, it's ok only if that other standard currently uncovered
+                conflict = False
+                for j in range(n_std):
+                    if j != s and ((s_mask>>j)&1) and std_cover_count[j] > 0:
+                        conflict = True
+                        break
+                # prefer low cost and low conflict
+                sc = cost + (1000 if conflict else 0)
+                if best is None or sc < best_score:
+                    best = pi
+                    best_score = sc
+            if best is None:
+                feasible = False
+                break
+            # pick best
+            used_patch[best] = True
+            cost, s_mask, z_mask = P_sorted[best]
+            total_cost += cost
+            chosen.append(best)
+            for i in range(n_std):
+                if (s_mask >> i) & 1:
+                    std_cover_count[i] += 1
+            for i in range(n_zero):
+                if (z_mask >> i) & 1:
+                    zero_cover_count[i] += 1
+            if total_cost - sum(max(0, c-1)*hardening_bonus for c in zero_cover_count) > cost_threshold:
+                feasible = False
+                break
+        if not feasible:
+            continue
+
+        # Ensure zeros are covered at least once: pick cheapest patches to cover uncovered zeros
+        for z in range(n_zero):
+            if zero_cover_count[z] == 0:
+                # pick cheapest patch that covers z (consider net effect on standards)
+                candidates = zero_to_patches[z]
+                if not candidates:
+                    feasible = False
+                    break
+                best = None
+                best_score = None
+                for pi in candidates:
+                    if used_patch[pi]:
+                        # already used (should have covered it), skip
+                        continue
+                    cost, s_mask, z_mask = P_sorted[pi]
+                    # estimate added penalty: for any standard that would become duplicated (>1) it's forbidden, so disallow patches that would make any standard >1
+                    illegal = False
+                    for i in range(n_std):
+                        if (s_mask >> i) & 1 and std_cover_count[i] >= 1:
+                            # this would make standard covered more than once -> illegal
+                            illegal = True
+                            break
+                    if illegal:
+                        continue
+                    sc = cost / (1 + z_mask.bit_count())
+                    if best is None or sc < best_score:
+                        best = pi
+                        best_score = sc
+                if best is None:
+                    # As fallback, allow using already used patches (they already would have covered but zero_count==0 so none)
+                    feasible = False
+                    break
+                used_patch[best] = True
+                cost, s_mask, z_mask = P_sorted[best]
+                total_cost += cost
+                chosen.append(best)
+                for i in range(n_std):
+                    if (s_mask >> i) & 1:
+                        std_cover_count[i] += 1
+                for i in range(n_zero):
+                    if (z_mask >> i) & 1:
+                        zero_cover_count[i] += 1
+                if total_cost - sum(max(0, c-1)*hardening_bonus for c in zero_cover_count) > cost_threshold:
+                    feasible = False
+                    break
+        if not feasible:
+            continue
+
+        # At this point every standard has count>=1; but standards must be exactly 1. We constructed to avoid duplicates; verify
+        if any(c != 1 for c in std_cover_count):
+            # reject this attempt
+            continue
+        # Now try to add extra zero-day patches to reduce net cost (via bonuses) if beneficial
+        improved = True
+        # limit additions
+        additions = 0
+        while improved and additions < 50:
+            improved = False
+            best_gain = 0
+            best_pi = None
+            for pi, (cost, s_mask, z_mask) in enumerate(P_sorted):
+                if used_patch[pi]:
+                    continue
+                # cannot add if it would make any standard count >1
+                bad = False
+                for i in range(n_std):
+                    if (s_mask >> i) & 1 and std_cover_count[i] >= 1:
+                        bad = True
+                        break
+                if bad:
+                    continue
+                # compute marginal net cost change: cost - added bonuses for zeros covered that will have extra counts
+                added_bonus = 0
+                for i in range(n_zero):
+                    if (z_mask >> i) & 1:
+                        # if currently covered k>=1, extra patch gives +hardening_bonus
+                        if zero_cover_count[i] >= 1:
+                            added_bonus += hardening_bonus
+                net_increase = cost - added_bonus
+                if net_increase < best_gain or (best_pi is None and net_increase < 0):
+                    # net gain is negative cost (i.e., reduces net cost)
+                    best_gain = -net_increase  # positive if reduces net cost
+                    best_pi = pi
+            if best_pi is not None:
+                # apply
+                cost, s_mask, z_mask = P_sorted[best_pi]
+                used_patch[best_pi] = True
+                chosen.append(best_pi)
+                total_cost += cost
+                for i in range(n_std):
+                    if (s_mask >> i) & 1:
+                        std_cover_count[i] += 1
+                for i in range(n_zero):
+                    if (z_mask >> i) & 1:
+                        zero_cover_count[i] += 1
+                additions += 1
+                improved = True
+                # check threshold
+                net = total_cost - sum(max(0, c-1)*hardening_bonus for c in zero_cover_count)
+                if net <= cost_threshold:
+                    return True
+            else:
+                break
+
+        net = total_cost - sum(max(0, c-1)*hardening_bonus for c in zero_cover_count)
+        if net <= cost_threshold:
+            return True
+
+    return False

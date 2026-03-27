@@ -1,0 +1,76 @@
+{
+  "id": "resp_0c4daede933200be0069c31a5778848193bca58cd9d7ac51c5",
+  "object": "response",
+  "created_at": 1774393943,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774393956,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0c4daede933200be0069c31a57c174819387afa631038fa904",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0c4daede933200be0069c31a57f5e48193930f6ac6e08be527",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Set, Tuple\n\ndef allocate_minimum_teams(projects: List[Dict[str, Any]], teams: List[Dict[str, Any]]) -> int:\n    # Flatten all phases into tasks with required_skills and deadline\n    tasks: List[Tuple[Set[str], int]] = []\n    for proj in projects:\n        for ph in proj.get('phases', []):\n            req = set(ph.get('required_skills', []))\n            dl = ph.get('deadline', proj.get('project_deadline', 0))\n            tasks.append((req, dl))\n    # Sort tasks by deadline (earliest first) for greedy scheduling\n    tasks.sort(key=lambda x: x[1])\n\n    # Precompute team skill sets and availability\n    team_skills: List[Set[str]] = []\n    team_avail: List[int] = []\n    for t in teams:\n        skills = set()\n        for m in t.get('members', []):\n            skills.update(m.get('skills', []))\n        team_skills.append(skills)\n        team_avail.append(int(t.get('base_availability', 0)))\n\n    n_teams = len(teams)\n    if not tasks:\n        return 0\n\n    # Quick impossible check: union of all skills must cover each task\n    all_skills = set().union(*team_skills) if team_skills else set()\n    for req, _ in tasks:\n        if not req.issubset(all_skills):\n            return -1  # impossible to cover some task\n\n    # Feasibility: given k teams (choose first k teams after sorting by something), check if they can schedule tasks.\n    # We will choose the k most \"capable\" teams by total skills size and availability as heuristic.\n    team_indices_sorted = list(range(n_teams))\n    team_indices_sorted.sort(key=lambda i: ( -len(team_skills[i]), -team_avail[i] ))\n\n    def feasible(k: int) -> bool:\n        if k == 0:\n            return False\n        sel_indices = team_indices_sorted[:k]\n        # For each selected team, track remaining availability (days)\n        rem_avail = {i: team_avail[i] for i in sel_indices}\n        # For scheduling, for each task we need to assign enough teams whose combined skills cover req.\n        # We will greedily assign minimal number of teams: pick teams that add most uncovered skills per day cost.\n        for req, dl in tasks:\n            # we must allocate some total days of work not exceeding each team's remaining availability and before deadline.\n            # Simplify: assume each phase requires 1 day of work total (not specified), but deadline constraints relative to availability:\n            # We interpret that a team must have availability >=1 and deadline must be >=1. To incorporate deadlines, ensure sum of availabilities of selected teams that can contribute before dl >=1.\n            # To be more general, assume each phase needs 1 unit of effort.\n            needed_skills = set(req)\n            # Choose subset of teams that together cover needed_skills and have at least 1 day remaining and rem_avail <= dl (we only ensure availability positive)\n            candidates = [i for i in sel_indices if rem_avail[i] > 0 and team_skills[i] & needed_skills]\n            # Greedy cover by selecting team that covers most uncovered skills\n            used = []\n            while needed_skills and candidates:\n                best = max(candidates, key=lambda i: len(team_skills[i] & needed_skills))\n                cover = team_skills[best] & needed_skills\n                if not cover:\n                    break\n                needed_skills -= cover\n                used.append(best)\n                candidates.remove(best)\n                # also remove any candidate with no overlap remaining\n                candidates = [i for i in candidates if team_skills[i] & needed_skills]\n            if needed_skills:\n                return False\n            # Now deduct 1 day of availability from one of the used teams (or distribute). We deduct from team among used with max remaining.\n            # If no used (shouldn't happen), fail\n            if not used:\n                return False\n            best_team = max(used, key=lambda i: rem_avail[i])\n            rem_avail[best_team] -= 1\n            if rem_avail[best_team] < 0:\n                return False\n        return True\n\n    lo, hi = 1, n_teams\n    ans = -1\n    while lo <= hi:\n        mid = (lo + hi) // 2\n        if feasible(mid):\n            ans = mid\n            hi = mid - 1\n        else:\n            lo = mid + 1\n    return ans if ans != -1 else -1"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 930,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1018,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1948
+  },
+  "user": null,
+  "metadata": {}
+}

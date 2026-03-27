@@ -1,0 +1,185 @@
+def adaptive_heap_update(data_streams: List[List[List]]) -> List[str]:
+    # Validation
+    if not isinstance(data_streams, list) or len(data_streams) < 3:
+        return []
+    for ex in data_streams:
+        if not isinstance(ex, list):
+            return []
+        for item in ex:
+            if (not isinstance(item, list)) or len(item) != 3:
+                return []
+            sym, vol, volm = item
+            if not isinstance(sym, str) or sym == "" or any(c < 'A' or c > 'Z' for c in sym):
+                return []
+            if not (isinstance(vol, float) or isinstance(vol, int)):
+                return []
+            vol = float(vol)
+            if not (0.0 <= vol <= 1.0):
+                return []
+            if not isinstance(volm, int) or volm <= 0:
+                return []
+    # Helper: compute priority
+    def compute_priority(volatility: float, volume: int) -> float:
+        return volatility * (volume ** 0.25)
+    # Custom max-heap implementation for per-exchange lists.
+    class MaxHeap:
+        def __init__(self):
+            self.a: List[Tuple[float, float, str, int, int]] = []  # (priority, volatility, symbol, volume, idx)
+        def _cmp_item(self, item):
+            # For heap ordering: primary priority, then volatility, then lexicographically smaller symbol
+            # Since we want max-heap, store values directly used in comparisons.
+            return item
+        def push(self, priority, volatility, symbol, volume, idx):
+            self.a.append((priority, volatility, symbol, volume, idx))
+            self._sift_up(len(self.a)-1)
+        def pop(self):
+            if not self.a:
+                return None
+            top = self.a[0]
+            last = self.a.pop()
+            if self.a:
+                self.a[0] = last
+                self._sift_down(0)
+            return top
+        def peek(self):
+            return self.a[0] if self.a else None
+        def _sift_up(self, i):
+            while i > 0:
+                p = (i-1)//2
+                if self._better(self.a[i], self.a[p]):
+                    self.a[i], self.a[p] = self.a[p], self.a[i]
+                    i = p
+                else:
+                    break
+        def _sift_down(self, i):
+            n = len(self.a)
+            while True:
+                l = 2*i+1
+                r = 2*i+2
+                best = i
+                if l < n and self._better(self.a[l], self.a[best]):
+                    best = l
+                if r < n and self._better(self.a[r], self.a[best]):
+                    best = r
+                if best == i:
+                    break
+                self.a[i], self.a[best] = self.a[best], self.a[i]
+                i = best
+        def _better(self, x, y):
+            # return True if x should be above y
+            # Compare priority first
+            if x[0] != y[0]:
+                return x[0] > y[0]
+            # then higher volatility
+            if x[1] != y[1]:
+                return x[1] > y[1]
+            # then lexicographically smaller symbol
+            return x[2] < y[2]
+        def __len__(self):
+            return len(self.a)
+    # Build per-exchange heaps
+    per_heaps: List[MaxHeap] = []
+    # Also we need to maintain indices to allow k-way extraction; store original index within exchange
+    for ex in data_streams:
+        h = MaxHeap()
+        for idx, (sym, vol, volm) in enumerate(ex):
+            volf = float(vol)
+            pr = compute_priority(volf, volm)
+            # push (priority, volatility, symbol, volume, idx)
+            h.push(pr, volf, sym, volm, idx)
+        per_heaps.append(h)
+    # Global coordinator heap: entries are (priority, volatility, symbol, exchange_idx, version, volume)
+    # We'll implement same MaxHeap but for coordinator
+    class CoordHeap:
+        def __init__(self):
+            self.a: List[Tuple[float, float, str, int, int, int]] = []
+        def push(self, priority, volatility, symbol, exch_idx, version, volume):
+            self.a.append((priority, volatility, symbol, exch_idx, version, volume))
+            self._sift_up(len(self.a)-1)
+        def pop(self):
+            if not self.a:
+                return None
+            top = self.a[0]
+            last = self.a.pop()
+            if self.a:
+                self.a[0] = last
+                self._sift_down(0)
+            return top
+        def _sift_up(self, i):
+            while i > 0:
+                p = (i-1)//2
+                if self._better(self.a[i], self.a[p]):
+                    self.a[i], self.a[p] = self.a[p], self.a[i]
+                    i = p
+                else:
+                    break
+        def _sift_down(self, i):
+            n = len(self.a)
+            while True:
+                l = 2*i+1
+                r = 2*i+2
+                best = i
+                if l < n and self._better(self.a[l], self.a[best]):
+                    best = l
+                if r < n and self._better(self.a[r], self.a[best]):
+                    best = r
+                if best == i:
+                    break
+                self.a[i], self.a[best] = self.a[best], self.a[i]
+                i = best
+        def _better(self, x, y):
+            # compare priority, volatility, symbol
+            if x[0] != y[0]:
+                return x[0] > y[0]
+            if x[1] != y[1]:
+                return x[1] > y[1]
+            return x[2] < y[2]
+        def __len__(self):
+            return len(self.a)
+    coord = CoordHeap()
+    # Versioning per symbol: map symbol -> latest version number (incrementing)
+    versions = {}  # symbol -> int
+    # Also track discovered symbols to avoid duplicates in output via stale handling; but per spec we allow multiple inserts and only output highest current when extracted
+    # Initialize coordinator with top of each exchange heap
+    for ei, h in enumerate(per_heaps):
+        top = h.peek()
+        if top:
+            pr, volf, sym, volm, idx = top
+            # version is 1 for initial
+            versions.setdefault(sym, 0)
+            versions[sym] += 1
+            ver = versions[sym]
+            # When inserting into coordinator, we will pop from per-exchange heap only when we consume that exchange's entry
+            coord.push(pr, volf, sym, ei, ver, volm)
+            # remove from per-exchange heap since we've promoted it to coordinator (simulate consumption pointer)
+            h.pop()
+    result = []
+    emitted = set()
+    # Process coordinator until empty
+    while len(coord) > 0:
+        entry = coord.pop()
+        if entry is None:
+            break
+        pr, volf, sym, ei, ver, volm = entry
+        # Check current version for symbol; if this is stale (ver < versions[sym]) discard
+        cur_ver = versions.get(sym, 0)
+        if ver < cur_ver:
+            # stale, skip
+            pass
+        else:
+            # Accept if not already emitted
+            if sym not in emitted:
+                result.append(sym)
+                emitted.add(sym)
+            # else if already emitted, we still proceed (but do not append)
+        # After extracting one candidate from exchange ei, push next from that exchange heap if exists
+        h = per_heaps[ei]
+        next_top = h.pop()
+        if next_top:
+            npr, nvolf, nsym, nvolm, nidx = next_top
+            # create new version for this symbol
+            versions.setdefault(nsym, 0)
+            versions[nsym] += 1
+            nver = versions[nsym]
+            coord.push(npr, nvolf, nsym, ei, nver, nvolm)
+    return result

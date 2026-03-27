@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5TGFMuN9Vbnrmf1sf4CYH3Sb84F",
+  "object": "chat.completion",
+  "created": 1774394946,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[0, 4095, 2048, 65535]\",\"[65535, 0, 1024]\"],\"focus\":\"unequal_lengths_high_msb\"}, {\"input_lines\":[\"[65535, 65535, 65535, 65535, 65535, 65535, 65535]\",\"[65535, 65535, 65535, 65535, 65535, 65535, 65535]\"],\"focus\":\"identical_full_overlap_moderation_edge\"}, {\"input_lines\":[\"[1, 2, 4, 8, 16, 32, 64, 128, 256, 512]\",\"[2, 4, 8, 16, 32, 64, 128, 256, 512, 1]\"],\"focus\":\"rotated_single_bit_patterns_tiebreakers\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1713,
+    "completion_tokens": 1493,
+    "total_tokens": 3206,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1280,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

@@ -1,0 +1,76 @@
+{
+  "id": "resp_09f17c439e5bf2ae0069c3348dbc28819d98f91b76b51b3930",
+  "object": "response",
+  "created_at": 1774400653,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774400676,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_09f17c439e5bf2ae0069c3348e465c819d978ca15b261c25fd",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_09f17c439e5bf2ae0069c3348e9834819d9ed8cecf32c87156",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List, Tuple, Optional\nfrom collections import deque, defaultdict\n\n\nclass CapacityConstrainedGraph:\n    def __init__(self, city_graph: Dict, capacity_map: Dict, demand_map: Dict):\n        # normalize city_graph keys and neighbor lists to ints\n        first_key = next(iter(city_graph)) if city_graph else None\n        self.node_is_str = isinstance(first_key, str)\n        self.adj = {}\n        for k, neigh in city_graph.items():\n            nk = int(k) if isinstance(k, str) else int(k)\n            self.adj[nk] = [int(x) for x in neigh]\n        self.nodes = sorted(self.adj.keys())\n        # parse capacity_map: input edges as \"u,v\" (one direction), normalize to tuple (u,v) ints and store once\n        self.capacity_input = {}\n        for k, v in (capacity_map.items() if capacity_map else []):\n            parts = k.split(\",\")\n            if len(parts) != 2:\n                continue\n            u = int(parts[0]); w = int(parts[1])\n            self.capacity_input[(u, w)] = int(v)\n        # normalized bidirectional capacity map: store both directions with same capacity\n        self.capacity = {}\n        for (u, v), cap in self.capacity_input.items():\n            self.capacity[(u, v)] = cap\n            self.capacity[(v, u)] = cap\n        # parse demand_map: keys might be strings\n        self.demand = {}\n        for k, v in (demand_map.items() if demand_map else []):\n            nk = int(k) if isinstance(k, str) else int(k)\n            self.demand[nk] = int(v)\n        # defaults: missing demands zero\n        for n in self.nodes:\n            if n not in self.demand:\n                self.demand[n] = 0\n\n\nclass CapacityAwarePathfinder:\n    def __init__(self, graph: CapacityConstrainedGraph):\n        self.g = graph\n\n    def bfs_distances(self, source: int) -> Dict[int, int]:\n        dist = {}\n        q = deque()\n        q.append(source)\n        dist[source] = 0\n        while q:\n            u = q.popleft()\n            for v in self.g.adj.get(u, []):\n                if v not in dist:\n                    dist[v] = dist[u] + 1\n                    q.append(v)\n        return dist\n\n    def capacity_bfs_path(self, source: int, target: int, demand: int, residual: Dict[Tuple[int, int], int]) -> Optional[List[int]]:\n        if source == target:\n            return [source]\n        q = deque()\n        q.append((source, [source]))\n        visited = {source}\n        while q:\n            u, path = q.popleft()\n            for v in self.g.adj.get(u, []):\n                if v in visited:\n                    continue\n                # check residual capacity on edge (u,v)\n                if residual.get((u, v), 0) < demand:\n                    continue\n                visited.add(v)\n                new_path = path + [v]\n                if v == target:\n                    return new_path\n                q.append((v, new_path))\n        return None\n\n\nclass GraphMedianFinder:\n    def __init__(self, graph: CapacityConstrainedGraph):\n        self.g = graph\n        self.pathfinder = CapacityAwarePathfinder(graph)\n\n    def compute_weighted_distance(self, hub: int) -> Optional[int]:\n        # distances ignoring capacity\n        dist = self.pathfinder.bfs_distances(hub)\n        total = 0\n        for n in self.g.nodes:\n            if n == hub:\n                continue\n            d = dist.get(n)\n            if d is None:\n                return None  # unreachable -> infinite\n            total += d * int(self.g.demand.get(n, 0))\n        return int(total)\n\n    def check_feasible_with_flow(self, hub: int) -> bool:\n        # simulate routing each node's entire demand along single shortest capacity-respecting path\n        # initialize residual capacities as mutable copy of normalized capacity map\n        residual = dict(self.g.capacity)\n        # process nodes in sorted order excluding hub\n        for n in self.g.nodes:\n            if n == hub:\n                continue\n            demand = int(self.g.demand.get(n, 0))\n            if demand <= 0:\n                continue\n            path = self.pathfinder.capacity_bfs_path(hub, n, demand, residual)\n            if path is None:\n                return False\n            # decrement along path edges in both directions\n            for i in range(len(path) - 1):\n                a, b = path[i], path[i + 1]\n                residual[(a, b)] = residual.get((a, b), 0) - demand\n                residual[(b, a)] = residual.get((b, a), 0) - demand\n                # allow negative to reflect failure in subsequent checks; but capacity checks prevent this\n        return True\n\n    def graph_connected_from(self, hub: int) -> bool:\n        dist = self.pathfinder.bfs_distances(hub)\n        return len(dist) == len(self.g.nodes)\n\n\ndef solve_transportation_hub_problem(input_data: Dict) -> Dict:\n    # input validation\n    if not isinstance(input_data, dict):\n        return {\"error\": \"Invalid input format\"}\n    for name in (\"city_graph\", \"capacity_map\", \"demand_map\"):\n        if name not in input_data or not isinstance(input_data[name], dict):\n            return {\"error\": f\"Invalid {name} format\"}\n    city_graph = input_data[\"city_graph\"]\n    capacity_map = input_data[\"capacity_map\"]\n    demand_map = input_data[\"demand_map\"]\n    graph = CapacityConstrainedGraph(city_graph, capacity_map, demand_map)\n    num_nodes = len(graph.nodes)\n    # num_edges is size of capacity_map input (each undirected edge appears once)\n    num_edges = len(graph.capacity_input)\n    finder = GraphMedianFinder(graph)\n    feasible_hubs = []\n    best_cost = float(\"inf\")\n    best_hub = None\n    # test each node for feasibility\n    for n in graph.nodes:\n        feasible = finder.check_feasible_with_flow(n)\n        if feasible:\n            # ensure reachability ignoring capacity\n            wd = finder.compute_weighted_distance(n)\n            if wd is not None:\n                feasible_hubs.append(n)\n                if wd < best_cost:\n                    best_cost = wd\n                    best_hub = n\n    # fallback behavior\n    if best_hub is None:\n        best_hub = graph.nodes[0] if graph.nodes else 0\n        # compute metrics for fallback hub\n        total_weighted = finder.compute_weighted_distance(best_hub)\n        graph_connected = finder.graph_connected_from(best_hub) if graph.nodes else False\n    else:\n        total_weighted = int(best_cost) if best_cost != float(\"inf\") else None\n        graph_connected = finder.graph_connected_from(best_hub)\n    # convert None for infinite cost to None, else int\n    if total_weighted is None:\n        twd = None\n    else:\n        twd = int(total_weighted)\n    result = {\n        \"optimal_hub\": int(best_hub),\n        \"total_weighted_distance\": twd,\n        \"feasible_hubs\": feasible_hubs,\n        \"graph_connected\": bool(graph_connected),\n        \"num_nodes\": num_nodes,\n        \"num_edges\": num_edges,\n    }\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2003,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1595,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3598
+  },
+  "user": null,
+  "metadata": {}
+}

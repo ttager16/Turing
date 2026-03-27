@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "5\n[[0, 1, 3, 2], [0, 1, 2, 1], [1, 3, 2, 1], [0, 2, 4, 2.5], [2, 3, 1, 0.5], [2, 2, 10, 1], [0, 4, 0, 1], [4, 3, 5, 2]]\n[{\"volume\": 4.5, \"source\": 0, \"target\": 3}, {\"volume\": 2, \"source\": 0, \"target\": 3}]",
+    "output_text": "{\"total_flow\": 3.0, \"total_cost\": 7.0, \"flow_distribution\": {\"[0,1]\": 2.0, \"[1,3]\": 2.0, \"[0,2]\": 1.0, \"[2,3]\": 1.0}, \"partial_fills\": [{\"volume_unfilled\": 1.5, \"source\": 0, \"target\": 3}, {\"volume_unfilled\": 2.0, \"source\": 0, \"target\": 3}]}"
+  },
+  {
+    "case_index": 1,
+    "input_text": "4\n[[0, 1, 5, 2], [1, 3, 2, 1], [0, 2, 1, 100], [2, 3, 10, 1], [1, 1, 3, 0.1], [0, 3, 0, 5]]\n[{\"volume\": -5, \"source\": 0, \"target\": 3}, {\"volume\": 6, \"source\": 0, \"target\": 3}]",
+    "output_text": "{\"total_flow\": 3.0, \"total_cost\": 107.0, \"flow_distribution\": {\"[0,1]\": 2.0, \"[1,3]\": 2.0, \"[0,2]\": 1.0, \"[2,3]\": 1.0}, \"partial_fills\": [{\"volume_unfilled\": 3.0, \"source\": 0, \"target\": 3}]}"
+  },
+  {
+    "case_index": 2,
+    "input_text": "6\n[[0, 1, 2.5, 1.1], [1, 3, 1.2, 0.9], [0, 2, 1.3, 1.0], [2, 3, 1.3, 0.9], [3, 5, 3.0, 0.5], [1, 4, 2.0, 1.5], [4, 5, 2.0, 0.5], [0, 5, 0.5, 2.0]]\n[{\"volume\": 1.5, \"source\": 0, \"target\": 5}, {\"volume\": 2.0, \"source\": 0, \"target\": 5}, {\"volume\": 1.0, \"source\": 0, \"target\": 5}]",
+    "output_text": "{\"total_flow\": 4.3, \"total_cost\": 11.15, \"flow_distribution\": {\"[0,5]\": 0.5, \"[0,2]\": 1.3, \"[2,3]\": 1.3, \"[3,5]\": 2.5, \"[0,1]\": 2.5, \"[1,3]\": 1.2, \"[1,4]\": 1.3, \"[4,5]\": 1.3}, \"partial_fills\": [{\"volume_unfilled\": 0.2, \"source\": 0, \"target\": 5}]}"
+  }
+]

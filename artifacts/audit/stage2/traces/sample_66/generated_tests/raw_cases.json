@@ -1,0 +1,135 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [],
+      []
+    ],
+    "input_lines": [
+      "[]",
+      "[]"
+    ],
+    "focus": "Both participants and operations empty — immediate [] return; tests empty-input short-circuit handling."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        "zara",
+        "amy",
+        "bob",
+        "carl"
+      ],
+      [
+        [
+          "union",
+          "zara",
+          "amy"
+        ],
+        [
+          "union",
+          "amy",
+          "bob"
+        ],
+        [
+          "union",
+          "bob",
+          "zara"
+        ],
+        [
+          "split",
+          "zara",
+          "amy"
+        ],
+        [
+          "rekey",
+          "bob",
+          "carl"
+        ],
+        [
+          "find",
+          "zara",
+          "amy"
+        ],
+        [
+          "find",
+          "amy",
+          "carl"
+        ],
+        [
+          "union",
+          "carl",
+          "amy"
+        ],
+        [
+          "find",
+          "carl",
+          "zara"
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[\"zara\", \"amy\", \"bob\", \"carl\"]",
+      "[[\"union\", \"zara\", \"amy\"], [\"union\", \"amy\", \"bob\"], [\"union\", \"bob\", \"zara\"], [\"split\", \"zara\", \"amy\"], [\"rekey\", \"bob\", \"carl\"], [\"find\", \"zara\", \"amy\"], [\"find\", \"amy\", \"carl\"], [\"union\", \"carl\", \"amy\"], [\"find\", \"carl\", \"zara\"]]"
+    ],
+    "focus": "Cycle (triangle) created then one direct edge removed — ensures split removes only direct edge and connectivity checks account for alternate paths; participants deliberately unsorted to verify deterministic lexicographic handling."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        "a",
+        "b",
+        "c",
+        "d"
+      ],
+      [
+        [
+          "union",
+          "a",
+          "b"
+        ],
+        [
+          "union",
+          "b",
+          "c"
+        ],
+        [
+          "union",
+          "c",
+          "d"
+        ],
+        [
+          "find",
+          "a",
+          "d"
+        ],
+        [
+          "split",
+          "b",
+          "c"
+        ],
+        [
+          "find",
+          "a",
+          "d"
+        ],
+        [
+          "find",
+          "a",
+          "b"
+        ],
+        [
+          "find",
+          "c",
+          "d"
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[\"a\", \"b\", \"c\", \"d\"]",
+      "[[\"union\", \"a\", \"b\"], [\"union\", \"b\", \"c\"], [\"union\", \"c\", \"d\"], [\"find\", \"a\", \"d\"], [\"split\", \"b\", \"c\"], [\"find\", \"a\", \"d\"], [\"find\", \"a\", \"b\"], [\"find\", \"c\", \"d\"]]"
+    ],
+    "focus": "Linear chain unions then a middle split — tests that splitting a bridge disconnects components and find queries reflect that; multiple finds before and after split."
+  }
+]

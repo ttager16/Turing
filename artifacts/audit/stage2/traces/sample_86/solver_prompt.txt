@@ -1,0 +1,147 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+A **decentralized cryptocurrency exchange** operates across multiple blockchain networks. Each network has varying **block confirmation times** and **transaction finality mechanisms**, which can cause updates to arrive out-of-order. The exchange maintains an **order book aggregator** that continuously synchronizes **price and volume data** from hundreds of trading pairs, while also detecting **cross-chain arbitrage opportunities**.
+
+The core data structure is a **segment tree** that tracks:
+
+* **Current prices** of assets
+* **Cumulative transaction volumes**
+* **Liquidity depth changes**
+* **Price volatility** over overlapping time windows
+
+### Challenges
+
+1. **Out-of-Order Updates (Blockchain Reorganizations / Reorgs):**
+
+   * Due to blockchain reorganizations, previously confirmed transactions can be invalidated.
+   * When a reorg occurs, all updates in a given timestamp range must be rolled back. Any new or corrected updates should be applied via separate update operations.
+
+2. **Conditional Updates:**
+
+   * Some updates only take effect if certain thresholds are crossed in adjacent segments (e.g., sudden price spikes or low liquidity).
+   * This creates **dependencies between non-contiguous nodes**.
+
+3. **Multi-Metric Aggregation:**
+   Each node in the segment tree maintains:
+
+   * **Weighted Average Price (WAP)** for a range,  calculated as `sum(price_i * volume_i) / sum(volume_i)`
+
+   * **Maximum Price Deviation (MPD)** for a range, calculated as `max(price_i) - min(price_i)`
+
+   * **Cumulative Volume (CV)** for a range, calculated as `sum(volume_i)`
+
+   * **Liquidity Score (LS)**, calculated as `LS = CV / (1 + MPD)`
+
+   * Range queries must return **all four metrics simultaneously**.
+
+   * Lazy propagation is required, but derived metrics (like LS) depend on multiple underlying metrics, complicating updates.
+
+4. **Snapshot and Restore:**
+
+   * The entire tree state can be checkpointed at any time.
+   * Snapshots allow the system to revert to a previous exact state, discarding intermediate updates.
+   * Multiple snapshots can coexist, identified by unique timestamps, and must correctly restore all metrics, including partially propagated values.
+
+### Objectives
+
+1. **Implement Multi-Metric Segment Tree with Interdependent Aggregations:**
+Design a segment tree where each node maintains WAP, MPD, CV, and LS. Parent nodes must correctly aggregate these metrics from children, accounting for the non-linear relationship in the liquidity score formula.
+
+2. **Support Out-of-Order Updates with Timestamp-Based Rollback:**
+Allow updates tagged with timestamps. When a blockchain reorg is detected (indicated by a rollback command with a timestamp range), all updates within that range must be undone in reverse chronological order, then new corrected updates applied.
+
+3. **Handle Conditional Propagation Across Non-Contiguous Segments:**
+The `"conditional_check"` operation simulates an adjustment to the specified source `[i, j]` and destination `[k, l]` ranges when it is processed. 
+If MPD in the source range exceeds `mpd_threshold` AND CV in the destination range is below `cv_threshold`, a price adjustment (`price_boost`) is applied to all elements in the destination range.
+
+4. **Snapshot and Restore Mechanism:**
+Provide functionality to capture the complete state of all metrics across all nodes at a given moment, assign it a snapshot ID, and later restore to that state, invalidating all updates applied after the snapshot timestamp. 
+
+### Constraints
+
+- The segment tree must support point updates, range updates, and range queries on all four metrics simultaneously.
+- Updates arrive with associated timestamps (integers). A rollback command specifies a timestamp range `[t1, t2]`; all updates where `t1 ≤ timestamp ≤ t2` must be undone.
+- If total cumulative volume (CV) in a queried range is 0.0, define WAP = 0.0 to avoid division-by-zero.
+- When calculating Maximum Price Deviation (MPD), only elements with non-zero cumulative volume (CV) are considered. If all elements in the range have zero volume, MPD should be 0.0.
+- Conditional updates (`"conditional_check"`) are evaluated immediately when the operation is processed.
+- If MPD in the source range exceeds mpd_threshold AND CV in the destination range is below cv_threshold, price_boost is applied to all elements in the destination range.
+- Snapshot restoration must preserve the exact node configuration, including any partially propagated lazy values that existed at snapshot time.
+- Restoring an unknown snapshot_id leaves the system state unchanged. Creating a snapshot with a duplicate snapshot_id overwrites the previous snapshot.
+- All operations must maintain mathematical precision for floating-point calculations; rounding errors that accumulate across operations are considered incorrect.
+- No external libraries; only Python standard library constructs (dict, list, basic math operations) are permitted.
+
+### Function Signature
+
+```python
+def process_operations(n: int, operations: list) -> list:
+    """
+    Initializes a segment tree for n elements (initially all metrics set to 0.0).
+    Processes a sequence of operations and returns results for queries.
+
+    Operations format:
+    - ["update", idx, price, volume, timestamp]: Update element at idx with given price and volume at timestamp.
+    - ["range_update", start, end, price_delta, volume_delta, timestamp]: Apply deltas to range [start, end].
+    - ["query", start, end]: Return list [WAP, MPD, CV, LS] for range [start, end].
+    - ["rollback", t_start, t_end, metrics_to_rollback]: Rollback base metrics ('price' and 'volume') in reverse chronological order within the timestamp range. Derived metrics ('wap', 'mpd', 'cv', 'ls') are immediately recalculated from the updated base metrics. The `metrics_to_rollback` argument is optional; if omitted, both base metrics are rolled back by default.
+    - ["snapshot", snapshot_id, timestamp]: Save current state with given snapshot_id.
+    - ["restore", snapshot_id]: Restore to snapshot_id state.
+    - ["conditional_check", src_start, src_end, mpd_threshold, dst_start, dst_end, cv_threshold, price_boost]:
+      If MPD in [src_start, src_end] > mpd_threshold AND CV in [dst_start, dst_end] < cv_threshold,
+      apply price_boost to all elements in [dst_start, dst_end].
+      This operation is evaluated immediately when processed in the list of operations.
+
+    Returns list of query results (each a list of four floats rounded to 2 decimal places).
+    """
+    pass
+```
+
+### Sample Input/Output
+
+**Input:**
+```python
+n = 8
+operations = [
+    ["update", 2, 100.0, 50.0, 10],
+    ["update", 5, 150.0, 30.0, 15],
+    ["range_update", 1, 4, 10.0, 5.0, 20],
+    ["query", 1, 5],
+    ["snapshot", "snap1", 25],
+    ["update", 3, 200.0, 80.0, 30],
+    ["rollback", 20, 30],
+    ["query", 1, 5],
+    ["restore", "snap1"],
+    ["conditional_check", 2, 3, 15.0, 5, 6, 40.0, 20.0],
+    ["query", 4, 6]
+]
+```
+
+**Output:**
+```python
+[
+    [107.0, 140.0, 100.0, 0.71],
+    [118.75, 50.0, 80.0, 1.57],
+    [147.14, 160.0, 35.0, 0.22]
+]
+```
+
+### Expected Output Format
+
+Return a list of lists, one per query operation, where each inner list contains four floats `[WAP, MPD, CV, LS]` rounded to exactly 2 decimal places. Operations that do not produce output (updates, rollbacks, snapshots, restores, conditional checks) contribute nothing to the result list.
+
+Starter Code:
+```python
+import copy
+from decimal import Decimal, getcontext
+from typing import List, Tuple, Optional, Dict, Any
+
+def process_operations(n: int, operations: list) -> list:
+```

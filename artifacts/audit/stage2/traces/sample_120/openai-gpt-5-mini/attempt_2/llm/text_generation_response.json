@@ -1,0 +1,76 @@
+{
+  "id": "resp_020d00fbde19c3010069c33a95653081a3890eb740f5b8d9da",
+  "object": "response",
+  "created_at": 1774402197,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774402208,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_020d00fbde19c3010069c33a95a9d081a3a558b417ebf65ae1",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_020d00fbde19c3010069c33a95d24881a3ac961f91a32c3ca5",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any\n\ndef optimize_network_mst(\n    nodes: List[str],\n    edges: List[Dict[str, Any]],\n    bandwidth_threshold: int,\n    latency_threshold: int,\n    reliability_threshold: float\n) -> List[Dict[str, str]]:\n    EPS = 1e-9\n    if not nodes or len(nodes) <= 1:\n        return []\n    node_index = {name: i for i, name in enumerate(nodes)}\n    n = len(nodes)\n    # Validate and filter edges\n    best_edge_per_pair = {}  # key: (u_idx,v_idx) with u<v -> (cost, original start, end)\n    for e in edges:\n        try:\n            a = e.get('start')\n            b = e.get('end')\n            if a is None or b is None:\n                continue\n            if a == b:\n                continue\n            if a not in node_index or b not in node_index:\n                continue\n            cost = float(e.get('cost', 0))\n            bw = float(e.get('bandwidth', 0))\n            lat = float(e.get('latency', 0))\n            rel = float(e.get('reliability', 0.0))\n        except Exception:\n            continue\n        # Validation rules\n        if bw <= 0:\n            continue\n        if lat < 0 or lat >= 1e9:\n            continue\n        if bw < bandwidth_threshold:\n            continue\n        if lat > latency_threshold:\n            continue\n        if rel + EPS < reliability_threshold:\n            continue\n        u = node_index[a]\n        v = node_index[b]\n        if u > v:\n            u, v = v, u\n            a, b = b, a  # normalize direction for deterministic output later\n        key = (u, v)\n        # Tie-breaker: choose lower cost; if equal cost, deterministic by (start,end) lexicographic\n        prev = best_edge_per_pair.get(key)\n        if prev is None:\n            best_edge_per_pair[key] = (cost, a, b)\n        else:\n            prev_cost, prev_a, prev_b = prev\n            if cost < prev_cost - 1e-12:\n                best_edge_per_pair[key] = (cost, a, b)\n            elif abs(cost - prev_cost) <= 1e-12:\n                if (a, b) < (prev_a, prev_b):\n                    best_edge_per_pair[key] = (cost, a, b)\n    if not best_edge_per_pair:\n        return []\n    # Build edge list for Kruskal: (cost, u, v, start_name, end_name)\n    edge_list = []\n    for (u, v), (cost, a, b) in best_edge_per_pair.items():\n        edge_list.append((cost, u, v, a, b))\n    # Sort by cost, tie-breaker deterministic by node names\n    edge_list.sort(key=lambda x: (x[0], x[3], x[4]))\n    # Union-Find\n    parent = list(range(n))\n    rank = [0]*n\n    def find(x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n    def union(x, y):\n        rx = find(x); ry = find(y)\n        if rx == ry:\n            return False\n        if rank[rx] < rank[ry]:\n            parent[rx] = ry\n        else:\n            parent[ry] = rx\n            if rank[rx] == rank[ry]:\n                rank[rx] += 1\n        return True\n    mst = []\n    for cost, u, v, a, b in edge_list:\n        if union(u, v):\n            mst.append({'start': a, 'end': b})\n            if len(mst) == n - 1:\n                break\n    if len(mst) != n - 1:\n        return []\n    return mst"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2653,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 861,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3514
+  },
+  "user": null,
+  "metadata": {}
+}

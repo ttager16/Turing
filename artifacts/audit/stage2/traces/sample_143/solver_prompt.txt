@@ -1,0 +1,134 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+In a complex supply chain network, a company must schedule execution of interdependent tasks with strict precedence constraints while prioritizing tasks by their importance levels. The network is modeled as a directed acyclic graph (DAG) where each node is a task and each directed edge u -> v indicates that task u must be completed before task v can start. Each task has an integer importance; higher importance tasks should be executed as early as possible without violating dependencies. Implement a Python-based prioritized topological sort that always returns a valid topological order and, among all valid orders, places the highest-importance available task as early as possible at every decision point.
+
+### Objectives
+1. Produce a valid topological ordering that respects all precedence constraints.
+2. Enforce priority: whenever multiple tasks are simultaneously available (in-degree 0), select the one with the highest importance; break ties by smaller task id.
+3. Provide deterministic output under all valid inputs matching the constraints below.
+4. Return additional scheduling statistics as specified.
+
+### Function Signature
+```python
+def prioritized_topological_sort(n: int, edges: List[List[int]], importance: List[int]) -> Optional[Dict[str, Any]]:
+    pass
+```
+
+### Constraints
+- Input domain:
+  - 1 ≤ n ≤ 100_000
+  - 0 ≤ m = len(edges) ≤ 200_000
+  - Task ids are exactly the integers 0..n-1 (no gaps).
+  - Each edge is a length-2 list [u, v] with 0 ≤ u < n and 0 ≤ v < n and u ≠ v. A self-loop [i, i] is invalid and implies a cycle.
+  - `importance` is a length-n list of integers in the range [-10^9, 10^9]. Higher value = higher priority.
+  - Duplicate edges may appear; they must be treated as a single logical dependency.
+
+- Correctness and determinism:
+  - The algorithm must respect all dependencies: for every edge u -> v, u appears before v in 'order'.
+  - Priority rule: when choosing the next task among all currently available tasks (in-degree 0), pick the task with the highest importance; if multiple share the same importance, pick the one with the smallest task id. This rule must be applied at every step.
+  - Deterministic output: given the same inputs, the output order must be identical on every run.
+
+- Behavior on invalid structure:
+  - If after processing all available tasks some nodes remain unprocessed (processed_count < n), the graph contains at least one cycle; return None (do not raise) and do not return partial outputs.
+
+- Implementation constraints:
+  - Use only the Python standard library.
+  - Use a heap/priority queue to manage the available (in-degree 0) tasks. Push items as lists of two integers: [-importance[i], i]. This yields max-importance, then min-id ordering without using tuples.
+  - Do not mutate the input lists in-place.
+
+### Output Format
+Return a dictionary with the following exact structure when a DAG is detected:
+
+- `order`: List[int]
+  - A list of task ids of length n representing the prioritized topological order.
+
+- `statistics`: Dict[str, Any] with the following keys:
+  - `is_dag` (bool): True if no cycle detected (only returned in the non-None case; equals True).
+  - `processed_count` (int): Number of tasks processed (equals n in the non-None case).
+  - `max_parallel_frontier` (int): Maximum size at any step of the available set (in-degree 0) before selecting the next task.
+  - `priority_score` (int): Sum over i from 0 to n-1 of importance[order[i]] * (n - i). This strictly rewards placing higher-importance tasks earlier.
+  - `levels` (List[int]): For each node id i, its removal level in Kahn’s process with priority: initialize all in-degree 0 nodes as level 0; when a node is removed, if it reduces a neighbor’s in-degree to 0, that neighbor’s level is set to max(current neighbor level, removed node level + 1). This is deterministic under the process and independent of tie order among nodes removed within the same step.
+  - `longest_path_length` (int): Length (in edges) of the longest directed path in the DAG.
+  - `num_sources` (int): Count of nodes with in-degree 0 in the original graph.
+  - `num_sinks` (int): Count of nodes with out-degree 0 in the original graph.
+  - `in_degrees` (List[int]): In-degree of each node id in order 0..n-1 (after duplicate-edge canonicalization).
+  - `out_degrees` (List[int]): Out-degree of each node id in order 0..n-1 (after duplicate-edge canonicalization).
+  - `level_widths` (List[int]): For k = 0..max(levels), the number of nodes assigned level k.
+  - `latest_levels` (List[int]): Latest permissible levels without delaying makespan, computed as (makespan - longest_distance_to_any_sink[i]) where makespan = longest_path_length.
+  - `slack` (List[int]): For each node i, slack[i] = latest_levels[i] - levels[i].
+  - `topo_positions` (List[int]): For node id i, the index j where order[j] == i.
+  - `cumulative_importance_prefix` (List[int]): Prefix sums of importance along the returned order.
+  - `frontier_max_importance_sum` (int): Maximum sum of importance values among the available set (in-degree 0) at any step before selection.
+  - `tie_breaks_count` (int): Number of times a tie on importance among available tasks was resolved by choosing the smaller task id.
+
+### Error Handling
+Return a dictionary with key 'error' and one of the following exact string messages when inputs are invalid (do not raise exceptions):
+- 'n must be an integer' — when n is not an int
+- 'n out of range' — when n < 1 or n > 100000
+- 'edges must be a list of lists' — when edges is not a list of length-2 lists
+- 'edge must be a list of two integers' — when any edge is not exactly two integers [u, v]
+- 'node id out of range' — when any u or v is not in 0..n-1
+- 'importance must be a list of integers' — when importance is not a list of ints
+- 'importance length mismatch' — when len(importance) != n
+
+### Sample Input
+```python
+n = 6
+edges = [
+    [0, 2],
+    [1, 2],
+    [1, 3],
+    [2, 4],
+    [3, 4],
+    [4, 5]
+]
+importance = [5, 10, 7, 7, 3, 1]
+```
+
+Explanation:
+- Tasks 0 and 1 are initially available. Task 1 has higher importance (10 > 5), so it is scheduled first.
+- When multiple available tasks share the same importance, the smaller task id is chosen.
+
+### Sample Output
+```
+{
+    'order': [1, 3, 0, 2, 4, 5],
+    'statistics': {
+        'is_dag': True,
+        'processed_count': 6,
+        'max_parallel_frontier': 2,
+        'priority_score': 143,
+        'levels': [0, 0, 1, 1, 2, 3],
+        'longest_path_length': 3,
+        'num_sources': 2,
+        'num_sinks': 1,
+        'in_degrees': [0, 0, 2, 1, 2, 1],
+        'out_degrees': [1, 2, 1, 1, 1, 0],
+        'level_widths': [2, 2, 1, 1],
+        'latest_levels': [0, 0, 1, 1, 2, 3],
+        'slack': [0, 0, 0, 0, 0, 0],
+        'topo_positions': [2, 0, 3, 1, 4, 5],
+        'cumulative_importance_prefix': [10, 17, 22, 29, 32, 33],
+        'frontier_max_importance_sum': 15,
+        'tie_breaks_count': 0
+    }
+}
+```
+
+Starter Code:
+```python
+import heapq
+from typing import List, Dict, Any, Optional
+
+def prioritized_topological_sort(n: int, edges: List[List[int]], importance: List[int]) -> Optional[Dict[str, Any]]:
+
+    pass
+```

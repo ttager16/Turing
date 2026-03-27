@@ -1,0 +1,175 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        [
+          [
+            "AAA",
+            0.1,
+            10000
+          ],
+          [
+            "XYZ",
+            0.02,
+            625
+          ]
+        ],
+        [
+          [
+            "AAB",
+            0.1,
+            10000
+          ],
+          [
+            "C",
+            0.05,
+            256
+          ]
+        ],
+        [
+          [
+            "ALP",
+            0.06,
+            1500
+          ],
+          [
+            "EEE",
+            0.04,
+            625
+          ],
+          [
+            "BBB",
+            0.05,
+            5000
+          ]
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[[\"AAA\", 0.1, 10000], [\"XYZ\", 0.02, 625]], [[\"AAB\", 0.1, 10000], [\"C\", 0.05, 256]], [[\"ALP\", 0.06, 1500], [\"EEE\", 0.04, 625], [\"BBB\", 0.05, 5000]]]"
+    ],
+    "focus": "equal numeric priorities (volume**0.25 trick) and lexicographic tie-break; duplicate symbol with later higher-priority update (lazy re-insertion)"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        [
+          [
+            "ONE",
+            1.0,
+            1
+          ],
+          [
+            "ZERO",
+            0.0,
+            1000000
+          ]
+        ],
+        [
+          [
+            "MID",
+            0.5,
+            16
+          ]
+        ],
+        [
+          [
+            "AAR",
+            0.0,
+            10000
+          ],
+          [
+            "ZEE",
+            0.0,
+            500
+          ]
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[[\"ONE\", 1.0, 1], [\"ZERO\", 0.0, 1000000]], [[\"MID\", 0.5, 16]], [[\"AAR\", 0.0, 10000], [\"ZEE\", 0.0, 500]]]"
+    ],
+    "focus": "boundary volatilities 0.0 and 1.0, small/huge volumes, tie-breaking when priority equals (volatility then lexicographic)"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        [
+          [
+            "X",
+            0.1,
+            100
+          ],
+          [
+            "Y",
+            0.2,
+            200
+          ],
+          [
+            "Z",
+            0.15,
+            150
+          ]
+        ],
+        [
+          [
+            "X",
+            0.25,
+            50
+          ],
+          [
+            "W",
+            0.3,
+            80
+          ],
+          [
+            "Y",
+            0.18,
+            1000
+          ]
+        ],
+        [
+          [
+            "V",
+            0.5,
+            10
+          ],
+          [
+            "Y",
+            0.22,
+            1600
+          ],
+          [
+            "Z",
+            0.14,
+            10000
+          ]
+        ],
+        [
+          [
+            "Y",
+            0.05,
+            10000000
+          ],
+          [
+            "U",
+            0.45,
+            300
+          ],
+          [
+            "X",
+            0.2,
+            400
+          ]
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[[\"X\", 0.1, 100], [\"Y\", 0.2, 200], [\"Z\", 0.15, 150]], [[\"X\", 0.25, 50], [\"W\", 0.3, 80], [\"Y\", 0.18, 1000]], [[\"V\", 0.5, 10], [\"Y\", 0.22, 1600], [\"Z\", 0.14, 10000]], [[\"Y\", 0.05, 10000000], [\"U\", 0.45, 300], [\"X\", 0.2, 400]]]"
+    ],
+    "focus": "multiple updates per symbol across >3 exchanges to exercise lazy stale-entry elimination and k-way merging"
+  }
+]

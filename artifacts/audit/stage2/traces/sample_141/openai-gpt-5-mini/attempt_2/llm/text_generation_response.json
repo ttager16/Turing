@@ -1,0 +1,76 @@
+{
+  "id": "resp_017f177104fbd67f0069c342606b20819f850427544ce2fa85",
+  "object": "response",
+  "created_at": 1774404192,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774404233,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_017f177104fbd67f0069c34260f8ec819f88fbb78d838b1522",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_017f177104fbd67f0069c342615458819fab83f810148b327e",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import heapq\nfrom typing import Tuple, List\n\nDIRS8 = [(-1, -1), (-1, 0), (-1, 1),\n         (0, -1),           (0, 1),\n         (1, -1),  (1, 0),  (1, 1)]\n\nDIRS8_STRAIGHT = DIRS8  # scout can move along these but distance 1 or 2 in straight line\n\ndef in_bounds(r, c):\n    return 0 <= r < 5 and 0 <= c < 5\n\ndef pos_to_idx(p):\n    return (p[0], p[1])\n\ndef grid_clone(grid):\n    return tuple(tuple(row) for row in grid)\n\ndef make_elev_key(grid):\n    return tuple(tuple(row) for row in grid)\n\ndef neighbors_builder_moves(builder_pos, scout_pos, grid_elev, unstable_set):\n    r0, c0 = builder_pos\n    res = []\n    for dr, dc in DIRS8:\n        r, c = r0 + dr, c0 + dc\n        if not in_bounds(r, c): continue\n        if (r, c) == scout_pos: continue\n        if (r, c) in unstable_set: continue\n        h_new = grid_elev[r][c]\n        h_old = grid_elev[r0][c0]\n        if h_new == 4: continue\n        cost = 1 + max(0, h_new - h_old)\n        res.append(((r, c), cost))\n    return res\n\ndef builder_build_actions(builder_pos, grid_elev, unstable_set, scout_pos):\n    # After moving, builder can build on any adjacent square (including diagonals)\n    r0, c0 = builder_pos\n    res = []\n    for dr, dc in DIRS8:\n        r, c = r0 + dr, c0 + dc\n        if not in_bounds(r, c): continue\n        if (r, c) == scout_pos: continue\n        if (r, c) in unstable_set: continue\n        if grid_elev[r][c] >= 4: continue\n        # build increases elevation by 1, cost 2\n        res.append(((r, c), 2))\n    return res\n\ndef scout_moves(scout_pos, builder_pos, grid_elev, unstable_set):\n    res = []\n    r0, c0 = scout_pos\n    for dr, dc in DIRS8_STRAIGHT:\n        for dist in (1,2):\n            r, c = r0 + dr*dist, c0 + dc*dist\n            if not in_bounds(r, c): break\n            path_clear = True\n            # check intermediate cells (for dist==2, the mid cell)\n            for step in range(1, dist+1):\n                rr, cc = r0 + dr*step, c0 + dc*step\n                if (rr, cc) == builder_pos:\n                    path_clear = False; break\n                if (rr, cc) in unstable_set:\n                    path_clear = False; break\n                if grid_elev[rr][cc] == 4:\n                    path_clear = False; break\n            if not path_clear:\n                if dist == 1:\n                    break\n                else:\n                    continue\n            h_init = grid_elev[r0][c0]\n            h_final = grid_elev[r][c]\n            move_cost = (1 + max(0, h_final - h_init)) * dist\n            res.append(((r, c), move_cost))\n    return res\n\ndef scan_actions(scout_pos, grid_elev, unstable_set, builder_pos):\n    r0, c0 = scout_pos\n    res = []\n    for dr, dc in DIRS8:\n        r, c = r0 + dr, c0 + dc\n        if not in_bounds(r, c): continue\n        if (r, c) in unstable_set:\n            # scanning makes it stable; cost 3\n            res.append(( (r,c), 3 ))\n    return res\n\ndef serialize_state(builder_pos, scout_pos, grid_elev, unstable_set):\n    # grid_elev is tuple of tuples\n    # unstable_set as frozenset of coords\n    return (builder_pos[0], builder_pos[1], scout_pos[0], scout_pos[1], grid_elev, tuple(sorted(unstable_set)))\n\ndef calculate_min_power(grid: List[List[int]], builder_pos: List[int], scout_pos: List[int],\n                        unstable_cells: List[List[int]], target_pos: List[int]) -> float:\n    start_grid = tuple(tuple(row) for row in grid)\n    unstable_set_start = frozenset((r,c) for r,c in unstable_cells)\n    start_state = serialize_state((builder_pos[0], builder_pos[1]),\n                                  (scout_pos[0], scout_pos[1]),\n                                  start_grid,\n                                  unstable_set_start)\n    pq = []\n    heapq.heappush(pq, (0.0, start_state))\n    dist = {start_state: 0.0}\n    target = (target_pos[0], target_pos[1])\n    while pq:\n        cost_so_far, state = heapq.heappop(pq)\n        if dist.get(state, float('inf')) < cost_so_far:\n            continue\n        b_r, b_c, s_r, s_c, grid_elev, unstable_tpl = state\n        unstable_set = frozenset(unstable_tpl)\n        # If builder at target, can finalize if its cell is not unstable and height < =4? Finalize only requires being at target_pos.\n        if (b_r, b_c) == target:\n            # finalize cost 10, but must ensure builder's cell isn't unstable (can't occupy unstable) - already ensured\n            final_cost = cost_so_far + 10\n            return float(final_cost)\n        # Generate Builder moves\n        bpos = (b_r, b_c)\n        spos = (s_r, s_c)\n        # Builder can move; after moving, can optionally build adjacent (build is separate action that costs 2 and changes elevation)\n        for (new_bpos, move_cost) in neighbors_builder_moves(bpos, spos, grid_elev, unstable_set):\n            nb_r, nb_c = new_bpos\n            # move-only state (builder moved but didn't build)\n            new_grid = grid_elev\n            new_unstable = unstable_set\n            new_state = serialize_state((nb_r, nb_c), spos, new_grid, new_unstable)\n            new_cost = cost_so_far + move_cost\n            if new_cost < dist.get(new_state, float('inf')):\n                dist[new_state] = new_cost\n                heapq.heappush(pq, (new_cost, new_state))\n            # builder build actions from new position\n            build_actions = builder_build_actions((nb_r, nb_c), grid_elev, unstable_set, spos)\n            for (build_pos, build_cost) in build_actions:\n                br, bc = build_pos\n                # apply elevation +1\n                if grid_elev[br][bc] >= 4: continue\n                grid_list = [list(row) for row in grid_elev]\n                grid_list[br][bc] += 1\n                new_grid2 = tuple(tuple(row) for row in grid_list)\n                new_state2 = serialize_state((nb_r, nb_c), spos, new_grid2, unstable_set)\n                new_cost2 = cost_so_far + move_cost + build_cost\n                if new_cost2 < dist.get(new_state2, float('inf')):\n                    dist[new_state2] = new_cost2\n                    heapq.heappush(pq, (new_cost2, new_state2))\n        # Scout moves\n        scout_moves_list = scout_moves(spos, bpos, grid_elev, unstable_set)\n        for (new_spos, smove_cost) in scout_moves_list:\n            ns_r, ns_c = new_spos\n            new_state = serialize_state(bpos, (ns_r, ns_c), grid_elev, unstable_set)\n            new_cost = cost_so_far + smove_cost\n            if new_cost < dist.get(new_state, float('inf')):\n                dist[new_state] = new_cost\n                heapq.heappush(pq, (new_cost, new_state))\n        # Scout scan actions\n        scan_list = scan_actions(spos, grid_elev, unstable_set, bpos)\n        for (scanned_cell, scan_cost) in scan_list:\n            sr, sc = scanned_cell\n            new_unstable = set(unstable_set)\n            if (sr, sc) not in new_unstable: continue\n            new_unstable.remove((sr, sc))\n            new_state = serialize_state(bpos, spos, grid_elev, frozenset(new_unstable))\n            new_cost = cost_so_far + scan_cost\n            if new_cost < dist.get(new_state, float('inf')):\n                dist[new_state] = new_cost\n                heapq.heappush(pq, (new_cost, new_state))\n    return float('inf')"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1116,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1941,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3057
+  },
+  "user": null,
+  "metadata": {}
+}

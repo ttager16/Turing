@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6zZyss7M8Ps9CJ3mlDJu70vYl55",
+  "object": "chat.completion",
+  "created": 1774400793,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[]\",\"[]\",\"[[10, [\\\"S1\\\"]]]\",\"100\",\"0\"],\"focus\":\"no_vulnerabilities_should_return_true_even_if_patches_exist_and_threshold_is_zero\"},{\"input_lines\":[\"[\\\"S1\\\", \\\"S2\\\"]\",\"[\\\"C1\\\", \\\"C2\\\"]\",\"[[5, [\\\"S1\\\", \\\"C1\\\"]], [5, [\\\"S2\\\", \\\"C2\\\"]], [1, [\\\"C1\\\"]], [1, [\\\"C2\\\"]], [100, [\\\"S1\\\", \\\"S2\\\", \\\"C1\\\", \\\"C2\\\"]]]\",\"10\",\"0\"],\"focus\":\"large_hardening_bonus_can_make_adding_small_zero_day_patches_profitable_negative_net_cost_case\"},{\"input_lines\":[\"[\\\"S1\\\"]\",\"[\\\"C1\\\"]\",\"[[10, [\\\"S1\\\", \\\"S1\\\"]], [5, [\\\"C1\\\"]], [7, [\\\"S1\\\", \\\"C1\\\"]]]\",\"3\",\"15\"],\"focus\":\"patch_lists_with_duplicate_vulnerability_entries_must_be_deduplicated_so_standard_exploit_counts_as_one\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1810,
+    "completion_tokens": 2177,
+    "total_tokens": 3987,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1920,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

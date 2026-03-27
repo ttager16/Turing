@@ -1,0 +1,312 @@
+```python
+def compute_jacobi_polynomials(alpha: float, beta: float, n: int, x: float) -> dict:
+    # Input validation
+    if not isinstance(n, int) or n < 0:
+        return {"error": f"Degree n must be a non-negative integer, got {n}."}
+    if not (isinstance(alpha, (int, float))):
+        return {"error": "Alpha and Beta must be real numbers."}
+    if not (isinstance(x, (int, float))):
+        return {"error": "Evaluation point x must be a real number."}
+    if alpha <= -1:
+        return {"error": f"Alpha must be greater than -1, got {alpha}."}
+    if not (isinstance(beta, (int, float))):
+        return {"error": "Alpha and Beta must be real numbers."}
+    if beta <= -1:
+        return {"error": f"Beta must be greater than -1, got {beta}."}
+
+    # Constants with specified precision
+    LN2 = 0.6931471805599453  # 16 decimal places
+    E = 2.7182818284590452    # 16 decimal places
+
+    # Safe log implementation per requirements
+    def safe_log(val: float) -> float:
+        if val <= 0.0:
+            return -1e10
+        # range reduction to m in [1,2): represent val = m * 2^e
+        import math as _m
+        e = 0
+        m = val
+        # adjust m into [1,2)
+        while m >= 2.0:
+            m *= 0.5
+            e += 1
+        while m < 1.0:
+            m *= 2.0
+            e -= 1
+        z = (m - 1.0) / (m + 1.0)
+        # compute log((1+z)/(1-z)) via Taylor series with 50 terms
+        zz = z
+        s = 0.0
+        for k in range(1, 100):  # using more safety but will break at 50 for odd terms
+            # term = (2/ (2k-1)) * z^(2k-1)
+            if k > 50:
+                break
+            term = (2.0 / (2 * k - 1)) * (z ** (2 * k - 1))
+            s += term
+        # log(m) = s
+        return s + e * LN2
+
+    # Safe exp implementation per requirements
+    def safe_exp(val: float) -> float:
+        if val > 700:
+            return 1e308
+        if val < -700:
+            return 0.0
+        # split val = n + r where n = int(val)
+        n_int = int(val)
+        r = val - n_int
+        # compute exp(r) via Taylor up to 100 terms with early stopping
+        term = 1.0
+        s = 1.0
+        for k in range(1, 101):
+            term *= r / k
+            s += term
+            if abs(term) < 1e-15:
+                break
+        # multiply by exp(n_int) using repeated squaring of E
+        # compute E^n_int
+        if n_int == 0:
+            return s
+        if n_int > 0:
+            res_pow = 1.0
+            base = E
+            exp_n = n_int
+            while exp_n > 0:
+                if exp_n & 1:
+                    res_pow *= base
+                base *= base
+                exp_n >>= 1
+            return res_pow * s
+        # negative n_int
+        res_pow = 1.0
+        base = E
+        exp_n = -n_int
+        while exp_n > 0:
+            if exp_n & 1:
+                res_pow *= base
+            base *= base
+            exp_n >>= 1
+        return s / res_pow
+
+    # Log-gamma per requirements
+    def log_gamma(xg: float) -> float:
+        if xg <= 0.0:
+            return float('inf')
+        # for integer xg <=20 compute factorial
+        if abs(xg - round(xg)) < 1e-12 and xg <= 20:
+            xi = int(round(xg))
+            # (x-1)!
+            prod = 1.0
+            for k in range(1, xi):
+                prod *= k
+            return safe_log(prod) if prod > 0 else -1e10
+        # Stirling's approximation with correction for x>1
+        # lgamma ~ (x-0.5)ln x - x + 0.5 ln(2pi) + series
+        if xg > 1.0:
+            x = xg
+            ln2pi = 1.8378770664093453  # ln(2pi) with 16 decimals
+            term1 = (x - 0.5) * safe_log(x) - x + 0.5 * ln2pi
+            # correction series: 1/(12x) - 1/(360 x^3) + 1/(1260 x^5) - 1/(1680 x^7)
+            x2 = x * x
+            corr = 1.0 / (12.0 * x) - 1.0 / (360.0 * x2 * x) + 1.0 / (1260.0 * x2 * x2 * x) - 1.0 / (1680.0 * x2 * x2 * x2 * x)
+            return term1 + corr
+        # for 0<x<=1 use reflection? but spec covers x<=0 only. For 0<x<=1 use Stirling on x+ some shifts
+        # Use recurrence up to >1
+        y = xg
+        acc = 0.0
+        while y < 2.0:
+            acc -= safe_log(y)
+            y += 1.0
+        return acc + log_gamma(y)
+
+    # Leading coefficient via binomial in log-space
+    def leading_coefficient(alpha, beta, nn):
+        if nn == 0:
+            return 1.0
+        # leading coef = 2^(-n) * binom(2n+alpha+beta, n)
+        # compute log binomial: lgamma(2n+alpha+beta+1) - lgamma(n+1) - lgamma(n+alpha+beta+1)
+        a = 2 * nn + alpha + beta
+        lg_num = log_gamma(a + 1.0)
+        lg_d1 = log_gamma(nn + 1.0)
+        lg_d2 = log_gamma(nn + alpha + beta + 1.0)
+        lg_binom = lg_num - lg_d1 - lg_d2
+        lg_two_term = -nn * safe_log(2.0)
+        val = safe_exp(lg_binom + lg_two_term)
+        return val
+
+    # Normalization constant h_n using gamma ratios in log-space
+    def normalization_constant(alpha, beta, nn):
+        if nn == 0:
+            denom = alpha + beta + 1.0
+            if denom > 0.0:
+                return safe_exp((alpha + beta + 1.0) * safe_log(2.0) - safe_log(denom))
+            else:
+                return 1.0
+        # h_n = 2^{alpha+beta+1} * Gamma(n+alpha+1)*Gamma(n+beta+1) / ((2n+alpha+beta+1) * n! * Gamma(n+alpha+beta+1))
+        lg_num = (alpha + beta + 1.0) * safe_log(2.0)
+        lg_num += log_gamma(nn + alpha + 1.0)
+        lg_num += log_gamma(nn + beta + 1.0)
+        lg_den = safe_log(2 * nn + alpha + beta + 1.0)
+        lg_den += log_gamma(nn + 1.0)
+        lg_den += log_gamma(nn + alpha + beta + 1.0)
+        lg = lg_num - lg_den
+        val = safe_exp(lg)
+        return val
+
+    # Compute Jacobi polynomials via three-term recurrence
+    intermediate_values = []
+    # base cases
+    P0 = 1.0
+    intermediate_values.append(P0)
+    if n == 0:
+        final_value = P0
+        # coefficient_sum = P_n(1)
+        coef_sum = 1.0
+        lead_coef = leading_coefficient(alpha, beta, 0)
+        norm_const = normalization_constant(alpha, beta, 0)
+        normalized_value = final_value / (norm_const ** 0.5) if norm_const > 0.0 else 0.0
+        derivative_estimate = 0.0
+        # symmetry measure
+        # compute P_n(alpha,beta,-x) and P_n(beta,alpha,x)
+        # For n=0, P0=1
+        expected = ((-1) ** 0) * 1.0
+        sym = abs(1.0 - expected) if abs(expected) <= 1e-10 else abs(1.0 - expected) / abs(expected)
+        conv_ratio = 0.0
+        max_abs = max(abs(v) for v in intermediate_values)
+        stability_index = max_abs / abs(final_value) if abs(final_value) > 1e-10 else (max_abs if max_abs > 1e-10 else 1.0)
+        return {
+            "polynomial_value": round(final_value, 6),
+            "normalized_value": round(normalized_value, 6),
+            "degree": n,
+            "alpha": alpha,
+            "beta": beta,
+            "x": x,
+            "leading_coefficient": round(lead_coef, 5),
+            "normalization_constant": round(norm_const, 5),
+            "recursion_depth": n,
+            "intermediate_values": [round(v, 5) for v in intermediate_values],
+            "coefficient_sum": round(coef_sum, 4),
+            "derivative_estimate": round(derivative_estimate, 4),
+            "symmetry_measure": round(sym, 5),
+            "convergence_ratio": round(conv_ratio, 5),
+            "stability_index": round(stability_index, 5)
+        }
+
+    P1 = 0.5 * ((alpha + beta + 2.0) * x + (alpha - beta))
+    intermediate_values.append(P1)
+    if n == 1:
+        final_value = P1
+        coef_sum = P1  # P1 at x=1
+        lead_coef = leading_coefficient(alpha, beta, 1)
+        norm_const = normalization_constant(alpha, beta, 1)
+        normalized_value = final_value / (norm_const ** 0.5) if norm_const > 0.0 else 0.0
+        # derivative using formula involving P_{n-1}^{alpha+1,beta+1}
+        derivative_estimate = 1.0 * ( (alpha+beta+2.0)/2.0 )  # derivative of P1 at generic x is (alpha+beta+2)/2
+        # symmetry measure
+        # compute P1(alpha,beta,-x)
+        P1_negx = 0.5 * ((alpha + beta + 2.0) * (-x) + (alpha - beta))
+        # P1(beta,alpha,x)
+        P1_ba = 0.5 * ((beta + alpha + 2.0) * x + (beta - alpha))
+        expected = (-1) ** 1 * P1_ba
+        if abs(expected) > 1e-10:
+            sym = abs(P1_negx - expected) / abs(expected)
+        else:
+            sym = abs(P1_negx - expected)
+        conv_ratio = abs(P1 / P0) if abs(P0) > 1e-10 else 0.0
+        max_abs = max(abs(v) for v in intermediate_values)
+        stability_index = max_abs / abs(final_value) if abs(final_value) > 1e-10 else (max_abs if max_abs > 1e-10 else 1.0)
+        return {
+            "polynomial_value": round(final_value, 6),
+            "normalized_value": round(normalized_value, 6),
+            "degree": n,
+            "alpha": alpha,
+            "beta": beta,
+            "x": x,
+            "leading_coefficient": round(lead_coef, 5),
+            "normalization_constant": round(norm_const, 5),
+            "recursion_depth": n,
+            "intermediate_values": [round(v, 5) for v in intermediate_values],
+            "coefficient_sum": round(coef_sum, 4),
+            "derivative_estimate": round(derivative_estimate, 4),
+            "symmetry_measure": round(sym, 5),
+            "convergence_ratio": round(conv_ratio, 5),
+            "stability_index": round(stability_index, 5)
+        }
+
+    Pkm2 = P0
+    Pkm1 = P1
+    final_value = P1
+    # recurrence k from 2 to n
+    for k in range(2, n + 1):
+        kf = float(k)
+        a1 = 2.0 * kf * (kf + alpha + beta) * (2.0 * kf + alpha + beta - 2.0)
+        if abs(a1) < 1e-15:
+            a1 = 1e-15
+        a2 = (2.0 * kf + alpha + beta - 1.0) * ( (2.0 * kf + alpha + beta) * (2.0 * kf + alpha + beta - 2.0) * x + (alpha**2 - beta**2) )
+        a3 = 2.0 * (kf + alpha - 1.0) * (kf + beta - 1.0) * (2.0 * kf + alpha + beta)
+        Pk = (a2 * Pkm1 - a3 * Pkm2) / a1
+        intermediate_values.append(Pk)
+        Pkm2, Pkm1 = Pkm1, Pk
+        final_value = Pk
+
+    # coefficient sum: evaluate at x=1
+    # compute P_n(alpha,beta,1) via recurrence with x=1
+    P0_1 = 1.0
+    if n == 0:
+        coef_sum = 1.0
+    else:
+        P1_1 = 0.5 * ((alpha + beta + 2.0) * 1.0 + (alpha - beta))
+        if n == 1:
+            coef_sum = P1_1
+        else:
+            Qkm2 = P0_1
+            Qkm1 = P1_1
+            for k in range(2, n + 1):
+                kf = float(k)
+                a1 = 2.0 * kf * (kf + alpha + beta) * (2.0 * kf + alpha + beta - 2.0)
+                if abs(a1) < 1e-15:
+                    a1 = 1e-15
+                a2 = (2.0 * kf + alpha + beta - 1.0) * ( (2.0 * kf + alpha + beta) * (2.0 * kf + alpha + beta - 2.0) * 1.0 + (alpha**2 - beta**2) )
+                a3 = 2.0 * (kf + alpha - 1.0) * (kf + beta - 1.0) * (2.0 * kf + alpha + beta)
+                Qk = (a2 * Qkm1 - a3 * Qkm2) / a1
+                Qkm2, Qkm1 = Qkm1, Qk
+            coef_sum = Qk
+
+    # leading coefficient and normalization constant
+    lead_coef = leading_coefficient(alpha, beta, n)
+    norm_const = normalization_constant(alpha, beta, n)
+    normalized_value = final_value / (norm_const ** 0.5) if norm_const > 0.0 else 0.0
+
+    # derivative using relation: d/dx P_n^{a,b}(x) = 0.5*(n+alpha+beta+1) * P_{n-1}^{a+1,b+1}(x)
+    if n == 0:
+        derivative_estimate = 0.0
+    else:
+        # compute P_{n-1}^{alpha+1,beta+1}(x)
+        an = alpha + 1.0
+        bn = beta + 1.0
+        if n - 1 == 0:
+            Pn1 = 1.0
+        elif n - 1 == 1:
+            Pn1 = 0.5 * ((an + bn + 2.0) * x + (an - bn))
+        else:
+            Rkm2 = 1.0
+            Rkm1 = 0.5 * ((an + bn + 2.0) * x + (an - bn))
+            for kk in range(2, n):
+                kf = float(kk)
+                a1 = 2.0 * kf * (kf + an + bn) * (2.0 * kf + an + bn - 2.0)
+                if abs(a1) < 1e-15:
+                    a1 = 1e-15
+                a2 = (2.0 * kf + an + bn - 1.0) * ( (2.0 * kf + an + bn) * (2.0 * kf + an + bn - 2.0) * x + (an**2 - bn**2) )
+                a3 = 2.0 * (kf + an - 1.0) * (kf + bn - 1.0) * (2.0 * kf + an + bn)
+                Rk = (a2 * Rkm1 - a3 * Rkm2) / a1
+                Rkm2, Rkm1 = Rkm1, Rk
+            Pn1 = Rk
+        derivative_estimate = 0.5 * (n + alpha + beta + 1.0) * Pn1
+
+    # symmetry measure
+    # compute P_n(alpha,beta,-x)
+    # reuse recurrence but with -x
+    Px_neg = None
+    if n == 0:
+        Px_neg = 1.0
+    elif n == 1:

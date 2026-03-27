@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6SEfVbG88jbbT7gyq5SRTzXn2lm",
+  "object": "chat.completion",
+  "created": 1774398726,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[[1, \\\"C1\\\"], [99, \\\"C2\\\"], [50, \\\"C3\\\"]]\",\n        \"[[\\\"split\\\", \\\"C1\\\"], [\\\"merge\\\", [\\\"C2\\\", \\\"C1\\\"]], [\\\"adjust\\\", [-200, \\\"C2\\\"]], [\\\"balance\\\", [\\\"C2\\\", \\\"C3\\\"]]]\"\n      ],\n      \"focus\": \"Split that rounds down to zero, merging with a zero-capacity cluster, large negative adjust clamped to zero, then balance involving a zero capacity.\"\n    },\n    {\n      \"input_lines\": [\n        \"[[60, \\\"A\\\"], [50, \\\"B\\\"]]\",\n        \"[[\\\"merge\\\", [\\\"A\\\", \\\"B\\\"]]]\"\n      ],\n      \"focus\": \"Merge whose combined capacity exceeds the global limit (100) — should trigger immediate invalidation and return [].\"\n    },\n    {\n      \"input_lines\": [\n        \"[[5, \\\"X\\\"], [5, \\\"Y\\\"]]\",\n        \"[[\\\"link\\\", [\\\"X\\\", \\\"Y\\\"]], [\\\"split\\\", [\\\"X\\\"]], [\\\"adjust\\\", [3, \\\"Y\\\"]]]\"\n      ],\n      \"focus\": \"Payload type validation: split payload is a list instead of a string — strict payload format should cause immediate failure and return [].\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1375,
+    "completion_tokens": 2230,
+    "total_tokens": 3605,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1920,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

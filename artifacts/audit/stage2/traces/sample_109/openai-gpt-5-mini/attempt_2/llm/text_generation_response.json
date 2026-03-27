@@ -1,0 +1,76 @@
+{
+  "id": "resp_0781ce152fdcea2b0069c3373d1b448190a6816fea76649232",
+  "object": "response",
+  "created_at": 1774401341,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774401364,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0781ce152fdcea2b0069c3373d9f3081909ca22f945a0f4bde",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0781ce152fdcea2b0069c3373dcb74819091e663e48d0f6e12",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List, Tuple\nfrom collections import defaultdict, deque\nimport math\n\ndef self_stabilizing_matching(graph: Dict[str, List], disruptions: List[List[str]]) -> Dict[str, str]:\n    # Validation\n    if not isinstance(graph, dict) or not isinstance(disruptions, list):\n        return {}\n    # validate graph keys and neighbor lists\n    services_all = set()\n    controls_all = set()\n    parsed_graph = {}\n    for s, nbrs in graph.items():\n        if not isinstance(s, str):\n            return {}\n        services_all.add(s)\n        if not isinstance(nbrs, list):\n            return {}\n        parsed = []\n        for nb in nbrs:\n            # string control id\n            if isinstance(nb, str):\n                if nb == \"\":\n                    return {}\n                parsed.append((nb, 0))\n                controls_all.add(nb)\n            elif isinstance(nb, list):\n                if len(nb) != 2:\n                    return {}\n                cid, cost = nb\n                if not isinstance(cid, str) or cid == \"\":\n                    return {}\n                if not isinstance(cost, int):\n                    return {}\n                parsed.append((cid, cost))\n                controls_all.add(cid)\n            else:\n                return {}\n        parsed_graph[s] = parsed\n\n    # validate disruptions\n    valid_events = {\"fail\", \"attack\", \"restore\"}\n    disruptions_parsed = []\n    for d in disruptions:\n        if not isinstance(d, list) or len(d) != 2:\n            return {}\n        ev, nid = d\n        if not isinstance(ev, str) or ev not in valid_events:\n            return {}\n        if not isinstance(nid, str) or nid == \"\":\n            return {}\n        disruptions_parsed.append((ev, nid))\n\n    if len(graph) == 0 and len(disruptions) == 0:\n        return {}\n\n    # apply disruptions atomically\n    unavailable = set()\n    available = set()\n    # start all nodes available\n    # nodes are union of service ids and control ids\n    nodes = set(services_all) | set(controls_all)\n    for n in nodes:\n        available.add(n)\n    for ev, nid in disruptions_parsed:\n        if nid not in nodes:\n            continue\n        if ev in (\"fail\", \"attack\"):\n            if nid in available:\n                available.remove(nid)\n            unavailable.add(nid)\n        else:  # restore\n            if nid in unavailable:\n                unavailable.remove(nid)\n            available.add(nid)\n\n    # determine operational services and controls\n    operational_services = [s for s in services_all if s in available]\n    operational_services.sort()  # for deterministic order\n    operational_controls = set([c for c in controls_all if c in available])\n\n    # build effective edges and capacities\n    # For each operational service, collect neighbor entries that reference operational controls\n    # capacities: count of occurrences across operational services' neighbor lists (including duplicates)\n    capacities = defaultdict(int)  # control -> capacity\n    edge_costs = {}  # (service, control) -> min cost among duplicates\n    service_neighbors = defaultdict(list)  # service -> list of controls that are reachable (with duplicates preserved for capacity calc)\n    for s in operational_services:\n        nbrs = parsed_graph.get(s, [])\n        for cid, cost in nbrs:\n            if cid in operational_controls:\n                capacities[cid] += 1\n                # record minimal cost for pair\n                key = (s, cid)\n                if key in edge_costs:\n                    if cost < edge_costs[key]:\n                        edge_costs[key] = cost\n                else:\n                    edge_costs[key] = cost\n                service_neighbors[s].append(cid)\n    # Remove services with no valid neighbors\n    operational_services = [s for s in operational_services if len(service_neighbors.get(s, [])) > 0]\n    if not operational_services:\n        return {}\n    # Build flow network for min-cost max-flow with capacities on controls and unit demand per service.\n    # We'll implement successive shortest augmenting path using potentials (Johnson) with Dijkstra (with negative costs allowed initially).\n    # Node indexing:\n    # source = 0, services 1..n, controls next, sink last\n    svc_idx = {s: i+1 for i, s in enumerate(operational_services)}\n    control_list = sorted(list(capacities.keys()))\n    ctrl_idx = {c: idx+1+len(operational_services) for idx, c in enumerate(control_list)}\n    SRC = 0\n    SNK = 1 + len(operational_services) + len(control_list)\n\n    # adjacency for flow\n    class Edge:\n        __slots__ = (\"v\",\"rev\",\"cap\",\"cost\")\n        def __init__(self, v, rev, cap, cost):\n            self.v = v; self.rev = rev; self.cap = cap; self.cost = cost\n\n    N = SNK + 1\n    graph_adj = [[] for _ in range(N)]\n    def add_edge(u,v,cap,cost):\n        graph_adj[u].append(Edge(v, len(graph_adj[v]), cap, cost))\n        graph_adj[v].append(Edge(u, len(graph_adj[u])-1, 0, -cost))\n\n    # source -> service (cap 1, cost 0)\n    for s in operational_services:\n        add_edge(SRC, svc_idx[s], 1, 0)\n    # service -> control edges: capacity 1, cost = edge_costs[(s,c)]\n    for s in operational_services:\n        # For lexicographic determinism in tie breaks during augmenting equal cost, sort controls list\n        nbrs = sorted(set(service_neighbors[s]))\n        for c in nbrs:\n            cost = edge_costs.get((s,c))\n            if cost is None:\n                continue\n            add_edge(svc_idx[s], ctrl_idx[c], 1, cost)\n    # control -> sink edges with capacity = capacities[c]\n    for c in control_list:\n        add_edge(ctrl_idx[c], SNK, capacities[c], 0)\n\n    # Min-cost max-flow\n    flow = 0\n    cost = 0\n    max_possible = len(operational_services)\n    # potentials\n    potential = [0]*N\n    INF = 10**18\n    parent_v = [0]*N\n    parent_e = [0]*N\n\n    while True:\n        dist = [INF]*N\n        inqueue = [False]*N\n        dist[SRC] = 0\n        # use Dijkstra with potentials; but initial costs may be negative; potentials ensure non-negative reduced costs\n        # We'll use simple Bellman-Ford first if any negative edge cost exists and potentials are zero. Detect negative edges:\n        if any(edge.cost < 0 for u in range(N) for edge in graph_adj[u]):\n            # Bellman-Ford\n            dist = [INF]*N\n            dist[SRC]=0\n            for _ in range(N-1):\n                updated=False\n                for u in range(N):\n                    if dist[u]==INF: continue\n                    for ei, e in enumerate(graph_adj[u]):\n                        if e.cap>0 and dist[e.v] > dist[u] + e.cost:\n                            dist[e.v] = dist[u] + e.cost\n                            updated=True\n                if not updated:\n                    break\n            # set potentials\n            for i in range(N):\n                if dist[i] < INF:\n                    potential[i] = dist[i]\n        # Dijkstra with potentials\n        dist = [INF]*N\n        dist[SRC]=0\n        import heapq\n        pq = [(0, SRC)]\n        while pq:\n            d,u = heapq.heappop(pq)\n            if d!=dist[u]: continue\n            for ei, e in enumerate(graph_adj[u]):\n                if e.cap<=0: continue\n                v = e.v\n                rcost = e.cost + potential[u] - potential[v]\n                nd = dist[u] + rcost\n                if nd < dist[v]:\n                    dist[v]=nd\n                    parent_v[v]=u\n                    parent_e[v]=ei\n                    heapq.heappush(pq,(nd,v))\n        if dist[SNK] == INF:\n            break\n        for i in range(N):\n            if dist[i] < INF:\n                potential[i] += dist[i]\n        # augment 1 unit (since service edges are unit)\n        addf = INF\n        v = SNK\n        while v != SRC:\n            u = parent_v[v]\n            e = graph_adj[u][parent_e[v]]\n            if e.cap < addf:\n                addf = e.cap\n            v = u\n        if addf == 0 or addf == INF:\n            break\n        v = SNK\n        path_cost = 0\n        while v != SRC:\n            u = parent_v[v]\n            e = graph_adj[u][parent_e[v]]\n            e.cap -= addf\n            graph_adj[v][e.rev].cap += addf\n            path_cost += e.cost\n            v = u\n        flow += addf\n        cost += path_cost * addf\n        # continue until cannot augment or reached max_possible\n        if flow == max_possible:\n            break\n\n    if flow == 0:\n        return {}\n    # extract matching: for each service node, find which control edge is used (reverse cap >0)\n    result = {}\n    for s in operational_services:\n        u = svc_idx[s]\n        for e in graph_adj[u]:\n            # edges from service to control had initial cap 1; if cap==0 then used; or reverse edge has cap 1\n            if e.v == SRC:\n                continue\n            rev_e = graph_adj[e.v][e.rev]\n            # if flow sent, rev_e.cap > 0\n            if rev_e.cap > 0:\n                # e.v is control idx\n                # find control id\n                ctrl = None\n                for k, idx in ctrl_idx.items():\n                    if idx == e.v:\n                        ctrl = k\n                        break\n                if ctrl is not None:\n                    result[s] = ctrl\n                    break\n    if not result:\n        return {}\n    # Apply lexicographic tie-breaking: The flow algorithm with deterministic ordering should have produced minimal cost and one particular matching.\n    # But ensure result only includes matched services, sorted keys as per requirement mapping is dict\n    return dict(sorted(result.items()))"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1716,
+    "input_tokens_details": {
+      "cached_tokens": 1664
+    },
+    "output_tokens": 2209,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3925
+  },
+  "user": null,
+  "metadata": {}
+}

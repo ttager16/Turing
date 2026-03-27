@@ -1,0 +1,76 @@
+{
+  "id": "resp_07ed18794d37698d0069c32bbd2a98819d99516126fb6f1b71",
+  "object": "response",
+  "created_at": 1774398397,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398414,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_07ed18794d37698d0069c32bbda6d4819dbbb2b37826b33251",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_07ed18794d37698d0069c32bbddfa8819db5126e2bc87710d3",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any\nimport heapq\nimport math\n\ndef optimize_traffic_batch(\n    city_network: List[List[Any]],\n    historical_data: List[List[Any]],\n    current_conditions: Dict[str, Any],\n    demands: List[List[Any]]\n) -> Dict[str, Any]:\n    # Build edges: adjacency list and base_costs, ignore base_cost <= 0\n    adj = {}  # u -> list of v\n    base_cost = {}  # \"u-v\" -> cost\n    edges_set = set()\n    for item in city_network:\n        if not item or len(item) < 3:\n            continue\n        u, v, b = item[0], item[1], item[2]\n        try:\n            b_val = float(b)\n        except Exception:\n            continue\n        if b_val <= 0.0:\n            continue\n        eid = f\"{u}-{v}\"\n        edges_set.add(eid)\n        base_cost[eid] = b_val\n        adj.setdefault(u, []).append(v)\n    # capacities\n    capacity_map = {}\n    cap_override = {}\n    if isinstance(current_conditions, dict) and \"capacity_map\" in current_conditions:\n        cm = current_conditions.get(\"capacity_map\")\n        if isinstance(cm, dict):\n            for k, v in cm.items():\n                try:\n                    capacity = int(v)\n                except Exception:\n                    continue\n                if k in edges_set:\n                    cap_override[k] = capacity\n    for eid in edges_set:\n        capacity_map[eid] = cap_override.get(eid, 1)\n    # parse historical and current signals into dicts, ignoring unknown edges\n    hist = {}\n    for entry in historical_data:\n        if not entry or len(entry) < 2:\n            continue\n        k, v = entry[0], entry[1]\n        if k in edges_set:\n            try:\n                hist[k] = float(v)\n            except Exception:\n                hist[k] = 0.0\n    curr = {}\n    for k, v in current_conditions.items():\n        if k == \"capacity_map\":\n            continue\n        if k in edges_set:\n            try:\n                curr[k] = float(v)\n            except Exception:\n                curr[k] = 0.0\n    # helper: layer of node\n    def layer_of(node: str) -> str:\n        if not isinstance(node, str):\n            return \"\"\n        if \":\" in node:\n            return node.split(\":\", 1)[0]\n        return \"\"\n    # compute cost_for_demand per edge given current base_cost and demand priority\n    ALPHA = 0.6\n    def compute_edge_cost_for_demand(u: str, v: str, priority: float) -> float:\n        eid = f\"{u}-{v}\"\n        b = base_cost.get(eid)\n        if b is None:\n            return math.inf\n        h = hist.get(eid, 0.0)\n        c = curr.get(eid, 0.0)\n        ema = ALPHA * c + (1.0 - ALPHA) * h\n        effective_ema = max(0.0, ema)\n        cost_base = b * (1.0 + effective_ema / 100.0)\n        layer_multiplier = 1.0 if layer_of(u) == layer_of(v) else 1.55\n        cost_after_layer = cost_base * layer_multiplier\n        p = priority\n        cost_for_demand = cost_after_layer * (1.0 - 0.4 * p)\n        if cost_for_demand < 1e-6:\n            cost_for_demand = 1e-6\n        return float(cost_for_demand)\n    # Dijkstra that respects capacities and returns lexicographically smallest path on ties\n    def find_shortest_path(src: str, dst: str, units: int, priority: float):\n        # if src or dst not in nodes, still attempt (graph might be disconnected)\n        # states: (cost, path_list, node)\n        # We'll keep best cost per node and best path for tie-breaking\n        heap = []\n        start_path = [src]\n        heapq.heappush(heap, (0.0, start_path, src))\n        best_cost = {src: 0.0}\n        best_path = {src: start_path}\n        while heap:\n            cost_u, path_u, u = heapq.heappop(heap)\n            # If popped cost is worse than recorded, skip\n            if cost_u > best_cost.get(u, float('inf')) + 1e-12:\n                continue\n            if u == dst:\n                return path_u, cost_u\n            for v in sorted(adj.get(u, [])):\n                eid = f\"{u}-{v}\"\n                # check capacity feasibility: need residual >= units\n                if capacity_map.get(eid, 0) < units:\n                    continue\n                edge_cost = compute_edge_cost_for_demand(u, v, priority)\n                new_cost = cost_u + edge_cost\n                new_path = path_u + [v]\n                prev_cost = best_cost.get(v)\n                if prev_cost is None or new_cost < prev_cost - 1e-12 or (abs(new_cost - prev_cost) <= 1e-12 and new_path < best_path.get(v, [])):\n                    best_cost[v] = new_cost\n                    best_path[v] = new_path\n                    heapq.heappush(heap, (new_cost, new_path, v))\n        return None, math.inf\n    routes = []\n    unserved = 0\n    layer_switches = 0\n    total_cost = 0.0\n    # Process demands sequentially\n    for dem in demands:\n        if not dem or len(dem) < 5:\n            # invalid demand treated as unserved\n            routes.append([])\n            unserved += 1\n            continue\n        src, dst, commodity, units_raw, priority_raw = dem[0], dem[1], dem[2], dem[3], dem[4]\n        # clamp units and priority\n        try:\n            units = int(units_raw)\n        except Exception:\n            try:\n                units = int(float(units_raw))\n            except Exception:\n                units = 0\n        if units < 0:\n            units = 0\n        try:\n            priority = float(priority_raw)\n        except Exception:\n            priority = 0.0\n        if priority < 0.0:\n            priority = 0.0\n        if priority > 1.0:\n            priority = 1.0\n        # find shortest feasible path\n        path, path_cost = find_shortest_path(src, dst, units, priority)\n        if path is None:\n            routes.append([])\n            unserved += 1\n            continue\n        # verify feasibility again (should hold)\n        feasible = True\n        for i in range(len(path)-1):\n            eid = f\"{path[i]}-{path[i+1]}\"\n            if capacity_map.get(eid, 0) < units:\n                feasible = False\n                break\n        if not feasible:\n            routes.append([])\n            unserved += 1\n            continue\n        # record route\n        routes.append(path)\n        # count layer switches\n        for i in range(len(path)-1):\n            if layer_of(path[i]) != layer_of(path[i+1]):\n                layer_switches += 1\n        # accumulate total cost using the per-edge cost values at this moment\n        route_total = 0.0\n        for i in range(len(path)-1):\n            u, v = path[i], path[i+1]\n            edge_cost = compute_edge_cost_for_demand(u, v, priority)\n            route_total += edge_cost\n        total_cost += route_total\n        # update capacities and inflate base_costs\n        if len(path) > 1:\n            for i in range(len(path)-1):\n                eid = f\"{path[i]}-{path[i+1]}\"\n                # decrement capacity\n                capacity_map[eid] = max(0, capacity_map.get(eid, 0) - units)\n            # inflate base costs by factor (1 + 0.1 * units)\n            factor = 1.0 + 0.1 * units\n            if factor != 1.0:\n                for i in range(len(path)-1):\n                    eid = f\"{path[i]}-{path[i+1]}\"\n                    if eid in base_cost:\n                        base_cost[eid] = base_cost[eid] * factor\n    # clamp negative tiny noise\n    if total_cost < 0 and total_cost > -1e-9:\n        total_cost = 0.0\n    # prepare output\n    return {\n        \"routes\": routes,\n        \"unserved_demands\": unserved,\n        \"layer_switches\": layer_switches,\n        \"total_cost\": float(total_cost)\n    }"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2991,
+    "input_tokens_details": {
+      "cached_tokens": 2944
+    },
+    "output_tokens": 1884,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4875
+  },
+  "user": null,
+  "metadata": {}
+}

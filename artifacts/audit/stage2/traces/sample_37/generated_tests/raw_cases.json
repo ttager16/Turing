@@ -1,0 +1,145 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "X": 50.0,
+        "Y": 75.0
+      },
+      {
+        "X": [
+          [
+            "Y",
+            0.9
+          ]
+        ],
+        "Y": [
+          [
+            "X",
+            0.9
+          ]
+        ]
+      },
+      4,
+      0.0,
+      0.001,
+      7
+    ],
+    "input_lines": [
+      "{\"X\": 50.0, \"Y\": 75.0}",
+      "{\"X\": [[\"Y\", 0.9]], \"Y\": [[\"X\", 0.9]]}",
+      "4",
+      "0.0",
+      "0.001",
+      "7"
+    ],
+    "focus": "Capital zero edge: triggers 'No capital available for trading.' single-result behavior"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "B": 120.0,
+        "A": 80.0,
+        "C": 60.0
+      },
+      {
+        "B": [
+          [
+            "A",
+            0.85
+          ],
+          [
+            "C",
+            0.1
+          ]
+        ],
+        "A": [
+          [
+            "B",
+            0.85
+          ],
+          [
+            "C",
+            0.2
+          ]
+        ],
+        "C": [
+          [
+            "A",
+            0.2
+          ],
+          [
+            "B",
+            0.1
+          ]
+        ]
+      },
+      6,
+      500.0,
+      0.005,
+      123
+    ],
+    "input_lines": [
+      "{\"B\": 120.0, \"A\": 80.0, \"C\": 60.0}",
+      "{\"B\": [[\"A\", 0.85], [\"C\", 0.1]], \"A\": [[\"B\", 0.85], [\"C\", 0.2]], \"C\": [[\"A\", 0.2], [\"B\", 0.1]]}",
+      "6",
+      "500.0",
+      "0.005",
+      "123"
+    ],
+    "focus": "High-correlation pair with limited capital to exercise pair-trading, buy-threshold logic, and deterministic asset sorting (unsorted input keys)"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "AssetZ": 10.0,
+        "AssetY": 20.0,
+        "AssetX": 30.0,
+        "AssetW": 40.0
+      },
+      {
+        "AssetW": [
+          [
+            "AssetX",
+            0.6
+          ],
+          [
+            "AssetY",
+            0.4
+          ]
+        ],
+        "AssetX": [
+          [
+            "AssetW",
+            0.6
+          ],
+          [
+            "AssetY",
+            0.3
+          ]
+        ],
+        "AssetY": [
+          [
+            "AssetX",
+            0.3
+          ]
+        ]
+      },
+      3,
+      1000.0,
+      0.0,
+      1
+    ],
+    "input_lines": [
+      "{\"AssetZ\": 10.0, \"AssetY\": 20.0, \"AssetX\": 30.0, \"AssetW\": 40.0}",
+      "{\"AssetW\": [[\"AssetX\", 0.6], [\"AssetY\", 0.4]], \"AssetX\": [[\"AssetW\", 0.6], [\"AssetY\", 0.3]], \"AssetY\": [[\"AssetX\", 0.3]]}",
+      "3",
+      "1000.0",
+      "0.0",
+      "1"
+    ],
+    "focus": "Zero transaction cost and an asset (AssetZ) missing from correlation_graph to test skip-no-correlation logic and rounding behavior"
+  }
+]

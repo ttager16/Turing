@@ -1,0 +1,76 @@
+{
+  "id": "resp_0a588439b82f45360069c3315719f88191bac038de5c18a4d6",
+  "object": "response",
+  "created_at": 1774399831,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774399862,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0a588439b82f45360069c331579ab08191a3e0e63a555f7543",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0a588439b82f45360069c33157d7888191bcdcb06b6ad032e6",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Tuple, Optional\nimport re\n\nORG_SUFFIXES = {\"Inc.\", \"Corp.\", \"Corporation\", \"Ltd.\", \"PLC\", \"AG\", \"SA\", \"NV\", \"LLC\", \"LP\", \"Co.\", \"Company\"}\nDISCOURSE_MARKERS = {\"Meanwhile\"}\nPREP = {\"with\", \"in\", \"on\", \"at\", \"by\", \"for\", \"to\", \"of\", \"from\", \"over\", \"under\", \"between\"}\nDET = {\"the\", \"a\", \"an\", \"this\", \"that\", \"these\", \"those\"}\nADJ = {\"strong\", \"first\"}\nVERB = {\"surprises\", \"surging\", \"climbs\"}\nNOUN = {\"investors\", \"profits\", \"demand\"}\nTIME = {\"hour\", \"day\", \"week\", \"month\", \"year\"}\nENTITY_LEX = {\"NetSky\"}\nMAGNITUDES = {\"thousand\", \"million\", \"billion\", \"trillion\"}\nCURRENCY_SYMBOLS = {\"$\", \"€\", \"£\", \"¥\"}\n\n_number_re = re.compile(r'^\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?$|^\\d+(?:\\.\\d+)?$')\n_currency_pair_re = re.compile(r'^[A-Z]{3}/[A-Z]{3}$')\n_percentage_re = re.compile(r'^\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?%$|^\\d+(?:\\.\\d+)?%$')\n_currency_value_piece_re = re.compile(r'^[\\$€£¥]$')\n_currency_value_full_re = re.compile(\n    r'^[\\$€£¥]\\s*\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?(?:\\s+(?:' +\n    r'|'.join(re.escape(m) for m in MAGNITUDES) + r'))?$', re.IGNORECASE)\n\ndef _is_number(s: str) -> bool:\n    return bool(_number_re.match(s))\n\ndef _match_currency_pair(s: str) -> bool:\n    return bool(_currency_pair_re.match(s))\n\ndef _match_percentage(s: str) -> bool:\n    return bool(_percentage_re.match(s))\n\ndef _match_currency_value_tokens(parts: List[str], start: int) -> Optional[Tuple[int, str]]:\n    # Attempt to match currency symbol + number + optional magnitude, allowing spaces\n    if start >= len(parts):\n        return None\n    p0 = parts[start]\n    # currency symbol possibly attached to number e.g. \"$5\" or \"$5\" with no space\n    # handle attached cases first\n    # Case A: single token like \"$5\" or \"$5.0\" or \"$1,000\" or \"$5million\" (magnitude must be separate per rules) -> allow \"$5\" or \"$5\" + magnitude\n    # But rule says currency symbol attached to a number and optional magnitude (whitespace allowed)\n    # So we accept \"$5\", \"$5 million\", \"$5million\" only if number part matches when removing symbol.\n    if p0 and p0[0] in CURRENCY_SYMBOLS:\n        rest = p0[1:]\n        if rest != \"\":\n            # attached number\n            if _is_number(rest):\n                end = start + 1\n                # check next token for magnitude\n                if end < len(parts) and parts[end].lower() in MAGNITUDES:\n                    end += 1\n                tok = \" \".join(parts[start:end])\n                # normalize spaces around symbol: keep as original join (per tokenization, symbol attached allowed)\n                return end, tok\n    # Case B: symbol as separate token\n    if p0 in CURRENCY_SYMBOLS:\n        if start + 1 < len(parts):\n            p1 = parts[start + 1]\n            if _is_number(p1):\n                end = start + 2\n                if end < len(parts) and parts[end].lower() in MAGNITUDES:\n                    end += 1\n                tok = \" \".join(parts[start:end])\n                return end, tok\n    return None\n\ndef custom_tokenizer(input_text: str) -> List[List[str]]:\n    text = input_text.strip()\n    parts = []  # initial split on whitespace, preserving original tokens\n    if text == \"\":\n        return []\n    raw_parts = text.split()\n    # Preprocess trailing commas: preserve single trailing comma only if base word is in discourse markers (case-sensitive)\n    for rp in raw_parts:\n        if rp.endswith(\",\") and len(rp) > 1:\n            base = rp[:-1]\n            if base in DISCOURSE_MARKERS:\n                parts.append(rp)  # keep comma attached\n            else:\n                parts.append(base)\n        else:\n            parts.append(rp)\n    tokens: List[List[str]] = []\n    i = 0\n    sentence_initial = True\n    while i < len(parts):\n        # At each position, attempt merges in order\n        # 1) Company name: Capitalized word followed immediately by org suffix\n        # Check current token possibly with punctuation removed per rules: org suffix may include period retained.\n        cur = parts[i]\n        # For matching company name, need capitalized word (first char uppercase, others any) and next token equals one of ORG_SUFFIXES possibly attached?\n        if i + 1 < len(parts):\n            next_tok = parts[i + 1]\n            # next_tok may include trailing punctuation? Per tokenization semicolons/colons/periods dropped unless org suffix includes period. We kept raw tokens with punctuation removed except discourse commas.\n            # So match next_tok exactly to ORG_SUFFIXES\n            if next_tok in ORG_SUFFIXES and len(cur) > 0 and cur[0].isupper() and cur.isalpha():\n                merged = cur + \" \" + next_tok\n                tokens.append([merged, \"ENTITY\"])\n                i += 2\n                sentence_initial = False\n                continue\n        # 2) Currency value merge\n        m_cv = _match_currency_value_tokens(parts, i)\n        if m_cv:\n            end, tok = m_cv\n            # Tokenization rule: preserve as single token; ensure formatting like \"$5 million\" keeps space if present\n            tokens.append([tok, \"VALUE\"])\n            i = end\n            sentence_initial = False\n            continue\n        # 3) Percentage merge: number immediately followed by \"%\" in same token OR number token with trailing % attached\n        cur_raw = parts[i]\n        if _match_percentage(cur_raw):\n            tokens.append([cur_raw, \"VALUE\"])\n            i += 1\n            sentence_initial = False\n            continue\n        # 4) Currency pair merge\n        if _match_currency_pair(cur_raw):\n            tokens.append([cur_raw, \"ENTITY\"])\n            i += 1\n            sentence_initial = False\n            continue\n        # If no merge, extract next token per tokenization rules\n        # Strip standalone punctuation tokens unless explicitly retained\n        tok = cur_raw\n        # Drop standalone punctuation tokens: tokens that are entirely punctuation (excluding discourse comma which we preserved attached)\n        if all((not ch.isalnum()) for ch in tok):\n            i += 1\n            # do not change sentence_initial if only punctuation dropped\n            continue\n        # Strip trailing punctuation: periods, semicolons, colons, parentheses etc.\n        # Preserve abbreviation periods in org suffixes only when token equals an org suffix; those would have matched earlier in company merge but single-token org suffix should be dropped/treated?\n        # Rule: Abbreviation period in organization suffixes retained when part of recognized pattern. Else periods dropped.\n        # So if token equals an org suffix alone (unlikely), keep as is; otherwise remove trailing periods etc.\n        if tok not in ORG_SUFFIXES:\n            # Remove trailing periods, semicolons, colons, parentheses\n            tok = tok.rstrip('.;:()')\n        # Trailing comma was already handled in preprocessing; keep it only if discourse marker preserved (it would be in DISCOURSE_MARKERS with comma)\n        # Now assign tag using precedence\n        tag = None\n        # Patterns (ENTITY patterns, VALUE patterns)\n        if _match_currency_pair(tok):\n            tag = \"ENTITY\"\n        elif _match_percentage(tok):\n            tag = \"VALUE\"\n        else:\n            # Lexicons (exact matches). Tagging is case-sensitive for some sets? Lexicons are given lowercase words; matching should be exact-match lexicons for English words -> assume case-sensitive as listed; but examples use lowercase tokens.\n            low = tok.lower()\n            if tok in ENTITY_LEX:\n                tag = \"ENTITY\"\n            elif tok in PREP:\n                tag = \"PREP\"\n            elif tok in DET:\n                tag = \"DET\"\n            elif tok in ADJ:\n                tag = \"ADJ\"\n            elif tok in VERB:\n                tag = \"VERB\"\n            elif tok in NOUN:\n                tag = \"NOUN\"\n            elif tok in TIME:\n                tag = \"TIME\"\n            elif low in PREP:\n                tag = \"PREP\"\n            elif low in DET:\n                tag = \"DET\"\n            elif low in ADJ:\n                tag = \"ADJ\"\n            elif low in VERB:\n                tag = \"VERB\"\n            elif low in NOUN:\n                tag = \"NOUN\"\n            elif low in TIME:\n                tag = \"TIME\"\n        # Discourse markers: tagging is case-insensitive per spec, but preservation rule is case-sensitive earlier. So tag as OTHER if matches discourse marker ignoring case.\n        if tag is None and tok.rstrip(\",\") .lower() in {m.lower() for m in DISCOURSE_MARKERS}:\n            tag = \"OTHER\"\n        # Heuristics\n        if tag is None:\n            # Capitalized mixed-case single Latin word not in any lexicon and not sentence-initial: tag ENTITY.\n            # Mixed-case meaning starts with uppercase and has lowercase letters (i.e., not all upper)\n            if (not sentence_initial) and re.match(r'^[A-Za-z]+$', tok) and tok[0].isupper() and not tok.isupper() and tok not in ENTITY_LEX:\n                tag = \"ENTITY\"\n            else:\n                tag = \"OTHER\"\n        tokens.append([tok, tag])\n        i += 1\n        sentence_initial = False\n    return tokens"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2222,
+    "input_tokens_details": {
+      "cached_tokens": 2176
+    },
+    "output_tokens": 2215,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4437
+  },
+  "user": null,
+  "metadata": {}
+}

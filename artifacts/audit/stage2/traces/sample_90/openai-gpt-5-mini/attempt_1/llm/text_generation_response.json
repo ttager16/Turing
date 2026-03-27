@@ -1,0 +1,76 @@
+{
+  "id": "resp_0ee7f56792d7a8f80069c33105dbec8190abb88b0ab849d3b6",
+  "object": "response",
+  "created_at": 1774399749,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774399780,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0ee7f56792d7a8f80069c3310633f08190b88b117c162bbba8",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0ee7f56792d7a8f80069c33106771c8190b40922edb096fce2",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Optional, Any\nimport heapq\nimport copy\n\ndef real_time_stock_stack(operations: List[List[Any]]) -> List[Optional[int]]:\n    # Validation helpers\n    VALID_OPS = {\"push\", \"pop\", \"get_min\", \"get_max\", \"merge_clusters\", \"range_sum\"}\n    INT_MIN, INT_MAX = -10**9, 10**9\n\n    if operations is None:\n        return []\n    if not isinstance(operations, list):\n        return []\n    if operations == []:\n        return []\n\n    # Internal structures per symbol:\n    # symbol -> {\n    #   'stack': list of values,\n    #   'min_stack': list of current mins,\n    #   'max_stack': list of current maxs,\n    #   'total_pushed': cumulative sum of all pushed values ever to this symbol,\n    #   'last_merge_sum': sum baseline at last merge (None if never merged)\n    # }\n    symbols = {}\n    def new_symbol_from(other_id=None):\n        sid = len(symbols)\n        if other_id is None:\n            symbols[sid] = {\n                'stack': [],\n                'min_stack': [],\n                'max_stack': [],\n                'total_pushed': 0,\n                'last_merge_sum': None\n            }\n        else:\n            src = symbols.get(other_id)\n            if src is None:\n                # shouldn't happen in normal flow\n                symbols[sid] = {\n                    'stack': [],\n                    'min_stack': [],\n                    'max_stack': [],\n                    'total_pushed': 0,\n                    'last_merge_sum': None\n                }\n            else:\n                symbols[sid] = {\n                    'stack': list(src['stack']),\n                    'min_stack': list(src['min_stack']),\n                    'max_stack': list(src['max_stack']),\n                    'total_pushed': src['total_pushed'],\n                    'last_merge_sum': src['last_merge_sum']\n                }\n        return sid\n\n    # Global heaps for min/max with lazy deletion tags\n    # entries: (value, unique_id, symbol_id)\n    global_min_heap = []\n    global_max_heap = []  # store (-value, unique_id, symbol_id)\n    # map of unique id to (symbol_id, index_in_stack, value) to validate staleness\n    # We'll assign incremental unique ids on push to track entries\n    uid_counter = 0\n    # For each symbol maintain list of uids per position\n    # symbols[sid]['uids'] = list of uids paralleling stack\n    # We'll add uids field\n    # MRU routing and merge redirect\n    active_symbol = 0\n    symbols[0] = {\n        'stack': [],\n        'min_stack': [],\n        'max_stack': [],\n        'total_pushed': 0,\n        'last_merge_sum': None,\n        'uids': []\n    }\n    pending_one_shot_redirect = None  # if set to symbol id, next push goes there\n    # MRU stack of symbols that have received pushes (for pop routing)\n    mru_stack = []\n\n    # map uid -> (sid, index, val, alive_flag)\n    uid_map = {}\n\n    outputs: List[Optional[int]] = []\n\n    # helper to clean global heaps\n    def _clean_min():\n        while global_min_heap:\n            val, uid, sid = global_min_heap[0]\n            info = uid_map.get(uid)\n            if info is None or not info[3]:\n                heapq.heappop(global_min_heap)\n                continue\n            # check that it matches current stack position in symbol\n            cur_uids = symbols[sid]['uids']\n            if len(cur_uids) == 0:\n                heapq.heappop(global_min_heap)\n                continue\n            # if uid is present somewhere in current uids (could be not top)\n            if uid in cur_uids:\n                return\n            else:\n                heapq.heappop(global_min_heap)\n\n    def _clean_max():\n        while global_max_heap:\n            nval, uid, sid = global_max_heap[0]\n            val = -nval\n            info = uid_map.get(uid)\n            if info is None or not info[3]:\n                heapq.heappop(global_max_heap)\n                continue\n            cur_uids = symbols[sid]['uids']\n            if len(cur_uids) == 0:\n                heapq.heappop(global_max_heap)\n                continue\n            if uid in cur_uids:\n                return\n            else:\n                heapq.heappop(global_max_heap)\n\n    # validate and execute ops\n    for op in operations:\n        # basic format validation\n        if not isinstance(op, list) or len(op) != 2:\n            return []\n        name, arg = op[0], op[1]\n        if not isinstance(name, str) or name not in VALID_OPS:\n            return []\n        # validate arg types\n        if name == 'push':\n            if not isinstance(arg, int) or arg < INT_MIN or arg > INT_MAX:\n                return []\n        elif name in ('get_min', 'get_max', 'range_sum'):\n            if arg is not None and (not isinstance(arg, int) or arg < 0):\n                return []\n        else:\n            # pop or merge_clusters must have None\n            if arg is not None:\n                return []\n\n        if name == 'push':\n            price = arg\n            # determine routed symbol\n            if pending_one_shot_redirect is not None:\n                sid = pending_one_shot_redirect\n                pending_one_shot_redirect = None\n            else:\n                sid = active_symbol\n            # ensure symbol exists\n            if sid not in symbols:\n                return []\n            # push into symbol\n            s = symbols[sid]\n            # update stacks\n            s['stack'].append(price)\n            if s['min_stack']:\n                s['min_stack'].append(min(s['min_stack'][-1], price))\n            else:\n                s['min_stack'].append(price)\n            if s['max_stack']:\n                s['max_stack'].append(max(s['max_stack'][-1], price))\n            else:\n                s['max_stack'].append(price)\n            s['total_pushed'] += price\n            uid = uid_counter\n            uid_counter += 1\n            s['uids'].append(uid)\n            uid_map[uid] = (sid, len(s['stack']) - 1, price, True)\n            heapq.heappush(global_min_heap, (price, uid, sid))\n            heapq.heappush(global_max_heap, (-price, uid, sid))\n            # update MRU: move sid to top\n            if sid in mru_stack:\n                mru_stack.remove(sid)\n            mru_stack.append(sid)\n            outputs.append(None)\n\n        elif name == 'pop':\n            # route to MRU symbol if any, otherwise active_symbol\n            if mru_stack:\n                sid = mru_stack[-1]\n            else:\n                sid = active_symbol\n            if sid not in symbols:\n                return []\n            s = symbols[sid]\n            if not s['stack']:\n                outputs.append(None)\n                continue\n            # pop top\n            val = s['stack'].pop()\n            s['min_stack'].pop()\n            s['max_stack'].pop()\n            uid = s['uids'].pop()\n            # mark uid dead\n            info = uid_map.get(uid)\n            if info:\n                uid_map[uid] = (info[0], info[1], info[2], False)\n            outputs.append(None)\n            # if after pop symbol has no pushes in MRU, remove from mru_stack\n            if sid in mru_stack and not s['stack']:\n                # remove all occurrences of sid in mru_stack\n                mru_stack = [x for x in mru_stack if x != sid]\n\n        elif name == 'merge_clusters':\n            # create new symbol as deep snapshot of active_symbol\n            src = active_symbol\n            new_id = new_symbol_from(src)\n            # set last_merge_sum on new symbol and update source's last_merge_sum per definition:\n            # \"['merge_clusters', None] creates a new symbol (next available ID) as a deep snapshot of the active symbol\"\n            # and \"['range_sum', s] returns the sum of values that existed in symbol s at the time of its most recent merge event involving s\"\n            # So merging creates a merge event for the source (active symbol)\n            # Set last_merge_sum for source to its current total_pushed\n            symbols[src]['last_merge_sum'] = symbols[src]['total_pushed']\n            # new symbol gets deep copy; its last_merge_sum remains copied from source per snapshot semantics\n            pending_one_shot_redirect = new_id\n            outputs.append(None)\n\n        elif name == 'get_min':\n            if arg is None:\n                # global min\n                _clean_min()\n                if not global_min_heap:\n                    outputs.append(None)\n                else:\n                    val, uid, sid = global_min_heap[0]\n                    outputs.append(val)\n            else:\n                sid = arg\n                if sid not in symbols:\n                    outputs.append(None)\n                else:\n                    s = symbols[sid]\n                    if not s['min_stack']:\n                        outputs.append(None)\n                    else:\n                        outputs.append(s['min_stack'][-1])\n\n        elif name == 'get_max':\n            if arg is None:\n                _clean_max()\n                if not global_max_heap:\n                    outputs.append(None)\n                else:\n                    nval, uid, sid = global_max_heap[0]\n                    outputs.append(-nval)\n            else:\n                sid = arg\n                if sid not in symbols:\n                    outputs.append(None)\n                else:\n                    s = symbols[sid]\n                    if not s['max_stack']:\n                        outputs.append(None)\n                    else:\n                        outputs.append(s['max_stack'][-1])\n\n        elif name == 'range_sum':\n            sid = arg\n            if sid not in symbols:\n                outputs.append(None)\n            else:\n                s = symbols[sid]\n                if s['last_merge_sum'] is None:\n                    outputs.append(s['total_pushed'])\n                else:\n                    outputs.append(s['last_merge_sum'])\n\n    return outputs"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1560,
+    "input_tokens_details": {
+      "cached_tokens": 1536
+    },
+    "output_tokens": 2152,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3712
+  },
+  "user": null,
+  "metadata": {}
+}

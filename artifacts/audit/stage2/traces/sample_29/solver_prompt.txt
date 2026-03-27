@@ -1,0 +1,232 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+A mission-critical healthcare system monitors patient vital signs across multiple hospital wards using interconnected sensors and medical devices. Your task is to design a fault-tolerant patient monitoring system that maintains data integrity and continuous operation even when devices fail or produce anomalous readings. The system must aggregate sensor data, detect and handle device failures, maintain redundancy, and provide validated patient metrics that healthcare professionals can trust for critical decision-making.
+
+Each ward contains multiple devices monitoring different patients, and devices can fail independently. The system must identify failing devices, route data through backup devices when available, validate readings against expected ranges, and flag anomalies. When a device fails, the system should attempt to compensate using related devices while maintaining a complete audit trail of all failures and recovery actions.
+
+---
+
+#### Objectives:
+1. Device Failure Detection: Implement a mechanism to identify failing or malfunctioning devices based on missing data, out-of-range values, or degraded/offline device status.
+2. Redundancy Management: Maintain and utilize backup devices for each monitored metric. When a primary device fails, automatically switch to backup devices while tracking which devices are active, failed, or in backup mode.
+3. Data Validation and Aggregation: Validate incoming sensor readings against acceptable ranges for each metric type. Aggregate data at ward level by averaging metrics from working devices while handling missing or invalid readings.
+4. Fault Recovery Strategy: Activate backup devices when primary devices fail. Implement a strategy to determine when a ward has insufficient working devices (below ward_requirements threshold) to provide reliable monitoring.
+5. Audit Trail Maintenance: Track all device failures, backup activations, data validation failures, and recovery actions with timestamps to provide complete traceability for clinical review.
+
+---
+
+#### Constraints:
+- Input contains data from up to 50 devices across up to 10 wards
+- Each device monitors 1-3 vital sign metrics (heart_rate, blood_pressure, temperature, oxygen_saturation, respiratory_rate)
+- Devices can be marked as primary or backup for redundancy
+- A metric is considered valid only if at least one device (primary or backup) provides readings within acceptable range
+- The system must handle: missing readings, out-of-range values
+- Must return detailed failure report if any ward lacks minimum required working devices (specified in ward_requirements)
+- Must work with Python standard library only (no external packages)
+- Solution should efficiently handle device status changes and reading validation in O(n times m) time where n is devices and m is metrics per device
+- Return empty critical_wards list if all wards meet minimum device requirements
+- Return None for ward_data of a ward if it has no working devices
+- For empty device_readings input, return empty structures for all fields except timestamp
+- If a device appears in readings but not in device_config, treat it as a primary device with default behavior
+- If a ward is not specified in ward_requirements, use a default minimum of 1 working device
+
+---
+
+#### Function Signature
+```python
+def fault_tolerant_patient_monitoring(
+    device_readings: List[Dict[str, Any]], 
+    device_config: Dict[str, Any],
+    acceptable_ranges: Dict[str, List[float]]
+) -> Dict[str, Any]:
+    """
+    Process patient monitoring data with fault tolerance and validation.
+    
+    Args:
+        device_readings: List of device reading dictionaries
+        device_config: Configuration including ward assignments and device roles
+        acceptable_ranges: Valid ranges for each metric type
+    
+    Returns:
+        Dictionary containing validated ward data, device status, and fault handling log
+    """
+    pass
+```
+
+---
+
+#### Sample Input/Output
+
+**Sample Input:**
+```python
+device_readings = [
+    {
+        'device_id': 'DEV001',
+        'ward': 'ICU-A',
+        'patient_id': 'P001',
+        'metrics': {'heart_rate': 200},  # Out of range
+        'timestamp': 1000,
+        'status': 'active'
+    },
+    {
+        'device_id': 'BACKUP1',
+        'ward': 'ICU-A',
+        'patient_id': 'P001',
+        'metrics': {'heart_rate': 75},  # Valid
+        'timestamp': 1000,
+        'status': 'active'
+    },
+    {
+        'device_id': 'DEV002',
+        'ward': 'ICU-A',
+        'patient_id': 'P002',
+        'metrics': {'temperature': 37.0},  # Valid
+        'timestamp': 1000,
+        'status': 'active'
+    }
+]
+
+device_config = {
+    'device_roles': {
+        'DEV001': 'primary',
+        'BACKUP1': 'backup',
+        'DEV002': 'primary'
+    },
+    'device_metrics': {
+        'DEV001': ['heart_rate'],
+        'BACKUP1': ['heart_rate'],
+        'DEV002': ['temperature']
+    },
+    'ward_requirements': {'ICU-A': 2}
+}
+
+acceptable_ranges = {
+    'heart_rate': [40, 180],
+    'temperature': [35.0, 42.0]
+}
+```
+
+**Corresponding Expected Output:**
+```python
+{
+    'ward_data': {
+        'ICU-A': {
+            'aggregated_metrics': {
+                'heart_rate': 75.0,
+                'temperature': 37.0
+            },
+            'working_device_count': 2,
+            'active_devices': ['BACKUP1', 'DEV002'],
+            'backup_devices_activated': ['BACKUP1'],
+            'data_quality': 'medium'
+        }
+    },
+    'device_status': {
+        'DEV001': {
+            'status': 'failed',
+            'role': 'primary',
+            'backup_activated': False,
+            'last_successful_reading': None
+        },
+        'BACKUP1': {
+            'status': 'working',
+            'role': 'backup',
+            'backup_activated': True,
+            'last_successful_reading': 1000
+        },
+        'DEV002': {
+            'status': 'working',
+            'role': 'primary',
+            'backup_activated': False,
+            'last_successful_reading': 1000
+        }
+    },
+    'validation_failures': [
+        {
+            'device_id': 'DEV001',
+            'metric': 'heart_rate',
+            'value': 200,
+            'reason': 'out_of_range',
+            'timestamp': 1000
+        }
+    ],
+    'critical_wards': [],
+    'fault_recovery_log': [
+        {
+            'event': 'primary_device_failure',
+            'device_id': 'DEV001',
+            'ward': 'ICU-A',
+            'reasons': ['heart_rate_out_of_range'],
+            'timestamp': 1000
+        },
+        {
+            'event': 'backup_activation',
+            'primary_device': 'DEV001',
+            'backup_device': 'BACKUP1',
+            'ward': 'ICU-A',
+            'timestamp': 1000
+        }
+    ],
+    'timestamp': 1000
+}
+```
+
+**Input Structure Details:**
+- device_readings: List of dictionaries, each containing device_id, ward, patient_id, metrics dict, timestamp, and status
+- device_config: Configuration with device_roles, device_metrics, and ward_requirements
+- acceptable_ranges: Dict mapping metric names to [min, max] lists
+
+**Output Structure Details:**
+- ward_data: Validated aggregated data per ward
+- device_status: Current status of each device
+- validation_failures: Rejected readings with reasons
+- critical_wards: Wards below minimum device requirements
+- fault_recovery_log: Chronological event log
+- timestamp: Processing timestamp
+
+---
+
+#### Expected Output Format
+The output should be a comprehensive dictionary structured as follows:
+
+1. ward_data: For each ward, provide aggregated validated metrics (averaged from working devices), count of working devices, list of active device IDs, backup devices activated if any, and data quality indicator based on the following criteria:
+   - "high": working_device_count > ward_requirements (surplus capacity)
+   - "medium": working_device_count == ward_requirements (meets minimum exactly)
+   - "low": working_device_count < ward_requirements (below minimum, critical)
+
+2. device_status: For each device, indicate current operational status (working/failed), whether it is primary or backup, if backup was activated due to primary failure, and last successful reading timestamp (None if device has failed).
+
+3. validation_failures: List of readings that were rejected including device ID, metric name and value, reason for rejection (out_of_range or missing_data), and timestamp.
+
+4. critical_wards: List ward IDs where working device count fell below minimum requirement specified in ward_requirements, requiring immediate attention. Return empty list if all wards meet requirements.
+
+5. fault_recovery_log: Chronological list of events including:
+   - primary_device_failure: when a primary device fails with reasons
+   - backup_activation: when a backup device is activated for a failed primary
+   - critical_ward_detected: when a ward falls below minimum device requirements
+
+6. timestamp: Unix timestamp when this validation snapshot was completed.
+
+This structure ensures healthcare professionals can quickly assess system health, identify failing equipment, understand data reliability per ward, and review the complete chain of fault detection and recovery actions for clinical audit purposes.
+
+Starter Code:
+```python
+from typing import List, Dict, Any
+from collections import defaultdict
+import time
+
+def fault_tolerant_patient_monitoring(
+    device_readings: List[Dict[str, Any]], 
+    device_config: Dict[str, Any],
+    acceptable_ranges: Dict[str, List[float]]
+) -> Dict[str, Any]:
+    pass
+```

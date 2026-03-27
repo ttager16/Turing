@@ -1,0 +1,76 @@
+{
+  "id": "resp_04b2a1b1bbf8efa90069c32636188881928d2298300fd60604",
+  "object": "response",
+  "created_at": 1774396982,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774397030,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_04b2a1b1bbf8efa90069c3263674c4819280aa7ef2791800ac",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_04b2a1b1bbf8efa90069c32636b9a0819294920dc130396353",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Tuple\nimport heapq\nimport math\nimport time\n\ndef optimize_key_distribution(transactions: List[Dict[str, Any]],\n                              branches: List[Dict[str, Any]],\n                              network_status: Dict[str, Any]) -> List[Dict[str, Any]]:\n    # Validation\n    if not isinstance(transactions, list):\n        raise TypeError(\"transactions must be a list\")\n    if not isinstance(branches, list):\n        raise TypeError(\"branches must be a list\")\n    if not isinstance(network_status, dict):\n        raise TypeError(\"network_status must be a dict\")\n    # Build branch map\n    branch_map: Dict[str, Dict[str, Any]] = {}\n    for b in branches:\n        if not isinstance(b, dict):\n            raise TypeError(\"each branch must be a dict\")\n        if 'branch_id' not in b or 'bandwidth' not in b or 'failure_probability' not in b:\n            raise ValueError(\"branch dict missing required fields\")\n        bid = b['branch_id']\n        if not isinstance(bid, str):\n            raise TypeError(\"branch_id must be a string\")\n        bw = b['bandwidth']\n        fp = b['failure_probability']\n        if not (isinstance(bw, (int, float)) and isinstance(fp, (int, float))):\n            raise TypeError(\"bandwidth and failure_probability must be numeric\")\n        branch_map[bid] = {'bandwidth': float(bw), 'failure_probability': float(fp)}\n    if 'HQ' not in branch_map:\n        raise ValueError(\"HQ branch must exist\")\n    # Parse network latencies\n    latency_matrix = network_status.get('latency_matrix', {}) or {}\n    if not isinstance(latency_matrix, dict):\n        raise TypeError(\"latency_matrix must be a dict if provided\")\n    # Build adjacency (bidirectional), only for existing branches\n    adj: Dict[str, Dict[str, float]] = {bid: {} for bid in branch_map}\n    for edge, val in latency_matrix.items():\n        if not isinstance(edge, str):\n            continue\n        parts = edge.split(\"->\")\n        if len(parts) != 2:\n            continue\n        a, b = parts[0], parts[1]\n        if a in branch_map and b in branch_map:\n            if not isinstance(val, (int, float)):\n                continue\n            latency = float(val)\n            adj[a][b] = latency\n            adj[b][a] = latency\n    # Dynamic risk adjustments and global alert\n    dr = network_status.get('dynamic_risk_adjustments', {}) or {}\n    if not isinstance(dr, dict):\n        raise TypeError(\"dynamic_risk_adjustments must be a dict if provided\")\n    global_alert = bool(network_status.get('global_security_alert', False))\n    alert_multiplier = 1.1 if global_alert else 1.0\n    # Initialize historical and anomaly placeholders\n    historical_incidents: Dict[str, float] = {}\n    anomaly_signals: Dict[str, float] = {}\n    # Validate transactions and prepare priority queue\n    class PriorityQueue:\n        def __init__(self):\n            self.heap = []\n            self.entry_finder = {}\n            self.REMOVED = '<removed>'\n            self.counter = 0\n            self.active = 0\n        def add(self, task, priority):\n            if task in self.entry_finder:\n                self.remove(task)\n            entry = [priority, self.counter, task]\n            self.counter += 1\n            self.entry_finder[task] = entry\n            heapq.heappush(self.heap, entry)\n            self.active += 1\n        def remove(self, task):\n            entry = self.entry_finder.pop(task, None)\n            if entry:\n                entry[2] = self.REMOVED\n                self.active -= 1\n        def pop(self):\n            while self.heap:\n                priority, _, task = heapq.heappop(self.heap)\n                if task is not self.REMOVED:\n                    self.entry_finder.pop(task, None)\n                    self.active -= 1\n                    return task, priority\n            raise KeyError(\"pop from an empty priority queue\")\n        def empty(self):\n            return self.active == 0\n    pq = PriorityQueue()\n    tx_map: Dict[int, Dict[str, Any]] = {}\n    for t in transactions:\n        if not isinstance(t, dict):\n            raise TypeError(\"each transaction must be a dict\")\n        if 'transaction_id' not in t or 'branch_id' not in t or 'risk_score' not in t:\n            raise ValueError(\"transaction missing required fields\")\n        tid = t['transaction_id']\n        bid = t['branch_id']\n        rs = t['risk_score']\n        if not isinstance(tid, int):\n            raise TypeError(\"transaction_id must be int\")\n        if not isinstance(bid, str):\n            raise TypeError(\"branch_id must be str\")\n        if not isinstance(rs, (int, float)):\n            raise TypeError(\"risk_score must be numeric\")\n        if bid not in branch_map:\n            raise ValueError(f\"transaction target branch {bid} not defined\")\n        # compute adjusted risk\n        base = float(rs)\n        dyn = float(dr.get(bid, 0.0))\n        hist = float(historical_incidents.get(bid, 0.0))\n        anomaly = float(anomaly_signals.get(bid, 0.0))\n        adjusted = (base + dyn + hist + anomaly) * alert_multiplier\n        adjusted = min(adjusted, 100.0)\n        # priority as 100 - adjusted (lower value -> higher risk)\n        priority = 100.0 - adjusted\n        pq.add(tid, priority)\n        tx_map[tid] = {'branch_id': bid, 'risk_score': base, 'adjusted_risk': adjusted}\n    # Union-Find\n    parent = {bid: bid for bid in branch_map}\n    rank = {bid: 0 for bid in branch_map}\n    def find(x):\n        if parent[x] != x:\n            parent[x] = find(parent[x])\n        return parent[x]\n    def union(x, y):\n        rx, ry = find(x), find(y)\n        if rx == ry:\n            return\n        if rank[rx] < rank[ry]:\n            parent[rx] = ry\n        else:\n            parent[ry] = rx\n            if rank[rx] == rank[ry]:\n                rank[rx] += 1\n    # Union edges present\n    for a in adj:\n        for b in adj[a]:\n            union(a, b)\n    def connected(a, b):\n        return find(a) == find(b)\n    # Dijkstra\n    def dijkstra(src: str, dst: str) -> Tuple[float, List[str]]:\n        if src == dst:\n            return 0.0, [src]\n        dist = {bid: math.inf for bid in branch_map}\n        prev: Dict[str, str] = {}\n        dist[src] = 0.0\n        heap = [(0.0, src)]\n        visited = set()\n        while heap:\n            d, u = heapq.heappop(heap)\n            if u in visited:\n                continue\n            visited.add(u)\n            if u == dst:\n                break\n            for v, w in adj.get(u, {}).items():\n                nd = d + w\n                if nd < dist[v]:\n                    dist[v] = nd\n                    prev[v] = u\n                    heapq.heappush(heap, (nd, v))\n        if dist[dst] == math.inf:\n            return math.inf, []\n        # reconstruct\n        path = []\n        cur = dst\n        while cur != src:\n            path.append(cur)\n            cur = prev.get(cur)\n            if cur is None:\n                return math.inf, []\n        path.append(src)\n        path.reverse()\n        return dist[dst], path\n    # Bandwidth allocation helper\n    available_bw = {bid: branch_map[bid]['bandwidth'] for bid in branch_map}\n    def bandwidth_required(adjusted_risk: float) -> float:\n        return 10.0 * (1.0 + adjusted_risk / 100.0)\n    def path_has_bandwidth(path: List[str], req: float) -> bool:\n        for node in path:\n            if available_bw.get(node, 0.0) < req:\n                return False\n        return True\n    def allocate_bandwidth(path: List[str], req: float):\n        for node in path:\n            available_bw[node] -= req\n    # Path security evaluation: node security score = 1 - failure_probability - risk_factor (normalized)\n    def path_security_score(path: List[str], adjusted_risk: float) -> float:\n        scores = []\n        for node in path:\n            fp = branch_map[node]['failure_probability']\n            risk_factor = adjusted_risk / 100.0\n            score = max(0.0, 1.0 - fp - 0.5 * risk_factor)\n            scores.append(score)\n        if not scores:\n            return 0.0\n        return sum(scores) / len(scores)\n    # Process transactions in priority order\n    results: Dict[int, Dict[str, Any]] = {}\n    start_time = time.time()\n    while not pq.empty():\n        tid, _ = pq.pop()\n        info = tx_map[tid]\n        target = info['branch_id']\n        adjusted = info['adjusted_risk']\n        req_bw = bandwidth_required(adjusted)\n        allocated = False\n        path_taken: List[str] = []\n        # Local optimization: if target is HQ\n        if target == 'HQ':\n            if available_bw['HQ'] >= req_bw:\n                allocated = True\n                path_taken = ['HQ']\n                allocate_bandwidth(path_taken, req_bw)\n            else:\n                allocated = False\n                path_taken = []\n            results[tid] = {'transaction_id': tid, 'allocated': allocated, 'path_taken': path_taken}\n            continue\n        # Connectivity check\n        if not connected('HQ', target):\n            results[tid] = {'transaction_id': tid, 'allocated': False, 'path_taken': []}\n            continue\n        # Find shortest path\n        dist, path = dijkstra('HQ', target)\n        if not path:\n            results[tid] = {'transaction_id': tid, 'allocated': False, 'path_taken': []}\n            continue\n        # Check bandwidth along path\n        if not path_has_bandwidth(path, req_bw):\n            results[tid] = {'transaction_id': tid, 'allocated': False, 'path_taken': []}\n            continue\n        # Evaluate path security\n        sec = path_security_score(path, adjusted)\n        if sec < 0.7:\n            results[tid] = {'transaction_id': tid, 'allocated': False, 'path_taken': []}\n            continue\n        # allocate\n        allocate_bandwidth(path, req_bw)\n        allocated = True\n        path_taken = path\n        results[tid] = {'transaction_id': tid, 'allocated': allocated, 'path_taken': path_taken}\n    # Ensure deterministic output sorted by transaction_id ascending and include any missing transactions\n    out: List[Dict[str, Any]] = []\n    for t in sorted(tx_map.keys()):\n        out.append(results.get(t, {'transaction_id': t, 'allocated': False, 'path_taken': []}))\n    return out"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2415,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2420,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4835
+  },
+  "user": null,
+  "metadata": {}
+}

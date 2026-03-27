@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: get_shortest_paths\n\nProblem Statement:\n## Problem Statement\n\nA social platform wants to power a live “reach-from-user” panel for campaign planners: pick a source user and instantly see how many hops away everyone else is, while friendships are constantly being added or removed by users.\nYour task is to implement a deterministic Breadth-First Search (BFS) that computes shortest-path hop counts from a given source, then keeps those distances correct as batched edge activations and deactivations arrive, updating only the affected region instead of recomputing everything, so the panel stays fast and consistent.\n\n\n### Objectives\n\n1. **Deterministic BFS Core:**\n   Level-synchronous BFS that processes nodes in strictly sorted order for reproducibility. No threading or multiprocessing\n2. **Incremental Updates:**\n   Apply activations with localized relaxations and deactivations with targeted invalidation + repair (no full recompute after the initial run).\n3. **Batch Atomicity:**\n   All operations in each update batch are applied atomically before any BFS propagation resumes.\n4. **Deterministic Load Order:**\n   Process each frontier in ascending lexicographic order of node IDs.\n5. **Determinism:**\n   Identical inputs (graph, source, updates) must always produce identical outputs.\n\n\n### Constraints\n\n- The solution must be implemented in pure Python (no external libraries allowed).\n- Graph Format:\n    * keys and neighbor IDs are string numeric node IDs (e.g., \"0\", \"12\")\n    * Self-loops are ignored, duplicate neighbors deduplicated.\n- Undirected Symmetry:\n    * If \"u\" lists \"v\", ensure \"v\" lists \"u\".\n    * Both adjacency lists must remain symmetric after updates.\n- Updates Format:\n    * updates is list[list[str]], each [\"activate\"|\"deactivate\", \"u\", \"v\"].\n    * \"u\" and \"v\" must be valid string numeric IDs.\n    * Missing nodes are auto-added.\n    * Self-loops and duplicate activates or deactivates are no-ops.\n- Incremental Correctness:\n    * Parent-chain invalidation: Removing edge (p, c) where parent[c] == p invalidates c and its descendants (set distance = -1).\n    * Boundary repair: Run multi-source BFS only from neighbors that still have non-negative distances.\n    * Off-tree deactivations: If the edge removed is not a parent edge, distances remain unchanged.\n    * Activations: Add both directions, attempt local relaxation from endpoints.\n- Batch Atomicity: Apply the entire updates list atomically, then propagate once.\n- Distance Map:\n    * The source node has a distance of 0.\n    * All reachable nodes have non-negative hop counts.\n    * Unreachable nodes have a distance value of -1.\n    * Every node seen in the graph or updates must appear in the output.\n- Validation Failures: Return {} if:\n    * graph is not a dict.\n    * any key/neighbor is not a valid string numeric ID.\n    * updates is not a list of valid 3-element lists.\n    * source is not a valid string numeric ID.\n    * or both graph == {} and updates are empty.\n- Deterministic Order:\n    * Sort neighbor lists lexicographically.\n    * Process frontiers in ascending node ID order.\n    * When multiple parents yield equal distances, choose the lexicographically smallest parent.\n\n\n### Function Signature\n\n```python\ndef get_shortest_paths(graph: dict, source: str, updates: list[list[str]]) -> dict:\n    \"\"\"\n    graph: Dictionary where keys are string node IDs and values are lists of neighbor IDs.\n    source: The node ID (string) from which to compute shortest paths.\n    updates: Ordered list of [\"activate\"/\"deactivate\", \"u\", \"v\"] operations.\n\n    returns: Dictionary mapping every node (string) to its shortest-path distance from 'source'\n             after applying all updates atomically. Reachable: non-negative hops; unreachable: -1.\n             Returns {} on invalid input.\n             The returned dictionary is sorted by ascending lexicographic order of node IDs.\n    \"\"\"\n```\n\n\n### Sample Input\n\n```python\ngraph = {\n    \"0\": [\"1\", \"2\"],\n    \"1\": [\"0\", \"3\"],\n    \"2\": [\"0\", \"4\"],\n    \"3\": [\"1\", \"5\"],\n    \"4\": [\"2\", \"5\"],\n    \"5\": [\"3\", \"4\", \"6\"],\n    \"6\": [\"5\"]\n}\nsource = \"0\"\nupdates = [\n    [\"deactivate\", \"5\", \"6\"],\n    [\"activate\",   \"1\", \"6\"],\n    [\"deactivate\", \"2\", \"4\"],\n    [\"activate\",   \"2\", \"6\"],\n    [\"deactivate\", \"1\", \"3\"],\n    [\"activate\",   \"0\", \"3\"]\n]\n```\n\n### Sample Output\n\n```python\n{\n    \"0\": 0,\n    \"1\": 1,\n    \"2\": 1,\n    \"3\": 1,\n    \"4\": 3,\n    \"5\": 2,\n    \"6\": 2\n}\n```\n\n\n### **Explanation**\n\nAfter applying all updates atomically, the final edges are:\n\n(0,1) (0,2) (0,3)\n(1,0) (1,6)\n(2,0) (2,6)\n(3,0) (3,5)\n(4,5)\n(5,3) (5,4)\n(6,1) (6,2)\n\nBFS from \"0\" yields:\n* 0 -> 1 -> 1, 2, 3\n* 2 -> 2, 5, 6\n* 3 -> 4 (via 5).\n  Hence \"4\": 3.\n\nStarter Code:\n```python\nfrom collections import defaultdict\n\ndef get_shortest_paths(graph: dict, source: str, updates: list[list[str]]) -> dict:\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"{\\\"0\\\": [\\\"1\\\", \\\"2\\\"], \\\"1\\\": [\\\"0\\\", \\\"3\\\"], \\\"2\\\": [\\\"0\\\", \\\"4\\\"], \\\"3\\\": [\\\"1\\\", \\\"5\\\"], \\\"4\\\": [\\\"2\\\", \\\"5\\\"], \\\"5\\\": [\\\"3\\\", \\\"4\\\", \\\"6\\\"], \\\"6\\\": [\\\"5\\\"]}\\n\\\"0\\\"\\n[[\\\"deactivate\\\", \\\"5\\\", \\\"6\\\"], [\\\"activate\\\", \\\"1\\\", \\\"6\\\"], [\\\"deactivate\\\", \\\"2\\\", \\\"4\\\"], [\\\"activate\\\", \\\"2\\\", \\\"6\\\"], [\\\"deactivate\\\", \\\"1\\\", \\\"3\\\"], [\\\"activate\\\", \\\"0\\\", \\\"3\\\"]]\",\n    \"output\": \"{\\\"0\\\": 0, \\\"1\\\": 1, \\\"2\\\": 1, \\\"3\\\": 1, \\\"4\\\": 3, \\\"5\\\": 2, \\\"6\\\": 2}\"\n  },\n  {\n    \"input\": \"{\\\"0\\\": []}\\n\\\"0\\\"\\n[]\",\n    \"output\": \"{\\\"0\\\": 0}\"\n  },\n  {\n    \"input\": \"{\\\"0\\\": [\\\"1\\\"], \\\"1\\\": [\\\"0\\\", \\\"2\\\"], \\\"2\\\": [\\\"1\\\"]}\\n\\\"0\\\"\\n[]\",\n    \"output\": \"{\\\"0\\\": 0, \\\"1\\\": 1, \\\"2\\\": 2}\"\n  }\n]\n"
+    }
+  ]
+}

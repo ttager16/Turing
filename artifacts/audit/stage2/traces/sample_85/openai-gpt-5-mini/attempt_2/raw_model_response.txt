@@ -1,0 +1,109 @@
+from typing import List, Union
+
+def manage_inventory(operations: List[List[Union[str, int]]]) -> List[int]:
+    # 1-based Fenwick tree with dynamic resizing
+    tree: List[int] = [0]  # index 0 unused
+    vals: List[int] = [0]  # index 0 unused, store actual values per position
+    res: List[int] = []
+
+    def _ensure_size(n: int):
+        # ensure tree and vals length >= n+1
+        cur = len(tree) - 1
+        if n <= cur:
+            return
+        # grow by doubling until enough to amortize costs
+        new_size = max(n, max(2 * cur, 1))
+        tree.extend([0] * (new_size - cur))
+        vals.extend([0] * (new_size - cur))
+
+    def _bit_add(idx: int, delta: int):
+        n = len(tree) - 1
+        while idx <= n:
+            tree[idx] += delta
+            idx += idx & -idx
+
+    def _prefix_sum(idx: int) -> int:
+        if idx <= 0:
+            return 0
+        if idx > len(tree) - 1:
+            idx = len(tree) - 1
+        s = 0
+        while idx > 0:
+            s += tree[idx]
+            idx -= idx & -idx
+        return s
+
+    for op in operations:
+        if not op:
+            continue
+        cmd = op[0]
+        if cmd == "add":
+            if len(op) < 2:
+                continue
+            val = int(op[1])
+            # Prevent storing values that would be extremely large? Allow but ensure ints (Python big ints ok)
+            pos = len(vals)  # next index
+            _ensure_size(pos)
+            vals[pos] = val
+            _bit_add(pos, val)
+        elif cmd == "remove":
+            if len(op) < 2:
+                continue
+            idx = int(op[1])
+            if 1 <= idx < len(vals):
+                cur = vals[idx]
+                if cur != 0:
+                    # remove value
+                    _bit_add(idx, -cur)
+                    vals[idx] = 0
+                # Optionally shrink arrays if tail zeros - shrink while last is zero to maintain compactness
+                # Do not shrink below 1
+                # Efficiently shrink contiguous zero tail
+                last = len(vals) - 1
+                while last >= 1 and vals[last] == 0:
+                    last -= 1
+                # last is new true last index
+                new_len = last + 1
+                if new_len < len(vals):
+                    # rebuild tree to new_len to keep structure consistent
+                    # Create fresh tree and vals copy
+                    vals = vals[: new_len]
+                    tree = [0] * new_len
+                    # rebuild BIT from vals
+                    for i in range(1, new_len):
+                        v = vals[i]
+                        if v:
+                            j = i
+                            while j < new_len:
+                                tree[j] += v
+                                j += j & -j
+        elif cmd == "update":
+            if len(op) < 3:
+                continue
+            idx = int(op[1])
+            delta = int(op[2])
+            if 1 <= idx < len(vals):
+                new_val = vals[idx] + delta
+                # prevent negative stock propagation: ignore updates that would make value negative
+                if new_val < 0:
+                    continue
+                vals[idx] = new_val
+                _bit_add(idx, delta)
+        elif cmd == "query":
+            if len(op) < 2:
+                res.append(0)
+                continue
+            idx = int(op[1])
+            if idx <= 0:
+                res.append(0)
+            else:
+                # cap idx to current max index
+                max_idx = len(vals) - 1
+                if idx > max_idx:
+                    idx = max_idx
+                res.append(_prefix_sum(idx))
+        else:
+            # unknown command: ignore
+            continue
+
+    return res

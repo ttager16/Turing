@@ -1,0 +1,76 @@
+{
+  "id": "resp_06b8f17f8d8104620069c32a707c9c8197a94b8d736baf425b",
+  "object": "response",
+  "created_at": 1774398064,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398085,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_06b8f17f8d8104620069c32a70fbe88197bf8caa4e82e4eaaa",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_06b8f17f8d8104620069c32a7129008197ad01eff26dbcccee",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Tuple\n\ndef optimize_city_layout(zones: List[Dict[str, Any]]) -> List[Dict[str, Any]]:\n    # Helper: compute axis-aligned bounding box for a zone\n    def bbox(coords: List[Tuple[float, float]]) -> Tuple[float, float, float, float]:\n        xs = [c[0] for c in coords]\n        ys = [c[1] for c in coords]\n        return (min(xs), min(ys), max(xs), max(ys))\n\n    # Helper: check bbox intersection (non-empty)\n    def bbox_intersect(a: Tuple[float, float, float, float], b: Tuple[float, float, float, float]) -> bool:\n        ax0, ay0, ax1, ay1 = a\n        bx0, by0, bx1, by1 = b\n        return not (ax1 < bx0 or bx1 < ax0 or ay1 < by0 or by1 < ay0)\n\n    # Disjoint set (union-find) with path compression and union by rank\n    class DSU:\n        def __init__(self, n):\n            self.parent = list(range(n))\n            self.rank = [0]*n\n        def find(self, x):\n            p = self.parent\n            while p[x] != x:\n                p[x] = p[p[x]]\n                x = p[x]\n            return x\n        def union(self, x, y):\n            rx = self.find(x)\n            ry = self.find(y)\n            if rx == ry:\n                return False\n            if self.rank[rx] < self.rank[ry]:\n                self.parent[rx] = ry\n            else:\n                self.parent[ry] = rx\n                if self.rank[rx] == self.rank[ry]:\n                    self.rank[rx] += 1\n            return True\n\n    # Prepare zones sorted by id to ensure deterministic ordering where needed\n    zones_sorted = sorted(zones, key=lambda z: z.get('id', 0))\n    n = len(zones_sorted)\n    id_to_index = {zones_sorted[i]['id']: i for i in range(n)}\n\n    # Precompute bboxes\n    bboxes = []\n    for z in zones_sorted:\n        coords = z.get('coordinates', [])\n        if not coords:\n            bboxes.append((0.0,0.0,0.0,0.0))\n        else:\n            bboxes.append(bbox(coords))\n\n    dsu = DSU(n)\n\n    # Global thresholds: can be configured here\n    MAX_WATER_CAPACITY = 1000000  # default very large; per-zone max_water_capacity can restrict merges\n    # Phase 1: raw adjacency pairs via bbox intersections\n    adjacency_pairs = []\n    # For n up to ~2000, O(n^2) acceptable\n    for i in range(n):\n        for j in range(i+1, n):\n            if bbox_intersect(bboxes[i], bboxes[j]):\n                adjacency_pairs.append((i, j))\n\n    # Phase 2: resource compatibility checks for each adjacency pair\n    for i, j in adjacency_pairs:\n        zi = zones_sorted[i]\n        zj = zones_sorted[j]\n        ri = zi.get('resources', {}) or {}\n        rj = zj.get('resources', {}) or {}\n\n        compatible = True\n\n        # Water compatibility: merged capacity must not exceed any provided max_water_capacity.\n        # Default MAX_WATER_CAPACITY is large; if zones provide per-zone max_water_capacity, use the minimum of those as limit.\n        wi = ri.get('water')\n        wj = rj.get('water')\n        cap_i = 0\n        cap_j = 0\n        # extract capacities if present\n        if isinstance(wi, dict):\n            cap_i = wi.get('capacity', 0) or 0\n        if isinstance(wj, dict):\n            cap_j = wj.get('capacity', 0) or 0\n        merged_capacity = cap_i + cap_j\n\n        # Determine any max constraints: check 'max_water_capacity' in zone resources dict or in water dict\n        max_caps = []\n        # look for resource-level max in each zone\n        for z in (zi, zj):\n            r = z.get('resources', {}) or {}\n            # resource-level overall key\n            if 'max_water_capacity' in r:\n                try:\n                    max_caps.append(float(r['max_water_capacity']))\n                except Exception:\n                    pass\n            # water-specific\n            w = r.get('water')\n            if isinstance(w, dict) and 'max_water_capacity' in w:\n                try:\n                    max_caps.append(float(w['max_water_capacity']))\n                except Exception:\n                    pass\n        # if any max_caps specified, merged_capacity must be <= min(max_caps)\n        if max_caps:\n            if merged_capacity > min(max_caps):\n                compatible = False\n        else:\n            # otherwise compare to global MAX_WATER_CAPACITY\n            if merged_capacity > MAX_WATER_CAPACITY:\n                compatible = False\n\n        # Roads: no upper bound unless 'max_density' specified in either zone resources\n        if compatible:\n            ri_roads = ri.get('roads')\n            rj_roads = rj.get('roads')\n            di = 0\n            dj = 0\n            if isinstance(ri_roads, dict):\n                di = ri_roads.get('density', 0) or 0\n            if isinstance(rj_roads, dict):\n                dj = rj_roads.get('density', 0) or 0\n            merged_density = di + dj\n            # check any max_density present\n            max_dens = []\n            for z in (zi, zj):\n                r = z.get('resources', {}) or {}\n                if 'max_density' in r:\n                    try:\n                        max_dens.append(float(r['max_density']))\n                    except Exception:\n                        pass\n                roads = r.get('roads')\n                if isinstance(roads, dict) and 'max_density' in roads:\n                    try:\n                        max_dens.append(float(roads['max_density']))\n                    except Exception:\n                        pass\n            if max_dens:\n                # If merged density would exceed any provided max (use min), disallow\n                if merged_density > min(max_dens):\n                    compatible = False\n\n        if compatible:\n            dsu.union(i, j)\n\n    # Phase 3: aggregate per-set geometry and resources\n    groups = {}\n    for idx in range(n):\n        root = dsu.find(idx)\n        groups.setdefault(root, []).append(idx)\n\n    merged = []\n    for root in sorted(groups.keys(), key=lambda r: min(zones_sorted[i]['id'] for i in groups[r])):\n        members = groups[root]\n        # Deterministic order: sort members by original zone id ascending\n        members_sorted = sorted(members, key=lambda i: zones_sorted[i]['id'])\n        ids = [zones_sorted[i]['id'] for i in members_sorted]\n        count = len(members_sorted)\n        new_id = min(ids) * 100 + count\n\n        # type aggregation\n        types = [zones_sorted[i].get('type') for i in members_sorted]\n        if all(t == types[0] for t in types):\n            new_type = types[0]\n        else:\n            new_type = 'mixed'\n\n        # coordinates: deterministic concatenation in ascending zone id order\n        new_coords = []\n        for i in members_sorted:\n            coords = zones_sorted[i].get('coordinates') or []\n            new_coords.extend(coords)\n\n        # resources aggregation\n        agg_resources: Dict[str, Any] = {}\n        # collect all resource keys across members\n        resource_keys = []\n        for i in members_sorted:\n            r = zones_sorted[i].get('resources', {}) or {}\n            for k in r.keys():\n                if k not in resource_keys:\n                    resource_keys.append(k)\n\n        for rk in resource_keys:\n            # special handling for 'water' and 'roads'\n            if rk == 'water':\n                total_capacity = 0\n                routes = []\n                for i in members_sorted:\n                    r = zones_sorted[i].get('resources', {}) or {}\n                    w = r.get('water')\n                    if isinstance(w, dict):\n                        total_capacity += w.get('capacity', 0) or 0\n                        rt = w.get('routes')\n                        if isinstance(rt, list):\n                            routes.extend(rt)\n                agg_resources['water'] = {'capacity': total_capacity, 'routes': routes}\n                # Preserve any max_water_capacity if present? Aggregation rules don't require it.\n            elif rk == 'roads':\n                total_density = 0\n                connections = []\n                for i in members_sorted:\n                    r = zones_sorted[i].get('resources', {}) or {}\n                    rd = r.get('roads')\n                    if isinstance(rd, dict):\n                        total_density += rd.get('density', 0) or 0\n                        conn = rd.get('connections')\n                        if isinstance(conn, list):\n                            connections.extend(conn)\n                agg_resources['roads'] = {'density': total_density, 'connections': connections}\n            else:\n                # Conservative default: numeric -> sum, list -> concat, others -> list of values\n                # Determine type by inspecting values in order\n                values = []\n                for i in members_sorted:\n                    r = zones_sorted[i].get('resources', {}) or {}\n                    if rk in r:\n                        values.append(r[rk])\n                # If all numeric (int/float), sum\n                if values and all(isinstance(v, (int, float)) for v in values):\n                    agg_resources[rk] = sum(v or 0 for v in values)\n                # If any lists, concatenate preserving member order\n                elif any(isinstance(v, list) for v in values):\n                    concatenated = []\n                    for v in values:\n                        if isinstance(v, list):\n                            concatenated.extend(v)\n                        else:\n                            concatenated.append(v)\n                    agg_resources[rk] = concatenated\n                else:\n                    # fallback: collect into list\n                    agg_resources[rk] = values\n\n        merged.append({\n            'id': new_id,\n            'type': new_type,\n            'coordinates': new_coords,\n            'resources': agg_resources\n        })\n\n    # Sort output deterministically by id ascending\n    merged_sorted = sorted(merged, key=lambda z: z['id'])\n    return merged_sorted\n\n# Notes where to integrate improvements:\n# - A spatial index (e.g., R-tree) would replace the O(n^2) adjacency loop for scalability.\n# - A proper polygon union routine (e.g., shapely) would be used to compute geometric unions rather than coordinate concatenation."
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1839,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2259,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4098
+  },
+  "user": null,
+  "metadata": {}
+}

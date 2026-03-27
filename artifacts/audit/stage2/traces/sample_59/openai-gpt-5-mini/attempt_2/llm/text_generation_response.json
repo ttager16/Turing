@@ -1,0 +1,76 @@
+{
+  "id": "resp_0eb0f31f587b67230069c329738ac4819296ea89592eeca834",
+  "object": "response",
+  "created_at": 1774397811,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774397818,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0eb0f31f587b67230069c32973d2f48192b17a6104ef21757d",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0eb0f31f587b67230069c329740fb4819283a6acdaabf18cba",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "def circulant_decomposition(adj_matrix):\n    \"\"\"\n    Performs compound circulant decomposition on a multi-layer adjacency matrix.\n    \n    Args:\n        adj_matrix: List[List[int]] - Square adjacency matrix\n        \n    Returns:\n        List[List[List[int]]] - List of circulant matrices\n    \"\"\"\n    # Copy input\n    n = len(adj_matrix)\n    if n == 0:\n        return []\n    # validate square\n    for row in adj_matrix:\n        if len(row) != n:\n            raise ValueError(\"Input must be a square matrix\")\n    rem = [row[:] for row in adj_matrix]\n    result = []\n    # Helper to build circulant from offset k and value v\n    def build_circulant(k, v):\n        C = [[0]*n for _ in range(n)]\n        for i in range(n):\n            j = (i + k) % n\n            C[i][j] = v\n        return C\n    # While there is any non-zero in rem\n    while True:\n        # find all non-zero positions and candidate offsets and values\n        nonzeros = [(i, j, rem[i][j]) for i in range(n) for j in range(n) if rem[i][j] != 0]\n        if not nonzeros:\n            break\n        # For each non-zero position (r,c) with value v, the circulant is defined by offset k = (c - r) mod n and value v.\n        # Evaluate score: number of positions where rem[i][j] == v and (j - i) mod n == k\n        best = None  # tuple (score, r, c, v, k)\n        # To speed a bit, precompute for each k and v the count\n        # But values up to 1000; instead compute per seen (k,v) from nonzeros\n        counts = {}\n        for (r, c, v) in nonzeros:\n            k = (c - r) % n\n            key = (k, v)\n            if key in counts:\n                continue\n            cnt = 0\n            for i in range(n):\n                j = (i + k) % n\n                if rem[i][j] == v:\n                    cnt += 1\n            counts[key] = cnt\n        # pick best by max count, tie-break larger v then smallest k\n        for (r, c, v) in nonzeros:\n            k = (c - r) % n\n            cnt = counts[(k, v)]\n            candidate = (cnt, v, -k, r, c, k)  # prefer larger cnt, larger v, smaller k\n            if best is None or candidate > best:\n                best = candidate\n                best_choice = (r, c, v, k, cnt)\n        # Extract chosen circulant\n        _, _, v, k, cnt = best_choice[0], best_choice[1], best_choice[2], best_choice[3], best_choice[4]  # unpack\n        # But best_choice defined as (r,c,v,k,cnt)\n        r, c, v, k, cnt = best_choice\n        C = build_circulant(k, v)\n        # Subtract C from rem element-wise\n        for i in range(n):\n            j = (i + k) % n\n            rem[i][j] -= v\n            if rem[i][j] < 0:\n                # Numerical safety: clamp to zero if over-subtracted due to logic error\n                rem[i][j] = 0\n        result.append(C)\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1014,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 776,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1790
+  },
+  "user": null,
+  "metadata": {}
+}

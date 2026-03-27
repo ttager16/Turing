@@ -1,0 +1,76 @@
+{
+  "id": "resp_002eb7c6c489c74f0069c3315716b881a1b41427490a70226c",
+  "object": "response",
+  "created_at": 1774399831,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774399871,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_002eb7c6c489c74f0069c331576be081a1b27674cd32e8f58e",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_002eb7c6c489c74f0069c33157a7b081a1b5c8013836091bd8",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Tuple, Optional\nimport re\n\n# Lexicons / constants\nORG_SUFFIXES = {\"Inc.\", \"Corp.\", \"Corporation\", \"Ltd.\", \"PLC\", \"AG\", \"SA\", \"NV\", \"LLC\", \"LP\", \"Co.\", \"Company\"}\nDISCOURSE_MARKERS = {\"Meanwhile\"}\nPREP = {\"with\", \"in\", \"on\", \"at\", \"by\", \"for\", \"to\", \"of\", \"from\", \"over\", \"under\", \"between\"}\nDET = {\"the\", \"a\", \"an\", \"this\", \"that\", \"these\", \"those\"}\nADJ = {\"strong\", \"first\"}\nVERB = {\"surprises\", \"surging\", \"climbs\"}\nNOUN = {\"investors\", \"profits\", \"demand\"}\nTIME = {\"hour\", \"day\", \"week\", \"month\", \"year\"}\nENTITY_SINGLE = {\"NetSky\"}\nMAGNITUDES = {\"thousand\", \"million\", \"billion\", \"trillion\"}\nCURRENCY_SYMBOLS = {\"$\", \"€\", \"£\", \"¥\"}\n\n# Precompiled regexes\nRE_NUMBER = re.compile(r'^\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?$|^\\d+(?:\\.\\d+)?$')\nRE_NUMBER_INTEXT = re.compile(r'^\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?|\\d+(?:\\.\\d+)?')\nRE_PERCENT = re.compile(r'^\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?%$|^\\d+(?:\\.\\d+)?%$')\nRE_CURRENCY_PAIR = re.compile(r'^[A-Z]{3}/[A-Z]{3}$')\nRE_LETTERS = re.compile(r'^[A-Za-z]+$')\n\ndef is_number_token(s: str) -> bool:\n    return bool(RE_NUMBER.match(s))\n\ndef match_number_at(text: str, pos: int) -> Optional[Tuple[str, int]]:\n    m = re.match(r'\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?|\\d+(?:\\.\\d+)?', text[pos:])\n    if m:\n        return m.group(0), pos + m.end()\n    return None\n\ndef custom_tokenizer(input_text: str) -> List[List[str]]:\n    s = input_text.strip()\n    n = len(s)\n    i = 0\n    tokens: List[List[str]] = []\n    sent_start = True  # sentence-initial heuristic; consider start and after periods? But periods dropped -> use start and after tokens that ended with period in original? Simpler: sentence-initial only at very start.\n    # As periods are dropped except in org suffixes, we treat only absolute start as sentence-initial per spec.\n    while i < n:\n        # Skip whitespace\n        if s[i].isspace():\n            i += 1\n            continue\n\n        # Attempt multi-token merges (company name, currency value, percentage, currency pair) in order.\n        # Save original position for potential fallback\n        start = i\n\n        # 1) Company name: Capitalized word followed immediately by an org suffix (org suffix may include period).\n        # We need to extract next word and next token possibly separated by single space.\n        # Extract next token up to whitespace or punctuation.\n        # We'll parse a word (letters with possible internal hyphen?) Spec: Capitalized word (single Latin word).\n        # Find next contiguous non-space run as next_word\n        j = i\n        # collect next \"word\" token characters until whitespace\n        while j < n and not s[j].isspace():\n            j += 1\n        first = s[i:j]\n        # Check capitalization: Capitalized word => starts with uppercase A-Z and has at least one lowercase or any letters\n        company_merged = None\n        if first and first[0].isupper() and RE_LETTERS.match(first):\n            # Lookahead for suffix: there may be a space then suffix or immediately attached?\n            k = j\n            # skip single space(s)\n            while k < n and s[k].isspace():\n                k += 1\n            # Extract possible suffix token\n            m = k\n            while m < n and not s[m].isspace():\n                m += 1\n            suffix = s[k:m] if k < n else ''\n            if suffix in ORG_SUFFIXES:\n                # Merge first + space(s) + suffix into one token\n                merged = s[i:m]\n                company_merged = (merged, m)\n        if company_merged:\n            token_text, new_pos = company_merged\n            # Preserve period in suffix as lexicon shows\n            tokens.append([token_text, \"ENTITY\"])\n            i = new_pos\n            sent_start = False\n            continue\n\n        # 2) Currency value: currency symbol + optional space + number + optional space + optional magnitude\n        if s[i] in CURRENCY_SYMBOLS:\n            # try to parse symbol\n            sym = s[i]\n            p = i + 1\n            # optional space\n            while p < n and s[p].isspace():\n                p += 1\n            num_match = match_number_at(s, p)\n            if num_match:\n                num_str, p2 = num_match\n                q = p2\n                # optional space\n                while q < n and s[q].isspace():\n                    q += 1\n                # optional magnitude word\n                mag_match = None\n                # read next run of letters\n                r = q\n                while r < n and not s[r].isspace():\n                    r += 1\n                mag = s[q:r] if q < n else ''\n                if mag.lower() in MAGNITUDES:\n                    mag_match = mag\n                    q = r\n                # Build token value preserving original spacing within allowed? Spec: merged span is single token; token text should be the original substring between i and q.\n                token_text = s[i:q]\n                if num_str:\n                    tokens.append([token_text, \"VALUE\"])\n                    i = q\n                    sent_start = False\n                    continue\n        # 3) Percentage: number immediately followed by '%'\n        # Check if at position there is number then %\n        pct_match = re.match(r'(\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?|\\d+(?:\\.\\d+)?)(%)', s[i:])\n        if pct_match:\n            # Ensure % is immediately after number (no spaces)\n            numpart = pct_match.group(1)\n            pct = pct_match.group(2)\n            token_text = numpart + pct\n            tokens.append([token_text, \"VALUE\"])\n            i += len(token_text)\n            sent_start = False\n            continue\n\n        # 4) Currency pair: exactly 3 uppercase letters / 3 uppercase letters\n        # We need to check next contiguous non-space run\n        j = i\n        while j < n and not s[j].isspace():\n            j += 1\n        run = s[i:j]\n        if RE_CURRENCY_PAIR.match(run):\n            tokens.append([run, \"ENTITY\"])\n            i = j\n            sent_start = False\n            continue\n\n        # If no merge applies, extract next token per tokenization rules (split on whitespace)\n        # We already have run as next whitespace-delimited chunk\n        token = run\n        i = j\n\n        # Strip leading/trailing punctuation per rules:\n        # - Drop standalone punctuation tokens unless retained by rule (we have no retention here)\n        # - Trailing commas: preserve single trailing comma only if base word (without comma) is in discourse marker lexicon (case-sensitive)\n        # - Abbreviation periods in org suffixes retained when part of merged token; here single token may be \"Inc.\" standalone but unless merged with capitalized word before, it's just token. The rule says retain period in org suffixes when part of recognized pattern; not elsewhere. So drop periods.\n        # Implementation: Check if token is exactly one punctuation char -> drop\n        if all(not ch.isalnum() for ch in token):\n            # standalone punctuation dropped\n            sent_start = False\n            continue\n\n        # Handle trailing comma preservation\n        preserved_comma = False\n        if token.endswith(','):\n            base = token[:-1]\n            if base in DISCOURSE_MARKERS:\n                # preserve single trailing comma\n                preserved_comma = True\n                token_text = token  # keep comma\n            else:\n                # strip trailing comma (dropped)\n                token = base\n        # Remove other punctuation: semicolons, colons, parentheses, standalone periods, and other punctuation are dropped unless covered above.\n        # Remove any periods unless token exactly matches an org suffix (which could be here). The org suffixes retention applies only in merges; so drop periods.\n        # Also drop any parentheses, semicolons, colons in token by removing them.\n        # However, do not remove % or / or currency symbols if part of token (those handled earlier). Here % or / unlikely remain.\n        # Remove leading/trailing punctuation chars from token except preserved comma\n        def strip_outer_punct(t: str) -> str:\n            # Preserve internal punctuation (e.g., USD/EUR handled earlier). Strip leading/trailing chars that are punctuation except if the whole token is discourse marker plus comma handled.\n            start = 0\n            end = len(t)\n            while start < end and not t[start].isalnum() and t[start] not in CURRENCY_SYMBOLS:\n                start += 1\n            while end > start and not t[end-1].isalnum() and (t[end-1] not in CURRENCY_SYMBOLS) and t[end-1] != ',':\n                end -= 1\n            return t[start:end]\n        if not preserved_comma:\n            token = strip_outer_punct(token)\n        else:\n            # preserve trailing comma but strip other outer punct\n            inner = token[:-1]\n            inner = strip_outer_punct(inner)\n            token = inner + ','\n\n        if token == '':\n            sent_start = False\n            continue\n\n        # Assign tag using precedence: merges done; now patterns > lexicons > heuristics > OTHER\n\n        tag = None\n\n        # Patterns:\n        if RE_PERCENT.match(token):\n            tag = \"VALUE\"\n        elif RE_CURRENCY_PAIR.match(token):\n            tag = \"ENTITY\"\n        else:\n            # Currency value single-token form like \"$5\" or \"$5million\"? But currency values with spaces already handled. Here allow symbol attached to number like \"$5\" or \"€1.25\"\n            if token and token[0] in CURRENCY_SYMBOLS:\n                # after symbol there may be number\n                rest = token[1:]\n                if is_number_token(rest):\n                    tag = \"VALUE\"\n                else:\n                    # maybe symbol attached to number with magnitude without space: check if rest starts with number then magnitude\n                    m = re.match(r'^(\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?|\\d+(?:\\.\\d+)?)([A-Za-z]+)?$', rest)\n                    if m:\n                        mag = m.group(2)\n                        if mag and mag.lower() in MAGNITUDES:\n                            tag = \"VALUE\"\n            # Company name single-token entity? Single-token company not merged requires capitalized single-token proper nouns in ENTITY_SINGLE\n            if not tag and token in ENTITY_SINGLE:\n                tag = \"ENTITY\"\n\n        # Lexicons (exact match, case-sensitive for matching as specified? Lexicons are English words, assume case-sensitive for DET/PREP etc? The spec lists lowercased entries; matching should be exact-match lexicons for English words. Use exact match with case sensitivity as entries are lowercased; tokens preserve case so match case-insensitively for POS lexicons.)\n        if not tag:\n            low = token.lower()\n            if low in PREP:\n                tag = \"PREP\"\n            elif low in DET:\n                tag = \"DET\"\n            elif low in ADJ:\n                tag = \"ADJ\"\n            elif low in VERB:\n                tag = \"VERB\"\n            elif low in NOUN:\n                tag = \"NOUN\"\n            elif low in TIME:\n                tag = \"TIME\"\n            elif token in DISCOURSE_MARKERS or low in {m.lower() for m in DISCOURSE_MARKERS}:\n                tag = \"OTHER\"\n        # Heuristics\n        if not tag:\n            # Capitalized mixed-case single Latin word not in any lexicon and not sentence-initial => ENTITY.\n            if RE_LETTERS.match(token) and token[0].isupper() and not token.isupper() and token not in ENTITY_SINGLE and not sent_start:\n                tag = \"ENTITY\"\n        if not tag:\n            # Sentence-initial capitalized words are not auto-ENTITY unless in lexicon or merge rule; we've already checked lexicons.\n            # Fallback\n            tag = \"OTHER\"\n\n        tokens.append([token, tag])\n        sent_start = False\n\n    return tokens"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2222,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2794,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 5016
+  },
+  "user": null,
+  "metadata": {}
+}

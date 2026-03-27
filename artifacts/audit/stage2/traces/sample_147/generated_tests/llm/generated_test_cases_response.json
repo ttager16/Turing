@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN80wo9HlAN9tY98pwyiyWvZYdFRL",
+  "object": "chat.completion",
+  "created": 1774404722,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"5\",\"[[0, 1, 2, 5, 4], [1, 2, 3, 7, 3], [0, 2, 6, 12, 10], [2, 3, 4, 3, 5], [3, 4, 1, 5, 2]]\",\"[2, 4]\",\"10\",\"20\"],\"focus\":\"Exact-boundary time and capacity: path sums equal global limits; alternatives exist that exceed constraints.\"},{\"input_lines\":[\"4\",\"[[0, 1, 1, 2, 1], [1, 1, 1, 1, 0], [1, 2, 2, 2, 2], [2, 3, 3, 3, 3], [0, 3, 10, 10, 10]]\",\"[1, 1, 3]\",\"7\",\"8\"],\"focus\":\"Repeated mandatory checkpoint requiring a revisit (uses self-loop); order and multiplicity matter; tight limits.\"},{\"input_lines\":[\"7\",\"[[0, 1, 1, 5, 2], [1, 2, 3, 6, 1], [2, 4, 4, 5, 5], [1, 3, 2, 10, 1], [3, 4, 2, 12, 1], [4, 5, 1, 3, 2], [5, 6, 2, 4, 2], [3, 6, 8, 30, 1], [4, 6, 7, 15, 5], [2, 3, 1, 2, 3]]\",\"[1, 4, 6]\",\"15\",\"18\"],\"focus\":\"Cheapest-seeming route violates capacity constraints; only a costlier path is feasible — distinguishes capacity-aware solutions.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2226,
+    "completion_tokens": 3265,
+    "total_tokens": 5491,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2816,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

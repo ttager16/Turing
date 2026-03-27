@@ -1,0 +1,239 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        [
+          0,
+          1,
+          10.0,
+          5.0,
+          2.0
+        ],
+        [
+          1,
+          3,
+          10.0,
+          5.0,
+          2.0
+        ],
+        [
+          0,
+          2,
+          10.0,
+          5.0,
+          2.0
+        ],
+        [
+          2,
+          3,
+          10.0,
+          5.0,
+          2.0
+        ],
+        [
+          0,
+          3,
+          50.0,
+          12.0,
+          4.5
+        ]
+      ],
+      [
+        {
+          "src": 0,
+          "dst": 3,
+          "type": "STANDARD",
+          "amount": 8.0
+        },
+        {
+          "src": 0,
+          "dst": 3,
+          "type": "STANDARD",
+          "amount": 2.0
+        }
+      ],
+      [
+        {
+          "type": "URGENT",
+          "src": 0,
+          "dst": 3,
+          "deadline": 8.0,
+          "required": 3.0
+        }
+      ],
+      {
+        "0-1": 0.2,
+        "1-3": 0.2,
+        "0-2": 0.2,
+        "2-3": 0.2,
+        "0-3": 0.05
+      },
+      {
+        "VAN": 10.0,
+        "TRUCK": 10.0
+      },
+      {
+        "VAN": 10.0,
+        "TRUCK": 10.0
+      },
+      1.0,
+      123,
+      0.9
+    ],
+    "input_lines": [
+      "[[0, 1, 10.0, 5.0, 2.0], [1, 3, 10.0, 5.0, 2.0], [0, 2, 10.0, 5.0, 2.0], [2, 3, 10.0, 5.0, 2.0], [0, 3, 50.0, 12.0, 4.5]]",
+      "[{\"src\": 0, \"dst\": 3, \"type\": \"STANDARD\", \"amount\": 8.0}, {\"src\": 0, \"dst\": 3, \"type\": \"STANDARD\", \"amount\": 2.0}]",
+      "[{\"type\": \"URGENT\", \"src\": 0, \"dst\": 3, \"deadline\": 8.0, \"required\": 3.0}]",
+      "{\"0-1\": 0.2, \"1-3\": 0.2, \"0-2\": 0.2, \"2-3\": 0.2, \"0-3\": 0.05}",
+      "{\"VAN\": 10.0, \"TRUCK\": 10.0}",
+      "{\"VAN\": 10.0, \"TRUCK\": 10.0}",
+      "1.0",
+      "123",
+      "0.9"
+    ],
+    "focus": "Equal-cost alternative two-hop paths from 0→3; vehicles have identical budgets — tests path tie-breaking, deterministic lexicographic selection, and handling of a direct higher-cost shortcut."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        [
+          0,
+          1,
+          5.0,
+          10.0,
+          3.0
+        ]
+      ],
+      [
+        {
+          "src": 0,
+          "dst": 1,
+          "type": "STANDARD",
+          "amount": 8.0
+        }
+      ],
+      [
+        {
+          "type": "URGENT",
+          "src": 0,
+          "dst": 1,
+          "deadline": 6.0,
+          "required": 4.0
+        }
+      ],
+      {
+        "0-1": 0.0
+      },
+      {
+        "VAN": 10.0
+      },
+      {
+        "VAN": 3.0
+      },
+      2.0,
+      7,
+      1.0
+    ],
+    "input_lines": [
+      "[[0, 1, 5.0, 10.0, 3.0]]",
+      "[{\"src\": 0, \"dst\": 1, \"type\": \"STANDARD\", \"amount\": 8.0}]",
+      "[{\"type\": \"URGENT\", \"src\": 0, \"dst\": 1, \"deadline\": 6.0, \"required\": 4.0}]",
+      "{\"0-1\": 0.0}",
+      "{\"VAN\": 10.0}",
+      "{\"VAN\": 3.0}",
+      "2.0",
+      "7",
+      "1.0"
+    ],
+    "focus": "Single-edge deterministic travel time (variance=0) with deadline equal to μ (congestion_factor>1). Priority is processed first and consumes capacity, leaving only partial capacity for a larger non-priority request."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        [
+          0,
+          1,
+          10.0,
+          4.0,
+          1.0
+        ],
+        [
+          1,
+          2,
+          5.0,
+          2.0,
+          0.5
+        ],
+        [
+          0,
+          2,
+          5.0,
+          7.0,
+          2.0
+        ],
+        [
+          2,
+          3,
+          10.0,
+          3.0,
+          1.5
+        ]
+      ],
+      [
+        {
+          "src": 0,
+          "dst": 3,
+          "type": "STANDARD",
+          "amount": 6.0
+        },
+        {
+          "src": 1,
+          "dst": 3,
+          "type": "EXPRESS",
+          "amount": 4.0
+        }
+      ],
+      [
+        {
+          "type": "URGENT",
+          "src": 0,
+          "dst": 3,
+          "deadline": 100.0,
+          "required": 5.0
+        }
+      ],
+      {
+        "0-1": 0.1,
+        "1-2": 0.05,
+        "0-2": 0.2,
+        "2-3": 0.1
+      },
+      {
+        "BIKE": 2.0,
+        "TRUCK": 10.0
+      },
+      {
+        "BIKE": 0.0,
+        "TRUCK": 5.0
+      },
+      1.0,
+      42,
+      0.0
+    ],
+    "input_lines": [
+      "[[0, 1, 10.0, 4.0, 1.0], [1, 2, 5.0, 2.0, 0.5], [0, 2, 5.0, 7.0, 2.0], [2, 3, 10.0, 3.0, 1.5]]",
+      "[{\"src\": 0, \"dst\": 3, \"type\": \"STANDARD\", \"amount\": 6.0}, {\"src\": 1, \"dst\": 3, \"type\": \"EXPRESS\", \"amount\": 4.0}]",
+      "[{\"type\": \"URGENT\", \"src\": 0, \"dst\": 3, \"deadline\": 100.0, \"required\": 5.0}]",
+      "{\"0-1\": 0.1, \"1-2\": 0.05, \"0-2\": 0.2, \"2-3\": 0.1}",
+      "{\"BIKE\": 2.0, \"TRUCK\": 10.0}",
+      "{\"BIKE\": 0.0, \"TRUCK\": 5.0}",
+      "1.0",
+      "42",
+      "0.0"
+    ],
+    "focus": "Multiple-path network where an URGENT delivery should saturate a narrow bottleneck (1→2 capacity), BIKE has zero driver-hours (unusable), and probabilistic_threshold=0 ensures any feasible path is acceptable — tests capacity boundaries and vehicle exclusion."
+  }
+]

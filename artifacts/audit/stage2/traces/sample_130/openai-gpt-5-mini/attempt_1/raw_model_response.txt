@@ -1,0 +1,306 @@
+from typing import Dict, List, Iterable
+from collections import deque, defaultdict
+
+def find_planar_separators(
+    graph: Dict[int, List[int]],
+    queries: List[List]
+) -> List[List[int]]:
+
+    # Convert initial graph keys/values (they may be strings) to ints
+    adj = defaultdict(set)
+    def add_edge(u, v):
+        if u == v: return
+        adj[u].add(v)
+        adj[v].add(u)
+    def remove_edge(u, v):
+        if v in adj.get(u, set()):
+            adj[u].remove(v)
+        if u in adj.get(v, set()):
+            adj[v].remove(u)
+
+    for k, vs in list(graph.items()):
+        try:
+            ui = int(k)
+        except:
+            ui = k
+        for v in vs:
+            try:
+                vi = int(v)
+            except:
+                vi = v
+            add_edge(ui, vi)
+
+    # Helper: get current set of nodes
+    def nodeset():
+        ns = set(adj.keys())
+        for u in list(adj.keys()):
+            ns.update(adj[u])
+        return ns
+
+    # BFS to get component id map excluding separator S
+    def components_excluding(S):
+        Sset = set(S)
+        comp = {}
+        comp_sizes = {}
+        visited = set()
+        cid = 0
+        for node in sorted(nodeset()):
+            if node in visited or node in Sset:
+                continue
+            cid += 1
+            q = deque([node])
+            visited.add(node)
+            comp[node] = cid
+            size = 1
+            while q:
+                u = q.popleft()
+                for w in adj.get(u, ()):
+                    if w in visited or w in Sset:
+                        continue
+                    visited.add(w)
+                    comp[w] = cid
+                    q.append(w)
+                    size += 1
+            comp_sizes[cid] = size
+        return comp, comp_sizes
+
+    # Check that all targets are in distinct components after removing S
+    def targets_separated(targets, S):
+        comp, _ = components_excluding(S)
+        comps = {}
+        for t in targets:
+            if t not in comp:
+                # isolated or removed -> treat as own component of size 1 if node exists else size 0
+                # If node not in graph nodeset, treat as isolated singleton (per spec)
+                comps[t] = ('isolated', t)
+            else:
+                comps[t] = ('comp', comp[t])
+        # map comp ids besides 'isolated' to distinctness
+        seen = {}
+        assigned = set()
+        for t, v in comps.items():
+            if v[0] == 'isolated':
+                # unique id
+                uid = ('isolated', v[1])
+            else:
+                uid = ('comp', v[1])
+            if uid in seen:
+                return False
+            seen[uid] = t
+        return True
+
+    # Check balance: compute sizes of remaining non-empty components after removing S
+    def balance_ok(S):
+        _, comp_sizes = components_excluding(S)
+        sizes = [s for s in comp_sizes.values() if s > 0]
+        if not sizes:
+            return True
+        s_min = min(sizes)
+        s_max = max(sizes)
+        if s_min == 0:
+            return False
+        return (s_max / s_min) <= 1.2
+
+    # Compute a small separator heuristic:
+    # 1) try single node separators: articulation points and nodes on paths between targets
+    # 2) try pairs by exploring BFS frontiers around targets up to small radius
+    # 3) fallback: separate by cutting neighbors of targets (take neighbors set)
+    def find_separator_for_query(targets):
+        # ensure ints
+        targets = [int(t) for t in targets]
+        all_nodes = sorted(nodeset())
+        # If targets already in distinct components without removal:
+        if targets_separated(targets, []):
+            # empty separator but must still satisfy balance; if balance not ok, we may need to pick nodes
+            if balance_ok([]):
+                return []
+        # Try single node separators: iterate ascending node ids
+        for v in all_nodes:
+            S = [v]
+            if targets_separated(targets, S):
+                if balance_ok(S):
+                    return S
+        # articulation point based: compute articulation points (Tarjan)
+        # Build adjacency snapshot
+        idx = {}
+        for i, n in enumerate(all_nodes):
+            idx[n] = i
+        N = len(all_nodes)
+        g = [[] for _ in range(N)]
+        for u in all_nodes:
+            ui = idx[u]
+            for v in adj.get(u, ()):
+                if v in idx:
+                    g[ui].append(idx[v])
+        # iterative tarjan
+        sys_stack = []
+        disc = [-1]*N
+        low = [0]*N
+        parent = [-1]*N
+        ap = [False]*N
+        time = 0
+        for i in range(N):
+            if disc[i] != -1:
+                continue
+            stack = [(i, 0, 'visit')]
+            while stack:
+                node, neighbor_index, typ = stack.pop()
+                if typ == 'visit':
+                    if disc[node] != -1:
+                        continue
+                    disc[node] = time
+                    low[node] = time
+                    time += 1
+                    child_count = 0
+                    stack.append((node, 0, ('post', child_count)))
+                    for nei in g[node]:
+                        if disc[nei] == -1:
+                            parent[nei] = node
+                            child_count += 1
+                            stack.append((nei, 0, 'visit'))
+                        else:
+                            if parent[node] != nei:
+                                low[node] = min(low[node], disc[nei])
+                else:
+                    # post processing
+                    child_count = typ[1] if isinstance(typ, tuple) else 0
+                    for nei in g[node]:
+                        if parent[nei] == node:
+                            low[node] = min(low[node], low[nei])
+                            if parent[node] == -1 and child_count > 1:
+                                ap[node] = True
+                            if parent[node] != -1 and low[nei] >= disc[node]:
+                                ap[node] = True
+        ap_nodes = [all_nodes[i] for i, val in enumerate(ap) if val]
+        for v in sorted(ap_nodes):
+            S = [v]
+            if targets_separated(targets, S):
+                if balance_ok(S):
+                    return S
+        # Try pairs from small frontier around targets: BFS up to radius 2
+        frontier = set()
+        max_radius = 2
+        for t in sorted(set(targets)):
+            if t not in adj:
+                continue
+            q = deque([(t,0)])
+            seen = {t}
+            while q:
+                u, d = q.popleft()
+                frontier.add(u)
+                if d < max_radius:
+                    for w in adj.get(u,()):
+                        if w not in seen:
+                            seen.add(w)
+                            q.append((w,d+1))
+        front_list = sorted(frontier)
+        # try all pairs ascending (bounded)
+        limit_pairs = 2000
+        cnt = 0
+        L = len(front_list)
+        for i in range(L):
+            for j in range(i+1, L):
+                cnt += 1
+                if cnt > limit_pairs:
+                    break
+                S = [front_list[i], front_list[j]]
+                if targets_separated(targets, S):
+                    if balance_ok(S):
+                        return sorted(S)
+            if cnt > limit_pairs:
+                break
+        # try triples limited
+        limit_triples = 2000
+        cnt = 0
+        for i in range(L):
+            for j in range(i+1, L):
+                for k in range(j+1, L):
+                    cnt += 1
+                    if cnt > limit_triples:
+                        break
+                    S = [front_list[i], front_list[j], front_list[k]]
+                    if targets_separated(targets, S):
+                        if balance_ok(S):
+                            return sorted(S)
+                if cnt > limit_triples:
+                    break
+            if cnt > limit_triples:
+                break
+        # fallback: neighbors of targets
+        nbrs = set()
+        for t in targets:
+            for w in adj.get(t,()):
+                nbrs.add(w)
+        cand = sorted(nbrs)
+        # try increasing prefixes
+        for k in range(1, len(cand)+1):
+            S = cand[:k]
+            if targets_separated(targets, S):
+                if balance_ok(S) or k==len(cand):
+                    return sorted(S)
+        # last resort: take set of all nodes except minimal components containing each target
+        # build components without removal, then pick one node from each component as separator
+        comp, comp_sizes = components_excluding([])
+        # pick nodes that are between components: choose neighbors of multiple components
+        # greedy: pick nodes by degree ascending
+        allnodes_sorted = sorted(nodeset())
+        S = []
+        for v in allnodes_sorted:
+            S.append(v)
+            if targets_separated(targets, S):
+                return sorted(S)
+        return sorted(S)
+
+    # Local minimality pruning: attempt removing nodes in ascending ID order
+    def prune_separator(S, targets):
+        S = sorted(set(S))
+        for v in sorted(S):
+            trial = [x for x in S if x != v]
+            if targets_separated(targets, trial):
+                if balance_ok(trial):
+                    S = trial
+                else:
+                    # keep removing even if balance would be violated only if original didn't satisfy balance?
+                    # Spec: keep a node removed only if separation and balance still hold.
+                    pass
+        return sorted(S)
+
+    results = []
+    for op in queries:
+        if not op:
+            continue
+        cmd = op[0]
+        if cmd == "add":
+            if len(op) >= 3:
+                try:
+                    u = int(op[1]); v = int(op[2])
+                except:
+                    u = op[1]; v = op[2]
+                add_edge(u, v)
+        elif cmd == "remove":
+            if len(op) >= 3:
+                try:
+                    u = int(op[1]); v = int(op[2])
+                except:
+                    u = op[1]; v = op[2]
+                remove_edge(u, v)
+        elif cmd == "query":
+            if len(op) >= 2:
+                targets_raw = op[1]
+                targets = []
+                for t in targets_raw:
+                    try:
+                        targets.append(int(t))
+                    except:
+                        targets.append(t)
+                S = find_separator_for_query(targets)
+                # prune for local minimality: must test removing nodes in ascending ID order; keep removal only if separation and balance still hold
+                S_pruned = prune_separator(S, targets)
+                results.append(sorted(S_pruned))
+            else:
+                results.append([])
+        else:
+            # ignore unknown ops
+            pass
+
+    return results

@@ -1,0 +1,129 @@
+from typing import List, Any
+
+def schedule_tasks(tasks: List[List[Any]], operations: List[List[Any]]) -> List[str]:
+    # Validate initial tasks
+    if not isinstance(tasks, list) or not isinstance(operations, list):
+        return []
+    clusters = {}
+    links = {}  # adjacency set, though links have no further effect in this spec
+    for item in tasks:
+        if (not isinstance(item, list)) or len(item) != 2:
+            return []
+        cap, name = item
+        if not isinstance(name, str):
+            return []
+        if not (isinstance(cap, int) and cap >= 0):
+            return []
+        if name in clusters:
+            return []
+        clusters[name] = cap
+        links[name] = set()
+    MERGE_LIMIT = 100
+
+    for op in operations:
+        # Each operation must be list of length 2
+        if not isinstance(op, list) or len(op) != 2:
+            return []
+        typ, payload = op
+        if typ not in ("link", "split", "merge", "adjust", "balance"):
+            return []
+        # link
+        if typ == "link":
+            if not (isinstance(payload, list) and len(payload) == 2):
+                return []
+            a, b = payload
+            if not (isinstance(a, str) and isinstance(b, str)):
+                return []
+            if a == b:
+                return []
+            if a not in clusters or b not in clusters:
+                return []
+            links.setdefault(a, set()).add(b)
+            links.setdefault(b, set()).add(a)
+        elif typ == "split":
+            # payload must be a single string "a" that references existing cluster
+            if not isinstance(payload, str):
+                return []
+            a = payload
+            if a not in clusters:
+                return []
+            old = clusters[a]
+            new_cap = old // 2
+            clusters[a] = new_cap
+            # discarded half is no longer tracked
+            # links remain as they were for a
+        elif typ == "merge":
+            if not (isinstance(payload, list) and len(payload) == 2):
+                return []
+            a, b = payload
+            if not (isinstance(a, str) and isinstance(b, str)):
+                return []
+            if a == b:
+                return []
+            if a not in clusters or b not in clusters:
+                return []
+            combined = clusters[a] + clusters[b]
+            if combined > MERGE_LIMIT:
+                return []
+            # merge b into a; a keeps name, b removed
+            clusters[a] = combined
+            # merge links
+            links.setdefault(a, set())
+            links.setdefault(b, set())
+            for nbr in links[b]:
+                if nbr != a:
+                    links[a].add(nbr)
+                    links.setdefault(nbr, set()).add(a)
+                links.get(nbr, set()).discard(b)
+            links.pop(b, None)
+            clusters.pop(b, None)
+        elif typ == "adjust":
+            if not (isinstance(payload, list) and len(payload) == 2):
+                return []
+            value, a = payload
+            if not (isinstance(value, int) and isinstance(a, str)):
+                return []
+            if a not in clusters:
+                return []
+            new = clusters[a] + value
+            if new < 0:
+                new = 0
+            clusters[a] = new
+        elif typ == "balance":
+            if not (isinstance(payload, list) and len(payload) == 2):
+                return []
+            a, b = payload
+            if not (isinstance(a, str) and isinstance(b, str)):
+                return []
+            if a == b:
+                return []
+            if a not in clusters or b not in clusters:
+                return []
+            ca = clusters[a]
+            cb = clusters[b]
+            # If one cluster’s capacity exceeds 1.5 times that of the other,
+            # transfer half the difference from larger to smaller.
+            # Avoid division by zero: if other is zero and larger > 0 then condition holds (infinite).
+            larger, smaller = (a, b) if ca > cb else (b, a)
+            cl = clusters[larger]
+            cs = clusters[smaller]
+            # Check condition
+            cond = False
+            if cs == 0:
+                if cl > 0:
+                    cond = True
+            else:
+                if cl > 1.5 * cs:
+                    cond = True
+            if cond:
+                diff = cl - cs
+                transfer = diff // 2
+                if transfer > 0:
+                    clusters[larger] = cl - transfer
+                    clusters[smaller] = cs + transfer
+                # if transfer == 0, no change
+
+    # After processing, return list of active cluster identifiers ordered by capacity desc, then name asc
+    items = list(clusters.items())
+    items.sort(key=lambda x: (-x[1], x[0]))
+    return [name for name, cap in items]

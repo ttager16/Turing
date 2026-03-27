@@ -1,0 +1,76 @@
+{
+  "id": "resp_0b175e908cc5d7e60069c34316a4808192b967f225e65b8ef7",
+  "object": "response",
+  "created_at": 1774404374,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774404413,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0b175e908cc5d7e60069c343173ab48192905b150153849acb",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0b175e908cc5d7e60069c34317a2188192ac5efda14d86f19c",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import heapq\nfrom typing import List, Dict, Any, Optional\n\ndef prioritized_topological_sort(n: int, edges: List[List[int]], importance: List[int]) -> Optional[Dict[str, Any]]:\n    # Input validation\n    if not isinstance(n, int):\n        return {'error': 'n must be an integer'}\n    if n < 1 or n > 100_000:\n        return {'error': 'n out of range'}\n    if not isinstance(edges, list):\n        return {'error': 'edges must be a list of lists'}\n    for e in edges:\n        if not (isinstance(e, list) and len(e) == 2):\n            return {'error': 'edges must be a list of lists'}\n        u, v = e\n        if not (isinstance(u, int) and isinstance(v, int)):\n            return {'error': 'edge must be a list of two integers'}\n        if not (0 <= u < n and 0 <= v < n):\n            return {'error': 'node id out of range'}\n        if u == v:\n            # self-loop implies cycle; but still valid input unless they want immediate None.\n            # We'll allow and detect cycle later; input validation passes.\n            pass\n    if not isinstance(importance, list) or not all(isinstance(x, int) for x in importance):\n        return {'error': 'importance must be a list of integers'}\n    if len(importance) != n:\n        return {'error': 'importance length mismatch'}\n\n    # Canonicalize edges (remove duplicates)\n    adj = [[] for _ in range(n)]\n    out_deg = [0] * n\n    in_deg = [0] * n\n    seen = set()\n    for u, v in edges:\n        key = (u, v)\n        if key in seen:\n            continue\n        seen.add(key)\n        adj[u].append(v)\n        out_deg[u] += 1\n        in_deg[v] += 1\n\n    num_sources = sum(1 for d in in_deg if d == 0)\n    num_sinks = sum(1 for d in out_deg if d == 0)\n\n    # Prepare Kahn with priority: use heap of [-importance[i], i] as lists per spec.\n    heap = []\n    for i in range(n):\n        if in_deg[i] == 0:\n            heapq.heappush(heap, [-importance[i], i])\n\n    max_parallel_frontier = len(heap)\n    frontier_max_importance_sum = sum(importance[i] for (_, i) in heap)\n    if heap:\n        frontier_max_importance_sum = sum(importance[i] for (_, i) in heap)\n    else:\n        frontier_max_importance_sum = 0\n    priority_score = 0\n    order = []\n    processed = 0\n    levels = [0] * n\n    current_in = in_deg[:]  # copy to avoid mutating input\n    tie_breaks = 0\n\n    # For tracking longest path lengths from sources (top-down): dp_len[node]= longest distance (in edges) from any source to node\n    dp_len = [0] * n\n\n    # To compute longest path to sinks later, build reverse adjacency\n    rev_adj = [[] for _ in range(n)]\n    for u in range(n):\n        for v in adj[u]:\n            rev_adj[v].append(u)\n\n    # For tracking frontier importance sums we need to compute each step before selection\n    # But heap stores [-importance, id] as lists; we must not rely on internal heap order to compute sum.\n    # We'll maintain current frontier sum variable updated when pushing/popping.\n    frontier_sum = sum(importance[i] for i in range(n) if current_in[i] == 0)\n    frontier_max_importance_sum = frontier_sum\n\n    while heap:\n        # update max frontier size\n        if len(heap) > max_parallel_frontier:\n            max_parallel_frontier = len(heap)\n        # compute frontier sum already tracked\n        if frontier_sum > frontier_max_importance_sum:\n            frontier_max_importance_sum = frontier_sum\n\n        item = heapq.heappop(heap)\n        # Per spec, items pushed as lists of two integers; ensure type is list\n        # Some Python heapq may return tuple if pushed as tuple, but we pushed lists.\n        imp_neg, node = item\n        # Tie-break count: need to detect if multiple available tasks had same importance and we chose smaller id.\n        # We can check if after pop there was any other available with same importance.\n        if heap:\n            top_imp_neg, top_id = heap[0]\n            if top_imp_neg == imp_neg:\n                # since heap order ensures smaller id at top if same importance, we popped the smallest id among equals?\n                # But we popped item which must be the smallest id among equals; a tie_break is counted when there existed\n                # multiple tasks with same importance and we chose smaller id. That is whenever prior to popping, count of nodes\n                # in frontier with same importance >1 and chosen id is smallest among them. We'll approximate by checking if any other\n                # had same importance (heap[0] has same imp_neg) then it's a tie resolved by smaller id.\n                # However if heap[0] is same imp_neg but has larger id, impossible. So we count tie once when there exists any same importance.\n                tie_breaks += 1\n        # update frontier_sum\n        frontier_sum -= importance[node]\n\n        order.append(node)\n        priority_score += importance[node] * (n - processed)\n        processed += 1\n\n        # process neighbors\n        for v in adj[node]:\n            # reduce in-degree\n            current_in[v] -= 1\n            # update level: when node removed, if it reduces neighbor's in-degree to 0, set level[v] = max(level[v], level[node]+1)\n            if levels[v] < levels[node] + 1:\n                # but only meaningful when becomes zero later; still set now so max works when zero occurs\n                levels[v] = max(levels[v], levels[node] + 1)\n            if current_in[v] == 0:\n                heapq.heappush(heap, [-importance[v], v])\n                frontier_sum += importance[v]\n        # track dp_len for longest path from sources: for each neighbor, dp_len[neighbor] = max(dp_len[neighbor], dp_len[node]+1)\n        for v in adj[node]:\n            if dp_len[v] < dp_len[node] + 1:\n                dp_len[v] = dp_len[node] + 1\n\n    if processed < n:\n        return None\n\n    # longest path length is max dp_len over all nodes\n    longest_path_length = max(dp_len) if n > 0 else 0\n\n    # levels are already set, but ensure nodes with initial in-degree 0 are level 0\n    # (they are initialized to 0). Level widths\n    max_level = max(levels) if levels else 0\n    level_widths = [0] * (max_level + 1)\n    for lv in levels:\n        level_widths[lv] += 1\n\n    # topo_positions: for each node id i, index j where order[j] == i\n    topo_positions = [0] * n\n    for idx, node in enumerate(order):\n        topo_positions[node] = idx\n\n    # cumulative_importance_prefix: prefix sums along order\n    cum = []\n    s = 0\n    for node in order:\n        s += importance[node]\n        cum.append(s)\n\n    # latest_levels: need longest distance to any sink for each node (in edges)\n    # compute longest distance to sink using dp on reverse topological order\n    # First compute list of nodes in topological order (we have 'order'), process reversed\n    longest_to_sink = [0] * n\n    for node in reversed(order):\n        best = 0\n        for v in adj[node]:\n            if longest_to_sink[v] + 1 > best:\n                best = longest_to_sink[v] + 1\n        longest_to_sink[node] = best\n    makespan = longest_path_length\n    latest_levels = [makespan - longest_to_sink[i] for i in range(n)]\n    slack = [latest_levels[i] - levels[i] for i in range(n)]\n\n    statistics = {\n        'is_dag': True,\n        'processed_count': processed,\n        'max_parallel_frontier': max_parallel_frontier,\n        'priority_score': priority_score,\n        'levels': levels,\n        'longest_path_length': longest_path_length,\n        'num_sources': num_sources,\n        'num_sinks': num_sinks,\n        'in_degrees': in_deg,\n        'out_degrees': out_deg,\n        'level_widths': level_widths,\n        'latest_levels': latest_levels,\n        'slack': slack,\n        'topo_positions': topo_positions,\n        'cumulative_importance_prefix': cum,\n        'frontier_max_importance_sum': frontier_max_importance_sum,\n        'tie_breaks_count': tie_breaks\n    }\n\n    return {'order': order, 'statistics': statistics}"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1977,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1948,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3925
+  },
+  "user": null,
+  "metadata": {}
+}

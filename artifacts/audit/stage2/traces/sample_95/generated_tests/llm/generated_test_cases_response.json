@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6osrGB6RMmG8zywibJteS6ILoiN",
+  "object": "chat.completion",
+  "created": 1774400130,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[{\\\"node_id\\\": 0, \\\"coordinates\\\": [0, 0], \\\"intersection_type\\\": \\\"commercial\\\", \\\"base_delay\\\": 1}, {\\\"node_id\\\": 1, \\\"coordinates\\\": [100, 100], \\\"intersection_type\\\": \\\"residential\\\", \\\"base_delay\\\": 2}]\",\"[{\\\"segment_id\\\": 0, \\\"start_node\\\": 0, \\\"end_node\\\": 1, \\\"base_travel_time\\\": 10, \\\"capacity_limit\\\": 20, \\\"traffic_density\\\": 0.5, \\\"activation_windows\\\": [{\\\"start_time\\\": 0, \\\"end_time\\\": 1440}]}]\",\"[{\\\"location_id\\\": 0, \\\"node_id\\\": 1, \\\"priority_level\\\": 1, \\\"vehicle_load\\\": 10, \\\"earliest_delivery_time\\\": 100, \\\"latest_delivery_time\\\": 200}]\",\"0\",\"{\\\"peak_hours\\\": [{\\\"start_time\\\": 300, \\\"end_time\\\": 400}, {\\\"start_time\\\": 350, \\\"end_time\\\": 450}], \\\"construction_zones\\\": [], \\\"weather_impact_factor\\\": 1.0}\",\"10\"], \"focus\":\"overlapping_peak_hours_detection\"}, {\"input_lines\":[\"[{\\\"node_id\\\": 0, \\\"coordinates\\\": [50, 50], \\\"intersection_type\\\": \\\"commercial\\\", \\\"base_delay\\\": 2}, {\\\"node_id\\\": 1, \\\"coordinates\\\": [60, 60], \\\"intersection_type\\\": \\\"residential\\\", \\\"base_delay\\\": 2}]\",\"[{\\\"segment_id\\\": 0, \\\"start_node\\\": 0, \\\"end_node\\\": 1, \\\"base_travel_time\\\": 15, \\\"capacity_limit\\\": 50, \\\"traffic_density\\\": 0.4, \\\"activation_windows\\\": [{\\\"start_time\\\": 0, \\\"end_time\\\": 1440}]}]\",\"[{\\\"location_id\\\": 0, \\\"node_id\\\": 1, \\\"priority_level\\\": 1, \\\"vehicle_load\\\": 40, \\\"earliest_delivery_time\\\": 60, \\\"latest_delivery_time\\\": 180}]\",\"0\",\"{\\\"peak_hours\\\": [], \\\"construction_zones\\\": [0], \\\"weather_impact_factor\\\": 1.0}\",\"10\"], \"focus\":\"construction_zone_capacity_reduction_triggers_capacity_validation\"}, {\"input_lines\":[\"[{\\\"node_id\\\": 0, \\\"coordinates\\\": [0, 0], \\\"intersection_type\\\": \\\"commercial\\\", \\\"base_delay\\\": 1}, {\\\"node_id\\\": 1, \\\"coordinates\\\": [100, 50], \\\"intersection_type\\\": \\\"residential\\\", \\\"base_delay\\\": 2}, {\\\"node_id\\\": 2, \\\"coordinates\\\": [200, 100], \\\"intersection_type\\\": \\\"industrial\\\", \\\"base_delay\\\": 3}, {\\\"node_id\\\": 3, \\\"coordinates\\\": [300, 150], \\\"intersection_type\\\": \\\"commercial\\\", \\\"base_delay\\\": 2}, {\\\"node_id\\\": 4, \\\"coordinates\\\": [400, 200], \\\"intersection_type\\\": \\\"highway\\\", \\\"base_delay\\\": 1}]\",\"[{\\\"segment_id\\\": 0, \\\"start_node\\\": 0, \\\"end_node\\\": 1, \\\"base_travel_time\\\": 10, \\\"capacity_limit\\\": 30, \\\"traffic_density\\\": 0.6, \\\"activation_windows\\\": [{\\\"start_time\\\": 0, \\\"end_time\\\": 1440}]}, {\\\"segment_id\\\": 1, \\\"start_node\\\": 1, \\\"end_node\\\": 2, \\\"base_travel_time\\\": 12, \\\"capacity_limit\\\": 20, \\\"traffic_density\\\": 0.85, \\\"activation_windows\\\": [{\\\"start_time\\\": 60, \\\"end_time\\\": 240}]}, {\\\"segment_id\\\": 2, \\\"start_node\\\": 0, \\\"end_node\\\": 2, \\\"base_travel_time\\\": 25, \\\"capacity_limit\\\": 25, \\\"traffic_density\\\": 0.5, \\\"activation_windows\\\": [{\\\"start_time\\\": 0, \\\"end_time\\\": 1440}]}, {\\\"segment_id\\\": 3, \\\"start_node\\\": 2, \\\"end_node\\\": 3, \\\"base_travel_time\\\": 8, \\\"capacity_limit\\\": 15, \\\"traffic_density\\\": 0.3, \\\"activation_windows\\\": [{\\\"start_time\\\": 0, \\\"end_time\\\": 1440}]}, {\\\"segment_id\\\": 4, \\\"start_node\\\": 3, \\\"end_node\\\": 4, \\\"base_travel_time\\\": 20, \\\"capacity_limit\\\": 40, \\\"traffic_density\\\": 0.4, \\\"activation_windows\\\": [{\\\"start_time\\\": 0, \\\"end_time\\\": 1440}]}]\",\"[{\\\"location_id\\\": 0, \\\"node_id\\\": 2, \\\"priority_level\\\": 1, \\\"vehicle_load\\\": 10, \\\"earliest_delivery_time\\\": 70, \\\"latest_delivery_time\\\": 90}, {\\\"location_id\\\": 1, \\\"node_id\\\": 4, \\\"priority_level\\\": 2, \\\"vehicle_load\\\": 15, \\\"earliest_delivery_time\\\": 100, \\\"latest_delivery_time\\\": 200}, {\\\"location_id\\\": 2, \\\"node_id\\\": 3, \\\"priority_level\\\": 1, \\\"vehicle_load\\\": 12, \\\"earliest_delivery_time\\\": 50, \\\"latest_delivery_time\\\": 60}]\",\"0\",\"{\\\"peak_hours\\\": [{\\\"start_time\\\": 420, \\\"end_time\\\": 540}, {\\\"start_time\\\": 1020, \\\"end_time\\\": 1140}], \\\"construction_zones\\\": [3], \\\"weather_impact_factor\\\": 1.1}\",\"20\"], \"focus\":\"tight_time_windows_high_traffic_adjustments_and_construction_zone_effects\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3853,
+    "completion_tokens": 3775,
+    "total_tokens": 7628,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2560,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

@@ -1,0 +1,76 @@
+{
+  "id": "resp_029133c48b8ff94e0069c32262b80081a2819dfbfdf8b54947",
+  "object": "response",
+  "created_at": 1774396002,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774396051,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_029133c48b8ff94e0069c32263447881a280e2c9e14c1fec6e",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_029133c48b8ff94e0069c32263864081a299799e3a0511cca0",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Any, Dict, List, Tuple\n\n\nclass TransactionCostContext:\n    def __init__(self, cost_per_unit: float | None, budget: float | None):\n        self.cost_per_unit = cost_per_unit\n        # budget stored as single-element list to allow mutation by reference\n        self.budget = [float(budget)] if budget is not None else None\n\n\nclass SegmentTree:\n    def __init__(self, data: List[float]):\n        n = 1\n        while n < len(data):\n            n <<= 1\n        self.n = n\n        self.size = n << 1\n        self.tree = [0.0] * (self.size)\n        for i, v in enumerate(data):\n            self.tree[self.n + i] = float(v)\n        for i in range(self.n - 1, 0, -1):\n            self.tree[i] = self.tree[i << 1] + self.tree[(i << 1) | 1]\n\n    def update(self, idx: int, value: float):\n        i = self.n + idx\n        self.tree[i] = float(value)\n        while i > 1:\n            i >>= 1\n            self.tree[i] = self.tree[i << 1] + self.tree[(i << 1) | 1]\n\n    def query_all(self) -> float:\n        return self.tree[1]\n\n\ndef _safe_get_stock_fields(d: Dict[str, Any]) -> Tuple[str, float, List[str]]:\n    symbol = str(d.get(\"symbol\", \"\"))\n    volatility = float(d.get(\"volatility\", 0.0))\n    correlated_with = d.get(\"correlated_with\") or []\n    correlated_with = [str(x) for x in correlated_with]\n    return symbol, volatility, correlated_with\n\n\ndef _build_corr_map(symbols: List[str], corr_lists: Dict[str, List[str]]) -> Dict[str, List[str]]:\n    corr_map: Dict[str, List[str]] = {s: [] for s in symbols}\n    for s, lst in corr_lists.items():\n        for t in lst:\n            if t in corr_map and t != s:\n                if t not in corr_map[s]:\n                    corr_map[s].append(t)\n                if s not in corr_map[t]:\n                    corr_map[t].append(s)\n    return corr_map\n\n\ndef _calculate_scores(vols: Dict[str, float], corr_lists: Dict[str, List[str]]) -> Dict[str, float]:\n    scores = {}\n    for s, v in vols.items():\n        base = max(0.0, 1.0 - v)\n        penalty = 0.01 * len(corr_lists.get(s, []))\n        sc = max(0.0, base - penalty)\n        scores[s] = sc\n    total = sum(scores.values()) or 1.0\n    for s in scores:\n        scores[s] = scores[s] / total\n    return scores\n\n\ndef _calculate_risk(alloc: Dict[str, int], vols: Dict[str, float], corr_map: Dict[str, List[str]]) -> float:\n    total_units = max(1, sum(alloc.values()))\n    # Volatility risk\n    vol_risk = 0.0\n    weights: Dict[str, float] = {}\n    for s in vols:\n        w = alloc.get(s, 0) / total_units\n        weights[s] = w\n        vol_risk += w * vols[s]\n    # Correlation penalty\n    corr_pen = 0.0\n    seen = set()\n    for s in corr_map:\n        for t in corr_map[s]:\n            if s < t and (s, t) not in seen:\n                ws = weights.get(s, 0.0)\n                wt = weights.get(t, 0.0)\n                if ws > 0 and wt > 0:\n                    avg_vol = 0.5 * (vols.get(s, 0.0) + vols.get(t, 0.0))\n                    corr_pen += 0.5 * min(ws, wt) * avg_vol * 0.5\n                seen.add((s, t))\n    # Concentration HHI\n    hhi = 0.0\n    for s in weights:\n        hhi += (weights[s] ** 2)\n    conc_pen = 0.005 * hhi\n    # Degree penalty\n    deg_pen = 0.0\n    for s in corr_map:\n        degree = float(len(corr_map[s]))\n        deg_pen += 0.002 * weights.get(s, 0.0) * (degree / (degree + 1.0)) if degree >= 0.0 else 0.0\n    return vol_risk + corr_pen + conc_pen + deg_pen\n\n\ndef _can_afford_transaction(cost: float | None, ctx: TransactionCostContext) -> bool:\n    if ctx.cost_per_unit is None or ctx.budget is None or cost is None:\n        return True\n    return ctx.budget[0] >= float(cost)\n\n\ndef _deduct_cost(cost: float | None, ctx: TransactionCostContext):\n    if ctx.cost_per_unit is not None and ctx.budget is not None and cost is not None:\n        ctx.budget[0] -= float(cost)\n\n\ndef _refund_cost(cost: float | None, ctx: TransactionCostContext):\n    if ctx.cost_per_unit is not None and ctx.budget is not None and cost is not None:\n        ctx.budget[0] += float(cost)\n\n\ndef optimize_portfolio(stock_data: List[Dict[str, Any]], risk_tolerance: float,\n                       transaction_cost_per_unit: float | None = None,\n                       transaction_cost_budget: float | None = None) -> Dict[str, Any]:\n    # Empty input handling\n    if not isinstance(stock_data, list) or len(stock_data) == 0:\n        return {\"portfolio\": {}, \"expected_return\": 0.0, \"risk\": 0.0}\n    # Extract and normalize fields\n    symbols: List[str] = []\n    vols: Dict[str, float] = {}\n    corr_lists: Dict[str, List[str]] = {}\n    prices: Dict[str, float] = {}\n    for d in stock_data:\n        sym, vol, corr = _safe_get_stock_fields(d)\n        symbols.append(sym)\n        vols[sym] = float(vol)\n        corr_lists[sym] = corr\n        prices[sym] = float(d.get(\"price\", 0.0))\n    # Build correlation map\n    corr_map = _build_corr_map(symbols, corr_lists)\n    # Scores\n    scores = _calculate_scores(vols, corr_lists)\n    # Initialize allocation and segment tree (tracking allocations)\n    alloc: Dict[str, int] = {s: 0 for s in symbols}\n    initial_leaves = [0.0 for _ in symbols]\n    seg = SegmentTree(initial_leaves)\n    # Transaction context\n    ctx = TransactionCostContext(transaction_cost_per_unit, transaction_cost_budget)\n    # Base risk\n    base_risk = _calculate_risk(alloc, vols, corr_map)\n    lam = 0.5  # risk penalty coefficient\n    # Main greedy allocation loop: up to 100 iterations allocate one unit each\n    for _iter in range(100):\n        best_delta = -1e18\n        best_idx = -1\n        # find best marginal delta\n        for idx, s in enumerate(symbols):\n            alloc[s] += 1\n            seg.update(idx, alloc[s])\n            new_risk = _calculate_risk(alloc, vols, corr_map)\n            delta = scores[s] - lam * max(0.0, new_risk - base_risk)\n            # revert\n            alloc[s] -= 1\n            seg.update(idx, alloc[s])\n            if delta > best_delta:\n                best_delta = delta\n                best_idx = idx\n        if best_idx == -1:\n            break\n        best_sym = symbols[best_idx]\n        # Attempt allocation with backtracking if necessary\n        unit_cost = None\n        if ctx.cost_per_unit is not None:\n            unit_cost = ctx.cost_per_unit\n        if not _can_afford_transaction(unit_cost, ctx):\n            # cannot afford any more transactions\n            break\n        # try primary allocation\n        _deduct_cost(unit_cost, ctx)\n        alloc[best_sym] += 1\n        seg.update(best_idx, alloc[best_sym])\n        curr_risk = _calculate_risk(alloc, vols, corr_map)\n        if curr_risk <= risk_tolerance:\n            base_risk = _calculate_risk(alloc, vols, corr_map)\n            continue\n        # primary violates risk: backtrack primary and try alternatives\n        # refund primary cost and revert\n        _refund_cost(unit_cost, ctx)\n        alloc[best_sym] -= 1\n        seg.update(best_idx, alloc[best_sym])\n        allocated = False\n        # iterate symbols in original order for backtracking\n        for idx, s in enumerate(symbols):\n            if s == best_sym:\n                continue\n            if ctx.cost_per_unit is not None:\n                alt_cost = ctx.cost_per_unit\n            else:\n                alt_cost = None\n            if not _can_afford_transaction(alt_cost, ctx):\n                continue\n            _deduct_cost(alt_cost, ctx)\n            alloc[s] += 1\n            seg.update(idx, alloc[s])\n            curr_risk = _calculate_risk(alloc, vols, corr_map)\n            if curr_risk <= risk_tolerance:\n                base_risk = _calculate_risk(alloc, vols, corr_map)\n                allocated = True\n                break\n            # revert and refund\n            alloc[s] -= 1\n            seg.update(idx, alloc[s])\n            _refund_cost(alt_cost, ctx)\n        if not allocated:\n            # unable to allocate any unit this iteration\n            break\n    # Rebalance: move units from low-scoring to high-scoring stocks\n    total_units = sum(alloc.values())\n    if total_units == 0:\n        # ensure all symbols present\n        portfolio = {s: int(alloc.get(s, 0)) for s in symbols}\n        return {\"portfolio\": portfolio, \"expected_return\": 0.0, \"risk\": round(0.0, 6)}\n    max_moves = max(1, total_units // 20)\n    moves = 0\n    # prepare ordered lists by score\n    sorted_high = sorted(symbols, key=lambda x: scores.get(x, 0.0), reverse=True)\n    sorted_low = sorted(symbols, key=lambda x: scores.get(x, 0.0))\n    for high_sym in sorted_high:\n        if moves >= max_moves:\n            break\n        for low_sym in sorted_low[::-1]:\n            if moves >= max_moves:\n                break\n            if high_sym == low_sym:\n                continue\n            if alloc.get(low_sym, 0) == 0:\n                continue\n            # rebalance move validation: need to check affordability of 2 * cost_per_unit\n            move_cost = None\n            if ctx.cost_per_unit is not None:\n                move_cost = 2 * ctx.cost_per_unit\n            if not _can_afford_transaction(move_cost, ctx):\n                continue\n            # deduct move cost (never refunded)\n            _deduct_cost(move_cost, ctx)\n            # execute move: remove one from low, add one to high\n            alloc[low_sym] -= 1\n            alloc[high_sym] += 1\n            moves += 1\n            # no rollback even if risk worsens per spec\n            if moves >= max_moves:\n                break\n    # Post-optimization cleanup: rollback any excess to satisfy risk if violated\n    final_risk = _calculate_risk(alloc, vols, corr_map)\n    if final_risk > risk_tolerance:\n        # attempt risk-based rollback: remove units from highest vol or highest contribution\n        # iterate removing one unit at a time until risk <= tolerance or no units\n        removal_order = sorted(symbols, key=lambda s: vols.get(s, 0.0), reverse=True)\n        while final_risk > risk_tolerance and sum(alloc.values()) > 0:\n            removed = False\n            for s in removal_order:\n                if alloc.get(s, 0) <= 0:\n                    continue\n                alloc[s] -= 1\n                final_risk = _calculate_risk(alloc, vols, corr_map)\n                removed = True\n                if final_risk <= risk_tolerance:\n                    break\n            if not removed:\n                break\n    # Expected return calculation: weighted by allocation and scores\n    total_units = max(1, sum(alloc.values()))\n    expected_return = 0.0\n    for s in symbols:\n        w = alloc.get(s, 0) / total_units\n        expected_return += w * scores.get(s, 0.0)\n    # convert to percentage-like number (as in example they had ~0.03)\n    # ensure rounding to 6 decimals\n    portfolio = {s: int(alloc.get(s, 0)) for s in symbols}\n    return {\"portfolio\": portfolio,\n            \"expected_return\": round(float(expected_return), 6),\n            \"risk\": round(float(_calculate_risk(alloc, vols, corr_map)), 6)}"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2195,
+    "input_tokens_details": {
+      "cached_tokens": 2176
+    },
+    "output_tokens": 2834,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 5029
+  },
+  "user": null,
+  "metadata": {}
+}

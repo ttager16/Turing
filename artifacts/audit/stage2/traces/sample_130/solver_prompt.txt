@@ -1,0 +1,152 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+In a rapidly expanding metropolis, urban planners must continually adjust the subway network to balance vastly different regions in real-time.
+The city is represented by a large-scale, dynamically evolving **graph**, where each node denotes a critical infrastructure point (e.g., a central station, power hub, or transit intersection), and edges represent potential or existing subway pathways.
+
+However, to effectively distribute resources and minimize disruptions, planners need to do more than identify single separators. They must execute a **multi-phase partitioning process** that:
+• Dynamically incorporates new and removed subway lines (edges) in real time.
+• Handles cyclic and highly interconnected sub-regions.
+• Accommodates the simultaneous separation of multiple key nodes or clusters specified in each query.
+• Maintains **approximate balance** among subgraphs, ensuring no resulting zone is disproportionately larger than others.
+
+Devise a **deterministic and scalable Python algorithm** that processes a list of offline queries over a dynamically evolving graph. Each query can include multiple distinct nodes that must reside in separate “urban zones.” The algorithm must track the evolving graph structure across updates and find **small vertex separators** that keep the system balanced and connected, **without** requiring geometric/planar-embedding computations or external libraries.
+
+
+### Function Signature
+
+```python
+from typing import Dict, List
+
+def find_planar_separators(
+    graph: Dict[str, List[str]],
+    queries: List[List]
+) -> List[List[int]]:
+
+
+    """
+    Process an evolving graph with operations encoded as lists:
+
+      ["add", u, v]       -> add undirected edge (u, v) if not present
+      ["remove", u, v]    -> remove undirected edge (u, v) if present
+      ["query", [v1, v2, ..., vk]] with k >= 2
+                           -> request a separator so that each listed node
+                              lies in a distinct connected component after
+                              removing the separator.
+
+    Returns a list of separator node-lists, in the same order as "query" operations.
+    Deterministic, stdlib-only, and locally-minimal separators subject to a 1.2 balance ratio.
+    """
+```
+### Objectives
+
+1. **Implement a function:**
+
+The original function signature in the “Function Signature” section (with `Dict[str, List[str]]`)  
+
+2. For each `"query"` operation, output a **list of separator nodes** that:
+   • Breaks the graph so that all listed critical nodes end up in **distinct connected components**.
+   • Keeps components **balanced**: let sizes be `s_min` and `s_max` across resulting components; require `s_max / s_min ≤ 1.2`.
+   • Is **locally minimal**: no node can be removed from the separator without violating separation or balance.
+
+3. Maintain cumulative structural changes across operations so that prior `["add", u, v]` and `["remove", u, v]` affect subsequent queries.
+
+4. Use only Python’s standard library and deterministic logic (fixed tie-breaking by ascending node IDs). Heuristics (e.g., articulation points, bounded local exploration, and post-pruning) are acceptable; **global optimality is not required**.
+
+
+### Constraints
+
+* **Graph model:** simple, undirected; no multi-edges or self-loops.
+
+* **Operations supported (lists only):**
+  • `["add", u, v]` adds an undirected edge if not present;
+  • `["remove", u, v]` removes it if present;
+  • `["query", [v1, v2, ..., vk]]` with `k ≥ 2`.
+  *Node add/remove is out of scope* (nodes exist if they appear in `graph` or any edge op).
+
+
+* **Planarity not enforced algorithmically.** Treat “planar” as descriptive; do **not** rely on planar embeddings or geometry.
+
+* **Balance rule (strict, testable):** After removing the separator for a query, let the non-empty connected components that contain the graph’s remaining nodes have sizes `C1, C2, ...`. Let `s_min = min(Ci)`, `s_max = max(Ci)`. Require `s_max / s_min ≤ 1.2`. Components with size 0 do not occur by definition (only remaining nodes are counted).
+
+* **Local minimality check:** After finding any candidate separator `S`, greedily try removing nodes from `S` in **ascending ID order**; keep a node removed only if separation and balance still hold. Final `S` must be sorted ascending.
+
+* **Determinism:**
+  • Iterate candidates in ascending node ID order.
+  • Sort all outputs.
+  • Avoid randomness.
+
+* **Heuristic scope:**
+  • May use Tarjan articulation points (or iterative equivalents) and short-range BFS/DFS frontiers;
+  • May attempt small separators (e.g., size 1–3) before wider exploration;
+  • Must include the local-minimality pruning step.
+
+* **Performance expectations:**
+  • Designed to handle up to ~100k nodes / ~300k edges with several thousand queries under stdlib-only conditions;
+  • Per query, favor near-linear passes plus bounded local exploration; avoid exhaustive combinatorial search.
+
+* **Error handling/edge cases:**
+  • If some target in a query is not present in the current graph (isolated from all nodes), treat it as an isolated singleton component (no separator needed solely for its absence).
+  • If no separator satisfying the 1.2 balance exists under the heuristic budget, return the **smallest** separator that enforces separation (even if balance is not met), but prefer balanced results when possible.
+  • Always return a list (possibly empty) for each `"query"`; no exceptions should be raised for malformed ops—ignore no-op adds/removes.
+
+* **No external libraries.** Use only Python’s standard library; recursion limits must be respected (prefer iterative traversals where deep recursion is possible).
+
+* When the graph is provided via JSON, all node IDs in the graph dictionary must appear as strings (e.g., "1": ["2", "3"]). 
+The implementation must internally convert all node IDs (keys and values) and all query node references to Python int values before processing.
+
+### Sample Input
+
+```python
+city_graph = {
+    "1": ["2", "8"],
+    "2": ["1", "3", "6"],
+    "3": ["2", "4"],
+    "4": ["3", "5"],
+    "5": ["4", "9"],
+    "6": ["2", "7"],
+    "7": ["6", "8"],
+    "8": ["1", "7"],
+    "9": ["5"]
+}
+
+queries = [
+    ["remove", 3, 4],
+    ["query", [1, 3, 6]],
+    ["add", 2, 9],
+    ["query", [6, 9]]
+]
+```
+### Sample Output
+
+```python
+[[2, 7], [1, 2, 3]]
+```
+### Expected Output Format
+
+Return a list of lists, one per `"query"` in the same order. Each inner list:
+• Contains node IDs of a **locally minimal** separator (sorted ascending).
+• Ensures the specified critical nodes lie in **distinct connected components** after removal.
+• Satisfies the **1.2 balance rule** when possible under the heuristic; otherwise returns the smallest separating set found.
+• Reflects all prior updates applied before that query.
+
+Starter Code:
+```python
+from typing import Dict, List, Iterable
+from collections import deque, defaultdict
+
+
+
+def find_planar_separators(
+    graph: Dict[int, List[int]],
+    queries: List[List]
+) -> List[List[int]]:
+```

@@ -1,0 +1,225 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+# Dynamic BFS Urban Delivery Network Optimization
+
+## Problem Statement
+
+A transportation logistics company operates in a complex urban environment where traffic conditions dynamically affect road availability and traversal costs. The company's delivery network is modeled as a dynamic graph where intersections represent nodes and roads represent edges that can become active or inactive based on real-time traffic data and time-dependent constraints.
+
+You are tasked with implementing a sophisticated Dynamic Breadth-First Search (BFS) algorithm that navigates through this time-sensitive graph structure. The system must efficiently find optimal delivery paths while considering traffic activation patterns, delivery time windows, and capacity constraints across multiple priority levels.
+
+## Core Requirements
+
+Your solution must implement a **pure Python** Dynamic BFS algorithm (no external libraries) that processes urban delivery network data and generates optimal routing plans. The algorithm should prioritize paths based on delivery efficiency while respecting all operational and temporal constraints.
+
+### Key Operational Constraints
+
+1. **Traffic Activation Constraints**: Roads (edges) activate and deactivate based on time intervals and traffic flow capacity
+2. **Time Window Constraints**: Each delivery location must be reached within specified time windows
+3. **Capacity Constraints**: Each road segment has maximum vehicle capacity limits
+4. **Priority Level Constraints**: Higher priority deliveries (lower priority numbers) must be processed first
+5. **Path Continuity**: The algorithm must ensure continuous path availability throughout the delivery timeframe
+
+### Advanced Algorithmic Requirements
+
+The Dynamic BFS must incorporate a multi-layered scoring system that evaluates path viability using this composite formula:
+
+**Path Efficiency Score = Base Travel Cost + (Time Penalty × Window Urgency) + (Capacity Utilization Factor × Priority Weight)**
+
+Where:
+- Base Travel Cost: Sum of edge weights along the path
+- Time Penalty: Calculated as (current_time - latest_delivery_time) when current_time > latest_delivery_time, otherwise 0
+- Window Urgency: Calculated as 100 / (latest_delivery_time - earliest_delivery_time + 1)
+- Capacity Utilization Factor: (vehicle_load / road_capacity) × 50
+- Priority Weight: priority_level × 25
+
+The algorithm must also implement traffic flow prediction where roads with higher traffic density (traffic_density > 0.7) have their activation windows reduced by **20%** of their original duration.
+
+**Traffic Adjustment Formula**:
+- If traffic_density > 0.7: adjusted_duration = original_duration × 0.8
+- Otherwise: adjusted_duration = original_duration
+
+## Function Signature
+
+```python
+def optimize_delivery_network(graph_nodes, road_segments, delivery_locations, depot_node_id, traffic_schedule, max_computation_time):
+    """
+    Optimizes urban delivery routes using Dynamic BFS algorithm.
+    Returns: Dictionary with optimal paths and efficiency metrics
+    """
+    pass
+```
+
+## Input Specifications
+
+**graph_nodes**: List of dictionaries, each containing:
+- node_id: Unique intersection identifier (integer, 0-99)
+- coordinates: Tuple of (x, y) position coordinates (integers, 0-1000)
+- intersection_type: Type classification (string: "residential", "commercial", "industrial", "highway")
+- base_delay: Processing delay at intersection in minutes (integer, 1-10)
+
+**road_segments**: List of dictionaries, each containing:
+- segment_id: Unique road identifier (integer, 0-999)
+- start_node: Starting intersection node_id (integer)
+- end_node: Ending intersection node_id (integer)
+- base_travel_time: Travel time in minutes under normal conditions (integer, 5-60)
+- capacity_limit: Maximum vehicles per time window (integer, 10-100)
+- traffic_density: Current traffic density ratio (float, 0.1-1.0)
+- activation_windows: List of dictionaries with start_time and end_time (integers, 0-1440 representing minutes in a day)
+
+**delivery_locations**: List of dictionaries, each containing:
+- location_id: Unique delivery point identifier (integer, 0-199)
+- node_id: Associated intersection node_id (integer)
+- priority_level: Delivery priority (integer, 1=highest to 5=lowest)
+- vehicle_load: Required vehicle capacity units (integer, 1-50)
+- earliest_delivery_time: Minimum delivery time in minutes (integer, 0-1440)
+- latest_delivery_time: Maximum delivery time in minutes (integer, 0-1440)
+
+**depot_node_id**: Starting point for all deliveries (integer, must be a valid node_id from graph_nodes)
+
+**traffic_schedule**: Dictionary containing:
+- peak_hours: List of time ranges when traffic density increases by 30% (list of dictionaries with start_time and end_time)
+- construction_zones: List of node_ids with reduced capacity (list of integers)
+- weather_impact_factor: Global travel time multiplier (float, 1.0-2.0)
+
+**max_computation_time**: Maximum algorithm execution time in seconds (integer, 5-30)
+
+## Output Specification
+
+Return a dictionary containing:
+
+```python
+{
+    "optimal_paths": [
+        {
+            "delivery_location_id": int,
+            "path_nodes": list[int],
+            "total_travel_time": int, # Sum of actual travel times on road segments plus depot node processing delay (in minutes)
+            "path_efficiency_score": float,
+            "scheduled_delivery_time": int,
+            "road_segments_used": list[int]
+        }
+    ],
+    "total_system_efficiency": float,
+    "undeliverable_locations": list[int],
+    "traffic_utilization_summary": {
+        "peak_hour_usage": float,
+        "average_capacity_utilization": float,
+        "bottleneck_segments": list[int]
+    }
+}
+```
+
+## Constraint Requirements
+
+* **Graph Connectivity Validation**: Return {"error": "Graph contains disconnected components"} if any delivery location cannot reach other locations through available road segments
+* **Depot Validation**: Return {"error": "Invalid depot node reference"} if depot_node_id does not exist in graph_nodes
+* **Time Window Validation**: Return {"error": "Invalid delivery time window for location {location_id}"} if earliest_delivery_time >= latest_delivery_time for any location
+* **Capacity Validation**: Return {"error": "Vehicle load exceeds road capacity for segment {segment_id}"} if any vehicle_load exceeds the capacity_limit of required road segments
+* **Node Reference Validation**: Return {"error": "Invalid node reference in road segment {segment_id}"} if start_node or end_node in road_segments references non-existent node_id
+* **Traffic Schedule Validation**: Return {"error": "Overlapping peak hours detected"} if any peak hour time ranges overlap
+* **Computation Time Constraint**: Return {"error": "Computation time exceeded maximum limit"} if execution exceeds max_computation_time
+* **Empty Input Validation**: Return {"error": "No delivery locations provided"} if delivery_locations list is empty
+* **Coordinate Validation**: Return {"error": "Invalid coordinates for node {node_id}"} if any coordinate values are outside the 0-1000 range
+* For any other input parameter violation, return {"error": "Input is not valid"}
+
+## Sample Input/Output
+
+**Input:**
+
+```python
+graph_nodes = [
+    {"node_id": 0, "coordinates": (100, 200), "intersection_type": "commercial", "base_delay": 3},
+    {"node_id": 1, "coordinates": (300, 400), "intersection_type": "residential", "base_delay": 2},
+    {"node_id": 2, "coordinates": (500, 300), "intersection_type": "industrial", "base_delay": 5},
+    {"node_id": 3, "coordinates": (700, 600), "intersection_type": "highway", "base_delay": 1}
+]
+
+road_segments = [
+    {"segment_id": 0, "start_node": 0, "end_node": 1, "base_travel_time": 15, "capacity_limit": 50, "traffic_density": 0.6, "activation_windows": [{"start_time": 0, "end_time": 1440}]},
+    {"segment_id": 1, "start_node": 1, "end_node": 2, "base_travel_time": 20, "capacity_limit": 30, "traffic_density": 0.8, "activation_windows": [{"start_time": 0, "end_time": 1440}]},
+    {"segment_id": 2, "start_node": 2, "end_node": 3, "base_travel_time": 25, "capacity_limit": 40, "traffic_density": 0.5, "activation_windows": [{"start_time": 0, "end_time": 1440}]},
+    {"segment_id": 3, "start_node": 0, "end_node": 2, "base_travel_time": 30, "capacity_limit": 35, "traffic_density": 0.4, "activation_windows": [{"start_time": 0, "end_time": 1440}]}
+]
+
+delivery_locations = [
+    {"location_id": 0, "node_id": 1, "priority_level": 1, "vehicle_load": 25, "earliest_delivery_time": 60, "latest_delivery_time": 180},
+    {"location_id": 1, "node_id": 3, "priority_level": 2, "vehicle_load": 30, "earliest_delivery_time": 120, "latest_delivery_time": 300}
+]
+
+depot_node_id = 0
+
+traffic_schedule = {
+    "peak_hours": [{"start_time": 420, "end_time": 540}, {"start_time": 1020, "end_time": 1140}],
+    "construction_zones": [2],
+    "weather_impact_factor": 1.2
+}
+
+max_computation_time = 10
+```
+
+**Expected Output:**
+
+```python
+{
+    "optimal_paths": [
+        {
+            "delivery_location_id": 0,
+            "path_nodes": [0, 1],
+            "total_travel_time": 21,
+            "path_efficiency_score": 643.0,
+            "scheduled_delivery_time": 60,
+            "road_segments_used": [0]
+        }
+    ],
+    "total_system_efficiency": 643.0,
+    "undeliverable_locations": [1],
+    "traffic_utilization_summary": {
+        "peak_hour_usage": 0.0,
+        "average_capacity_utilization": 0.12,
+        "bottleneck_segments": []
+    }
+}
+```
+
+## Implementation Guidelines
+
+**Dynamic BFS Strategy**: Implement time-aware BFS that considers road activation windows and traffic conditions at each time step
+**Priority Processing**: Process delivery locations in priority order (priority_level 1 first, then 2, etc.)
+**Traffic Adjustment**: Apply traffic density adjustments to activation windows before path calculation
+**Path Efficiency Calculation**: Calculate path efficiency scores using the composite formula for each potential route
+**Capacity Tracking**: Monitor road segment utilization and identify bottlenecks where capacity_utilization > 0.8
+**Time Window Scheduling**: Schedule deliveries at the earliest feasible time within each location's time window
+**Weather Impact**: Apply weather_impact_factor to all travel times during path calculation
+**Deterministic Output**: The algorithm must produce consistent results for identical inputs
+**Construction Zone Handling**: Reduce capacity by 50% for road segments connected to construction zone nodes
+
+## Algorithm Flow
+
+1. **Preprocessing Phase**: Calculate adjusted activation windows for high-traffic roads and apply weather impact factors to travel times
+2. **Priority Sorting**: Sort delivery_locations by priority_level in ascending order
+3. **Dynamic BFS Execution**: For each delivery location, perform BFS considering time-dependent road availability
+4. **Path Evaluation**: Calculate path efficiency scores for all feasible routes and select optimal paths
+5. **Capacity Analysis**: Track road segment utilization and identify bottleneck segments
+6. **Schedule Optimization**: Assign delivery times within time windows while minimizing the total system efficiency score
+7. **Result Compilation**: Generate a comprehensive output, including traffic utilization summary
+
+The algorithm should terminate successfully when all deliverable locations are processed within their constraints, or identify undeliverable locations when no feasible paths exist within the given time and capacity limitations.
+
+Starter Code:
+```python
+import time
+from typing import List, Dict, Any
+from collections import deque
+
+def optimize_delivery_network(graph_nodes: List[Dict], road_segments: List[Dict], 
+                            delivery_locations: List[Dict], depot_node_id: int, 
+                            traffic_schedule: Dict, max_computation_time: int) -> Dict[str, Any]:
+```

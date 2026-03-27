@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[]\n[1, 2, 3]",
+    "output_text": "[0]"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[1, 2, 3]\n[3, -6, 3]",
+    "output_text": "[3, 0, 0, -12, 9]"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[-2]\n[1, 0, 3, 0]",
+    "output_text": "[-2, 0, -6]"
+  }
+]

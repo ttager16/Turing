@@ -1,0 +1,76 @@
+{
+  "id": "resp_0c0204f28cd677660069c344a6b984819c8dc29699dfc5fa44",
+  "object": "response",
+  "created_at": 1774404774,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774404791,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0c0204f28cd677660069c344a6fca4819c8786d7cf2981edca",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0c0204f28cd677660069c344a74054819cbbfa7c76ed96b131",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Tuple\nimport heapq\nfrom collections import defaultdict\n\ndef optimize_delivery_routes(\n    num_nodes: int,\n    edges: List[List[int]],\n    mandatory_checkpoints: List[int],\n    global_max_time: int,\n    global_max_capacity: int\n) -> List[int]:\n    # Build adjacency list: u -> list of (v, time, cap, cost)\n    adj: Dict[int, List[Tuple[int,int,int,int]]] = defaultdict(list)\n    for u,v,t,capa,cost in edges:\n        adj[u].append((v,t,capa,cost))\n    # We need to find a single path that visits mandatory checkpoints in order.\n    # Model as multi-stage shortest path: between successive checkpoints (including any start node),\n    # but start can be any node; the overall path may start anywhere and must visit all checkpoints in order.\n    # Strategy: create augmented state (node, idx) where idx is how many mandatory checkpoints satisfied.\n    # Start states: any node with idx = 0, cost 0, time 0, cap 0, path [node].\n    # Transitions: follow edges; when reaching next mandatory checkpoint value, increment idx if matches next.\n    # Enforce cumulative time <= global_max_time and cumulative capacity <= global_max_capacity.\n    # Use Dijkstra-like over cost.\n    target_idx = len(mandatory_checkpoints)\n    # Map for quick check of next required checkpoint\n    def next_checkpoint(idx):\n        return mandatory_checkpoints[idx] if idx < target_idx else None\n    # Priority queue entries: (total_cost, total_time, total_cap, node, idx, path_tuple)\n    heap = []\n    # For efficiency, initialize starting positions as any node; but we can also start only at nodes\n    # that exist in graph or are in checkpoints. Collect candidate starts.\n    candidate_starts = set(range(num_nodes))\n    # push all starts\n    for s in candidate_starts:\n        idx = 0\n        # if the first mandatory checkpoint is the start node, consider it satisfied\n        if target_idx>0 and s == mandatory_checkpoints[0]:\n            idx = 1\n        heapq.heappush(heap, (0, 0, 0, s, idx, (s,)))\n    # visited best-known cost for (node, idx, time, cap) is too big; we keep best cost per (node, idx, time, cap) compressed.\n    # We'll keep for each (node, idx, time, cap) minimal cost seen, but to limit size we store minimal cost per (node, idx, time, cap)\n    # Instead, store best cost per (node, idx, time, cap) with coarse pruning: for (node, idx) keep list of non-dominated (time, cap, cost)\n    best: Dict[Tuple[int,int], List[Tuple[int,int,int]]] = defaultdict(list)\n    while heap:\n        cost, time_so_far, cap_so_far, node, idx, path = heapq.heappop(heap)\n        # If cost is dominated by known bests, skip\n        dominated = False\n        lst = best[(node, idx)]\n        for t,capa,c in lst:\n            if t <= time_so_far and capa <= cap_so_far and c <= cost:\n                dominated = True\n                break\n        if dominated:\n            continue\n        # Record this state and prune dominated entries\n        new_lst = []\n        for t,capa,c in lst:\n            # keep only those not dominated by current\n            if not (time_so_far <= t and cap_so_far <= capa and cost <= c):\n                new_lst.append((t,capa,c))\n        new_lst.append((time_so_far, cap_so_far, cost))\n        best[(node, idx)] = new_lst\n        # Check goal\n        if idx == target_idx:\n            # Found a path visiting all checkpoints; return path as list\n            return list(path)\n        # Expand edges\n        for v, t_edge, capa_edge, cost_edge in adj.get(node, []):\n            new_time = time_so_far + t_edge\n            new_cap = cap_so_far + capa_edge\n            if new_time > global_max_time or new_cap > global_max_capacity:\n                continue\n            new_cost = cost + cost_edge\n            new_idx = idx\n            nxt = next_checkpoint(idx)\n            if nxt is not None and v == nxt:\n                new_idx += 1\n            new_path = path + (v,)\n            # minor loop prevention: avoid extremely long paths by limiting length to num_nodes*3\n            if len(new_path) > num_nodes * 3:\n                continue\n            heapq.heappush(heap, (new_cost, new_time, new_cap, v, new_idx, new_path))\n    return []"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1719,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1025,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2744
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,76 @@
+{
+  "id": "resp_0de52a421bc06f6c0069c333ff36ac81a28afda1cdf9875779",
+  "object": "response",
+  "created_at": 1774400511,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774400536,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0de52a421bc06f6c0069c333ff988c81a2becedcac67da8fa2",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0de52a421bc06f6c0069c333ffd87881a2965c7548f20e0367",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List\n\ndef analyze_network_vulnerability(\n    network: Dict[str, List[List[int]]],\n    vulnerability_scores: Dict[str, float],\n    system_types: Dict[str, int],\n    privilege_levels: Dict[str, int],\n    source_system: int,\n    target_systems: List[int],\n    vulnerability_threshold: float,\n    max_path_length: int,\n    threat_model: str,\n    use_recursive: bool,\n) -> Dict[str, List[List[int]]]:\n\n    # Helper for error response\n    def err(msg):\n        return {\"error\": msg}\n\n    # Basic validations\n    if str(source_system) not in network:\n        return err(\"Source system not found in network\")\n    for t in target_systems:\n        if str(t) not in network:\n            return err(\"Target system not found in network\")\n    if threat_model not in (\"insider\", \"external\", \"apt\"):\n        return err(\"Invalid threat model\")\n    if not (1 <= max_path_length <= 50):\n        return err(\"Invalid max_path_length\")\n    if vulnerability_threshold < 0:\n        return err(\"Invalid vulnerability_threshold\")\n    # Validate system_types values\n    for sid, st in system_types.items():\n        if not (1 <= st <= 5):\n            return err(\"Invalid system_type\")\n    for sid, pl in privilege_levels.items():\n        if not (1 <= pl <= 4):\n            return err(\"Invalid privilege_level\")\n    # Validate network edge fields and connected nodes presence and their attributes\n    for sid, edges in network.items():\n        if not isinstance(edges, list):\n            continue\n        for e in edges:\n            if not isinstance(e, list) or len(e) < 3:\n                continue\n            connected_id = str(e[0])\n            conn_sec = e[1]\n            trust = e[2]\n            if not (isinstance(conn_sec, int) and 1 <= conn_sec <= 5):\n                return err(\"Invalid connection_security_level\")\n            if not (isinstance(trust, int) and 1 <= trust <= 10):\n                return err(\"Invalid trust_level\")\n            if connected_id not in vulnerability_scores:\n                return err(\"Connected system not found in vulnerability_scores\")\n            if connected_id not in system_types:\n                return err(\"Connected system not found in system_types\")\n            if connected_id not in privilege_levels:\n                return err(\"Connected system not found in privilege_levels\")\n    # Validate source presence in other dicts\n    if str(source_system) not in vulnerability_scores:\n        return err(\"Source system not found in vulnerability_scores\")\n    if str(source_system) not in system_types:\n        return err(\"Source system not found in system_types\")\n    if str(source_system) not in privilege_levels:\n        return err(\"Source system not found in privilege_levels\")\n    # Validate targets in other dicts (after connected checks per spec)\n    for t in target_systems:\n        ts = str(t)\n        if ts not in vulnerability_scores:\n            return err(\"Target system not found in vulnerability_scores\")\n        if ts not in system_types:\n            return err(\"Target system not found in system_types\")\n        if ts not in privilege_levels:\n            return err(\"Target system not found in privilege_levels\")\n\n    # System type compatibility rules\n    def compatible(from_type: int, to_type: int) -> bool:\n        # server(1) connects to all types\n        if from_type == 1:\n            return True\n        if from_type == 2:\n            return to_type in (1, 3)\n        if from_type == 3:\n            return to_type in (1, 2)\n        if from_type == 4:\n            return True\n        if from_type == 5:\n            return to_type in (1, 4)\n        return False\n\n    # Privilege escalation valid for step: prev_priv -> next_priv\n    def privilege_ok(prev_p: int, next_p: int) -> bool:\n        if prev_p == next_p:\n            return True\n        if prev_p == 1 and next_p == 2:\n            return True\n        if prev_p == 2 and next_p == 3:\n            return True\n        if prev_p == 3 and next_p == 4:\n            return True\n        # Higher can access lower\n        if prev_p > next_p:\n            return True\n        return False\n\n    # Threat multipliers\n    mult = {\"insider\": 1.5, \"external\": 0.8, \"apt\": 2.0}[threat_model]\n\n    source_str = str(source_system)\n    target_set = set(str(t) for t in target_systems)\n\n    # Prepare adjacency with validated edges only\n    adj: Dict[str, List[List[int]]] = {}\n    for sid, edges in network.items():\n        lst = []\n        if isinstance(edges, list):\n            for e in edges:\n                if not isinstance(e, list) or len(e) < 3:\n                    continue\n                lst.append([str(e[0]), int(e[1]), int(e[2])])\n        adj[str(sid)] = lst\n\n    results_scores: Dict[str, List[List[float]]] = {}\n    for t in target_set:\n        results_scores[t] = []\n\n    # DFS implementations\n    def calculate_edge_contrib(node_to: str, conn_sec: int, trust: int) -> float:\n        vs = vulnerability_scores.get(node_to, 0.0)\n        return vs * conn_sec / trust * mult\n\n    # Recursive DFS\n    def dfs_recursive(curr: str, path: List[str], visited: Dict[str, bool], cum_score: float):\n        if len(path) > max_path_length:\n            return\n        if curr in target_set and curr != source_str:\n            if cum_score >= vulnerability_threshold:\n                results_scores[curr].append([cum_score] + [int(x) for x in path])\n        for e in adj.get(curr, []):\n            nxt = e[0]\n            conn_sec = e[1]\n            trust = e[2]\n            if nxt in visited:\n                continue\n            # system type compatibility\n            if not compatible(system_types.get(curr, 0), system_types.get(nxt, 0)):\n                continue\n            # privilege escalation\n            if not privilege_ok(privilege_levels.get(curr, 0), privilege_levels.get(nxt, 0)):\n                continue\n            contrib = calculate_edge_contrib(nxt, conn_sec, trust)\n            visited[nxt] = True\n            path.append(nxt)\n            dfs_recursive(nxt, path, visited, cum_score + contrib)\n            path.pop()\n            del visited[nxt]\n\n    # Iterative DFS\n    def dfs_iterative():\n        stack = []\n        # store: current_node, path_list, visited_set, cum_score, iterator_index\n        stack.append([source_str, [source_str], {source_str: True}, 0.0, 0])\n        while stack:\n            node, path, visited, cum_score, idx = stack.pop()\n            if len(path) > max_path_length:\n                continue\n            if node in target_set and node != source_str:\n                if cum_score >= vulnerability_threshold:\n                    results_scores[node].append([cum_score] + [int(x) for x in path])\n            edges = adj.get(node, [])\n            # iterate edges in reverse to mimic DFS order similar to recursive\n            for e in reversed(edges):\n                nxt = e[0]\n                conn_sec = e[1]\n                trust = e[2]\n                if nxt in visited:\n                    continue\n                if not compatible(system_types.get(node, 0), system_types.get(nxt, 0)):\n                    continue\n                if not privilege_ok(privilege_levels.get(node, 0), privilege_levels.get(nxt, 0)):\n                    continue\n                contrib = calculate_edge_contrib(nxt, conn_sec, trust)\n                new_path = path + [nxt]\n                new_visited = dict(visited)\n                new_visited[nxt] = True\n                stack.append([nxt, new_path, new_visited, cum_score + contrib, 0])\n\n    # Run chosen DFS\n    if use_recursive:\n        visited0 = {source_str: True}\n        dfs_recursive(source_str, [source_str], visited0, 0.0)\n    else:\n        dfs_iterative()\n\n    # Prepare final output: for each target, sort paths by score desc, return lists of ints as lists\n    output: Dict[str, List[List[int]]] = {}\n    for t in target_set:\n        entries = results_scores.get(t, [])\n        # entries are [score, path...], where after score we have ints already\n        # sort by score desc\n        entries.sort(key=lambda x: -float(x[0]))\n        # extract paths and filter length constraint again\n        paths = []\n        for ent in entries:\n            path_ints = ent[1:]\n            if 1 <= len(path_ints) <= max_path_length:\n                paths.append([int(x) for x in path_ints])\n        output[str(t)] = paths\n\n    return output"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1983,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1919,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3902
+  },
+  "user": null,
+  "metadata": {}
+}

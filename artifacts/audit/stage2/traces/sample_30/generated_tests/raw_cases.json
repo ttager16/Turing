@@ -1,0 +1,164 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        [
+          "alice",
+          "alice",
+          100
+        ],
+        [
+          "bob",
+          "charlie",
+          90
+        ],
+        [
+          "charlie",
+          "bob",
+          95
+        ],
+        [
+          "alice",
+          "bob",
+          110
+        ],
+        [
+          "alice",
+          "alice",
+          115
+        ]
+      ],
+      {
+        "alice": [
+          "ai",
+          "music"
+        ],
+        "bob": [
+          "music"
+        ],
+        "charlie": [
+          "ai",
+          "travel"
+        ],
+        "dave": [
+          "photography"
+        ]
+      }
+    ],
+    "input_lines": [
+      "[[\"alice\",\"alice\",100],[\"bob\",\"charlie\",90],[\"charlie\",\"bob\",95],[\"alice\",\"bob\",110],[\"alice\",\"alice\",115]]",
+      "{\"alice\": [\"ai\", \"music\"], \"bob\": [\"music\"], \"charlie\": [\"ai\", \"travel\"], \"dave\": [\"photography\"]}"
+    ],
+    "focus": "Self-interactions, repeated self-events, out-of-order timestamps, and a user present only in interests (no interactions). Tests connected_with_self and first-appearance joined_cluster semantics."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [],
+      {
+        "uA": [
+          "sports"
+        ],
+        "uB": [],
+        "uC": [
+          "tech-modern",
+          "photography"
+        ]
+      }
+    ],
+    "input_lines": [
+      "[]",
+      "{\"uA\": [\"sports\"], \"uB\": [], \"uC\": [\"tech-modern\", \"photography\"]}"
+    ],
+    "focus": "Empty interactions with multiple interest-only users (including empty interest list and hyphenated interest tag). Verifies creation of individual communities with no transition_events."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        [
+          "u1",
+          "u2",
+          1
+        ],
+        [
+          "u3",
+          "u4",
+          2
+        ],
+        [
+          "u7",
+          "u8",
+          3
+        ],
+        [
+          "u2",
+          "u3",
+          3
+        ],
+        [
+          "u5",
+          "u6",
+          4
+        ],
+        [
+          "u6",
+          "u5",
+          5
+        ],
+        [
+          "u2",
+          "u1",
+          6
+        ],
+        [
+          "u9",
+          "u9",
+          8
+        ],
+        [
+          "u9",
+          "u9",
+          9
+        ]
+      ],
+      {
+        "u1": [
+          "x",
+          "y"
+        ],
+        "u2": [
+          "y"
+        ],
+        "u3": [
+          "x"
+        ],
+        "u4": [],
+        "u5": [
+          "z"
+        ],
+        "u6": [
+          "z",
+          "a"
+        ],
+        "u7": [
+          "m"
+        ],
+        "u8": [
+          "m",
+          "n"
+        ],
+        "u9": [],
+        "u10": [
+          "solo"
+        ]
+      }
+    ],
+    "input_lines": [
+      "[[\"u1\",\"u2\",1],[\"u3\",\"u4\",2],[\"u7\",\"u8\",3],[\"u2\",\"u3\",3],[\"u5\",\"u6\",4],[\"u6\",\"u5\",5],[\"u2\",\"u1\",6],[\"u9\",\"u9\",8],[\"u9\",\"u9\",9]]",
+      "{\"u1\": [\"x\", \"y\"], \"u2\": [\"y\"], \"u3\": [\"x\"], \"u4\": [], \"u5\": [\"z\"], \"u6\": [\"z\", \"a\"], \"u7\": [\"m\"], \"u8\": [\"m\", \"n\"], \"u9\": [], \"u10\": [\"solo\"]}"
+    ],
+    "focus": "Cluster merges and cycles (merging via intermediary), repeated bidirectional edge causing connected_with_user, timestamp tie cases, self-interaction sequence, and users with missing/empty interests plus an interest-only isolated user."
+  }
+]

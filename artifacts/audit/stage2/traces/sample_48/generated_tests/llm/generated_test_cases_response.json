@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5yxWDeSIULy88iNjl5SNoNHdWCj",
+  "object": "chat.completion",
+  "created": 1774396911,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[{\\\"transaction_id\\\": 201, \\\"branch_id\\\": \\\"R1\\\", \\\"risk_score\\\": 110}, {\\\"transaction_id\\\": 202, \\\"branch_id\\\": \\\"HQ\\\", \\\"risk_score\\\": 0}, {\\\"transaction_id\\\": 203, \\\"branch_id\\\": \\\"R2\\\", \\\"risk_score\\\": 50.5}, {\\\"transaction_id\\\": 204, \\\"branch_id\\\": \\\"R1\\\", \\\"risk_score\\\": 95}]\",\n        \"[{\\\"branch_id\\\": \\\"HQ\\\", \\\"bandwidth\\\": 50, \\\"failure_probability\\\": 0.01}, {\\\"branch_id\\\": \\\"R1\\\", \\\"bandwidth\\\": 30, \\\"failure_probability\\\": 0.02}, {\\\"branch_id\\\": \\\"R2\\\", \\\"bandwidth\\\": 10, \\\"failure_probability\\\": 0.5}]\",\n        \"{\\\"latency_matrix\\\": {\\\"HQ->R1\\\": 10, \\\"HQ->R2\\\": 20, \\\"R1->R2\\\": 5, \\\"R2->X\\\": 3}, \\\"dynamic_risk_adjustments\\\": {\\\"R1\\\": 5}}\"\n      ],\n      \"focus\": \"Bandwith exhaustion, risk_score over 100, missing global_security_alert, and extraneous latency key to undefined branch\"\n    },\n    {\n      \"input_lines\": [\n        \"[{\\\"transaction_id\\\": 301, \\\"branch_id\\\": \\\"A\\\", \\\"risk_score\\\": 70}, {\\\"transaction_id\\\": 302, \\\"branch_id\\\": \\\"B\\\", \\\"risk_score\\\": 70}, {\\\"transaction_id\\\": 303, \\\"branch_id\\\": \\\"A\\\", \\\"risk_score\\\": 90}, {\\\"transaction_id\\\": 304, \\\"branch_id\\\": \\\"C\\\", \\\"risk_score\\\": 20}]\",\n        \"[{\\\"branch_id\\\": \\\"HQ\\\", \\\"bandwidth\\\": 40, \\\"failure_probability\\\": 0.005}, {\\\"branch_id\\\": \\\"A\\\", \\\"bandwidth\\\": 15, \\\"failure_probability\\\": 0.02}, {\\\"branch_id\\\": \\\"B\\\", \\\"bandwidth\\\": 20, \\\"failure_probability\\\": 0.015}, {\\\"branch_id\\\": \\\"C\\\", \\\"bandwidth\\\": 5, \\\"failure_probability\\\": 0.2}]\",\n        \"{\\\"latency_matrix\\\": {\\\"HQ->A\\\": 10, \\\"HQ->B\\\": 5, \\\"B->A\\\": 1, \\\"A->C\\\": 2, \\\"B->C\\\": 10}, \\\"dynamic_risk_adjustments\\\": {\\\"A\\\": 0, \\\"B\\\": 1, \\\"C\\\": 3}, \\\"global_security_alert\\\": false}\"\n      ],\n      \"focus\": \"Alternative shorter path via intermediate node (Dijkstra validation) and bandwidth competition on small-capacity branch\"\n    },\n    {\n      \"input_lines\": [\n        \"[{\\\"transaction_id\\\": 401, \\\"branch_id\\\": \\\"D\\\", \\\"risk_score\\\": 85}, {\\\"transaction_id\\\": 402, \\\"branch_id\\\": \\\"E\\\", \\\"risk_score\\\": 30}, {\\\"transaction_id\\\": 403, \\\"branch_id\\\": \\\"HQ\\\", \\\"risk_score\\\": 99}]\",\n        \"[{\\\"branch_id\\\": \\\"HQ\\\", \\\"bandwidth\\\": 100, \\\"failure_probability\\\": 0.005}, {\\\"branch_id\\\": \\\"F\\\", \\\"bandwidth\\\": 20, \\\"failure_probability\\\": 0.1}, {\\\"branch_id\\\": \\\"D\\\", \\\"bandwidth\\\": 5, \\\"failure_probability\\\": 0.9}, {\\\"branch_id\\\": \\\"E\\\", \\\"bandwidth\\\": 20, \\\"failure_probability\\\": 0.0}]\",\n        \"{\\\"latency_matrix\\\": {\\\"HQ->F\\\": 10, \\\"F->D\\\": 5, \\\"D->Z\\\": 4}, \\\"dynamic_risk_adjustments\\\": {\\\"E\\\": -5, \\\"HQ\\\": 1}, \\\"global_security_alert\\\": true}\"\n      ],\n      \"focus\": \"Disconnected target and chained connectivity, high failure probabilities affecting security threshold, negative risk adjustment and global alert amplification\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3087,
+    "completion_tokens": 3358,
+    "total_tokens": 6445,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2496,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

@@ -1,0 +1,76 @@
+{
+  "id": "resp_07a5d691befb88aa0069c32550aa40819eb907820deff077fd",
+  "object": "response",
+  "created_at": 1774396752,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774396786,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_07a5d691befb88aa0069c32550edec819e82ddbb22f8e051e2",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_07a5d691befb88aa0069c325512928819eaea7c74971a939bf",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List, Any, Tuple\n\ndef maximize_ad_impressions(payload: Dict[str, Any]) -> Dict[str, float | List[str]]:\n    budget: float = float(payload.get(\"budget\", 0.0))\n    raw_bids = payload.get(\"bids\", [])\n    synergy_list = payload.get(\"synergy\", [])\n    seg_caps_raw = payload.get(\"segment_roi_cap\", {}) or {}\n\n    # Normalize segment caps keys to ints\n    segment_caps: Dict[int, float] = {}\n    for k, v in seg_caps_raw.items():\n        try:\n            ik = int(k)\n        except Exception:\n            continue\n        segment_caps[ik] = float(v)\n\n    # Build synergy map: unordered pair -> penalty\n    synergy: Dict[Tuple[int, int], float] = {}\n    for entry in synergy_list:\n        pair = entry.get(\"pair\", [])\n        if not pair or len(pair) != 2:\n            continue\n        a, b = int(pair[0]), int(pair[1])\n        if a == b:\n            continue\n        key = (a, b) if a < b else (b, a)\n        synergy[key] = float(entry.get(\"penalty\", 0.0))\n\n    # Parse bids into dicts; ensure deterministic order by original list order\n    bids: List[Dict[str, Any]] = []\n    for item in raw_bids:\n        if not item or len(item) < 4:\n            continue\n        bid_id = str(item[0])\n        cost = float(item[1])\n        roi = float(item[2])\n        segments = [int(s) for s in item[3]]\n        bids.append({\n            \"id\": bid_id,\n            \"cost\": cost,\n            \"roi\": roi,\n            \"segments\": segments\n        })\n\n    # Helper to compute utility components for a set of accepted bid ids\n    def evaluate(accepted_set: List[str]) -> Dict[str, Any]:\n        # accepted_set is list for deterministic ordering; use set for membership\n        accepted = set(accepted_set)\n        total_cost = 0.0\n        # accumulate per-segment allocated ROI (before caps)\n        seg_alloc: Dict[int, float] = {}\n        for b in bids:\n            if b[\"id\"] in accepted:\n                total_cost += b[\"cost\"]\n                segs = b[\"segments\"]\n                if not segs:\n                    continue\n                per_seg = b[\"roi\"] / len(segs)\n                for s in segs:\n                    seg_alloc[s] = seg_alloc.get(s, 0.0) + per_seg\n        # apply per-segment caps\n        total_roi = 0.0\n        for s, alloc in seg_alloc.items():\n            cap = segment_caps.get(s)\n            if cap is None:\n                total_roi += alloc\n            else:\n                # cap is for total across accepted bids; if alloc > cap, clipped\n                total_roi += min(alloc, cap)\n        # compute penalties: presence-based unordered pairs across segments present\n        present_segments = set(seg_alloc.keys())\n        total_penalty = 0.0\n        for (a, b), p in synergy.items():\n            if a in present_segments and b in present_segments:\n                total_penalty += p\n        utility = total_roi - total_penalty\n        return {\n            \"total_cost\": total_cost,\n            \"total_roi\": total_roi,\n            \"total_penalty\": total_penalty,\n            \"utility\": utility\n        }\n\n    # Precompute metrics per bid for greedy ordering: marginal ROI ignoring caps and synergy\n    # Deterministic tie-breaker: index order\n    bid_index = {b[\"id\"]: i for i, b in enumerate(bids)}\n    # Use a greedy score: (roi / cost) higher is better; if cost==0 handle\n    def bid_score(b):\n        return (b[\"roi\"] / b[\"cost\"]) if b[\"cost\"] > 0 else float('inf')\n\n    # Initial greedy selection: iterate bids sorted by score desc, deterministic tie by index\n    sorted_bids = sorted(bids, key=lambda x: (-bid_score(x), bid_index[x[\"id\"]]))\n    accepted: List[str] = []\n    remaining_budget = budget\n    # Track per-seg allocated pre-cap for quick incremental checks\n    seg_alloc: Dict[int, float] = {}\n    def current_penalty_for_segments(segments_present: set) -> float:\n        tot = 0.0\n        for (a, b), p in synergy.items():\n            if a in segments_present and b in segments_present:\n                tot += p\n        return tot\n\n    # Greedy add if cost fits and marginal utility positive (considering caps and penalties)\n    for b in sorted_bids:\n        if b[\"cost\"] > remaining_budget:\n            continue\n        # simulate adding bid\n        new_seg_alloc = dict(seg_alloc)\n        per_seg = b[\"roi\"] / (len(b[\"segments\"]) if b[\"segments\"] else 1)\n        for s in b[\"segments\"]:\n            new_seg_alloc[s] = new_seg_alloc.get(s, 0.0) + per_seg\n        # compute total_roi with caps\n        total_roi = 0.0\n        for s, alloc in new_seg_alloc.items():\n            cap = segment_caps.get(s)\n            if cap is None:\n                total_roi += alloc\n            else:\n                total_roi += min(alloc, cap)\n        # compute penalty\n        present_segments = set(new_seg_alloc.keys())\n        total_penalty = current_penalty_for_segments(present_segments)\n        # compute previous total_roi and penalty to get marginal\n        prev_total_roi = 0.0\n        for s, alloc in seg_alloc.items():\n            cap = segment_caps.get(s)\n            prev_total_roi += alloc if cap is None else min(alloc, cap)\n        prev_penalty = current_penalty_for_segments(set(seg_alloc.keys()))\n        marginal = (total_roi - prev_total_roi) - (total_penalty - prev_penalty)\n        if marginal >= 0:\n            # accept\n            accepted.append(b[\"id\"])\n            remaining_budget -= b[\"cost\"]\n            seg_alloc = new_seg_alloc\n\n    # Local improvement phase: try to add single bids or swap one in for one out (deterministic)\n    improved = True\n    # To ensure determinism, always iterate bids in the same base order (sorted_bids)\n    while improved:\n        improved = False\n        # Try additions first\n        for b in sorted_bids:\n            if b[\"id\"] in accepted:\n                continue\n            if b[\"cost\"] > remaining_budget:\n                continue\n            # simulate add\n            new_accepted = accepted + [b[\"id\"]]\n            eval_new = evaluate(new_accepted)\n            eval_curr = evaluate(accepted)\n            if eval_new[\"utility\"] > eval_curr[\"utility\"] + 1e-9:\n                # accept\n                accepted = new_accepted\n                remaining_budget -= b[\"cost\"]\n                improved = True\n                break\n        if improved:\n            continue\n        # Try swaps: replace one accepted bid with one non-accepted bid if cost constraint and utility improves\n        # Deterministic nested loops over accepted then candidate\n        for out_id in list(accepted):\n            out_bid = next((x for x in bids if x[\"id\"] == out_id), None)\n            if out_bid is None:\n                continue\n            for in_bid in sorted_bids:\n                if in_bid[\"id\"] in accepted:\n                    continue\n                # new cost = current_cost - out_cost + in_cost must fit budget\n                curr_eval = evaluate(accepted)\n                new_cost = curr_eval[\"total_cost\"] - out_bid[\"cost\"] + in_bid[\"cost\"]\n                if new_cost > budget + 1e-9:\n                    continue\n                new_accepted = [x for x in accepted if x != out_id] + [in_bid[\"id\"]]\n                # ensure deterministic order of accepted: keep order as in original bids list\n                new_accepted_sorted = [b[\"id\"] for b in bids if b[\"id\"] in set(new_accepted)]\n                eval_new = evaluate(new_accepted_sorted)\n                if eval_new[\"utility\"] > curr_eval[\"utility\"] + 1e-9:\n                    accepted = new_accepted_sorted\n                    remaining_budget = budget - eval_new[\"total_cost\"]\n                    improved = True\n                    break\n            if improved:\n                break\n        # If still not improved, try multi-adds of lowest-cost single additions (attempt 2-add combos limited)\n        if not improved:\n            # attempt single addition of smallest cost that fits even if marginal zero? we already tried\n            # try pairwise addition of two unused bids if combined fits and improves\n            unused = [b for b in sorted_bids if b[\"id\"] not in accepted]\n            n_unused = len(unused)\n            # limit combinations to reasonable amount: since bids per input can be large, only consider first 50 unused to remain efficient\n            limit = 50\n            consider = unused[:limit]\n            found = False\n            for i in range(len(consider)):\n                bi = consider[i]\n                if bi[\"cost\"] > remaining_budget:\n                    continue\n                for j in range(i+1, len(consider)):\n                    bj = consider[j]\n                    if bi[\"cost\"] + bj[\"cost\"] > remaining_budget:\n                        continue\n                    new_accepted = accepted + [bi[\"id\"], bj[\"id\"]]\n                    eval_new = evaluate(new_accepted)\n                    eval_curr = evaluate(accepted)\n                    if eval_new[\"utility\"] > eval_curr[\"utility\"] + 1e-9:\n                        # accept and break\n                        # deterministic ordering\n                        accepted = [b[\"id\"] for b in bids if b[\"id\"] in set(new_accepted)]\n                        remaining_budget = budget - evaluate(accepted)[\"total_cost\"]\n                        improved = True\n                        found = True\n                        break\n                if found:\n                    break\n\n    # Final evaluation and deterministic accepted ordering: order by original bids list\n    accepted_final = [b[\"id\"] for b in bids if b[\"id\"] in set(accepted)]\n    final_eval = evaluate(accepted_final)\n    # Round floats to reasonable precision for determinism\n    def clean(x: float) -> float:\n        return float(round(x + 0.0, 10))\n    result = {\n        \"accepted\": accepted_final,\n        \"total_cost\": clean(final_eval[\"total_cost\"]),\n        \"total_roi\": clean(final_eval[\"total_roi\"]),\n        \"total_penalty\": clean(final_eval[\"total_penalty\"]),\n        \"utility\": clean(final_eval[\"utility\"])\n    }\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1431,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2262,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3693
+  },
+  "user": null,
+  "metadata": {}
+}

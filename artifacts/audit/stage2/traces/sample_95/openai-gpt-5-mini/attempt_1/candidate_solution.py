@@ -1,0 +1,245 @@
+def optimize_delivery_network(graph_nodes: List[Dict], road_segments: List[Dict], 
+                            delivery_locations: List[Dict], depot_node_id: int, 
+                            traffic_schedule: Dict, max_computation_time: int) -> Dict[str, Any]:
+    start_time = time.time()
+    # Basic validations
+    if not isinstance(graph_nodes, list) or not isinstance(road_segments, list) or not isinstance(delivery_locations, list):
+        return {"error": "Input is not valid"}
+    if len(delivery_locations) == 0:
+        return {"error": "No delivery locations provided"}
+    node_ids = {n['node_id'] for n in graph_nodes if isinstance(n.get('node_id'), int)}
+    if depot_node_id not in node_ids:
+        return {"error": "Invalid depot node reference"}
+    # coordinates validation
+    for n in graph_nodes:
+        coord = n.get('coordinates')
+        if (not isinstance(coord, tuple)) or len(coord) != 2:
+            return {"error": f"Invalid coordinates for node {n.get('node_id')}"}
+        x,y = coord
+        if not (0 <= x <= 1000 and 0 <= y <= 1000):
+            return {"error": f"Invalid coordinates for node {n.get('node_id')}"}
+    # node reference validation in road segments
+    for s in road_segments:
+        if s.get('start_node') not in node_ids or s.get('end_node') not in node_ids:
+            return {"error": f"Invalid node reference in road segment {s.get('segment_id')}"}
+    # time window validation
+    for loc in delivery_locations:
+        if loc.get('earliest_delivery_time') is None or loc.get('latest_delivery_time') is None:
+            return {"error": f"Invalid delivery time window for location {loc.get('location_id')}"}
+        if loc['earliest_delivery_time'] >= loc['latest_delivery_time']:
+            return {"error": f"Invalid delivery time window for location {loc.get('location_id')}"}
+    # peak hours validation - no overlaps
+    peak_hours = traffic_schedule.get('peak_hours', [])
+    # check overlaps
+    sorted_peaks = sorted(peak_hours, key=lambda x: (x['start_time'], x['end_time']))
+    for i in range(1, len(sorted_peaks)):
+        if sorted_peaks[i]['start_time'] < sorted_peaks[i-1]['end_time']:
+            return {"error": "Overlapping peak hours detected"}
+    # prepare structures
+    node_map = {n['node_id']: n for n in graph_nodes}
+    seg_map = {s['segment_id']: dict(s) for s in road_segments}
+    # Adjust activation windows based on traffic_density and build adjacency
+    adj = defaultdict(list)  # node -> list of (neighbor, segment_id)
+    segment_activation = {}  # seg_id -> list of (start,end)
+    for s in road_segments:
+        seg_id = s['segment_id']
+        orig_windows = s.get('activation_windows', [])
+        density = s.get('traffic_density', 0.0)
+        adj[s['start_node']].append((s['end_node'], seg_id))
+        # adjust windows durations
+        adjusted = []
+        for w in orig_windows:
+            st = w['start_time']
+            en = w['end_time']
+            duration = max(0, en - st)
+            if density > 0.7:
+                duration = int(duration * 0.8)
+            new_en = st + duration
+            if new_en > st:
+                adjusted.append((st, new_en))
+        segment_activation[seg_id] = adjusted
+    # Graph connectivity validation: ensure every delivery node reachable from depot ignoring time windows
+    # simple BFS on static directed edges
+    visited = set()
+    dq = deque([depot_node_id])
+    while dq:
+        u = dq.popleft()
+        if u in visited: continue
+        visited.add(u)
+        for v, sid in adj.get(u, []):
+            if v not in visited:
+                dq.append(v)
+    for loc in delivery_locations:
+        if loc['node_id'] not in visited:
+            return {"error": "Graph contains disconnected components"}
+    # apply construction zones: reduce capacities for segments connected to those nodes by 50%
+    construction = set(traffic_schedule.get('construction_zones', []))
+    for s in road_segments:
+        if s['start_node'] in construction or s['end_node'] in construction:
+            s['capacity_limit'] = max(1, int(s['capacity_limit'] * 0.5))
+            seg_map[s['segment_id']]['capacity_limit'] = s['capacity_limit']
+    # apply weather impact factor to travel times
+    weather_factor = traffic_schedule.get('weather_impact_factor', 1.0)
+    for s in road_segments:
+        s['adjusted_travel_time'] = int(s['base_travel_time'] * weather_factor)
+        seg_map[s['segment_id']]['adjusted_travel_time'] = s['adjusted_travel_time']
+    # capacity validation: ensure vehicle_load does not exceed any segment capacity along any possible path?
+    # We'll check per direct adjacency: if any delivery vehicle_load > max capacity of any outgoing edge from depot and others, do simpler check:
+    max_seg_capacity = max((s['capacity_limit'] for s in road_segments), default=0)
+    for loc in delivery_locations:
+        if loc['vehicle_load'] > max_seg_capacity:
+            return {"error": f"Vehicle load exceeds road capacity for segment {road_segments[0]['segment_id'] if road_segments else 0}"}
+    # process deliveries by priority
+    deliveries = sorted(delivery_locations, key=lambda x: x['priority_level'])
+    road_usage = defaultdict(int)  # seg_id -> used load sum
+    optimal_paths = []
+    undeliverable = []
+    total_efficiency = 0.0
+    bottlenecks = set()
+    peak_usage_time_sum = 0.0
+    peak_usage_count = 0
+    # helper: check if seg active at particular time (minute)
+    def seg_active(seg_id, t):
+        windows = segment_activation.get(seg_id, [])
+        for st,en in windows:
+            if st <= t <= en:
+                return True
+        return False
+    # BFS time-aware: we will attempt earliest delivery time and step forward minute by minute up to latest
+    for loc in deliveries:
+        if time.time() - start_time > max_computation_time:
+            return {"error": "Computation time exceeded maximum limit"}
+        target = loc['node_id']
+        earliest = loc['earliest_delivery_time']
+        latest = loc['latest_delivery_time']
+        vehicle_load = loc['vehicle_load']
+        priority = loc['priority_level']
+        found_plan = None
+        # For determinism, we BFS once per possible start time from earliest to latest
+        for scheduled in range(earliest, latest+1):
+            # BFS state: (node, current_time, path_nodes, segments_used, travel_time_sum)
+            dq = deque()
+            dq.append((depot_node_id, scheduled, [depot_node_id], [], 0))
+            seen = set()
+            success_paths = []
+            while dq:
+                node, cur_t, path_nodes, segs_used, travel_sum = dq.popleft()
+                key = (node, cur_t, tuple(path_nodes))
+                if key in seen: continue
+                seen.add(key)
+                if node == target:
+                    # compute total travel time: travel_sum + depot node base_delay
+                    total_travel_time = travel_sum + node_map[depot_node_id].get('base_delay',0)
+                    # compute Path Efficiency Score
+                    base_travel_cost = travel_sum
+                    time_penalty = max(0, cur_t - loc['latest_delivery_time'])
+                    window_urgency = 100 / (loc['latest_delivery_time'] - loc['earliest_delivery_time'] + 1)
+                    capacity_util = (vehicle_load / (sum(seg_map[sid]['capacity_limit'] for sid in segs_used) / len(segs_used))) if segs_used else 0
+                    capacity_factor = capacity_util * 50
+                    priority_weight = priority * 25
+                    score = base_travel_cost + (time_penalty * window_urgency) + (capacity_factor * priority_weight)
+                    success_paths.append({
+                        'scheduled_delivery_time': cur_t,
+                        'path_nodes': list(path_nodes),
+                        'total_travel_time': total_travel_time,
+                        'path_efficiency_score': float(score),
+                        'road_segments_used': list(segs_used)
+                    })
+                    # do not break; collect possible paths at this scheduled time
+                    continue
+                # explore neighbors
+                for neigh, sid in sorted(adj.get(node, []), key=lambda x: (x[1], x[0])):
+                    # check segment activation at cur_t (we assume travel starts at cur_t)
+                    if not seg_active(sid, cur_t):
+                        continue
+                    # check capacity
+                    cap = seg_map[sid]['capacity_limit']
+                    if vehicle_load + road_usage[sid] > cap:
+                        continue
+                    # compute travel time for segment + node base delay at neighbor
+                    seg_time = seg_map[sid]['adjusted_travel_time']
+                    # if next minute enters peak hours, increase traffic_density by 30% effective travel time
+                    add_time = seg_time
+                    # simple peak hour check: if any peak contains cur_t
+                    in_peak = False
+                    for ph in peak_hours:
+                        if ph['start_time'] <= cur_t <= ph['end_time']:
+                            in_peak = True
+                            break
+                    if in_peak:
+                        add_time = int(add_time * 1.3)
+                    # neighbor base delay
+                    base_delay = node_map[neigh].get('base_delay',0)
+                    new_time = cur_t + add_time + base_delay
+                    # path continuity: ensure segment has activation for entire traversal. We'll check midpoint time.
+                    mid_t = cur_t + int(add_time/2)
+                    if not seg_active(sid, mid_t):
+                        continue
+                    # capacity construction zones already applied
+                    new_path = path_nodes + [neigh]
+                    new_segs = segs_used + [sid]
+                    new_travel = travel_sum + add_time
+                    dq.append((neigh, new_time, new_path, new_segs, new_travel))
+                # time check
+                if time.time() - start_time > max_computation_time:
+                    return {"error": "Computation time exceeded maximum limit"}
+            # choose best path at this scheduled time if any
+            if success_paths:
+                # choose minimal score, tie-breaker minimal travel time then lexicographic nodes
+                success_paths.sort(key=lambda p: (p['path_efficiency_score'], p['total_travel_time'], p['path_nodes']))
+                chosen = success_paths[0]
+                found_plan = chosen
+                break
+        if not found_plan:
+            undeliverable.append(loc['location_id'])
+            continue
+        # before committing, validate capacities per segment; if vehicle_load exceeds any segment capacity, error
+        for sid in found_plan['road_segments_used']:
+            if vehicle_load > seg_map[sid]['capacity_limit']:
+                return {"error": f"Vehicle load exceeds road capacity for segment {sid}"}
+        # commit usage
+        for sid in found_plan['road_segments_used']:
+            road_usage[sid] += vehicle_load
+            if road_usage[sid] / seg_map[sid]['capacity_limit'] > 0.8:
+                bottlenecks.add(sid)
+        optimal_paths.append({
+            "delivery_location_id": loc['location_id'],
+            "path_nodes": found_plan['path_nodes'],
+            "total_travel_time": found_plan['total_travel_time'],
+            "path_efficiency_score": found_plan['path_efficiency_score'],
+            "scheduled_delivery_time": found_plan['scheduled_delivery_time'],
+            "road_segments_used": found_plan['road_segments_used']
+        })
+        total_efficiency += found_plan['path_efficiency_score']
+    # finalize traffic utilization summary
+    # peak_hour_usage: proportion of usages that occurred during peak hours (approx)
+    peak_uses = 0
+    total_uses = 0
+    for sid, used in road_usage.items():
+        total_uses += used
+        # approximate count during peak if any peak overlaps activation
+        for ph in peak_hours:
+            # if seg active in peak, count its usage as peak usage
+            for w in segment_activation.get(sid, []):
+                if not (w[1] < ph['start_time'] or w[0] > ph['end_time']):
+                    peak_uses += used
+                    break
+    peak_hour_usage = (peak_uses / total_uses) if total_uses>0 else 0.0
+    # average capacity utilization: average of road_usage / capacity across segments
+    caps = []
+    for sid in seg_map:
+        cap = seg_map[sid]['capacity_limit']
+        used = road_usage.get(sid,0)
+        caps.append(min(1.0, used / cap) if cap>0 else 0.0)
+    avg_cap_util = (sum(caps)/len(caps)) if caps else 0.0
+    result = {
+        "optimal_paths": optimal_paths,
+        "total_system_efficiency": total_efficiency,
+        "undeliverable_locations": undeliverable,
+        "traffic_utilization_summary": {
+            "peak_hour_usage": round(peak_hour_usage, 2),
+            "average_capacity_utilization": round(avg_cap_util, 2),
+            "bottleneck_segments": sorted(list(bottlenecks))
+        }
+    }
+    return result

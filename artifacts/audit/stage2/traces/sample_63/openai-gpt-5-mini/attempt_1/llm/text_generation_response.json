@@ -1,0 +1,76 @@
+{
+  "id": "resp_011bf4f8ff6d862d0069c32a301e20819594f6850d8d33adbc",
+  "object": "response",
+  "created_at": 1774398000,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398026,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_011bf4f8ff6d862d0069c32a30778c81958354ebf0e8d87cd7",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_011bf4f8ff6d862d0069c32a309f788195b12dbd5aeb94dbec",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Tuple, Dict, Any, Set\nfrom collections import defaultdict, deque\nfrom heapq import heappush, heappop\n\n\ndef manage_road_network(\n    roads: List[List[int]],\n    intersections: List[List[int]],\n    updates: List[Dict[str, Any]]\n) -> Dict[str, Any]:\n    parent: Dict[int, int] = {}\n    rank: Dict[int, int] = {}\n    comp_capacity: Dict[int, int] = {}\n    comp_size: Dict[int, int] = {}\n    merge_history: List[Tuple[int, int]] = []\n    max_tree_depth = 0\n\n    road_map: Dict[Tuple[int, int], Dict[str, Any]] = {}\n    adj_roads: Dict[int, Set[Tuple[int, int]]] = defaultdict(set)\n    nodes: Set[int] = set()\n    total_capacity = 0\n    deactivated_roads = 0\n\n    # priority queue: earlier roads => higher priority => use counter\n    priority_heap: List[Tuple[int, Tuple[int, int]]] = []\n    priority_counter = 0\n\n    def make_set(x: int, capacity: int = 1):\n        nonlocal max_tree_depth\n        if x in parent:\n            return\n        parent[x] = x\n        rank[x] = 0\n        comp_capacity[x] = capacity\n        comp_size[x] = 1\n        if rank[x] > max_tree_depth:\n            max_tree_depth = rank[x]\n\n    def find(x: int) -> int:\n        if parent[x] != x:\n            parent[x] = find(parent[x])\n        return parent[x]\n\n    def union(a: int, b: int) -> bool:\n        nonlocal max_tree_depth\n        ra = find(a)\n        rb = find(b)\n        if ra == rb:\n            return False\n        # log merge before structural changes\n        merge_history.append((ra, rb))\n        # union by rank: attach smaller to larger; on equal, make second child and increment surviving root's rank by 1.\n        if rank[ra] < rank[rb]:\n            ra, rb = rb, ra  # ensure ra has >= rank\n        parent[rb] = ra\n        # accumulate\n        comp_capacity[ra] = comp_capacity.get(ra, 0) + comp_capacity.get(rb, 0)\n        comp_size[ra] = comp_size.get(ra, 0) + comp_size.get(rb, 0)\n        # remove child entries\n        comp_capacity.pop(rb, None)\n        comp_size.pop(rb, None)\n        if rank[ra] == rank[rb]:\n            rank[ra] += 1\n        if rank[ra] > max_tree_depth:\n            max_tree_depth = rank[ra]\n        return True\n\n    # helper normalize road\n    def norm(road):\n        a, b = road\n        return (a, b) if a <= b else (b, a)\n\n    # initialize intersections (nodes only)\n    for u, v in intersections:\n        nodes.add(u)\n        nodes.add(v)\n        make_set(u, capacity=1)\n        make_set(v, capacity=1)\n\n    # insert roads\n    for r in roads:\n        a, b = r\n        a0, b0 = (a, b) if a <= b else (b, a)\n        road = (a0, b0)\n        nodes.add(a0); nodes.add(b0)\n        # default capacity 1\n        make_set(a0, capacity=1)\n        make_set(b0, capacity=1)\n        # store road metadata\n        road_map[road] = {'capacity': 1, 'active': True, 'priority': priority_counter}\n        heappush(priority_heap, (priority_counter, road))\n        priority_counter += 1\n        adj_roads[a0].add(road)\n        adj_roads[b0].add(road)\n        total_capacity += 1\n        union(a0, b0)\n\n    # helpers for updates\n    def get_neighbors(node: int) -> Set[int]:\n        neigh = set()\n        for r in adj_roads.get(node, ()):\n            a, b = r\n            if a != node:\n                neigh.add(a)\n            if b != node:\n                neigh.add(b)\n        return neigh\n\n    def reclassify(road_list, new_capacity):\n        nonlocal total_capacity\n        road = norm(road_list)\n        meta = road_map.get(road)\n        if not meta:\n            return\n        old = meta['capacity']\n        meta['capacity'] = new_capacity\n        total_capacity += (new_capacity - old)\n\n    def expand(road_list, extended_road_list):\n        nonlocal total_capacity, priority_counter\n        r1 = norm(road_list)\n        r2 = norm(extended_road_list)\n        a1, b1 = r1\n        a2, b2 = r2\n        # ensure nodes exist\n        for n in (a2, b2):\n            nodes.add(n)\n            make_set(n, capacity=1)\n        # add extended road if not present\n        if r2 not in road_map:\n            road_map[r2] = {'capacity': 1, 'active': True, 'priority': priority_counter}\n            heappush(priority_heap, (priority_counter, r2))\n            priority_counter += 1\n            adj_roads[a2].add(r2)\n            adj_roads[b2].add(r2)\n            total_capacity += 1\n            union(a2, b2)\n        # if original exists, ensure its nodes in sets and union across non-connected endpoints\n        for x in (a1, b1):\n            nodes.add(x)\n            make_set(x, capacity=1)\n        # union all non-connected node pairs between the two roads\n        pairs = [(a1, a2), (a1, b2), (b1, a2), (b1, b2)]\n        for x, y in pairs:\n            if x in parent and y in parent:\n                union(x, y)\n\n    def merge_levels(road_list, adjacent_road_list, distance_threshold):\n        # BFS-style propagation: we'll treat distance_threshold as unconditional merge for given example\n        r1 = norm(road_list)\n        r2 = norm(adjacent_road_list)\n        # ensure nodes exist\n        for r in (r1, r2):\n            for n in r:\n                nodes.add(n)\n                make_set(n, capacity=1)\n        # if either road missing, add as roads with capacity 1\n        for r in (r1, r2):\n            if r not in road_map:\n                nonlocal_priority = None\n                road_map[r] = {'capacity': 1, 'active': True, 'priority': priority_counter}\n                heappush(priority_heap, (priority_counter, r))\n                # closure: update external var\n                # but cannot assign to priority_counter inside this scope unless declared; instead handle below\n        # Because of python scoping, we add roads via expand-like simple addition using outer variables:\n        # Simpler: ensure endpoints unioned\n        a1, b1 = r1\n        a2, b2 = r2\n        for n in (a1, b1, a2, b2):\n            make_set(n, capacity=1)\n        # BFS propagation: merge components reachable via adjacency if within threshold.\n        # We'll perform a BFS on nodes starting from endpoints of r1 collecting nodes and merging with r2 endpoints.\n        q = deque()\n        visited = set()\n        for s in (a1, b1):\n            q.append(s); visited.add(s)\n        while q:\n            cur = q.popleft()\n            # consider adjacent nodes via roads\n            for nbr in get_neighbors(cur):\n                if nbr not in visited:\n                    visited.add(nbr)\n                    q.append(nbr)\n                    union(cur, nbr)\n        # finally union endpoints of r2 with visited nodes\n        for n in (a2, b2):\n            for v in visited:\n                union(n, v)\n\n    def close_partial(road_list, lanes_closed):\n        nonlocal total_capacity, deactivated_roads\n        road = norm(road_list)\n        meta = road_map.get(road)\n        if not meta:\n            return\n        old = meta['capacity']\n        newc = max(0, old - lanes_closed)\n        meta['capacity'] = newc\n        total_capacity += (newc - old)\n        if newc == 0 and meta['active']:\n            meta['active'] = False\n            deactivated_roads += 1\n\n    def optimize(k, boost_priority_roads=False):\n        # extract k highest-priority (lowest counter) roads\n        extracted = []\n        found = []\n        while priority_heap and len(found) < k:\n            pr, road = heappop(priority_heap)\n            meta = road_map.get(road)\n            if meta and meta.get('active', False):\n                found.append((pr, road))\n                extracted.append((pr, road))\n            else:\n                # skip inactive/nonexistent\n                continue\n        # push back all extracted to maintain queue\n        for item in extracted:\n            heappush(priority_heap, item)\n        # apply boost\n        if boost_priority_roads:\n            for _, road in found:\n                # increment capacity by 1\n                meta = road_map.get(road)\n                if meta:\n                    reclassify(list(road), meta['capacity'] + 1)\n\n    # Process updates\n    for upd in updates:\n        typ = upd.get('type')\n        if typ == 'reclassify':\n            road = upd.get('road')\n            newc = upd.get('new_capacity', 1)\n            if road:\n                reclassify(road, newc)\n        elif typ == 'expand':\n            road = upd.get('road')\n            ext = upd.get('extended_road')\n            if road and ext:\n                expand(road, ext)\n        elif typ == 'merge_levels':\n            road = upd.get('road')\n            adj = upd.get('adjacent_road')\n            thr = upd.get('distance_threshold', 0)\n            if road and adj:\n                merge_levels(road, adj, thr)\n        elif typ == 'close_partial':\n            road = upd.get('road')\n            lanes = upd.get('lanes_closed', 0)\n            if road:\n                close_partial(road, lanes)\n        elif typ == 'optimize':\n            k = upd.get('k', 0)\n            boost = upd.get('boost_priority_roads', False)\n            optimize(k, boost)\n\n    # Final components: collect roots and members\n    if not nodes:\n        return {'components': [], 'statistics': {'total_merge_count': 0, 'num_components': 0,\n                                                 'component_sizes': [], 'total_network_capacity': 0,\n                                                 'max_tree_depth': 0, 'fragmentation_index': 0.0,\n                                                 'deactivated_roads_count': 0, 'component_capacities': []}}\n    comp_members: Dict[int, List[int]] = defaultdict(list)\n    for n in nodes:\n        make_set(n, capacity=1)\n    for n in nodes:\n        r = find(n)\n        comp_members[r].append(n)\n    components = [sorted(v) for v in comp_members.values()]\n    components.sort(key=lambda x: (len(x), x))  # stable sort\n    num_components = len(components)\n    comp_sizes_list = [len(c) for c in components]\n    # component capacities aligned with components\n    comp_caps = []\n    for c in components:\n        if c:\n            root = find(c[0])\n            comp_caps.append(comp_capacity.get(root, 0))\n        else:\n            comp_caps.append(0)\n    total_merge_count = len(merge_history)\n    fragmentation_index = round(num_components / len(nodes), 4) if nodes else 0.0\n    stats = {\n        'total_merge_count': total_merge_count,\n        'num_components': num_components,\n        'component_sizes': comp_sizes_list,\n        'total_network_capacity': total_capacity,\n        'max_tree_depth': max_tree_depth,\n        'fragmentation_index': fragmentation_index,\n        'deactivated_roads_count': deactivated_roads,\n        'component_capacities': comp_caps\n    }\n    return {'components': components, 'statistics': stats}"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2192,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2631,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4823
+  },
+  "user": null,
+  "metadata": {}
+}

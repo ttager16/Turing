@@ -1,0 +1,221 @@
+def _get_bit(x: int, i: int) -> int:
+    return (x >> i) & 1
+
+def _set_bit(x: int, i: int) -> int:
+    return x | (1 << i)
+
+def _clear_bit(x: int, i: int) -> int:
+    return x & ~(1 << i)
+
+def _count_bits_mask(mask: int, upto: int) -> int:
+    # count bits in [0..upto)
+    if upto <= 0:
+        return 0
+    m = mask & ((1 << upto) - 1)
+    return m.bit_count()
+
+def _clone_list(lst: List[int]) -> List[int]:
+    return [int(x) for x in lst]
+
+# Min-cost max-flow on bipartite per-bit supply->demand with cost |i-j|
+# We'll implement successive shortest augmenting paths with potentials.
+def _min_cost_max_flow(supply: List[int], demand: List[int]):
+    n = len(supply)
+    m = len(demand)
+    N = 2 + n + m  # source + sink + supply nodes + demand nodes
+    SRC = 0
+    SNK = N - 1
+    # build adjacency
+    adj = [[] for _ in range(N)]
+    def add_edge(u, v, cap, cost):
+        adj[u].append([v, cap, cost, len(adj[v])])
+        adj[v].append([u, 0, -cost, len(adj[u]) - 1])
+    # source to supplies
+    for i in range(n):
+        if supply[i] > 0:
+            add_edge(SRC, 1 + i, supply[i], 0)
+    # demands to sink
+    for j in range(m):
+        if demand[j] > 0:
+            add_edge(1 + n + j, SNK, demand[j], 0)
+    # connect supply i -> demand j with large capacity and cost |i-j|
+    for i in range(n):
+        if supply[i] == 0: continue
+        for j in range(m):
+            if demand[j] == 0: continue
+            add_edge(1 + i, 1 + n + j, 10**9, abs(i - j))
+    flow = 0
+    cost = 0
+    INF = 10**18
+    potential = [0]*N
+    while True:
+        dist = [INF]*N
+        inq = [False]*N
+        pv = [(-1, -1)]*N
+        dist[SRC] = 0
+        heap = [(0, SRC)]
+        while heap:
+            d,u = heapq.heappop(heap)
+            if d!=dist[u]: continue
+            for ei, e in enumerate(adj[u]):
+                v, cap, ecost, rev = e
+                if cap<=0: continue
+                nd = d + ecost + potential[u] - potential[v]
+                if nd < dist[v]:
+                    dist[v] = nd
+                    pv[v] = (u, ei)
+                    heapq.heappush(heap, (nd, v))
+        if dist[SNK] == INF:
+            break
+        for v in range(N):
+            if dist[v] < INF:
+                potential[v] += dist[v]
+        # augment
+        addf = INF
+        v = SNK
+        while v != SRC:
+            u, ei = pv[v]
+            if u == -1:
+                addf = 0
+                break
+            addf = min(addf, adj[u][ei][1])
+            v = u
+        if addf == 0 or addf == INF:
+            break
+        v = SNK
+        while v != SRC:
+            u, ei = pv[v]
+            e = adj[u][ei]
+            e[1] -= addf
+            adj[v][e[3]][1] += addf
+            cost += addf * e[2]
+            v = u
+        flow += addf
+    return flow, cost
+
+def optimize_energy_distribution(
+    nodes: List[int],
+    energy_sources: List[int],
+    energy_consumers: List[int],
+) -> List[int]:
+    # Deterministic, idempotent, does not mutate inputs.
+    if not nodes and not energy_sources and not energy_consumers:
+        return []
+    n_nodes = len(nodes)
+    nodes_out = _clone_list(nodes)
+    # Per-bit counts across provided source and consumer lists for bits [0..B)
+    perbit_supply = [0]*B
+    perbit_demand = [0]*B
+    for s in energy_sources:
+        for i in range(B):
+            if _get_bit(s, i):
+                perbit_supply[i] += 1
+    for c in energy_consumers:
+        for i in range(B):
+            if _get_bit(c, i):
+                perbit_demand[i] += 1
+    # Heartbeat detection per node
+    failed_nodes = [False]*n_nodes
+    for idx, v in enumerate(nodes):
+        hb_ok = _get_bit(v, HEARTBEAT_OK)
+        hb_fail = _get_bit(v, HEARTBEAT_FAIL)
+        if hb_fail and not hb_ok:
+            failed_nodes[idx] = True
+    # Reduce supply uniformly when faults exist: proportional to failed node count
+    total_failed = sum(1 for f in failed_nodes if f)
+    if total_failed > 0:
+        # reduction factor: floor of half supply per failed node proportion, deterministic
+        # compute total supply counts and reduce each bit by floor(total_failed / max(1,nodes))
+        denom = max(1, n_nodes)
+        reduction = total_failed // denom
+        if reduction > 0:
+            for i in range(B):
+                if perbit_supply[i] > 0:
+                    perbit_supply[i] = max(0, perbit_supply[i] - reduction)
+    # Build bipartite flow between bits with supply>0 and demand>0
+    # We'll compress to only bits that have nonzero counts to keep graph small.
+    supply_bits = [i for i in range(B) if perbit_supply[i] > 0]
+    demand_bits = [j for j in range(B) if perbit_demand[j] > 0]
+    if not supply_bits and not demand_bits:
+        # nothing to do; return nodes unchanged but satisfy empty inputs rule
+        return nodes_out.copy()
+    # Map compressed indices
+    s_map = {b:i for i,b in enumerate(supply_bits)}
+    d_map = {b:i for i,b in enumerate(demand_bits)}
+    supply_list = [perbit_supply[b] for b in supply_bits]
+    demand_list = [perbit_demand[b] for b in demand_bits]
+    flow, cost = _min_cost_max_flow(supply_list, demand_list)
+    total_demand = sum(demand_list)
+    balanced = (flow >= total_demand)
+    # Deterministic projection: set layered flags based on results
+    # For each node, derive per-bit supply/demand counts from its mask bits.
+    # We'll set LAY_SOURCE if node contributes to any supply bit that was used,
+    # LAY_CONSUMER if it has any demand bit, LAY_FAILOVER if node healthy and balanced, etc.
+    # First compute which bits participated in flow: a simple heuristic:
+    active_supply_bits = set()
+    active_demand_bits = set()
+    # mark supplies that exist and demands that exist; if flow>0 mark all as active proportionally
+    # Deterministic: if balanced, all supply bits become active; else only first K supply bits where K = flow units distribution
+    if balanced:
+        active_supply_bits.update(supply_bits)
+        active_demand_bits.update(demand_bits)
+    else:
+        # allocate flow greedily from lower bit indices deterministically
+        remaining = flow
+        for b, cnt in sorted(zip(supply_bits, supply_list), key=lambda x: x[0]):
+            if remaining <= 0:
+                break
+            take = min(cnt, remaining)
+            if take > 0:
+                active_supply_bits.add(b)
+                remaining -= take
+        remaining = flow
+        for b, cnt in sorted(zip(demand_bits, demand_list), key=lambda x: x[0]):
+            if remaining <= 0:
+                break
+            take = min(cnt, remaining)
+            if take > 0:
+                active_demand_bits.add(b)
+                remaining -= take
+    # Update nodes_out deterministically
+    for idx, orig in enumerate(nodes_out):
+        v = orig
+        is_failed = failed_nodes[idx]
+        # clear layered bits first to make idempotent
+        for bit in (LAY_SOURCE, LAY_CONSUMER, LAY_FAULT, LAY_REACTIVE, LAY_BALANCED, LAY_FAILOVER):
+            v = _clear_bit(v, bit)
+        # Source/consumer marking based on node's own bits presence
+        # If node has any bit set that is in active_supply_bits => mark source
+        node_supply_contrib = False
+        node_demand_contrib = False
+        for b in supply_bits:
+            if _get_bit(orig, b) and b in active_supply_bits:
+                node_supply_contrib = True
+                break
+        for b in demand_bits:
+            if _get_bit(orig, b) and b in active_demand_bits:
+                node_demand_contrib = True
+                break
+        if node_supply_contrib:
+            v = _set_bit(v, LAY_SOURCE)
+        if node_demand_contrib:
+            v = _set_bit(v, LAY_CONSUMER)
+        # Fault flag: set if node failed or if any original high-order LAY_FAULT was present
+        if is_failed or _get_bit(orig, LAY_FAULT):
+            v = _set_bit(v, LAY_FAULT)
+        # Reactive: set if node had any reactive-like bits in lower half (heuristic: any bit in [0..32))
+        reactive = any(_get_bit(orig, i) for i in range(0, 32))
+        if reactive:
+            v = _set_bit(v, LAY_REACTIVE)
+        # Balanced: set if global balanced and node not failed and participates
+        if balanced and not is_failed and (node_supply_contrib or node_demand_contrib):
+            v = _set_bit(v, LAY_BALANCED)
+        # Failover: set if node not failed and global had failures (we enable failover globally)
+        if not is_failed and total_failed > 0:
+            v = _set_bit(v, LAY_FAILOVER)
+        # Clear balanced on failed nodes
+        if is_failed:
+            v = _clear_bit(v, LAY_BALANCED)
+        nodes_out[idx] = v
+    # Ensure function is idempotent: if applied again, result stays same.
+    return nodes_out.copy()

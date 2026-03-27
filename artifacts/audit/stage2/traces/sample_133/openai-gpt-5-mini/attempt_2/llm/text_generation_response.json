@@ -1,0 +1,76 @@
+{
+  "id": "resp_09cf4812d2e0e1520069c33e2af8d8819db15de016585a9442",
+  "object": "response",
+  "created_at": 1774403114,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774403124,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_09cf4812d2e0e1520069c33e2b3e84819da23a82c997657659",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_09cf4812d2e0e1520069c33e2b7c98819da812067f298c9773",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "def find_minimal_vertex_cover(graph: dict, queries: list) -> list:\n    from itertools import combinations\n    # parse input graph: keys like \"[node, layer]\" -> edges node->v\n    layer_edges = []\n    for k, vs in graph.items():\n        try:\n            s = k.strip()\n            if s.startswith(\"[\") and s.endswith(\"]\"):\n                inside = s[1:-1]\n                node_str, layer_str = inside.split(\",\")\n                node = int(node_str.strip())\n            else:\n                node = int(k)\n        except Exception:\n            continue\n        layer_edges.append((node, list(vs)))\n    results = []\n    for qnodes, qedges in queries:\n        # collect relevant layers: any layer containing at least one node referenced by qnodes\n        qset = set(qnodes)\n        edges_set = set()\n        nodes_set = set(qnodes)\n        for src, vs in layer_edges:\n            if src in qset:\n                for v in vs:\n                    edges_set.add((min(src, v), max(src, v)))\n                    nodes_set.add(src); nodes_set.add(v)\n            else:\n                # also if any destination in vs is in qset, the layer contains that node as key? spec says layer entry recorded as [node,layer]: [v1...]\n                # only include layers that contain at least one node referenced by the query; that includes src in qset\n                pass\n        # apply query updates (directed edges) add as undirected pairs, add nodes if new\n        for u, v in qedges:\n            nodes_set.add(u); nodes_set.add(v)\n            edges_set.add((min(u, v), max(u, v)))\n        # build adjacency list undirected\n        nodes = sorted(nodes_set)\n        idx = {n:i for i,n in enumerate(nodes)}\n        n = len(nodes)\n        adj = [set() for _ in range(n)]\n        for a,b in edges_set:\n            if a==b: continue\n            ia, ib = idx[a], idx[b]\n            adj[ia].add(ib); adj[ib].add(ia)\n        # If no edges, cover is empty\n        if all(len(ne)==0 for ne in adj):\n            results.append([])\n            continue\n        # If small graph (<=40 nodes) attempt exact minimal vertex cover via bitmask or backtracking\n        if n <= 40:\n            best = None\n            # list edges as index pairs\n            edge_list = []\n            for i in range(n):\n                for j in adj[i]:\n                    if i<j:\n                        edge_list.append((i,j))\n            m = len(edge_list)\n            # try increasing sizes\n            for ksize in range(0, n+1):\n                found = False\n                for comb in combinations(range(n), ksize):\n                    s = set(comb)\n                    ok = True\n                    for u,v in edge_list:\n                        if u not in s and v not in s:\n                            ok = False; break\n                    if ok:\n                        best = [nodes[i] for i in sorted(s)]\n                        found = True\n                        break\n                if found:\n                    break\n            results.append(best if best is not None else [])\n        else:\n            # 2-approx via maximal matching\n            matched = [False]*n\n            cover = set()\n            for u in range(n):\n                if matched[u]: continue\n                for v in adj[u]:\n                    if not matched[v]:\n                        matched[u]=matched[v]=True\n                        cover.add(nodes[u]); cover.add(nodes[v])\n                        break\n            results.append(sorted(cover))\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2340,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 778,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3118
+  },
+  "user": null,
+  "metadata": {}
+}

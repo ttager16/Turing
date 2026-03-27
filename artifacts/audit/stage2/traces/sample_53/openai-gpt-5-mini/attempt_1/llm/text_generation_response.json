@@ -1,0 +1,76 @@
+{
+  "id": "resp_0ecc5859a84963d30069c327eded84819d88a9c9e013bd1f27",
+  "object": "response",
+  "created_at": 1774397421,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774397434,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0ecc5859a84963d30069c327ee38c0819dbb9b119bfc0c5603",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0ecc5859a84963d30069c327ee7ba4819db9b872dabf37e2e1",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Tuple, Dict, Iterable\nimport math\nfrom collections import defaultdict, deque\n\ndef high_frequency_arbitrage_engine(\n    edges: List[Tuple[int, int, float]],\n    initial_prices: List[float],\n    updates: List[Tuple[int, float]],\n    queries: List[Tuple[int, int]],\n) -> List[float]:\n    # Apply updates\n    prices = list(initial_prices)\n    for idx, p in updates:\n        prices[idx] = p\n\n    n = len(prices)\n    # Build adjacency lists and direct edge map\n    adj: Dict[int, List[Tuple[int, float]]] = defaultdict(list)\n    rev_adj: Dict[int, List[int]] = defaultdict(list)\n    direct_fee: Dict[Tuple[int, int], float] = {}\n    for u, v, w in edges:\n        adj[u].append((v, w))\n        rev_adj[v].append(u)\n        direct_fee[(u, v)] = w\n\n    # Preprocess queries grouping by source node\n    queries_by_src: Dict[int, List[Tuple[int, int]]] = defaultdict(list)\n    for i, (u, v) in enumerate(queries):\n        queries_by_src[u].append((i, v))\n\n    results = [0.0] * len(queries)\n\n    # For each unique source, run Bellman-Ford to get min fees paths and detect neg cycles reachable from source\n    for src, qlist in queries_by_src.items():\n        # If all queries from src are direct-edge preference and direct edges exist for each v,\n        # still must consider when direct edge absent -> need shortest path.\n        # Run Bellman-Ford for min path weights from src.\n        dist = [math.inf] * n\n        dist[src] = 0.0\n        # relax edges n-1 times\n        for _ in range(n - 1):\n            updated = False\n            for u, v, w in edges:\n                if dist[u] != math.inf and dist[u] + w < dist[v]:\n                    dist[v] = dist[u] + w\n                    updated = True\n            if not updated:\n                break\n        # detect nodes part of or reachable from negative cycles reachable from src\n        neg = [False] * n\n        for u, v, w in edges:\n            if dist[u] != math.inf and dist[u] + w < dist[v]:\n                neg[v] = True\n        # propagate negativity through graph\n        dq = deque([i for i, val in enumerate(neg) if val])\n        while dq:\n            u = dq.popleft()\n            for v, _ in adj.get(u, ()):\n                if not neg[v]:\n                    neg[v] = True\n                    dq.append(v)\n        # For each query from this src compute fee(u->v): prefer direct edge if exists\n        for qi, v in qlist:\n            u = src\n            # if direct edge exists, use it\n            if (u, v) in direct_fee:\n                fee = direct_fee[(u, v)]\n                # even if negative cycles exist elsewhere, direct-edge preference means only path fee used\n                diff = prices[v] - prices[u] - fee\n                results[qi] = float(diff)\n            else:\n                # no direct edge: need shortest path fee from u to v\n                if dist[v] == math.inf:\n                    results[qi] = float(\"-inf\")\n                elif neg[v]:\n                    # negative cycle reachable from u that can reach v\n                    results[qi] = float(\"inf\")\n                else:\n                    fee = dist[v]\n                    diff = prices[v] - prices[u] - fee\n                    results[qi] = float(diff)\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1040,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 798,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1838
+  },
+  "user": null,
+  "metadata": {}
+}

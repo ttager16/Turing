@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5KN32NjWF2oA1Z6ZGU7XeMxi9sL",
+  "object": "chat.completion",
+  "created": 1774394395,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\",\n        \"[10]\"\n      ],\n      \"focus\": \"All-zero demands (multiple nodes) — tests handling of zero total demand and that solution doesn't allocate unnecessary companies.\"\n    },\n    {\n      \"input_lines\": [\n        \"[1000]\",\n        \"[300, 200, 250, 300]\"\n      ],\n      \"focus\": \"Single-node demand much larger than any single capacity — forces splitting a single region across multiple companies; capacities are unsorted to catch ordering assumptions.\"\n    },\n    {\n      \"input_lines\": [\n        \"[12, 0, 15, 7, 5, 9, 6]\",\n        \"[15, 20, 10, 9]\"\n      ],\n      \"focus\": \"Mixed tree with internal zero-demand node and varied leaf demands; capacities sum equals total demand, requiring careful ancestor-descendant path packing.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1119,
+    "completion_tokens": 1917,
+    "total_tokens": 3036,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1664,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[9000, 9000, 2500]\n[50, 45, 10]\n162",
+    "output_text": "2"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[1500, 3000, 1500]\n[10, 30, 10]\n59",
+    "output_text": "2"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[20000]\n[100]\n170",
+    "output_text": "1"
+  }
+]

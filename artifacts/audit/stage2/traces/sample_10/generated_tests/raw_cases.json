@@ -1,0 +1,215 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        {
+          "phases": [
+            {
+              "required_skills": [
+                "python"
+              ],
+              "deadline": 3
+            },
+            {
+              "required_skills": [
+                "security"
+              ],
+              "deadline": 5
+            }
+          ],
+          "project_deadline": 5
+        }
+      ],
+      [
+        {
+          "members": [
+            {
+              "name": "A",
+              "skills": [
+                "python",
+                "java"
+              ]
+            }
+          ],
+          "base_availability": 3
+        },
+        {
+          "members": [
+            {
+              "name": "B",
+              "skills": []
+            }
+          ],
+          "base_availability": 10
+        },
+        {
+          "members": [
+            {
+              "name": "C",
+              "skills": [
+                "security"
+              ]
+            }
+          ],
+          "base_availability": 5
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"phases\": [{\"required_skills\": [\"python\"], \"deadline\": 3}, {\"required_skills\": [\"security\"], \"deadline\": 5}], \"project_deadline\": 5}]",
+      "[{\"members\": [{\"name\": \"A\", \"skills\": [\"python\", \"java\"]}], \"base_availability\": 3}, {\"members\": [{\"name\": \"B\", \"skills\": []}], \"base_availability\": 10}, {\"members\": [{\"name\": \"C\", \"skills\": [\"security\"]}], \"base_availability\": 5}]"
+    ],
+    "focus": "Single project with an irrelevant/empty-skill team and a team whose skills exactly match a phase — tests ignoring unusable teams and tight skill coverage."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        {
+          "phases": [
+            {
+              "required_skills": [
+                "python",
+                "testing"
+              ],
+              "deadline": 7
+            }
+          ],
+          "project_deadline": 7
+        },
+        {
+          "phases": [
+            {
+              "required_skills": [
+                "java",
+                "ml"
+              ],
+              "deadline": 7
+            },
+            {
+              "required_skills": [
+                "docker"
+              ],
+              "deadline": 6
+            }
+          ],
+          "project_deadline": 8
+        }
+      ],
+      [
+        {
+          "members": [
+            {
+              "name": "T1M1",
+              "skills": [
+                "python",
+                "java"
+              ]
+            },
+            {
+              "name": "T1M2",
+              "skills": [
+                "testing"
+              ]
+            }
+          ],
+          "base_availability": 7
+        },
+        {
+          "members": [
+            {
+              "name": "T2M1",
+              "skills": [
+                "ml",
+                "docker"
+              ]
+            }
+          ],
+          "base_availability": 6
+        },
+        {
+          "members": [
+            {
+              "name": "T3M1",
+              "skills": [
+                "python",
+                "ml",
+                "testing",
+                "docker",
+                "java"
+              ]
+            }
+          ],
+          "base_availability": 4
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"phases\": [{\"required_skills\": [\"python\", \"testing\"], \"deadline\": 7}], \"project_deadline\": 7}, {\"phases\": [{\"required_skills\": [\"java\", \"ml\"], \"deadline\": 7}, {\"required_skills\": [\"docker\"], \"deadline\": 6}], \"project_deadline\": 8}]",
+      "[{\"members\": [{\"name\": \"T1M1\", \"skills\": [\"python\", \"java\"]}, {\"name\": \"T1M2\", \"skills\": [\"testing\"]}], \"base_availability\": 7}, {\"members\": [{\"name\": \"T2M1\", \"skills\": [\"ml\", \"docker\"]}], \"base_availability\": 6}, {\"members\": [{\"name\": \"T3M1\", \"skills\": [\"python\", \"ml\", \"testing\", \"docker\", \"java\"]}], \"base_availability\": 4}]"
+    ],
+    "focus": "Multiple projects with overlapping deadlines and one powerful but low-availability team — distinguishes scheduling-aware feasibility from naive skill-coverage checks."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        {
+          "phases": [
+            {
+              "required_skills": [
+                "python",
+                "React"
+              ],
+              "deadline": 10
+            }
+          ],
+          "project_deadline": 10
+        }
+      ],
+      [
+        {
+          "members": [
+            {
+              "name": "X",
+              "skills": [
+                "Python",
+                "react"
+              ]
+            }
+          ],
+          "base_availability": 10
+        },
+        {
+          "members": [
+            {
+              "name": "Y",
+              "skills": [
+                "python",
+                "React"
+              ]
+            }
+          ],
+          "base_availability": 5
+        },
+        {
+          "members": [
+            {
+              "name": "Z",
+              "skills": [
+                "React"
+              ]
+            }
+          ],
+          "base_availability": 10
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"phases\": [{\"required_skills\": [\"python\", \"React\"], \"deadline\": 10}], \"project_deadline\": 10}]",
+      "[{\"members\": [{\"name\": \"X\", \"skills\": [\"Python\", \"react\"]}], \"base_availability\": 10}, {\"members\": [{\"name\": \"Y\", \"skills\": [\"python\", \"React\"]}], \"base_availability\": 5}, {\"members\": [{\"name\": \"Z\", \"skills\": [\"React\"]}], \"base_availability\": 10}]"
+    ],
+    "focus": "Case-sensitivity and partial matches: skill name casing differs across teams; ensures solutions treat skill strings exactly and handle combining partial skill sets."
+  }
+]

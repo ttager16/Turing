@@ -1,0 +1,76 @@
+{
+  "id": "resp_0c9e235bbd39ccac0069c32f1e6a8c8191ae1a8807f687e86b",
+  "object": "response",
+  "created_at": 1774399262,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774399274,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0c9e235bbd39ccac0069c32f1eca0881919fee3e8ec482aa6e",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0c9e235bbd39ccac0069c32f1f04c881918b57599e6a321ec2",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Union\n\nclass Fenwick:\n    def __init__(self):\n        self.n = 0\n        self.bit = [0]  # 1-based\n\n    def _resize(self, new_n):\n        if new_n <= self.n:\n            return\n        self.bit.extend([0] * (new_n - self.n))\n        self.n = new_n\n\n    def add_at_index(self, idx: int, delta: int):\n        # idx is 1-based, ensure capacity\n        if idx <= 0:\n            return\n        if idx > self.n:\n            self._resize(idx)\n        i = idx\n        while i <= self.n:\n            self.bit[i] += delta\n            i += i & -i\n\n    def prefix_sum(self, idx: int) -> int:\n        if idx <= 0:\n            return 0\n        if idx > self.n:\n            idx = self.n\n        res = 0\n        i = idx\n        while i > 0:\n            res += self.bit[i]\n            i -= i & -i\n        return res\n\n    def point_query(self, idx: int) -> int:\n        # value at single index = prefix(idx) - prefix(idx-1)\n        if idx <= 0 or idx > self.n:\n            return 0\n        return self.prefix_sum(idx) - self.prefix_sum(idx - 1)\n\n    def remove_index(self, idx: int):\n        # Remove element at idx by shifting subsequent elements left by 1.\n        # To keep O(n log n) worst-case on many removes, we will perform:\n        # - Get value at idx, subtract it at idx.\n        # - For positions j = idx+1..n, get their values and move to j-1.\n        # This requires per-shift updates; acceptable given constraints and typical usage.\n        if idx <= 0 or idx > self.n:\n            return\n        val = self.point_query(idx)\n        if val != 0:\n            self.add_at_index(idx, -val)\n        # Shift subsequent values left by 1\n        for j in range(idx + 1, self.n + 1):\n            v = self.point_query(j)\n            if v != 0:\n                # remove at j and add at j-1\n                self.add_at_index(j, -v)\n                self.add_at_index(j - 1, v)\n        # shrink by 1\n        if self.n >= 1:\n            self.bit.pop()\n            self.n -= 1\n\ndef manage_inventory(operations: List[List[Union[str, int]]]) -> List[int]:\n    fw = Fenwick()\n    results: List[int] = []\n    for op in operations:\n        if not op:\n            continue\n        cmd = op[0]\n        if cmd == \"add\":\n            if len(op) < 2:\n                continue\n            val = int(op[1])\n            # append at next available index\n            idx = fw.n + 1\n            fw._resize(idx)\n            fw.add_at_index(idx, val)\n        elif cmd == \"remove\":\n            if len(op) < 2:\n                continue\n            idx = int(op[1])\n            fw.remove_index(idx)\n        elif cmd == \"update\":\n            if len(op) < 3:\n                continue\n            idx = int(op[1])\n            delta = int(op[2])\n            # ignore non-existent\n            if idx <= 0 or idx > fw.n:\n                continue\n            # prevent negative propagation: ensure resulting point value non-negative\n            cur = fw.point_query(idx)\n            newv = cur + delta\n            if newv < 0:\n                # clamp to zero change\n                delta = -cur\n            if delta != 0:\n                fw.add_at_index(idx, delta)\n        elif cmd == \"query\":\n            if len(op) < 2:\n                results.append(0)\n            else:\n                idx = int(op[1])\n                if idx <= 0:\n                    results.append(0)\n                else:\n                    results.append(fw.prefix_sum(min(idx, fw.n)))\n        else:\n            # unknown command: ignore\n            continue\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1026,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 896,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1922
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6Hza1amTbwcsyaVuyATRV509Tgi",
+  "object": "chat.completion",
+  "created": 1774398091,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[[1, 0.9], [2, 0.8], [3, 0.76]]\",\n        \"[[\\\"fail\\\", 1], [\\\"fail\\\", 2], [\\\"fail\\\", 2], [\\\"fail\\\", 3], [\\\"fail\\\", 10]]\"\n      ],\n      \"focus\": \"All devices are failed (including duplicate fails and failing a non-existent device) — should result in empty clusters.\"\n    },\n    {\n      \"input_lines\": [\n        \"[[10, 0.7500001], [2, 0.7499999], [3, 0.8], [5, 0.74], [7, 0.76]]\",\n        \"[[\\\"standby\\\", 3], [\\\"join\\\", 1], [\\\"resume\\\", 3], [\\\"standby\\\", 2], [\\\"join\\\", 8], [\\\"fail\\\", 5]]\"\n      ],\n      \"focus\": \"Floating-point threshold edges, mixed standby/join/resume/fail operations to separate robust threshold handling from naive comparisons.\"\n    },\n    {\n      \"input_lines\": [\n        \"[]\",\n        \"[[\\\"join\\\", 1], [\\\"join\\\", 1], [\\\"standby\\\", 1], [\\\"resume\\\", 1], [\\\"resume\\\", 1], [\\\"standby\\\", 2], [\\\"resume\\\", 2], [\\\"fail\\\", 1], [\\\"join\\\", 3], [\\\"join\\\", 4], [\\\"standby\\\", 4], [\\\"join\\\", 5]]\"\n      ],\n      \"focus\": \"Empty initial devices; duplicate joins and idempotent standby/resume/fail operations; creating devices via operations and checking state transitions.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1262,
+    "completion_tokens": 1998,
+    "total_tokens": 3260,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1600,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

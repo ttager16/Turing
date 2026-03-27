@@ -1,0 +1,76 @@
+{
+  "id": "resp_06fc085de06cadfa0069c3203cb33c8194b674392f844669b6",
+  "object": "response",
+  "created_at": 1774395452,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774395472,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_06fc085de06cadfa0069c3203cfd6481948259920cecc38c99",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_06fc085de06cadfa0069c3203d25e48194a87d5a84ef5edcad",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List, Any, Tuple\nimport heapq\nimport copy\n\ndef optimize_delivery_routes(\n    city_map: Dict[str, List[List[Any]]], \n    vehicles: List[Dict[str, Any]], \n    route_closures: List[List[Any]]\n) -> List[Dict[str, Any]]:\n    # Build adjacency dict (directed) and closure lookup\n    adj = {}\n    for u, edges in city_map.items():\n        adj.setdefault(u, [])\n        for v, cost, layer in edges:\n            adj[u].append((v, int(cost), layer))\n    closures = {}  # key (u,v) -> closure_time\n    for c in route_closures:\n        if len(c) >= 3:\n            closures[(c[0], c[1])] = c[2]\n\n    # Precompute nodes list\n    nodes = set(adj.keys())\n    for u in adj:\n        for v, _, _ in adj[u]:\n            nodes.add(v)\n    nodes = list(nodes)\n\n    # Dijkstra for admissible heuristic: shortest time ignoring closures and transitions\n    # We'll compute shortest path distances between all nodes on base graph (edge costs only)\n    def dijkstra(source: str) -> Dict[str, int]:\n        dist = {n: float('inf') for n in nodes}\n        dist[source] = 0\n        pq = [(0, source)]\n        while pq:\n            d,u = heapq.heappop(pq)\n            if d!=dist[u]: continue\n            for v,c,_ in adj.get(u, []):\n                nd = d + c\n                if nd < dist.get(v, float('inf')):\n                    dist[v]=nd\n                    heapq.heappush(pq,(nd,v))\n        return dist\n    # Precompute dists from every node used as heuristic on demand (cache)\n    dcache: Dict[str, Dict[str,int]] = {}\n    def get_dist(u: str, v: str) -> int:\n        if u not in dcache:\n            dcache[u] = dijkstra(u)\n        d = dcache[u].get(v, float('inf'))\n        return d if d!=float('inf') else 10**9\n\n    results = []\n    for veh in vehicles:\n        vid = veh.get('id')\n        start = veh.get('start_node')\n        end = veh.get('end_node')\n        capacity = int(veh.get('capacity', 0))\n        tw_start, tw_end = veh.get('time_window', [0, 10**9])\n        deliveries = list(veh.get('deliveries', []))\n        if len(deliveries) > capacity:\n            continue  # impossible\n        # Required visit set\n        req_set = set(deliveries)\n\n        # Best solution trackers\n        best = {'time': float('inf'), 'transitions': float('inf'), 'route': None}\n\n        # Backtracking state: current node, visited deliveries set, time elapsed, current layer (None if unknown), transitions count, path list\n        # Start layer is layer of start node name if includes suffix, otherwise None. But we determine layer by outgoing edges when moving.\n        # We'll represent current layer as string or None.\n\n        # Helper to determine layer of an edge between u->v\n        def neighbors(u: str):\n            return adj.get(u, [])\n\n        # Check closure for edge at time t (edge unavailable at or after closure_time)\n        def is_edge_closed(u: str, v: str, t: int) -> bool:\n            ct = closures.get((u,v))\n            if ct is None:\n                return False\n            # if edge unavailable at or after closure_time -> closed when t >= ct\n            return t >= ct\n\n        # Admissible heuristic from node u to cover remaining required nodes and finish:\n        # Minimal remaining cost = minimal spanning of visiting remaining nodes and end: we approximate by sum of mins: from u to nearest required or end, plus MST lower bound omitted for simplicity but admissible using distances: take min distance to cover each remaining in sequence via minimum matching is complex; simpler admissible heuristic: distance to nearest remaining + sum of zero for others + distance from that remaining to end via precomputed dists. To be safe admissible, use distance from current to nearest of (remaining U {end}).\n        def heuristic(u: str, remaining: set) -> int:\n            targets = list(remaining) + [end]\n            bestd = 10**9\n            for t in targets:\n                d = get_dist(u, t)\n                if d < bestd: bestd = d\n            return bestd\n\n        # DFS with pruning\n        visited_states = {}  # memoization: (node, frozenset(remaining), layer) -> best_time_seen\n        # We need current layer tracked to count transitions; but layer can be None for start.\n        def dfs(u: str, rem: set, time_elapsed: int, layer: Any, transitions: int, path: List[str]):\n            # Prune time window\n            if time_elapsed > tw_end:\n                return\n            # Heuristic lower bound estimate\n            h = heuristic(u, rem)\n            est_total = time_elapsed + h\n            # Add transition costs minimal possible? Heuristic ignores transitions so admissible.\n            if est_total > best['time']:\n                return\n            key = (u, tuple(sorted(rem)), layer)\n            prev_best_time = visited_states.get(key)\n            if prev_best_time is not None and prev_best_time <= time_elapsed and transitions >= 0:\n                return\n            visited_states[key] = time_elapsed\n\n            # If at a delivery node, mark visited\n            new_rem = set(rem)\n            if u in new_rem:\n                new_rem.remove(u)\n\n            # If finished (no remaining and at end)\n            if not new_rem and u == end:\n                # update best comparing time then transitions\n                if time_elapsed < best['time'] or (time_elapsed == best['time'] and transitions < best['transitions']):\n                    best['time'] = time_elapsed\n                    best['transitions'] = transitions\n                    best['route'] = path.copy()\n                return\n\n            # Explore neighbors\n            for v, cost, edge_layer in neighbors(u):\n                # Closure check: if edge closed at time when starting traversal (or at arrival?) Problem says unavailable at or after closure_time, so if starting at time_elapsed and time_elapsed >= ct then can't use.\n                if is_edge_closed(u, v, time_elapsed):\n                    continue\n                # compute layer transition cost if layer changes between previous layer and edge_layer\n                add = cost\n                add_trans = 0\n                next_layer = edge_layer\n                if layer is not None and layer != next_layer:\n                    add += 5\n                    add_trans = 1\n                # Also transitions when moving between variants of same base? The node naming uses layer variants; transitions counted when moving between layers via junction nodes; our approach counts when edge layer differs.\n                new_time = time_elapsed + add\n                # prune by time window and best\n                if new_time > tw_end:\n                    continue\n                # heuristic lower bound from v\n                h2 = heuristic(v, new_rem)\n                if new_time + h2 > best['time']:\n                    continue\n                # avoid cycles: simple depth limit by nodes*3\n                if len(path) > len(nodes)*3:\n                    continue\n                path.append(v)\n                dfs(v, new_rem, new_time, next_layer, transitions + add_trans, path)\n                path.pop()\n\n        # Start DFS\n        # initial layer unknown; but if start node name contains suffix, we could infer layer: e.g., 'N1_skyway'\n        start_layer = None\n        if start.endswith('_skyway'):\n            start_layer = 'skyway'\n        elif start.endswith('_tunnel'):\n            start_layer = 'tunnel'\n        elif start.endswith('_road'):\n            start_layer = 'road'\n        dfs(start, req_set, max(tw_start, 0), start_layer, 0, [start])\n\n        if best['route'] is not None:\n            results.append({\n                'vehicle_id': vid,\n                'route': best['route'],\n                'total_time': int(best['time']),\n                'layer_transitions': int(best['transitions'])\n            })\n    if not results:\n        return []\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1672,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1773,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3445
+  },
+  "user": null,
+  "metadata": {}
+}

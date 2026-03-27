@@ -1,0 +1,76 @@
+{
+  "id": "resp_02bdc0cc87452d0e0069c31c310b14819dbd2038b6a48fef41",
+  "object": "response",
+  "created_at": 1774394417,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774394428,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_02bdc0cc87452d0e0069c31c314714819da2367268debad78e",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_02bdc0cc87452d0e0069c31c31a4d8819d98fb60adeacad2b0",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\nimport bisect\n\ndef allocate_minimum_companies(demand: List[int], capacities: List[int]) -> int:\n    # Greedy practical solution:\n    # Each company covers one root-to-descendant path segment (contiguous along parent->child).\n    # We model covering by repeatedly assigning the largest remaining capacity to cover a maximal uncovered path demand.\n    # This is heuristic but reasonable: compute all root-to-leaf paths as sequences of node indices, compute remaining demand per node,\n    # then greedily place companies on the path segment that yields maximum covered demand per company capacity.\n    # For scalability, we build all root-to-leaf paths (O(n)) and operate with prefix sums.\n    n = len(demand)\n    if n == 0:\n        return 0\n    capacities = sorted(capacities, reverse=True)\n    # Build parent array for implicit binary tree\n    parent = [-1] * n\n    for i in range(1, n):\n        parent[i] = (i - 1) // 2\n    # Build children lists\n    children = [[] for _ in range(n)]\n    for i in range(1, n):\n        p = parent[i]\n        children[p].append(i)\n    # Gather root-to-leaf paths\n    leaves = [i for i in range(n) if not children[i]]\n    paths = []\n    for leaf in leaves:\n        path = []\n        u = leaf\n        while u != -1:\n            path.append(u)\n            u = parent[u]\n        path.reverse()  # root to leaf\n        paths.append(path)\n    # For each path, maintain current remaining demands array and prefix sums\n    rem = demand[:]  # remaining demand per node\n    # Precompute for each path the list of indices\n    # We'll for each company capacity pick best path segment (contiguous) maximizing sum of rem capped by capacity.\n    # To do this efficiently, for each path rebuild prefix sums when rem changed; since each assignment reduces rem, number of assignments limited by sum(demand)/min_capacity\n    total_demand = sum(demand)\n    if total_demand == 0:\n        return 0\n    # If capacities insufficient individually to cover some node demand, nodes can be split across multiple companies; greedy still works.\n    companies_used = 0\n    # Use multiset of capacities descending; for each capacity, find best segment\n    for cap in capacities:\n        if sum(rem) == 0:\n            break\n        # find best path and segment\n        best_gain = 0\n        best_path_idx = -1\n        best_l = best_r = -1\n        for pi, path in enumerate(paths):\n            if not path:\n                continue\n            vals = [rem[idx] for idx in path]\n            # sliding window max sum with cap: we want max sum of contiguous vals up to cap\n            # Two pointers\n            cur = 0\n            l = 0\n            for r in range(len(vals)):\n                cur += vals[r]\n                while cur > cap and l <= r:\n                    cur -= vals[l]\n                    l += 1\n                if cur > best_gain:\n                    best_gain = cur\n                    best_path_idx = pi\n                    best_l, best_r = l, r\n            # Also consider taking partial of a single node if node>cap: can cover cap at some node\n            for i_node, v in enumerate(vals):\n                if v > cap and cap > best_gain:\n                    best_gain = cap\n                    best_path_idx = pi\n                    best_l = best_r = i_node\n        if best_gain == 0:\n            # capacity cannot cover any remaining demand (all rem are zero or cap too small to cover any positive rem)\n            # If any rem>0 but less than cap? already caught. If cap < smallest positive rem but nodes can be split: we can reduce some node by cap.\n            # Do single-node split: find node with rem>0, subtract cap\n            found = False\n            for i in range(n):\n                if rem[i] > 0:\n                    rem[i] = max(0, rem[i] - cap)\n                    companies_used += 1\n                    found = True\n                    break\n            if not found:\n                break\n        else:\n            # apply coverage subtract best_gain from nodes in that segment, but distribute proportionally left-to-right up to cap\n            path = paths[best_path_idx]\n            cap_left = cap\n            for idx in range(best_l, best_r + 1):\n                node = path[idx]\n                take = min(rem[node], cap_left)\n                rem[node] -= take\n                cap_left -= take\n                if cap_left <= 0:\n                    break\n            companies_used += 1\n    # If still remaining demand after using all companies, we need more companies (each with max capacity equal to largest capacity)\n    remaining = sum(rem)\n    if remaining > 0:\n        if not capacities:\n            return -1  # impossible\n        maxcap = max(capacities)\n        more = (remaining + maxcap - 1) // maxcap\n        companies_used += more\n    return companies_used"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 919,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1103,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2022
+  },
+  "user": null,
+  "metadata": {}
+}

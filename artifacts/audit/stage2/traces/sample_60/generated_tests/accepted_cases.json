@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[[\"insert\", 100], [\"insert\", 100], [\"bulk_insert\", 100], [\"query\", 100], [\"rollback\", 2], [\"query\", 100], [\"delete\", 100], [\"query\", 100], [\"rollback\", 1], [\"query\", 100]]",
+    "output_text": "[null, null, null, 100.0, null, 100.0, null, null, null, 100.0]"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[[\"insert\", -10], [\"insert\", 0], [\"insert\", 5], [\"query\", -10], [\"rollback\", 3], [\"query\", 0], [\"bulk_insert\", 0], [\"query\", 1], [\"delete\", 0], [\"query\", 1]]",
+    "output_text": "[null, null, null, -10.0, null, null, null, 0.0, null, null]"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[[\"query\", 1000], [\"insert\", 1], [\"insert\", 2], [\"insert\", 3], [\"bulk_insert\", 1000000], [\"query\", 999999], [\"delete\", 2], [\"rollback\", 2], [\"query\", 2], [\"rollback\", 10], [\"query\", 1000000]]",
+    "output_text": "[null, null, null, null, null, 3.0, null, null, 2.0, null, null]"
+  }
+]

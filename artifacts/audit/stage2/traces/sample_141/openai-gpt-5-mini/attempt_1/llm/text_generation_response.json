@@ -1,0 +1,76 @@
+{
+  "id": "resp_091c6d0b7acf675c0069c34260d6c081928cf53807b8b1f09f",
+  "object": "response",
+  "created_at": 1774404192,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774404224,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_091c6d0b7acf675c0069c34261240081929eb6cb2276e3299c",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_091c6d0b7acf675c0069c3426180d08192aba74bbefd8b8756",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import heapq\nfrom typing import Tuple, FrozenSet\n\nDIRS_8 = [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]\n\ndef in_bounds(r,c):\n    return 0<=r<5 and 0<=c<5\n\ndef neighbors8(r,c):\n    for dr,dc in DIRS_8:\n        nr,nc = r+dr, c+dc\n        if in_bounds(nr,nc):\n            yield nr,nc\n\ndef line_steps(r,c,dr,dc,dist):\n    for k in range(1,dist+1):\n        nr, nc = r+dr*k, c+dc*k\n        if not in_bounds(nr,nc):\n            return []\n    return [(r+dr*k, c+dc*k) for k in range(1,dist+1)]\n\ndef calculate_min_power(grid: list[list[int]], builder_pos: list[int], scout_pos: list[int],\n                        unstable_cells: list[list[int]], target_pos: list[int]) -> float:\n    start_builder = tuple(builder_pos)\n    start_scout = tuple(scout_pos)\n    unstable_set = frozenset(tuple(x) for x in unstable_cells)\n    target = tuple(target_pos)\n    # state: (builder_pos, scout_pos, tuple of flattened heights (25), unstable frozenset)\n    def pack_heights(h):\n        return tuple(h[r][c] for r in range(5) for c in range(5))\n    init_heights = [row[:] for row in grid]\n    start_heights = pack_heights(init_heights)\n    start_state = (start_builder, start_scout, start_heights, unstable_set)\n    # Dijkstra\n    pq = [(0.0, start_state)]\n    dist = {start_state:0.0}\n    while pq:\n        cost, state = heapq.heappop(pq)\n        if dist.get(state, float('inf')) < cost - 1e-12:\n            continue\n        builder, scout, heights_flat, unstable = state\n        # Termination: Builder at target and can perform Finalize Site (cost 10)\n        if builder == target:\n            # Finalize Site is an action; check if builder's cell is not height 4 (can't be on height 4 per rules it might be allowed but building not allowed on 4)\n            # The finalize action requires only being at target. Check and return cost +10\n            final_cost = cost + 10.0\n            return float(final_cost)\n        # Reconstruct heights 2D view via tuple access\n        def h_at(pos):\n            r,c = pos\n            return heights_flat[r*5 + c]\n        def set_h(heights_flat, pos, newh):\n            lst = list(heights_flat)\n            r,c = pos\n            lst[r*5 + c] = newh\n            return tuple(lst)\n        # Generate Builder moves: move to any adjacent (8)\n        for nb in neighbors8(*builder):\n            if nb == scout:\n                continue\n            if nb in unstable:\n                continue\n            h_old = h_at(builder)\n            h_new = h_at(nb)\n            if h_new == 4:\n                continue\n            move_cost = 1 + max(0, h_new - h_old)\n            new_cost = cost + move_cost\n            # After moving, Builder may perform Build action: deposit on an adjacent square to its new position (increase that square's elevation by one).\n            # Build is optional; we must consider both with and without building.\n            # First: without build -> state updated builder pos\n            new_state = (nb, scout, heights_flat, unstable)\n            if new_cost < dist.get(new_state, float('inf')) - 1e-12:\n                dist[new_state] = new_cost\n                heapq.heappush(pq, (new_cost, new_state))\n            # With build: choose an adjacent sq to nb to increase by one, subject to height<4 and not unstable and not occupied by scout or builder\n            for btarget in neighbors8(*nb):\n                if btarget == scout:\n                    continue\n                if btarget in unstable:\n                    continue\n                ht = h_at(btarget)\n                if ht >= 4:\n                    continue\n                build_cost = 2.0\n                newh = ht + 1\n                new_heights = set_h(heights_flat, btarget, newh)\n                new_cost2 = new_cost + build_cost\n                new_state2 = (nb, scout, new_heights, unstable)\n                if new_cost2 < dist.get(new_state2, float('inf')) - 1e-12:\n                    dist[new_state2] = new_cost2\n                    heapq.heappush(pq, (new_cost2, new_state2))\n        # Scout actions:\n        # Move: can move 1 or 2 in straight line (8 directions)\n        for dr,dc in DIRS_8:\n            for dist_step in (1,2):\n                path = line_steps(scout[0], scout[1], dr, dc, dist_step)\n                if not path:\n                    break\n                blocked = False\n                for step in path:\n                    if step == builder:\n                        blocked = True; break\n                    if step in unstable:\n                        blocked = True; break\n                    if h_at(step) == 4:\n                        blocked = True; break\n                if blocked:\n                    continue\n                final_pos = path[-1]\n                # compute cost: (1 + max(0, h_final - h_initial)) * distance\n                h_initial = h_at(scout)\n                h_final = h_at(final_pos)\n                move_cost = (1 + max(0, h_final - h_initial)) * dist_step\n                new_cost = cost + move_cost\n                new_state = (builder, final_pos, heights_flat, unstable)\n                if new_cost < dist.get(new_state, float('inf')) - 1e-12:\n                    dist[new_state] = new_cost\n                    heapq.heappush(pq, (new_cost, new_state))\n        # Scout Scan: can scan an adjacent unstable cell, costing 3, making it stable (remove from unstable set)\n        for adj in neighbors8(*scout):\n            if adj in unstable:\n                new_unstable = frozenset(x for x in unstable if x != adj)\n                new_cost = cost + 3.0\n                new_state = (builder, scout, heights_flat, new_unstable)\n                if new_cost < dist.get(new_state, float('inf')) - 1e-12:\n                    dist[new_state] = new_cost\n                    heapq.heappush(pq, (new_cost, new_state))\n    return float('inf')"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1116,
+    "input_tokens_details": {
+      "cached_tokens": 1024
+    },
+    "output_tokens": 1463,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2579
+  },
+  "user": null,
+  "metadata": {}
+}

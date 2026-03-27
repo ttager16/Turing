@@ -1,0 +1,76 @@
+{
+  "id": "resp_0a60b2770c2719ab0069c3287d3810819ca1557a37d36acddc",
+  "object": "response",
+  "created_at": 1774397565,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774397594,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0a60b2770c2719ab0069c3287d8328819c92e0754cce5d72b6",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0a60b2770c2719ab0069c3287db280819cb267be3de2089c9c",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from decimal import Decimal, ROUND_HALF_UP\nimport math\nfrom functools import cmp_to_key\n\ndef sort_investment_portfolios(portfolios: list[dict]) -> list[dict]:\n    # Validation\n    if not isinstance(portfolios, list):\n        return []\n    if len(portfolios) == 0:\n        return []\n    # collect all names and check structure; also preserve mapping of input top-level\n    name_to_obj = {}\n    seen_names = set()\n    def is_letter_string(s):\n        return isinstance(s, str) and len(s) > 0 and s.isalpha()\n    # Validate each top-level dict and recursively collect sub_portfolios\n    def validate_and_collect(node):\n        if not isinstance(node, dict):\n            return False\n        expected_keys = {'name', 'risk', 'return', 'references', 'sub_portfolios'}\n        if set(node.keys()) != expected_keys:\n            return False\n        name = node.get('name')\n        if not is_letter_string(name):\n            return False\n        if name in seen_names:\n            return False\n        seen_names.add(name)\n        # risk and return numeric\n        rsk = node.get('risk')\n        ret = node.get('return')\n        if not (isinstance(rsk, (int, float)) and isinstance(ret, (int, float))):\n            return False\n        if not (math.isfinite(rsk) and math.isfinite(ret)):\n            return False\n        if not (rsk > 0):\n            return False\n        refs = node.get('references')\n        subs = node.get('sub_portfolios')\n        if not isinstance(refs, list) or not isinstance(subs, list):\n            return False\n        # references entries must be strings of letters\n        for ref in refs:\n            if not isinstance(ref, str):\n                return False\n            if len(ref) == 0 or not ref.isalpha():\n                return False\n            if ref == name:\n                return False  # self-reference invalid\n        # store shallow copy of node to preserve order later\n        name_to_obj[name] = node\n        # recurse subs\n        for sub in subs:\n            if not validate_and_collect(sub):\n                return False\n        return True\n    # Validate all top-level\n    for p in portfolios:\n        if not validate_and_collect(p):\n            return []\n    # Build graph: edges from name -> references + sub_portfolio names\n    # Need adjacency deduped and sorted lexicographically for internal use\n    nodes = sorted(name_to_obj.keys())\n    adj = {n: [] for n in nodes}\n    # Gather edges\n    for n in nodes:\n        obj = name_to_obj[n]\n        # references: deduplicate, ignore unknowns\n        refs = []\n        seen = set()\n        for r in obj['references']:\n            if r in seen:\n                continue\n            seen.add(r)\n            if r in name_to_obj:\n                refs.append(r)\n        refs_sorted = sorted(set(refs))\n        # sub_portfolios: entries are objects; extract names\n        subs = []\n        seen_s = set()\n        for s in obj['sub_portfolios']:\n            if not isinstance(s, dict):\n                return []\n            sname = s.get('name')\n            # sname must exist in name_to_obj (collected earlier)\n            if sname not in name_to_obj:\n                return []\n            if sname in seen_s:\n                continue\n            seen_s.add(sname)\n            subs.append(sname)\n        subs_sorted = sorted(set(subs))\n        # adjacency includes both types\n        combined = sorted(set(refs_sorted + subs_sorted))\n        adj[n] = combined\n    # Build references-only adjacency for scoring references (references edges only)\n    refs_adj = {n: sorted(set(r for r in name_to_obj[n]['references'] if r in name_to_obj)) for n in nodes}\n    # Tarjan SCC on reference+subgraph? Problem states cycles detect in graph of both sub-portfolio (hierarchical) and reference (cross-link) edges.\n    # Use adj (both types)\n    index = {}\n    lowlink = {}\n    onstack = {}\n    stack = []\n    indices = [0]\n    sccs = []\n    def strongconnect(v):\n        index[v] = indices[0]\n        lowlink[v] = indices[0]\n        indices[0] += 1\n        stack.append(v)\n        onstack[v] = True\n        for w in adj[v]:\n            if w not in index:\n                strongconnect(w)\n                lowlink[v] = min(lowlink[v], lowlink[w])\n            elif onstack.get(w, False):\n                lowlink[v] = min(lowlink[v], index[w])\n        if lowlink[v] == index[v]:\n            comp = []\n            while True:\n                w = stack.pop()\n                onstack[w] = False\n                comp.append(w)\n                if w == v:\n                    break\n            sccs.append(sorted(comp))  # sort members lexicographically\n    for v in nodes:\n        if v not in index:\n            strongconnect(v)\n    # Map node to scc id and representative name (lexicographically smallest in scc)\n    scc_map = {}\n    scc_reps = {}\n    scc_members = {}\n    for i, comp in enumerate(sccs):\n        comp_sorted = sorted(comp)\n        rep = comp_sorted[0]\n        scc_reps[i] = rep\n        scc_members[i] = comp_sorted\n        for m in comp_sorted:\n            scc_map[m] = i\n    # Compute base scores: return/risk for each node; check finite\n    base_scores = {}\n    for n in nodes:\n        rsk = name_to_obj[n]['risk']\n        ret = name_to_obj[n]['return']\n        if rsk == 0:\n            return []\n        val = ret / rsk\n        if not math.isfinite(val):\n            return []\n        base_scores[n] = val\n    # For SCCs that are cycles (size>1 or self-loop), their final score is mean of members base scores and not further adjusted.\n    scc_score = {}\n    for i in scc_members:\n        members = scc_members[i]\n        if len(members) == 1:\n            # check self-loop: if node has edge to itself in adj, that's a cycle per rules -> then treated as cycle and should have been rejected earlier due self-reference validation prevented self-refs. So singleton SCC treated as non-cycle.\n            scc_score[i] = None\n        else:\n            mean = sum(base_scores[m] for m in members) / len(members)\n            if not math.isfinite(mean):\n                return []\n            scc_score[i] = mean\n    # We need to compute scores solving dependencies: For nodes not in cycle, score = base + 0.1 * average(score(references))\n    # References to missing ignored. For references that are in cycles, use cycle score as defined.\n    # This is system of linear equations but graph is DAG when SCCs collapsed. Build component graph for references edges only? The formula uses references only, so use refs_adj but collapse SCCs.\n    comp_nodes = sorted(set(scc_map[n] for n in nodes))\n    comp_adj = {c: set() for c in comp_nodes}\n    comp_members = {c: scc_members[c] if c in scc_members else [n for n in nodes if scc_map[n]==c]}\n    for n in nodes:\n        c = scc_map[n]\n        for r in refs_adj[n]:\n            if r not in name_to_obj:\n                continue\n            rc = scc_map[r]\n            if rc == c:\n                continue\n            comp_adj[c].add(rc)\n    # Convert to sorted lists\n    for c in comp_adj:\n        comp_adj[c] = sorted(comp_adj[c])\n    # We need to compute comp scores. For components with predefined scc_score (non-None), that's fixed.\n    # For others, equation: for a node p in component c with single member, score(p) = base + 0.1*avg(scores of references). For component collapsing with single node, comp_score equals node score.\n    # For components that are singletons, comp_score unknown. Equations depend only on references which go to other components; since component graph is DAG, we can topologically sort.\n    # Topo sort comp graph (detect cycles shouldn't exist)\n    # Kahn's algorithm\n    indeg = {c:0 for c in comp_nodes}\n    for c in comp_nodes:\n        for d in comp_adj[c]:\n            indeg[d]+=1\n    queue = [c for c in sorted(comp_nodes) if indeg[c]==0]\n    topo = []\n    while queue:\n        c = queue.pop(0)\n        topo.append(c)\n        for d in comp_adj[c]:\n            indeg[d]-=1\n            if indeg[d]==0:\n                queue.append(d)\n    if len(topo) != len(comp_nodes):\n        return []  # should not happen\n    comp_score = {}\n    # Process in topo order\n    for c in topo:\n        if scc_score.get(c,None) is not None:\n            comp_score[c] = scc_score[c]\n            continue\n        # singleton component (one member)\n        members = scc_members[c]\n        if len(members) != 1:\n            # unreachable: multi-member should have been scc_score\n            return []\n        n = members[0]\n        # compute average of references scores; ignore missing refs\n        ref_scores = []\n        for r in refs_adj[n]:\n            if r not in name_to_obj:\n                continue\n            rc = scc_map[r]\n            # rc should have comp_score computed already because of topo order (references edges consistent)\n            if rc not in comp_score:\n                # if reference inside same comp, would be cycle; but self-ref prevented, so shouldn't happen\n                return []\n            ref_scores.append(comp_score[rc])\n        if len(ref_scores) == 0:\n            avg_ref = 0.0\n        else:\n            avg_ref = sum(ref_scores)/len(ref_scores)\n        sc = base_scores[n] + 0.1 * avg_ref\n        if not math.isfinite(sc):\n            return []\n        comp_score[c] = sc\n    # Now assign per-node final scores: nodes in cycle components get comp_score (mean base), others get comp_score of their component.\n    final_scores = {}\n    for n in nodes:\n        c = scc_map[n]\n        sc = comp_score[c]\n        final_scores[n] = sc\n    # Round to exactly 10 decimal places\n    def round10(x):\n        d = Decimal(str(x)).quantize(Decimal('0.0000000000'), rounding=ROUND_HALF_UP)\n        return float(d)\n    rounded_scores = {n: round10(final_scores[n]) for n in nodes}\n    # Prepare output: only top-level portfolios, preserve their internal order of references and sub_portfolios as input\n    top_level = list(portfolios)  # original dicts\n    # For sorting, need stable sort by descending _score then ascending name. Use rounded_scores; ties within 1e-12 treated lexicographically.\n    def cmp(a,b):\n        na = a['name']; nb = b['name']\n        sa = rounded_scores.get(na, None)\n        sb = rounded_scores.get(nb, None)\n        if sa is None or sb is None:\n            return 0\n        # compare with tolerance\n        if abs(sa - sb) <= 1e-12:\n            if na < nb:\n                return -1\n            if na > nb:\n                return 1\n            return 0\n        # descending score\n        if sa > sb:\n            return -1\n        else:\n            return 1\n    sorted_top = sorted(top_level, key=cmp_to_key(cmp))\n    # Assign ranks starting at 1 sequentially; but even equal scores get distinct ranks increasing order\n    result = []\n    rank = 1\n    for item in sorted_top:\n        n = item['name']\n        # copy original dict but must include original fields plus _score and _rank\n        out = {\n            'name': item['name'],\n            'risk': item['risk'],\n            'return': item['return'],\n            'references': item['references'],\n            'sub_portfolios': item['sub_portfolios'],\n            '_score': float(Decimal(str(rounded_scores[n])).quantize(Decimal('0.0000000000'), rounding=ROUND_HALF_UP)),\n            '_rank': rank\n        }\n        rank += 1\n        result.append(out)\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1403,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2686,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4089
+  },
+  "user": null,
+  "metadata": {}
+}

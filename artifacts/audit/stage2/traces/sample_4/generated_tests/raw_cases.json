@@ -1,0 +1,57 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [],
+      [
+        1,
+        2,
+        3
+      ]
+    ],
+    "input_lines": [
+      "[]",
+      "[1, 2, 3]"
+    ],
+    "focus": "Empty input treated as zero; product should be [0]"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        1,
+        2,
+        3
+      ],
+      [
+        3,
+        -6,
+        3
+      ]
+    ],
+    "input_lines": [
+      "[1, 2, 3]",
+      "[3, -6, 3]"
+    ],
+    "focus": "Exact cancellation produces internal zero coefficients that must be preserved (e.g., [3,0,0,-12,9])"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        -2
+      ],
+      [
+        1,
+        0,
+        3,
+        0
+      ]
+    ],
+    "input_lines": [
+      "[-2]",
+      "[1, 0, 3, 0]"
+    ],
+    "focus": "Single-element (scalar) multiplication with negative scalar and trailing zeros must be trimmed"
+  }
+]

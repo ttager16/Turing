@@ -1,0 +1,76 @@
+{
+  "id": "resp_0692a100c8a241950069c3190992248196b76a066e988c998d",
+  "object": "response",
+  "created_at": 1774393609,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774393682,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0692a100c8a241950069c3190a089481968065aece8c34adc0",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0692a100c8a241950069c3190a50148196ab701e5984334bd4",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Any, Dict, List, Union\nimport math\nimport heapq\nimport hashlib\n\ndef optimize_delivery_routes(\n    network: List[List[Union[int, float]]],         # [u:int, v:int, capacity:float, base_cost:float, base_time:float]\n    deliveries: List[Dict[str, Union[int, float, str]]],           # {\"src\":int,\"dst\":int,\"type\":str,\"amount\":float}\n    priority_deliveries: List[Dict[str, Union[int, float, str]]],  # {\"type\":str,\"src\":int,\"dst\":int,\"deadline\":float,\"required\":float}\n    traffic_variance: Dict[str, float],             # \"u-v\" (directed) -> variance (time^2)\n    vehicle_capacity: Dict[str, float],             # vehicle -> capacity (amount per driver-hour)\n    driver_constraints: Dict[str, float],           # vehicle -> driver-hours budget\n    congestion_factor: float,                       # scales cost & time; variance scales by factor^2\n    hash_seed: int,                                 # deterministic tie-breaking seed\n    probabilistic_threshold: float                  # on-time probability threshold for priority deliveries\n) -> Dict[str, Any]:\n    # Build graph\n    adj = {}\n    edge_info = {}  # (u,v) -> (capacity, base_cost, base_time)\n    for u, v, cap, cost, time in network:\n        u = int(u); v = int(v)\n        adj.setdefault(u, []).append(v)\n        edge_info[(u, v)] = (float(cap), float(cost), float(time))\n    # vehicles sorted\n    vehicles = sorted(vehicle_capacity.keys())\n    # state\n    remaining_capacity = {e: edge_info[e][0] for e in edge_info}\n    remaining_driver = {veh: float(driver_constraints.get(veh, 0.0)) for veh in vehicles}\n    resource_usage = {veh: 0.0 for veh in vehicles}\n    routes = []\n    delivery_status = []\n    metrics_paths = 0\n    metrics_ties = 0\n\n    # helper: normal CDF\n    def Phi(x):\n        return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))\n\n    # find k-shortest simple paths? For simplicity, use Dijkstra on expected cost weights to get single best path.\n    # To be deterministic and consider ties, when multiple neighbors, sort adjacency.\n    for k in adj:\n        adj[k].sort()\n    # Precompute shortest path by expected cost (base_cost * congestion_factor)\n    def shortest_path(src, dst):\n        nonlocal metrics_paths\n        # Dijkstra\n        pq = []\n        heapq.heappush(pq, (0.0, 0, [src], src))\n        visited = {}\n        while pq:\n            cost, edges_cnt, path, node = heapq.heappop(pq)\n            if node == dst:\n                metrics_paths += 1\n                return path, cost, edges_cnt\n            if node in visited and visited[node] <= cost:\n                continue\n            visited[node] = cost\n            for nbr in adj.get(node, []):\n                e = (node, nbr)\n                if e not in edge_info:\n                    continue\n                add = edge_info[e][1] * congestion_factor\n                new_cost = cost + add\n                new_edges = edges_cnt + 1\n                new_path = path + [nbr]\n                heapq.heappush(pq, (new_cost, new_edges, new_path, nbr))\n        metrics_paths += 1\n        return None, float('inf'), 0\n\n    # tie jitter using sha256\n    def jitter_value(key_str):\n        h = hashlib.sha256((str(hash_seed) + \"|\" + key_str).encode()).digest()\n        # take first 8 bytes\n        val = int.from_bytes(h[:8], 'big') / (1 << 64)\n        return (val * 1e-6)\n\n    # vehicle chooser: highest remaining budget ratio = remaining_driver / driver_constraints\n    def choose_vehicle_for_path(path, amount):\n        # compute required driver-hours per vehicle = sum(base_time * congestion_factor * amount) / vehicle_capacity[veh]\n        total_base_time = 0.0\n        for i in range(len(path)-1):\n            e = (path[i], path[i+1])\n            total_base_time += edge_info[e][2] * congestion_factor\n        best = None\n        best_key = None\n        for veh in vehicles:\n            cap = vehicle_capacity[veh]\n            if cap <= 0:\n                continue\n            req_driver_hours = (total_base_time * amount) / cap\n            rem = remaining_driver.get(veh, 0.0)\n            if req_driver_hours <= rem + 1e-12:\n                ratio = (rem / driver_constraints[veh]) if driver_constraints[veh] > 0 else 0.0\n                key = ( -ratio, veh )  # negative so max ratio becomes min key\n                if best is None or key < best_key:\n                    best = (veh, req_driver_hours)\n                    best_key = key\n                elif key == best_key:\n                    # tie by lexicographic veh because vehicles sorted ensures deterministic\n                    pass\n        return best  # (veh, req_driver_hours) or None\n\n    # process deliveries: priority first sorted deterministically by (type, src, dst, required)\n    def sort_priority_list(lst):\n        return sorted(lst, key=lambda x: (str(x.get('type','')), int(x.get('src',0)), int(x.get('dst',0)), float(x.get('required',0.0))))\n    def sort_normal_list(lst):\n        return sorted(lst, key=lambda x: (str(x.get('type','')), int(x.get('src',0)), int(x.get('dst',0)), float(x.get('amount',0.0))))\n    priority_sorted = sort_priority_list(priority_deliveries)\n    normal_sorted = sort_normal_list(deliveries)\n\n    # helper to evaluate path feasibility for priority: compute on-time probability\n    def path_on_time_prob(path, deadline):\n        mu = 0.0\n        var = 0.0\n        for i in range(len(path)-1):\n            e = (path[i], path[i+1])\n            base_time = edge_info[e][2]\n            mu += base_time * congestion_factor\n            key = f\"{e[0]}-{e[1]}\"\n            v = traffic_variance.get(key, 0.0)\n            var += v * (congestion_factor ** 2)\n        sigma = math.sqrt(var) if var > 0 else 0.0\n        if sigma == 0.0:\n            return 1.0 if deadline >= mu - 1e-12 else 0.0\n        return Phi((deadline - mu) / sigma)\n\n    expected_cost = 0.0\n\n    # assign function shared\n    def assign_delivery_entry(deliv, is_priority=False):\n        nonlocal expected_cost, metrics_ties\n        src = int(deliv.get('src'))\n        dst = int(deliv.get('dst'))\n        amount = float(deliv.get('required' if is_priority else 'amount', 0.0))\n        dtype = str(deliv.get('type'))\n        deadline = float(deliv.get('deadline', 0.0)) if is_priority else 0.0\n        # find shortest path\n        path, cost_val, edges_cnt = shortest_path(src, dst)\n        if path is None:\n            delivered = 0.0\n            on_time = 0.0 if is_priority else 1.0\n            delivery_status.append({\n                \"delivery_type\": dtype,\n                \"src\": src,\n                \"dst\": dst,\n                \"requested\": amount,\n                \"delivered\": delivered,\n                \"is_priority\": is_priority,\n                \"deadline\": deadline,\n                \"on_time_probability\": on_time,\n                \"route\": []\n            })\n            return\n        # check priority feasibility\n        if is_priority:\n            on_time = path_on_time_prob(path, deadline)\n            if on_time + 1e-12 < probabilistic_threshold:\n                # cannot satisfy priority -> deliver zero\n                delivery_status.append({\n                    \"delivery_type\": dtype,\n                    \"src\": src,\n                    \"dst\": dst,\n                    \"requested\": amount,\n                    \"delivered\": 0.0,\n                    \"is_priority\": True,\n                    \"deadline\": deadline,\n                    \"on_time_probability\": on_time,\n                    \"route\": []\n                })\n                return\n        else:\n            on_time = 1.0\n        # check edge capacities\n        bottleneck = float('inf')\n        for i in range(len(path)-1):\n            e = (path[i], path[i+1])\n            bottleneck = min(bottleneck, remaining_capacity[e])\n        deliverable = min(amount, bottleneck)\n        if deliverable <= 0.0:\n            delivery_status.append({\n                \"delivery_type\": dtype,\n                \"src\": src,\n                \"dst\": dst,\n                \"requested\": amount,\n                \"delivered\": 0.0,\n                \"is_priority\": is_priority,\n                \"deadline\": deadline,\n                \"on_time_probability\": on_time,\n                \"route\": []\n            })\n            return\n        # choose vehicle\n        veh_choice = choose_vehicle_for_path(path, deliverable)\n        if veh_choice is None:\n            # try reduce amount to fit some vehicle: find max amount that any vehicle can support by driver-hours and capacity\n            total_base_time = 0.0\n            for i in range(len(path)-1):\n                e = (path[i], path[i+1])\n                total_base_time += edge_info[e][2] * congestion_factor\n            max_deliverable = 0.0\n            chosen = None\n            for veh in vehicles:\n                cap = vehicle_capacity[veh]\n                rem = remaining_driver.get(veh, 0.0)\n                if cap <= 0:\n                    continue\n                max_amount = (rem * cap) / total_base_time if total_base_time > 0 else 0.0\n                # also capacity edges\n                for i in range(len(path)-1):\n                    e = (path[i], path[i+1])\n                    max_amount = min(max_amount, remaining_capacity[e])\n                if max_amount > max_deliverable + 1e-12:\n                    max_deliverable = max_amount\n                    chosen = (veh, (total_base_time * max_amount) / cap if cap>0 else 0.0)\n            if chosen is None or max_deliverable <= 0.0:\n                delivery_status.append({\n                    \"delivery_type\": dtype,\n                    \"src\": src,\n                    \"dst\": dst,\n                    \"requested\": amount,\n                    \"delivered\": 0.0,\n                    \"is_priority\": is_priority,\n                    \"deadline\": deadline,\n                    \"on_time_probability\": on_time,\n                    \"route\": []\n                })\n                return\n            deliverable = max_deliverable\n            veh, req_hours = chosen\n        else:\n            veh, req_hours = veh_choice\n        # finalize assign\n        # update edges\n        for i in range(len(path)-1):\n            e = (path[i], path[i+1])\n            remaining_capacity[e] -= deliverable\n        remaining_driver[veh] -= req_hours\n        resource_usage[veh] += req_hours\n        # expected cost add: sum(base_cost * amount * congestion_factor)\n        path_cost = 0.0\n        for i in range(len(path)-1):\n            e = (path[i], path[i+1])\n            path_cost += edge_info[e][1] * congestion_factor * deliverable\n        expected_cost += path_cost\n        # append route entry: u v delivery_type amount vehicle, but requirement uses per-edge entries in routes list?\n        # Problem demands route entries as single entry per delivery using path edges. The Output format shows u,v per route (single-edge path).\n        # For multi-edge, produce one route per edge with same delivery_type/amount/vehicle in order u->v.\n        for i in range(len(path)-1):\n            routes.append({\"u\": path[i], \"v\": path[i+1], \"delivery_type\": dtype, \"amount\": deliverable, \"vehicle\": veh})\n        delivery_status.append({\n            \"delivery_type\": dtype,\n            \"src\": src,\n            \"dst\": dst,\n            \"requested\": amount,\n            \"delivered\": deliverable,\n            \"is_priority\": is_priority,\n            \"deadline\": deadline,\n            \"on_time_probability\": on_time,\n            \"route\": path\n        })\n\n    # process priority then normal\n    for p in priority_sorted:\n        assign_delivery_entry(p, is_priority=True)\n    for d in normal_sorted:\n        assign_delivery_entry(d, is_priority=False)\n\n    # ensure sorted dicts\n    resource_usage_sorted = {k: resource_usage[k] for k in sorted(resource_usage.keys())}\n    metrics = {\"paths_considered\": metrics_paths, \"ties_broken\": metrics_ties}\n    # final expected_cost rounded to reasonable floating representation\n    return {\n        \"routes\": routes,\n        \"expected_cost\": expected_cost,\n        \"delivery_status\": delivery_status,\n        \"resource_usage\": resource_usage_sorted,\n        \"metrics\": metrics\n    }"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2256,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2830,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 5086
+  },
+  "user": null,
+  "metadata": {}
+}

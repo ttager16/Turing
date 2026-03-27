@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5E8T520Pwh4hASdvTsd08pcEl7Q",
+  "object": "chat.completion",
+  "created": 1774394008,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[100, 50]\",\"[40, 60]\",\"[[0, 1, 0]]\"],\"focus\":\"Zero synergy limit between two populated regions — forces cross-region allocation (tests zero-limit handling and infeasibility conditions).\"},{\"input_lines\":[\"[0, 200, 200]\",\"[100, 100, 200]\",\"[[0, 1, 2], [1, 2, 3]]\"],\"focus\":\"Zero-player region appearing in synergies and mixed connectivity — tests zero-player handling and local vs connected balancing.\"},{\"input_lines\":[\"[1000, 999, 1000, 999, 1000]\",\"[200, 250, 200, 250, 200]\",\"[[0, 1, 7], [1, 2, 7], [2, 3, 7], [3, 4, 7], [4, 0, 7]]\"],\"focus\":\"Cyclic chain with tight limits causing cascading rebalances — stresses iterative resolution, sorting by excess, and termination.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1676,
+    "completion_tokens": 1595,
+    "total_tokens": 3271,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1344,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

@@ -1,0 +1,364 @@
+from collections import deque, defaultdict
+
+def optimize_logistics_network(graph_input: dict) -> dict:
+    # Input validation
+    if not isinstance(graph_input, dict) or 'graph' not in graph_input:
+        return {"error": "Invalid input format"}
+    graph_raw = graph_input['graph']
+    if not isinstance(graph_raw, dict):
+        return {"error": "Graph data must be a dictionary"}
+    for k, v in graph_raw.items():
+        if not isinstance(k, str) or not isinstance(v, list):
+            return {"error": "Graph data must map string node IDs to lists of edges"}
+        for e in v:
+            if not (isinstance(e, list) and len(e) == 3):
+                return {"error": "Graph data must map string node IDs to lists of edges"}
+    analyze_all = graph_input.get('analyze_all_paths', False)
+    if not isinstance(analyze_all, bool):
+        return {"error": "analyze_all_paths must be a boolean"}
+    # Convert nodes to ints
+    nodes_set = set()
+    adj_original = defaultdict(list)
+    for k, edges in graph_raw.items():
+        try:
+            u = int(k)
+        except:
+            return {"error": "Graph data must map string node IDs to lists of edges"}
+        nodes_set.add(u)
+        for nb in edges:
+            v, cap, cost = nb
+            try:
+                v = int(v)
+            except:
+                return {"error": "Graph data must map string node IDs to lists of edges"}
+            nodes_set.add(v)
+            adj_original[u].append([v, int(cap), int(cost)])
+    if not nodes_set:
+        # empty graph
+        return {
+            'optimal_path': [],
+            'max_throughput': 0,
+            'total_cost': 0,
+            'layers': {},
+            'num_layers': 0,
+            'bottleneck_nodes': [],
+            'metrics': {
+                'capacity_utilization_percent': 0.0,
+                'cost_efficiency_ratio': None,
+                'path_length': 0,
+                'avg_edge_capacity': 0.0,
+                'flow_efficiency_percent': 0.0,
+                'network_density': 0.0,
+                'cost_per_hop': 0.0,
+                'bottleneck_severity_percent': 0.0,
+                'path_resilience_score': 0,
+                'layer_distribution': {
+                    'min_nodes_per_layer': 0,
+                    'max_nodes_per_layer': 0,
+                    'avg_nodes_per_layer': 0.0
+                }
+            },
+            'alternative_paths': [] if analyze_all else []
+        }
+    source = graph_input.get('source', 0)
+    sink = graph_input.get('sink', None)
+    try:
+        source = int(source)
+    except:
+        return {"error": "Source node not found in graph"}
+    if source not in nodes_set:
+        return {"error": "Source node not found in graph"}
+    if sink is None:
+        sink = max(nodes_set)
+    try:
+        sink = int(sink)
+    except:
+        return {"error": "Sink node not found in graph"}
+    if sink not in nodes_set:
+        return {"error": "Sink node not found in graph"}
+    # Layer assignment via BFS topological-ish ordering
+    indeg = defaultdict(int)
+    for u in nodes_set:
+        for v, c, co in adj_original.get(u, []):
+            indeg[v] += 1
+    zero_indeg = [n for n in nodes_set if indeg.get(n,0) == 0]
+    if not zero_indeg:
+        start_nodes = [min(nodes_set)]
+    else:
+        start_nodes = zero_indeg
+    layers = {}
+    node_layer = {}
+    q = deque()
+    for s in start_nodes:
+        node_layer[s] = 0
+        q.append((s,0))
+    max_iter = max(1, len(nodes_set)**2)
+    it = 0
+    while q and it < max_iter:
+        u, layer = q.popleft()
+        it += 1
+        # assign
+        if node_layer.get(u, -1) < layer:
+            node_layer[u] = layer
+        for v, c, co in adj_original.get(u, []):
+            new_layer = layer + 1
+            if new_layer - node_layer.get(v, -1) > len(nodes_set):
+                continue
+            if new_layer < 0 or new_layer > len(nodes_set)*2:
+                continue
+            if node_layer.get(v, -1) < new_layer:
+                node_layer[v] = new_layer
+                q.append((v, new_layer))
+    # place unreachable nodes one layer beyond current max
+    if node_layer:
+        cur_max_layer = max(node_layer.values())
+    else:
+        cur_max_layer = 0
+    for n in nodes_set:
+        if n not in node_layer:
+            node_layer[n] = cur_max_layer + 1
+    # Build layers dict
+    layer_map = defaultdict(list)
+    for n, l in node_layer.items():
+        layer_map[l].append(n)
+    layers_out = {}
+    for l in sorted(layer_map.keys()):
+        layers_out[str(l)] = sorted(layer_map[l])
+    num_layers = len(layer_map)
+    # Build residual graph
+    residual = defaultdict(dict)
+    edge_costs = {}  # (u,v) -> cost
+    total_edges = 0
+    for u in nodes_set:
+        for v, cap, cost in adj_original.get(u, []):
+            residual[u][v] = residual[u].get(v, 0) + int(cap)
+            edge_costs[(u,v)] = int(cost)
+            total_edges += 1
+    # DFS to find one augmenting path (returns path list and bottleneck)
+    def dfs_find_path(res, s, t, visited):
+        stack = [(s, [s], float('inf'))]
+        while stack:
+            u, path, bott = stack.pop()
+            if u == t:
+                return path, bott
+            for v in list(res.get(u, {}).keys()):
+                if v in visited or res[u].get(v,0) <= 0:
+                    continue
+                visited.add(v)
+                new_bott = min(bott, res[u][v])
+                stack.append((v, path+[v], new_bott))
+        return None, 0
+    # Find all augmenting paths per iteration (collect multiple via repeated DFS with visited reset)
+    max_throughput = 0
+    chosen_optimal_path = []
+    chosen_optimal_flow = 0
+    all_aug_paths = []
+    # We will repeatedly search for any path; but per constraints collect all possible augmenting paths each iteration.
+    iter_limit = max(1, len(nodes_set)**2)
+    iters = 0
+    while iters < iter_limit:
+        iters += 1
+        # collect all simple augmenting paths via repeated DFS with visited resets to find alternatives
+        found_any = False
+        paths_found = []
+        # We'll perform multiple DFS attempts, marking used edges per attempt to discover multiple distinct paths
+        temp_res = {u: dict(vs) for u, vs in residual.items()}
+        search_limit = max(1, len(nodes_set)*2)
+        searches = 0
+        while searches < search_limit:
+            searches += 1
+            visited = set([source])
+            path, bott = dfs_find_path(temp_res, source, sink, visited)
+            if not path:
+                break
+            # compute cost using original costs along path edges where present
+            cost_sum = 0
+            for i in range(len(path)-1):
+                cost_sum += edge_costs.get((path[i], path[i+1]), 0)
+            paths_found.append((path, bott, cost_sum))
+            # remove bott from temp_res forward edges to allow discovering alternative paths
+            for i in range(len(path)-1):
+                u = path[i]; v = path[i+1]
+                temp_res[u][v] -= bott
+                if temp_res[u][v] <= 0:
+                    del temp_res[u][v]
+            found_any = True
+        if not found_any:
+            break
+        # sort by flow desc then cost asc
+        paths_found.sort(key=lambda x: (-x[1], x[2]))
+        # choose top path to augment in real residual
+        path_chosen, flow_chosen, cost_chosen = paths_found[0]
+        # update residual
+        for i in range(len(path_chosen)-1):
+            u = path_chosen[i]; v = path_chosen[i+1]
+            # reduce forward
+            residual[u][v] = residual[u].get(v,0) - flow_chosen
+            if residual[u][v] <= 0:
+                if v in residual[u]:
+                    del residual[u][v]
+            # add reverse
+            residual[v][u] = residual[v].get(u,0) + flow_chosen
+            # set reverse edge cost as negated original cost (store in edge_costs if not exist)
+            if (v,u) not in edge_costs:
+                edge_costs[(v,u)] = -edge_costs.get((u,v), 0)
+        max_throughput += flow_chosen
+        # track optimal_path as path with largest bottleneck encountered across all iterations
+        if flow_chosen > chosen_optimal_flow or (flow_chosen == chosen_optimal_flow and cost_chosen < sum(edge_costs.get((chosen_optimal_path[i], chosen_optimal_path[i+1]),0) for i in range(len(chosen_optimal_path)-1)) if chosen_optimal_path else True):
+            chosen_optimal_path = path_chosen[:]
+            chosen_optimal_flow = flow_chosen
+        # accumulate all_aug_paths for potential analytics
+        all_aug_paths.extend(paths_found)
+    # If no augmenting paths at all
+    if not chosen_optimal_path:
+        return {
+            'optimal_path': [],
+            'max_throughput': 0,
+            'total_cost': 0,
+            'layers': layers_out,
+            'num_layers': num_layers,
+            'bottleneck_nodes': [],
+            'metrics': {
+                'capacity_utilization_percent': 0.0,
+                'cost_efficiency_ratio': None,
+                'path_length': 0,
+                'avg_edge_capacity': 0.0,
+                'flow_efficiency_percent': 0.0,
+                'network_density': round(total_edges / len(nodes_set), 2) if nodes_set else 0.0,
+                'cost_per_hop': 0.0,
+                'bottleneck_severity_percent': 0.0,
+                'path_resilience_score': 0 if not analyze_all else 0,
+                'layer_distribution': {
+                    'min_nodes_per_layer': 0 if not layer_map else min(len(v) for v in layer_map.values()),
+                    'max_nodes_per_layer': 0 if not layer_map else max(len(v) for v in layer_map.values()),
+                    'avg_nodes_per_layer': round((sum(len(v) for v in layer_map.values())/len(layer_map)) if layer_map else 0.0, 2)
+                }
+            },
+            'alternative_paths': []
+        }
+    # Total cost along optimal path using original graph costs (edge_costs may have reverse entries)
+    total_cost = 0
+    edge_caps_on_path = []
+    for i in range(len(chosen_optimal_path)-1):
+        u = chosen_optimal_path[i]; v = chosen_optimal_path[i+1]
+        total_cost += adj_original.get(u, [])
+        # fetch capacity from original adj_original
+        cap = None
+        for vv, c, co in adj_original.get(u, []):
+            if vv == v:
+                cap = c
+                total_cost = total_cost  # placeholder
+                break
+        # we'll recompute properly:
+    # Recompute total_cost and capacities
+    total_cost = 0
+    edge_caps_on_path = []
+    for i in range(len(chosen_optimal_path)-1):
+        u = chosen_optimal_path[i]; v = chosen_optimal_path[i+1]
+        found = False
+        for vv, c, co in adj_original.get(u, []):
+            if vv == v:
+                total_cost += co
+                edge_caps_on_path.append(c)
+                found = True
+                break
+        if not found:
+            # possibly reverse-only edge (should not in original), assume cost 0 cap large
+            edge_caps_on_path.append(0)
+    # Bottleneck nodes: source nodes of edges with minimal capacity on optimal path
+    if edge_caps_on_path:
+        min_cap = min(edge_caps_on_path)
+        bottleneck_nodes = []
+        for idx, c in enumerate(edge_caps_on_path):
+            if c == min_cap:
+                bottleneck_nodes.append(chosen_optimal_path[idx])
+    else:
+        min_cap = 0
+        bottleneck_nodes = []
+    # Metrics calculations
+    path_len = max(0, len(chosen_optimal_path)-1)
+    avg_edge_cap = round((sum(edge_caps_on_path)/len(edge_caps_on_path)) if edge_caps_on_path else 0.0, 2)
+    # capacity utilization percent: optimal path flow * edge count / total path capacity *100
+    total_path_capacity = sum(edge_caps_on_path) if edge_caps_on_path else 0
+    if total_path_capacity:
+        capacity_util = round((chosen_optimal_flow * len(edge_caps_on_path) / total_path_capacity) * 100, 2)
+    else:
+        capacity_util = 0.0
+    # cost efficiency ratio: max_throughput / total_cost
+    if total_cost == 0 or source == sink:
+        cost_eff = None
+    else:
+        cost_eff = round(max_throughput / total_cost, 4)
+    # flow efficiency percent: optimal path flow as percentage of theoretical maximum (minimum edge capacity)
+    if min_cap:
+        flow_eff = round((chosen_optimal_flow / min_cap) * 100, 2)
+    else:
+        flow_eff = 0.0
+    # network density: total edges / total nodes
+    network_density = round((total_edges / len(nodes_set)) if nodes_set else 0.0, 2)
+    # cost per hop
+    if path_len > 0:
+        cost_per_hop = round(total_cost / path_len, 2)
+    else:
+        cost_per_hop = 0.0
+    # bottleneck severity percent: how much min capacity restricts flow relative to average capacity
+    if edge_caps_on_path and avg_edge_cap > 0:
+        bottleneck_severity = round(((avg_edge_cap - min_cap) / avg_edge_cap) * 100, 2)
+    else:
+        bottleneck_severity = 0.0
+    # path resilience: count total feasible paths via exhaustive search when analyze_all_paths
+    alt_paths = []
+    path_resilience_score = 0
+    if analyze_all:
+        # exhaustive DFS with backtracking to count all simple paths from source to sink
+        all_paths = []
+        stack = [(source, [source], float('inf'), 0)]
+        visited = set()
+        while stack:
+            u, path, bott, cost_so = stack.pop()
+            if u == sink:
+                all_paths.append((path[:], bott, cost_so))
+                continue
+            for v, c, co in adj_original.get(u, []):
+                if v in path:
+                    continue
+                new_bott = min(bott, c)
+                stack.append((v, path+[v], new_bott, cost_so+co))
+        path_resilience_score = len(all_paths)
+        # prepare up to 5 paths sorted by cost asc
+        all_paths_sorted = sorted(all_paths, key=lambda x: x[2])
+        for p, b, co in all_paths_sorted[:5]:
+            alt_paths.append({'path': p, 'capacity': int(b if b != float('inf') else 0), 'cost': int(co)})
+    # layer distribution
+    if layer_map:
+        mins = min(len(v) for v in layer_map.values())
+        maxs = max(len(v) for v in layer_map.values())
+        avgs = round(sum(len(v) for v in layer_map.values())/len(layer_map), 2)
+    else:
+        mins = 0; maxs = 0; avgs = 0.0
+    metrics = {
+        'capacity_utilization_percent': capacity_util,
+        'cost_efficiency_ratio': cost_eff,
+        'path_length': path_len,
+        'avg_edge_capacity': avg_edge_cap,
+        'flow_efficiency_percent': flow_eff,
+        'network_density': network_density,
+        'cost_per_hop': cost_per_hop,
+        'bottleneck_severity_percent': bottleneck_severity,
+        'path_resilience_score': path_resilience_score if analyze_all else 0,
+        'layer_distribution': {
+            'min_nodes_per_layer': mins,
+            'max_nodes_per_layer': maxs,
+            'avg_nodes_per_layer': avgs
+        }
+    }
+    return {
+        'optimal_path': chosen_optimal_path,
+        'max_throughput': max_throughput,
+        'total_cost': total_cost,
+        'layers': layers_out,
+        'num_layers': num_layers,
+        'bottleneck_nodes': bottleneck_nodes,
+        'metrics': metrics,
+        'alternative_paths': alt_paths
+    }

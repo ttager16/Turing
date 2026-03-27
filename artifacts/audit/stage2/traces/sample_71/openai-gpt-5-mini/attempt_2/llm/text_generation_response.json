@@ -1,0 +1,76 @@
+{
+  "id": "resp_0b7e78158d0718f50069c32be97ef48194b6db6595c64193f7",
+  "object": "response",
+  "created_at": 1774398441,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398450,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0b7e78158d0718f50069c32be9c8a4819484037d29ca328f83",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0b7e78158d0718f50069c32be9f1608194ae819894ca22d05d",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List\nimport heapq\n\nSINK_PENALTY = 10**6\n\ndef manage_traffic_graph(\n    city_map: Dict[str, Dict[str, int]],\n    updates: List[List],\n    start: str,\n    end: str\n) -> List[str]:\n    # Validate updates parameter presence and type\n    if updates is None or not isinstance(updates, list):\n        return []\n    # If city_map missing\n    if city_map is None:\n        return []\n    # If both empty\n    if (not city_map) and (not updates):\n        return []\n    # Work on a deep copy (shallow dicts)\n    graph: Dict[str, Dict[str, int]] = {}\n    for u, nbrs in (city_map.items() if city_map else []):\n        if not isinstance(nbrs, dict):\n            return []\n        graph[u] = dict(nbrs)\n    # Apply updates (ordered, last-write-wins)\n    for upd in updates:\n        if not isinstance(upd, list) or len(upd) != 3:\n            return []\n        u, v, w = upd\n        if not isinstance(u, str) or not isinstance(v, str):\n            return []\n        if not isinstance(w, int) or w < 0:\n            return []\n        if u not in graph:\n            graph[u] = {}\n        if v not in graph:\n            # ensure node exists even if isolated\n            graph.setdefault(v, {})\n        # set edge (u,v) to weight w (0 means closed but kept)\n        graph[u][v] = w\n    # If initial empty but updates created nodes, graph okay\n    # Check for self-loops anywhere\n    for u, nbrs in graph.items():\n        if u in nbrs:\n            return []\n    # Ensure start and end exist\n    if start not in graph or end not in graph:\n        return []\n    # Build list of open outgoing edges for sink determination\n    def open_out_neighbors(node):\n        return [v for v, wt in graph.get(node, {}).items() if wt > 0]\n    # Precompute sink set after updates: nodes with no open outgoing edges\n    sinks = set()\n    for node in graph:\n        if not open_out_neighbors(node):\n            sinks.add(node)\n    # Dijkstra with tie-breaking: cost, hops, path lexicographic\n    # State in heap: (total_cost, hops, path_tuple, current_node)\n    start_state = (0, 0, (start,), start)\n    heap = [start_state]\n    # best maps node -> best seen tuple (cost, hops, path_tuple)\n    best = {start: (0, 0, (start,))}\n    while heap:\n        cost, hops, path_t, u = heapq.heappop(heap)\n        # If popped state worse than recorded best, skip\n        if best.get(u) != (cost, hops, path_t):\n            continue\n        if u == end:\n            return list(path_t)\n        # Explore neighbors\n        for v, wt in graph.get(u, {}).items():\n            if wt == 0:\n                continue  # closed\n            add = wt\n            # If entering a sink that's not the end, add penalty to this incoming edge cost\n            if v in sinks and v != end:\n                add += SINK_PENALTY\n            new_cost = cost + add\n            new_hops = hops + 1\n            new_path = path_t + (v,)\n            candidate = (new_cost, new_hops, new_path)\n            prev = best.get(v)\n            better = False\n            if prev is None:\n                better = True\n            else:\n                # compare lex ordering: prefer lower cost, then fewer hops, then lexicographically smaller path\n                if new_cost < prev[0]:\n                    better = True\n                elif new_cost == prev[0]:\n                    if new_hops < prev[1]:\n                        better = True\n                    elif new_hops == prev[1]:\n                        if new_path < prev[2]:\n                            better = True\n            if better:\n                best[v] = candidate\n                heapq.heappush(heap, (new_cost, new_hops, new_path, v))\n    return []"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 958,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 915,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1873
+  },
+  "user": null,
+  "metadata": {}
+}

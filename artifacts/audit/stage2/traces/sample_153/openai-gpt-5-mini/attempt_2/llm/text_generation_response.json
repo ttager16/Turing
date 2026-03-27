@@ -1,0 +1,76 @@
+{
+  "id": "resp_04cc0fc8630023e80069c3464d031481948b0e5ee312b25143",
+  "object": "response",
+  "created_at": 1774405197,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774405230,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_04cc0fc8630023e80069c3464d58008194a54a3ff961ae46b1",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_04cc0fc8630023e80069c3464d908481949b77892a001f545e",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "def compute_advanced_airflow_network(num_nodes: int, edges: list, boundary_conditions: list) -> dict:\n    from math import fabs\n    # Validation\n    if not isinstance(num_nodes, int) or num_nodes <= 0:\n        return {\"error\": \"Number of nodes must be a positive integer.\"}\n    if not isinstance(edges, list) or any((not isinstance(e, list) or len(e) < 3) for e in edges):\n        return {\"error\": \"Edges must be a list of lists with at least 3 elements each.\"}\n    if not isinstance(boundary_conditions, list) or len(boundary_conditions) != num_nodes:\n        return {\"error\": \"Boundary conditions must be a list of length equal to number of nodes.\"}\n    if any((not isinstance(b, (int, float))) for b in boundary_conditions):\n        return {\"error\": \"All boundary conditions must be numeric values.\"}\n\n    # Constants and helper trigs: PI with 15 decimals\n    PI = 3.141592653589793\n    def normalize_angle(a):\n        # normalize to [-pi,pi]\n        while a > PI:\n            a -= 2*PI\n        while a < -PI:\n            a += 2*PI\n        return a\n    def cos_taylor(x):\n        # x in radians, normalized\n        x = normalize_angle(x)\n        # compute cos via Taylor up to 20 terms\n        term = 1.0\n        s = term\n        x2 = x*x\n        for n in range(1,20):\n            term *= -x2/((2*n-1)*(2*n))\n            s += term\n        return s\n\n    # Chebyshev first-kind recurrence\n    def chebyshev_T(n, x):\n        if n <= 0:\n            return 1.0\n        if n == 1:\n            return x\n        T0 = 1.0\n        T1 = x\n        for k in range(2, n+1):\n            Tn = 2.0 * x * T1 - T0\n            T0, T1 = T1, Tn\n        return T1\n\n    # Chebyshev-Gauss nodes (roots of T_n): return empty if n<=0\n    def chebyshev_nodes(n):\n        if n <= 0:\n            return []\n        # roots of T_n: x_k = cos((2k-1)pi/(2n)) k=1..n\n        nodes = []\n        for k in range(1, n+1):\n            angle = (2*k-1)*PI/(2.0*n)\n            nodes.append(cos_taylor(angle))\n        return nodes\n\n    # Discrete Chebyshev transform (type I-like) from samples at chebyshev nodes of degree N-1 (n samples)\n    def discrete_chebyshev_coeffs(samples):\n        n = len(samples)\n        if n == 0:\n            return []\n        # compute coefficients c_k = (factor) * sum_{j} samples[j] * T_k(x_j)\n        coeffs = []\n        for k in range(0, n):\n            s = 0.0\n            for j in range(n):\n                xj = cheb_nodes[j]\n                s += samples[j] * chebyshev_T(k, xj)\n            factor = (1.0/n) if k==0 else (2.0/n)\n            coeffs.append(factor * s)\n        return coeffs\n\n    # Clenshaw algorithm for evaluation given coefficients at x\n    def clenshaw_eval(coeffs, x):\n        if not coeffs:\n            return 0.0\n        if len(coeffs) == 1:\n            return coeffs[0]\n        b_kplus1 = 0.0\n        b_kplus2 = 0.0\n        n = len(coeffs)-1\n        for j in range(n, 0, -1):\n            b_k = 2.0 * x * b_kplus1 - b_kplus2 + coeffs[j]\n            b_kplus2, b_kplus1 = b_kplus1, b_k\n        return coeffs[0] + x * b_kplus1 - b_kplus2\n\n    # Derivative coefficients per requirement 9\n    def derivative_coeffs(coeffs):\n        m = len(coeffs)\n        if m <= 1:\n            return [0.0]\n        d = [0.0]* (m-1)\n        for k in range(m-1):\n            s = 0.0\n            j = k+1\n            while j < m:\n                s += j * coeffs[j] * (1 if ((j - k) % 2)==1 else -1)\n                j += 1\n            d[k] = s\n        # halve first coefficient\n        d[0] *= 0.5\n        return d\n\n    # Map to [-1,1] linear normalization, return zeros if range below threshold\n    def map_to_domain(vals):\n        mn = min(vals)\n        mx = max(vals)\n        if mx - mn < 1e-10:\n            return [0.0]*len(vals)\n        return [ -1.0 + 2.0*(v - mn)/(mx - mn) for v in vals ]\n\n    # Linear interpolation sampling between potentials mapped\n    def linear_sample(potentials, mapped_index):\n        # mapped_index in [0, num_nodes-1]\n        if mapped_index >= num_nodes - 1:\n            return potentials[-1]\n        if mapped_index <= 0:\n            return potentials[0]\n        idx = mapped_index\n        i = int(idx)\n        frac = idx - i\n        return potentials[i]*(1-frac) + potentials[i+1]*frac\n\n    # Build adjacency and valid edges per constraints\n    adj = [[] for _ in range(num_nodes)]\n    edges_list = []\n    for e in edges:\n        u, v, cap = e[0], e[1], e[2]\n        if isinstance(u, int) and isinstance(v, int) and 0 <= u < num_nodes and 0 <= v < num_nodes:\n            adj[u].append((v, float(cap)))\n            edges_list.append((u, v, float(cap)))\n    num_edges = len(edges_list)\n\n    # Raw potentials: boundary + 0.3 * capacity-weighted average of neighbor boundary values only if total capacity exceeds threshold\n    raw_potentials = []\n    for i in range(num_nodes):\n        neigh = adj[i]\n        total_cap = sum(c for _,c in neigh)\n        if total_cap > 1e-10:\n            weighted = sum(boundary_conditions[j]*c for j,c in [(v,cap) for v,cap in neigh])\n            avg = weighted / total_cap\n            raw = boundary_conditions[i] + 0.3 * avg\n        else:\n            raw = boundary_conditions[i]\n        raw_potentials.append(float(raw))\n\n    # Domain mapping for interpolation\n    mapped_raw = map_to_domain(raw_potentials)\n    # Node position mapping from index to chebyshev domain\n    node_positions = []\n    for i in range(num_nodes):\n        x = -1.0 + 2.0 * i / max(1, num_nodes - 1)\n        node_positions.append(x)\n\n    # Choose degree half nodes clamped between 4 and 12\n    degree = max(4, min(12, num_nodes//2))\n    interp_n = degree + 1\n\n    # Interpolator nodes: generate interp_n chebyshev nodes\n    cheb_nodes = chebyshev_nodes(interp_n)\n    # Map each cheb node to index space [0, num_nodes-1] and sample potentials by linear interpolation between mapped potentials\n    sampled = []\n    for x in cheb_nodes:\n        # map x in [-1,1] to index space\n        mapped_index = (x + 1.0) * 0.5 * (num_nodes - 1)\n        if mapped_index >= num_nodes - 1:\n            val = raw_potentials[-1]\n        elif mapped_index <= 0:\n            val = raw_potentials[0]\n        else:\n            i = int(mapped_index)\n            frac = mapped_index - i\n            val = raw_potentials[i]*(1-frac) + raw_potentials[i+1]*frac\n        sampled.append(val)\n\n    # Compute discrete chebyshev coefficients\n    cheb_coeffs = discrete_chebyshev_coeffs(sampled)\n\n    # Evaluate smoothing potentials via Clenshaw at each node position and map back to original domain\n    # We evaluated over mapped domain [-1,1], but raw_potentials original domain; we will get smoothed mapped values then remap to original domain\n    # First evaluate at node_positions (which already in [-1,1])\n    smoothed_mapped = []\n    for x in node_positions:\n        smoothed_mapped.append(clenshaw_eval(cheb_coeffs, x))\n    # Map smoothed_mapped range back to original raw potentials range\n    mn_raw = min(raw_potentials)\n    mx_raw = max(raw_potentials)\n    if mx_raw - mn_raw < 1e-10:\n        node_potentials = [mn_raw]*num_nodes\n    else:\n        # smoothed_mapped in some range; map from its min/max to original\n        smn = min(smoothed_mapped)\n        smx = max(smoothed_mapped)\n        if abs(smx - smn) < 1e-10:\n            node_potentials = [mn_raw + 0.5*(mx_raw-mn_raw)]*num_nodes\n        else:\n            node_potentials = [ mn_raw + (v - smn)*(mx_raw - mn_raw)/(smx - smn) for v in smoothed_mapped ]\n\n    # Edge flows: capacity * (potential_source - potential_dest)\n    edge_flows = []\n    for (u,v,cap) in edges_list:\n        f = cap * (node_potentials[u] - node_potentials[v])\n        edge_flows.append(f)\n\n    # Energetics and metrics\n    total_energy = sum((cap*(node_potentials[u]-node_potentials[v]))**2 for (u,v,cap) in edges_list)\n    total_abs_flow = sum(abs(f) for f in edge_flows)\n    network_efficiency = (total_abs_flow / (sum(cap for _,_,cap in edges_list)+1e-12)) if edges_list else 0.0\n    # Smoothness: mean of absolute derivative values across node positions\n    deriv_coeffs = derivative_coeffs(cheb_coeffs)\n    derivatives = []\n    for x in node_positions:\n        derivatives.append(abs(clenshaw_eval(deriv_coeffs, x)))\n    average_smoothness = sum(derivatives)/len(derivatives) if derivatives else 0.0\n    # Flow variance\n    mean_flow = sum(edge_flows)/len(edge_flows) if edge_flows else 0.0\n    flow_variance = sum((f-mean_flow)**2 for f in edge_flows)/len(edge_flows) if edge_flows else 0.0\n    # Max potential gradient\n    max_potential_gradient = 0.0\n    for (u,v,_) in edges_list:\n        max_potential_gradient = max(max_potential_gradient, abs(node_potentials[u]-node_potentials[v]))\n    # Approximation error: mean abs difference between raw and smoothed node potentials\n    approximation_error = sum(abs(raw_potentials[i]-node_potentials[i]) for i in range(num_nodes))/num_nodes\n    # Spectral entropy per spec\n    spectral_entropy = 0.0\n    total_abs = sum(abs(f) for f in edge_flows)\n    if total_abs > 0:\n        for f in edge_flows:\n            prob = abs(f)/total_abs\n            if prob > 1e-10:\n                spectral_entropy += - (prob * (prob**0.5))\n    # Convergence rate: mean of ratios abs(coeff[i]/coeff[i-1]) for consecutive coefficients where denom>1e-10\n    ratios = []\n    for i in range(1, len(cheb_coeffs)):\n        denom = abs(cheb_coeffs[i-1])\n        if denom > 1e-10:\n            ratios.append(abs(cheb_coeffs[i])/denom)\n    convergence_rate = sum(ratios)/len(ratios) if len(ratios)>0 else 0.0\n\n    # Node imbalance tracking\n    imbalances = [0.0]*num_nodes\n    for idx, (u,v,cap) in enumerate(edges_list):\n        f = edge_flows[idx]\n        imbalances[u] -= f\n        imbalances[v] += f\n    abs_imbs = [abs(x) for x in imbalances]\n    max_node_imbalance = max(abs_imbs) if abs_imbs else 0.0\n    avg_node_imbalance = sum(abs_imbs)/len(abs_imbs) if abs_imbs else 0.0\n\n    # Curvature via finite difference on derivative function: second derivative approx (deriv(x+h)-deriv(x-h))/(2h)\n    h = 0.001\n    curvatures = []\n    for x in node_positions:\n        if abs(x+h) <= 1.0 and abs(x-h) <= 1.0:\n            dph = clenshaw_eval(deriv_coeffs, x+h)\n            dmh = clenshaw_eval(deriv_coeffs, x-h)\n            sec = (dph - dmh) / (2.0 * h)\n            curvatures.append(abs(sec))\n    average_curvature = sum(curvatures)/len(curvatures) if curvatures else 0.0\n    max_curvature = max(curvatures) if curvatures else 0.0\n\n    # Resilience score: 1.0 / (1.0 + gradient_variance) where gradient_variance is variance of absolute potential differences across all edges\n    grads = [abs(node_potentials[u]-node_potentials[v]) for (u,v,_) in edges_list]\n    if grads:\n        m = sum(grads)/len(grads)\n        gradient_variance = sum((g-m)**2 for g in grads)/len(grads)\n    else:\n        gradient_variance = 0.0\n    resilience_score = 1.0/(1.0+gradient_variance)\n\n    # Composite flow metric: 0.4*energy + 2.0*efficiency + -0.1*smoothness\n    optimized_flow_metric = 0.4*total_energy + 2.0*network_efficiency - 0.1*average_smoothness\n\n    # Rounding at final stage per spec\n    def r(v, digits):\n        return round(v, digits)\n    out = {\n        'optimized_flow_metric': r(optimized_flow_metric, 5),\n        'total_energy': r(total_energy, 4),\n        'network_efficiency': r(network_efficiency, 4),\n        'average_smoothness': r(average_smoothness, 4),\n        'flow_variance': r(flow_variance, 5),\n        'max_potential_gradient': r(max_potential_gradient, 5),\n        'approximation_error': r(approximation_error, 7),\n        'total_flow': r(total_abs_flow, 5),\n        'spectral_entropy': r(spectral_entropy, 6),\n        'convergence_rate': r(convergence_rate, 6),\n        'max_node_imbalance': r(max_node_imbalance, 5),\n        'avg_node_imbalance': r(avg_node_imbalance, 6),\n        'average_curvature': r(average_curvature, 5),\n        'max_curvature': r(max_curvature, 5),\n        'resilience_score': r(resilience_score, 5),\n        'edge_flows': [r(f,3) for f in edge_flows],\n        'node_potentials': [r(v,5) for v in node_potentials],\n        'raw_potentials': [r(v,5) for v in raw_potentials],\n        'chebyshev_coefficients': [r(v,6) for v in cheb_coeffs],\n        'num_nodes': num_nodes,\n        'num_edges': num_edges,\n        'chebyshev_degree': degree\n    }\n    return out"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2472,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 3554,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 6026
+  },
+  "user": null,
+  "metadata": {}
+}

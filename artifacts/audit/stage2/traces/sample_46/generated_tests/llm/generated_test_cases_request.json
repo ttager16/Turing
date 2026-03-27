@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: maximize_ad_impressions\n\nProblem Statement:\n### Problem Statement\n\nIn a rapidly evolving multi-tier real-time bidding (RTB) ecosystem, the marketing firm must orchestrate ad placement across a complex network of audience segments, each interconnected by synergy constraints and dynamic ROI implications. A fixed advertising budget is shared among multiple parallel campaigns, where each bid opportunity pertains to specific user segments and offers varying returns.\n\nUnlike simple greedy approaches, the challenge involves tracking segment overlap, heterogeneous synergy effects, and ensuring the best overall allocation of the limited budget.\n\nWithin this environment, you must design an algorithmic infrastructure capable of:\n\n1. Maintaining a representation of all segment interconnections.\n2. Computing feasible ad placements under synergy and budget constraints.\n3. Maximizing the net impressions gained while respecting budget and ROI limits.\n4. Applying greedy selection **with local improvements**, iteratively refining the allocation through profitable additions and swaps until no further gain is possible.\n\nThis requires employing efficient Python data structures (e.g., dictionaries, sets, or lists) and heuristic optimization strategies such as greedy selection followed by local repair steps. A naive brute-force approach fails to scale, while advanced but lightweight heuristics can achieve near-optimal results.\n\n---\n\n### Objectives\n\n1. **Segmented Graph Construction:** Build and maintain relationships between user segments, each carrying distinct cost and ROI values.\n2. **Synergy-Aware Optimization:** Incorporate synergy penalties between overlapping segments when deciding which bids to accept.\n3. **Budget-Constrained Allocation:** Ensure that total spending never exceeds the available budget.\n4. **ROI Maximization:** Select bids that maximize overall utility (ROI minus penalties) while staying within all limits.\n\n---\n\n### Constraints\n\n* Implement the solution using **pure Python only** — no external libraries are allowed.\n* Each bid may cover one or more segments.\n* **Synergy effects are pairwise and presence-based**:\n\n  * For any unordered pair of segments *(a, b)*, if both appear in the accepted set (even across different bids), apply the synergy penalty **exactly once**.\n  * Self-pairs *(a, a)* are ignored.\n* **ROI allocation** is evenly split across all segments in a bid.\n\n  * If a segment has a cap, only its remaining capacity contributes to ROI; excess is discarded.\n  * Segments without caps are treated as unlimited.\n* The total cost of selected bids cannot exceed the budget.\n* The optimizer must perform **local improvement steps** after the initial greedy phase, adding or swapping bids that increase total utility without violating constraints, until a stable configuration is reached.\n* The algorithm must be **deterministic**: identical inputs must yield identical outputs.\n* Utility is computed as:\n\n  ```\n  utility = total_roi_after_caps - total_penalty\n  ```\n* Total bids ≤ 10,000; segments per bid ≤ 4.\n\n---\n\n### Function Signature\n\n```python\nfrom typing import Dict, List, Any\n\ndef maximize_ad_impressions(payload: Dict[str, Any]) -> Dict[str, float | List[str]]:\n    \"\"\"\n    Implement a synergy-aware algorithm to maximize net ad impressions within\n    a fixed budget using pure Python (no external libraries).\n\n    The function accepts a single input dictionary with the following fields:\n      - \"budget\": float\n      - \"bids\": List[[bid_id: str, cost: float, roi: float, segments: List[int]]]\n      - \"synergy\": List[{\"pair\": [int, int], \"penalty\": float}]\n      - \"segment_roi_cap\": Dict[str|int, float]\n\n    Each bid is represented as [bid_id, cost, expected_roi, segments].\n    - 'segments' is a list of integers representing audience segment IDs.\n    - 'synergy' defines penalties between overlapping segments.\n    - 'segment_roi_cap' optionally limits total ROI per segment.\n\n    Rules:\n      • Penalties are presence-based (each unordered segment pair counted once).\n      • Each bid’s ROI is split equally across its segments.\n      • Per-segment caps clip the contribution beyond remaining capacity.\n      • The algorithm must include a local improvement phase (add/swap refinement).\n      • The output must be deterministic.\n\n    Returns:\n      {\n        \"accepted\": List[str],      # IDs of selected bids\n        \"total_cost\": float,\n        \"total_roi\": float,         # after caps, before penalties\n        \"total_penalty\": float,     # presence-based penalties\n        \"utility\": float            # total_roi - total_penalty\n      }\n    \"\"\"\n    pass\n```\n\n---\n\n### Sample Input/Output\n\n#### Input\n\n```python\n{\n  \"budget\": 600.0,\n  \"bids\": [\n    [\"b1\", 100.0, 10.0, [1, 3]],\n    [\"b2\", 150.0, 15.0, [2]],\n    [\"b3\", 200.0, 14.0, [1]],\n    [\"b4\",  75.0,  7.0, [3]],\n    [\"b5\", 300.0, 25.0, [2, 3]]\n  ],\n  \"synergy\": [\n    {\"pair\": [1, 3], \"penalty\": 2.0},\n    {\"pair\": [2, 3], \"penalty\": 3.5}\n  ],\n  \"segment_roi_cap\": {\"1\": 40.0, \"2\": 60.0, \"3\": 30.0}\n}\n```\n\n#### Output\n\n```python\n{\n  \"accepted\": [\"b1\", \"b2\", \"b5\"],\n  \"total_cost\": 550.0,\n  \"total_roi\": 50.0,\n  \"total_penalty\": 5.5,\n  \"utility\": 44.5\n}\n```\n\n---\n\n### Expected Output Format\n\nThe output must be a **dictionary** summarizing the final optimized configuration:\n\n* `\"accepted\"` — list of chosen bid IDs (deterministic order)\n* `\"total_cost\"` — total cost of accepted bids\n* `\"total_roi\"` — total expected ROI after applying per-segment caps\n* `\"total_penalty\"` — sum of synergy penalties for all active segment pairs\n* `\"utility\"` — the net performance score, computed as `total_roi - total_penalty`\n\nAll computations must be deterministic and achievable using **pure Python**, without any external libraries or real-time components.\n\nStarter Code:\n```python\nfrom typing import Dict, List, Tuple\n\n\ndef maximize_ad_impressions(payload: Dict[str, Any]) -> Dict[str, float | List[str]]:\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"{\\\"budget\\\":600.0,\\\"bids\\\":[[\\\"b1\\\",100.0,10.0,[1,3]],[\\\"b2\\\",150.0,15.0,[2]],[\\\"b3\\\",200.0,14.0,[1]],[\\\"b4\\\",75.0,7.0,[3]],[\\\"b5\\\",300.0,25.0,[2,3]]],\\\"synergy\\\":[{\\\"pair\\\":[1,3],\\\"penalty\\\":2.0},{\\\"pair\\\":[2,3],\\\"penalty\\\":3.5}],\\\"segment_roi_cap\\\":{\\\"1\\\":40.0,\\\"2\\\":60.0,\\\"3\\\":30.0}}\\n\",\n    \"output\": \"{\\\"accepted\\\":[\\\"b1\\\",\\\"b2\\\",\\\"b5\\\"],\\\"total_cost\\\":550.0,\\\"total_roi\\\":50.0,\\\"total_penalty\\\":5.5,\\\"utility\\\":44.5}\\n\"\n  },\n  {\n    \"input\": \"{\\\"budget\\\":100.0,\\\"bids\\\":[],\\\"synergy\\\":[],\\\"segment_roi_cap\\\":{}}\\n\",\n    \"output\": \"{\\\"accepted\\\":[],\\\"total_cost\\\":0.0,\\\"total_roi\\\":0.0,\\\"total_penalty\\\":0.0,\\\"utility\\\":0.0}\\n\"\n  },\n  {\n    \"input\": \"{\\\"budget\\\":50.0,\\\"bids\\\":[[\\\"x\\\",60.0,10.0,[1]]],\\\"synergy\\\":[],\\\"segment_roi_cap\\\":{}}\\n\",\n    \"output\": \"{\\\"accepted\\\":[],\\\"total_cost\\\":0.0,\\\"total_roi\\\":0.0,\\\"total_penalty\\\":0.0,\\\"utility\\\":0.0}\\n\"\n  }\n]\n"
+    }
+  ]
+}

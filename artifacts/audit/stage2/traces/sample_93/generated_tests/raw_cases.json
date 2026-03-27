@@ -1,0 +1,66 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "svc_json": "{ invalid json }",
+        "svc_yaml": "app:\n  replicas: 3\n  features:\n    flag: true\n    note: \"alpha\"\n  timeout: null\n",
+        "svc_xml": "<?xml version=\"1.0\"?><root><item id='1'>old</item><empty></empty><selfclosing attr=\"x\"/></root>"
+      },
+      {
+        "svc_json": "{\n  \"new_key\": \"value\",\n  \"count\": 5\n}",
+        "svc_yaml": "app:\n  replicas: 3\n  features:\n    flag: false\n    note: 'alpha'\n  timeout: null\n",
+        "svc_xml": "<?xml version=\"1.0\"?><root><item id='1'>new</item><empty>filled</empty><selfclosing attr=\"y\"/></root>"
+      },
+      [
+        [
+          "svc_json",
+          "svc_yaml"
+        ],
+        [
+          "svc_yaml",
+          "svc_xml"
+        ],
+        [
+          "svc_xml",
+          "svc_json"
+        ]
+      ]
+    ],
+    "input_lines": [
+      "{\"svc_json\": \"{ invalid json }\", \"svc_yaml\": \"app:\\n  replicas: 3\\n  features:\\n    flag: true\\n    note: \\\"alpha\\\"\\n  timeout: null\\n\", \"svc_xml\": \"<?xml version=\\\"1.0\\\"?><root><item id='1'>old</item><empty></empty><selfclosing attr=\\\"x\\\"/></root>\"}",
+      "{\"svc_json\": \"{\\n  \\\"new_key\\\": \\\"value\\\",\\n  \\\"count\\\": 5\\n}\", \"svc_yaml\": \"app:\\n  replicas: 3\\n  features:\\n    flag: false\\n    note: 'alpha'\\n  timeout: null\\n\", \"svc_xml\": \"<?xml version=\\\"1.0\\\"?><root><item id='1'>new</item><empty>filled</empty><selfclosing attr=\\\"y\\\"/></root>\"}",
+      "[[\"svc_json\", \"svc_yaml\"], [\"svc_yaml\", \"svc_xml\"], [\"svc_xml\", \"svc_json\"]]"
+    ],
+    "focus": "Cycle in dependencies + invalid JSON baseline (fallback) + XML declaration and empty tag -> tests attribute parsing, empty-tag to value change, and circular BFS handling."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "ws_service": "parent:\n  child: value\n  list:\n    - a\n    - b\n",
+        "removed_service": "{\"to_remove\": \"old\", \"keep\": \"stay\"}"
+      },
+      {
+        "ws_service": "parent:\n    child: value\n  list:\n   - a\n   - b\n",
+        "added_service": "<config><port>80</port></config>"
+      },
+      [
+        [
+          "removed_service",
+          "ws_service"
+        ],
+        [
+          "added_service",
+          "removed_service"
+        ]
+      ]
+    ],
+    "input_lines": [
+      "{\"ws_service\": \"parent:\\n  child: value\\n  list:\\n    - a\\n    - b\\n\", \"removed_service\": \"{\\\"to_remove\\\": \\\"old\\\", \\\"keep\\\": \\\"stay\\\"}\"}",
+      "{\"ws_service\": \"parent:\\n    child: value\\n  list:\\n   - a\\n   - b\\n\", \"added_service\": \"<config><port>80</port></config>\"}",
+      "[[\"removed_service\", \"ws_service\"], [\"added_service\", \"removed_service\"]]"
+    ],
+    "focus": "Whitespace-only indentation changes that should not produce line-level 'modified' reports due to .strip(); structural removal when a service is missing in current; added service present only in current; chain dependencies."
+  }
+]

@@ -1,0 +1,76 @@
+{
+  "id": "resp_045ca161e43d3bf20069c31bc9a1ec81a0b0a4b1b0280018bb",
+  "object": "response",
+  "created_at": 1774394313,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774394322,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_045ca161e43d3bf20069c31bc9e0ac81a0b5ac53c9c2317251",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_045ca161e43d3bf20069c31bca077481a0a78c538e39892885",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\nfrom functools import lru_cache\n\ndef maxProductKIncreasing(nums: List[int], K: int, D: int) -> int:\n    n = len(nums)\n    if K > n:\n        return 0\n\n    # Precompute possible next indices for each i (including virtual start -1)\n    # For start -1, allowed next are any index\n    nexts = [[] for _ in range(n)]\n    for i in range(n):\n        for j in range(i+1, n):\n            if nums[j] > nums[i] and nums[j] - nums[i] >= D:\n                nexts[i].append(j)\n    starts = [i for i in range(n)]  # possible starts\n\n    # We'll attempt DP with memoization: state is (used_mask, last_index_of_current_chain, chains_done)\n    # But mask 2^200 impossible. Instead, we model by assigning elements in order to chains.\n    # Alternative approach: dynamic programming by positions: we process nums in order,\n    # and maintain for each chain its last value and length. K <=10 and n<=200.\n    # Represent last values as tuple of indices or None, and lengths tuple.\n    # To reduce states, store last indices (or -1) and lengths. Use pruning by canonical ordering of chains:\n    # sort chains by last value then by length to break symmetry.\n\n    # Represent chain last value as value (number) and last pos to enforce order of picks\n    from collections import defaultdict, deque\n\n    @lru_cache(None)\n    def dp(pos, lasts_vals, lasts_pos, lengths):\n        # pos: next index to consider (0..n)\n        # lasts_vals: tuple of K numbers or a sentinel None -> use large negative for None\n        # lasts_pos: tuple of K ints (-1 for empty)\n        # lengths: tuple of K ints\n        if pos == n:\n            # all elements assigned; verify no empty chain\n            if 0 in lengths:\n                return 0\n            prod = 1\n            for L in lengths:\n                prod *= L\n            return prod\n\n        v = nums[pos]\n        best = 0\n        # try assign nums[pos] to any chain i where allowed:\n        for i in range(K):\n            lp = lasts_pos[i]\n            if lp == -1:\n                # empty chain: can always start\n                can = True\n            else:\n                # must be later in sequence and value increase + D\n                if v > lasts_vals[i] and v - lasts_vals[i] >= D:\n                    # also must maintain relative order: pos > lp always true since we process in order\n                    can = True\n                else:\n                    can = False\n            if not can:\n                continue\n            # assign\n            new_lasts_vals = list(lasts_vals)\n            new_lasts_pos = list(lasts_pos)\n            new_lengths = list(lengths)\n            new_lasts_vals[i] = v\n            new_lasts_pos[i] = pos\n            new_lengths[i] += 1\n            # To reduce symmetric states, we canonicalize chains by sorting them with key (last_pos==-1, last_val, length)\n            combined = list(zip(new_lasts_vals, new_lasts_pos, new_lengths))\n            # Sorting key: empty chains go last to keep starts consistent; non-empty ordered by last_pos then val\n            def key(t):\n                val, p, L = t\n                return (p == -1, p if p!=-1 else 10**9, val if p!=-1 else 10**9, -L)\n            combined.sort(key=key)\n            nl_vals = tuple(x[0] for x in combined)\n            nl_pos = tuple(x[1] for x in combined)\n            nl_len = tuple(x[2] for x in combined)\n            res = dp(pos+1, nl_vals, nl_pos, nl_len)\n            if res > best:\n                best = res\n        return best\n\n    # initial tuples\n    neg = -10**9\n    init_vals = tuple([neg]*K)\n    init_pos = tuple([-1]*K)\n    init_len = tuple([0]*K)\n    return dp(0, init_vals, init_pos, init_len)"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 703,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 915,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1618
+  },
+  "user": null,
+  "metadata": {}
+}

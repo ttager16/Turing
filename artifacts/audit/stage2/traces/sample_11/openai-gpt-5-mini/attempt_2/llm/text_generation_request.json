@@ -1,0 +1,30 @@
+{
+  "model": "gpt-5-mini",
+  "input": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are a careful coding assistant. Return the best possible answer for the task."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Solve the following Python coding task.\n\nRequirements:\n- Return only Python code.\n- Implement the requested entry function exactly.\n- Do not include explanations before or after the code.\n- Use only the Python standard library unless the prompt explicitly permits otherwise.\n\nProblem Statement:\n### Problem Statement\n\nA large-scale dairy farm is considering installing automated feeding stations at a subset of candidate ground locations. The goal is to place exactly `k` stations such that the minimum Euclidean distance between any two placed stations is as large as possible, while still ensuring that the chosen stations are mutually reachable under terrain movement rules.\n\nA list of `N` candidate locations is given. Each location has integer coordinates and belongs to a terrain tier. Some terrain tiers are directly connected by controlled passages. Movement between two locations is allowed if the straight-line distance between them does not exceed a global movement radius `R` and the terrain tiers of those two locations are compatible through passages. The connectivity rules induce an undirected graph over the candidate locations.\n\nThe task is to compute the largest possible value `D` such that there exists a selection of exactly `k` distinct locations satisfying all of the following:\n\n1. Every pair of selected locations is at least distance `D` apart in Euclidean distance.\n2. All selected locations lie within a single connected component of the movement graph described below.\n\nIf no valid selection of size `k` exists, the function must return `-1.0`.\n\n---\n\n### Objectives\n\n1. Implement an algorithm that returns the maximum feasible minimum spacing distance `D` between any two installed feeding stations, subject to the connectivity rules.\n2. Use a binary search over `D` to determine the best achievable spacing.\n3. During feasibility checking for a candidate `D`, ensure that all chosen stations come from a single connected component in the movement graph and that all chosen stations are pairwise at least `D` apart.\n4. Ensure scalability for large datasets without brute-force all-pairs checking.\n\n---\n\n### Constraints\n\n* `N` can be as large as `100000`.\n* Each candidate location `i` is defined as `[x_i, y_i]`, where `x_i` and `y_i` are integers in the range `[-10^6, 10^6]`.\n* `tiers[i]` is an integer terrain tier identifier for location `i`.\n* `bridges` is a list of pairs `[a, b]`, where each pair indicates that tier `a` and tier `b` are directly connected by a controlled passage.\n* Tier identifiers are integers in the range `[0, 100000]`.\n* The movement radius `R` is an integer in the range `[1, 10^6]`.\n* Two locations `i` and `j` are connected by an undirected edge in the movement graph if and only if both of the following conditions hold:\n\n  * The Euclidean distance between locations `i` and `j` is less than or equal to `R`.\n  * `tiers[i]` and `tiers[j]` are in the same connected component of the tier graph formed by the passages in `bridges`.\n* A placement of `k` stations is considered feasible only if all `k` chosen indices come from a single connected component of this movement graph.\n* `k` is at least `2`.\n* If no such placement of size `k` exists at all, the answer is `-1.0`.\n* The expected time complexity target is approximately `O((N + B) log M)`, where `B` is the number of bridge definitions and `M` is the candidate distance search range.\n* Approaches that rely on naive `O(N^2)` distance comparisons between all pairs of points are not acceptable at this scale.\n\n---\n\n### Function Signature\n\n```python\ndef maximize_station_spacing(locations: List[List[int]],\n                             tiers: List[int],\n                             bridges: List[List[int]],\n                             R: int,\n                             k: int) -> float:\n    pass\n```\n\n---\n\n### Sample Input\n\n```python\nlocations = [\n    [0, 0],\n    [1, 2],\n    [2, 2],\n    [6, 7],\n    [10, 10],\n    [12, 8],\n    [13, 9]\n]\n\ntiers = [0, 0, 0, 1, 1, 1, 2]\n\nbridges = [\n    [1, 2]\n]\n\nR = 5\nk = 3\n```\n\n---\n\n### Sample Output\n\n```python\n6.0\n```\n\n---\n\n### Expected Output Format\n\nReturn a floating-point number representing the largest possible minimum Euclidean distance `D` such that exactly `k` locations can be chosen from a single connected component of the movement graph, and every pair of chosen locations is at least `D` apart.\nIf no valid selection of size `k` exists, return `-1.0`.\n\nStarter Code:\n```python\nfrom typing import List\nimport math\nfrom collections import defaultdict, deque\n\n\ndef maximize_station_spacing(locations: List[List[int]],\n                             tiers: List[int],\n                             bridges: List[List[int]],\n                             R: int,\n                             k: int) -> float:\n```\n"
+        }
+      ]
+    }
+  ],
+  "reasoning": {
+    "effort": "minimal"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 4096
+}

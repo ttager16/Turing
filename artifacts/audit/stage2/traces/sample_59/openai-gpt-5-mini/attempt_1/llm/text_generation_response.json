@@ -1,0 +1,76 @@
+{
+  "id": "resp_0d5344140c2993340069c329738ef48197a7b01e48b357bb38",
+  "object": "response",
+  "created_at": 1774397811,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774397819,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0d5344140c2993340069c32973eaf08197a1a7ee5f05409ecb",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0d5344140c2993340069c329741ef88197ba59588a5c53bb8b",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "def circulant_decomposition(adj_matrix):\n    \"\"\"\n    Performs compound circulant decomposition on a multi-layer adjacency matrix.\n    \n    Args:\n        adj_matrix: List[List[int]] - Square adjacency matrix\n        \n    Returns:\n        List[List[List[int]]] - List of circulant matrices\n    \"\"\"\n    n = len(adj_matrix)\n    if n == 0:\n        return []\n    # copy remaining\n    rem = [row[:] for row in adj_matrix]\n    result = []\n    # helper to build circulant for offset k with value v\n    def build_circulant_for_offset(k, v):\n        C = [[0]*n for _ in range(n)]\n        for i in range(n):\n            j = (i + k) % n\n            C[i][j] = v\n        return C\n    # helper to subtract circulant\n    def subtract_circulant(C):\n        for i in range(n):\n            for j in range(n):\n                rem[i][j] -= C[i][j]\n    # helper to check zeros\n    def is_zero():\n        for i in range(n):\n            for j in range(n):\n                if rem[i][j] != 0:\n                    return False\n        return True\n    while not is_zero():\n        # consider all non-zero positions as candidate (r,c)\n        best_score = -1\n        best_choice = None  # tuple (k,v)\n        for i in range(n):\n            for j in range(n):\n                v = rem[i][j]\n                if v <= 0:\n                    continue\n                k = (j - i) % n\n                # compute score: number of positions where rem equals v along this offset\n                score = 0\n                # Also ensure we don't propose negative subtraction: only positions where rem >= v\n                valid = True\n                for ii in range(n):\n                    jj = (ii + k) % n\n                    if rem[ii][jj] == v:\n                        score += 1\n                    if rem[ii][jj] < v:\n                        # If any position would go negative, this candidate is invalid\n                        valid = False\n                        break\n                if not valid:\n                    continue\n                # prefer larger v when tie in score to reduce iterations\n                if score > best_score or (score == best_score and (best_choice is None or v > best_choice[1])):\n                    best_score = score\n                    best_choice = (k, v)\n        # If no valid candidate found (due to some positions smaller than any candidate v),\n        # fallback: pick smallest positive entry and subtract that single-entry circulant (k such that only positions where rem>=v)\n        if best_choice is None:\n            # find any positive minimal v and its position\n            min_v = None\n            pos = None\n            for i in range(n):\n                for j in range(n):\n                    v = rem[i][j]\n                    if v > 0 and (min_v is None or v < min_v):\n                        min_v = v\n                        pos = (i, j)\n            if min_v is None:\n                break\n            k = (pos[1] - pos[0]) % n\n            best_choice = (k, min_v)\n        k, v = best_choice\n        C = build_circulant_for_offset(k, v)\n        subtract_circulant(C)\n        result.append(C)\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1014,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 727,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1741
+  },
+  "user": null,
+  "metadata": {}
+}

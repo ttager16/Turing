@@ -1,0 +1,339 @@
+from typing import List, Dict, Any, Set, Tuple
+from collections import defaultdict, deque
+import copy
+
+def optimize_water_distribution(source_nodes: List[Dict], pipe_segments: List[Dict], 
+                               demand_zones: List[Dict], reservoir_nodes: List[Dict]) -> Dict[str, Any]:
+    # Validation
+    if not demand_zones:
+        return {"error": "No demand zones provided"}
+    valid_maintenance = {"active", "maintenance", "degraded", "critical"}
+    node_ids = set()
+    for s in source_nodes:
+        node_ids.add(s.get("source_id"))
+        coords = s.get("location_coordinates", [])
+        if (not isinstance(coords, list) or len(coords) != 2 or
+            any((not isinstance(c, int) or c < 0 or c > 2000) for c in coords)):
+            return {"error": f"Invalid coordinates for source {s.get('source_id')}"}
+        if s.get("current_production_rate", 0) > s.get("max_output_capacity", 0):
+            return {"error": f"Source production exceeds maximum capacity for source {s.get('source_id')}"}
+    for p in pipe_segments:
+        if p.get("maintenance_status") not in valid_maintenance:
+            return {"error": f"Invalid maintenance status for pipe {p.get('pipe_id')}"}
+        if p.get("current_flow_rate", 0) > p.get("max_flow_capacity", 0):
+            return {"error": f"Current flow exceeds pipe capacity for pipe {p.get('pipe_id')}"}
+        node_ids.add(p.get("start_node_id"))
+        node_ids.add(p.get("end_node_id"))
+    for z in demand_zones:
+        if not (1 <= z.get("priority_level", 0) <= 5):
+            return {"error": f"Invalid priority level for zone {z.get('zone_id')}"}
+        if z.get("minimum_flow_requirement", 0) > z.get("target_flow_requirement", 0):
+            return {"error": f"Invalid flow requirements for zone {z.get('zone_id')}"}
+        node_ids.add(z.get("node_id"))
+    for r in reservoir_nodes:
+        node_ids.add(r.get("node_id"))
+        if r.get("current_water_level", 0) > r.get("overflow_threshold", float('inf')):
+            return {"error": f"Reservoir {r.get('reservoir_id')} exceeds overflow threshold"}
+    # validate pipe node references
+    for p in pipe_segments:
+        if p.get("start_node_id") not in node_ids or p.get("end_node_id") not in node_ids:
+            return {"error": f"Invalid node reference in pipe {p.get('pipe_id')}"}
+    # Build graph adjacency for active pipes (active, degraded, critical, maintenance considered but only active used for path preference)
+    graph = defaultdict(list)
+    pipe_by_id = {}
+    for p in pipe_segments:
+        pipe_by_id[p["pipe_id"]] = copy.deepcopy(p)
+        graph[p["start_node_id"]].append((p["end_node_id"], p["pipe_id"]))
+    # Check connectivity: each demand zone must be reachable from at least one source through active pipes (maintenance/degraded/critical still edges but prefer active)
+    def reachable_from_sources(target_node):
+        visited = set()
+        dq = deque()
+        for s in source_nodes:
+            dq.append(s["source_id"])
+            visited.add(s["source_id"])
+        while dq:
+            u = dq.popleft()
+            if u == target_node:
+                return True
+            for v, pid in graph.get(u, []):
+                if v not in visited:
+                    # treat pipe as usable regardless of maintenance for connectivity test
+                    visited.add(v)
+                    dq.append(v)
+        return False
+    for z in demand_zones:
+        if not reachable_from_sources(z["node_id"]):
+            return {"error": "Network contains unreachable demand zones"}
+    # Prepare capacities: start from max_flow_capacity minus current_flow_rate? Problem says allocated_flow_rate replace current_flow_rate; use capacities = max_flow_capacity
+    capacities = {}
+    for p in pipe_segments:
+        capacities[p["pipe_id"]] = p["max_flow_capacity"]
+    # Cycle detection using current_flow_rate edges where current_flow_rate>0
+    adj_with_flow = defaultdict(list)
+    for p in pipe_segments:
+        if p["current_flow_rate"] > 0:
+            adj_with_flow[p["start_node_id"]].append((p["end_node_id"], p["pipe_id"]))
+    cycles = []
+    visited = {}
+    stack = []
+    def dfs(u):
+        visited[u] = 1
+        stack.append(u)
+        for v, pid in adj_with_flow.get(u, []):
+            if visited.get(v, 0) == 0:
+                dfs(v)
+            elif visited.get(v, 0) == 1:
+                # cycle found: capture path
+                try:
+                    idx = stack.index(v)
+                    cycle = stack[idx:] + [v]
+                    cycles.append(cycle)
+                except ValueError:
+                    pass
+        stack.pop()
+        visited[u] = 2
+    for node in list(adj_with_flow.keys()):
+        if visited.get(node, 0) == 0:
+            dfs(node)
+    # Redistribute if cycles: reduce minimum flow in cycle by 20% and reallocate among alternative pipes
+    redistributed_total = 0
+    cycle_paths = []
+    for cyc in cycles:
+        cycle_paths.append(cyc)
+        # collect pipes in cycle
+        cycle_pipes = set()
+        for i in range(len(cyc)-1):
+            a = cyc[i]
+            b = cyc[i+1]
+            for v, pid in adj_with_flow.get(a, []):
+                if v == b:
+                    cycle_pipes.add(pid)
+        if not cycle_pipes:
+            continue
+        # find min current_flow_rate among those pipes
+        min_flow = min(pipe_by_id[pid]["current_flow_rate"] for pid in cycle_pipes)
+        reduce_amount = int(min_flow * 0.2)
+        if reduce_amount <= 0:
+            continue
+        redistributed_total += reduce_amount * len(cycle_pipes)
+        # reduce each pipe by 20% of min_flow (evenly as described: "reduce the minimum flow in the cycle by 20%")
+        for pid in cycle_pipes:
+            pipe_by_id[pid]["current_flow_rate"] = max(0, pipe_by_id[pid]["current_flow_rate"] - reduce_amount)
+        # find alternative pipes not in cycle, active, utilization<80%
+        alternatives = []
+        for p in pipe_segments:
+            pid = p["pipe_id"]
+            if pid in cycle_pipes:
+                continue
+            if p["maintenance_status"] != "active":
+                continue
+            util = p["current_flow_rate"] / p["max_flow_capacity"] if p["max_flow_capacity"]>0 else 1.0
+            if util < 0.8:
+                alternatives.append(pid)
+        if alternatives:
+            per_pipe = reduce_amount * len(cycle_pipes) // len(alternatives)
+            for pid in alternatives:
+                available = pipe_by_id[pid]["max_flow_capacity"] - pipe_by_id[pid]["current_flow_rate"]
+                add = min(per_pipe, available)
+                pipe_by_id[pid]["current_flow_rate"] += add
+    # Flow allocation using a simple multi-source multi-sink Ford-Fulkerson with BFS (Edmonds-Karp) but we will process demand zones by priority and stop when each target met.
+    # Build residual capacities from sources to sinks across nodes with mapping edges by pipe ids.
+    # Create node set
+    nodes = set()
+    for s in source_nodes:
+        nodes.add(s["source_id"])
+    for p in pipe_segments:
+        nodes.add(p["start_node_id"])
+        nodes.add(p["end_node_id"])
+    for z in demand_zones:
+        nodes.add(z["node_id"])
+    # Build adjacency for residual graph with capacities initial = max_flow_capacity - current_flow_rate (remaining) plus possibility to send new flow up to max_flow_capacity
+    # For optimization of minimum flow, we'll try to send only what is needed: up to target_flow_requirement for each zone, prioritized.
+    # We'll treat sources having supply = min(current_production_rate, max_output_capacity)
+    source_supply = {s["source_id"]: min(s["current_production_rate"], s["max_output_capacity"]) for s in source_nodes}
+    total_source_supply = sum(source_supply.values())
+    # Initial allocated per pipe = current_flow_rate (after any redistribution)
+    allocated_pipe = {p["pipe_id"]: pipe_by_id[p["pipe_id"]]["current_flow_rate"] for p in pipe_segments}
+    # Build adjacency mapping from node to list of (neighbor, pipe_id)
+    adj = defaultdict(list)
+    for p in pipe_segments:
+        adj[p["start_node_id"]].append((p["end_node_id"], p["pipe_id"]))
+    # For pathfinding we consider capacity left = max_flow_capacity - allocated
+    def bfs_path(sources_list, target):
+        parent = {}
+        parent_pipe = {}
+        q = deque()
+        for src in sources_list:
+            q.append(src)
+            parent[src] = None
+        while q:
+            u = q.popleft()
+            if u == target:
+                # reconstruct path
+                path_nodes = []
+                path_pipes = []
+                cur = target
+                while parent[cur] is not None:
+                    path_nodes.append(cur)
+                    path_pipes.append(parent_pipe[cur])
+                    cur = parent[cur]
+                path_nodes.append(cur)
+                path_nodes.reverse()
+                path_pipes.reverse()
+                return path_nodes, path_pipes
+            for v, pid in adj.get(u, []):
+                if v not in parent:
+                    cap_left = pipe_by_id[pid]["max_flow_capacity"] - allocated_pipe[pid]
+                    # maintenance/degraded reduce effective capacity during allocation
+                    if pipe_by_id[pid]["maintenance_status"] == "maintenance":
+                        cap_left = int(cap_left * 0.7)
+                    if pipe_by_id[pid]["maintenance_status"] == "degraded":
+                        cap_left = int(cap_left * 0.5)
+                    if cap_left > 0:
+                        parent[v] = u
+                        parent_pipe[v] = pid
+                        q.append(v)
+        return None, None
+    # Process zones by priority ascending
+    zones_sorted = sorted(demand_zones, key=lambda x: x["priority_level"])
+    zone_results = []
+    total_flow_delivered = 0
+    for z in zones_sorted:
+        target = z["target_flow_requirement"]
+        minreq = z["minimum_flow_requirement"]
+        delivered = 0
+        # Keep finding augmenting paths from any source with remaining supply to zone node
+        # Build list of sources with remaining supply
+        while delivered < target:
+            active_sources = [sid for sid, sup in source_supply.items() if sup > 0]
+            if not active_sources:
+                break
+            path_nodes, path_pipes = bfs_path(active_sources, z["node_id"])
+            if not path_pipes:
+                break
+            # determine bottleneck along path considering source supply and pipe remaining capacities
+            bottleneck = min(source_supply[path_nodes[0]] if path_nodes[0] in source_supply else total_source_supply,
+                             min((pipe_by_id[pid]["max_flow_capacity"] - allocated_pipe[pid]) for pid in path_pipes))
+            need = target - delivered
+            send = min(bottleneck, need)
+            if send <= 0:
+                break
+            # apply send along path: deduct from first source supply, increment allocated_pipe
+            src = path_nodes[0]
+            source_supply[src] -= send
+            for pid in path_pipes:
+                allocated_pipe[pid] += send
+            delivered += send
+            total_flow_delivered += send
+        # after attempts, check if min requirement met
+        priority_met = delivered >= minreq
+        zone_results.append({
+            "zone_id": z["zone_id"],
+            "flow_delivered": int(delivered),
+            "satisfaction_percentage": float(round((delivered / z["target_flow_requirement"])*100 if z["target_flow_requirement"]>0 else 0.0, 2)),
+            "priority_met": bool(priority_met)
+        })
+    # After allocation, compute effective capacities, utilization, pressure status
+    optimal_flow_allocation = []
+    bottleneck_pipes = []
+    underutilized_capacity = 0
+    for p in pipe_segments:
+        pid = p["pipe_id"]
+        alloc = allocated_pipe.get(pid, 0)
+        util_pct = alloc / p["max_flow_capacity"] * 100 if p["max_flow_capacity"]>0 else 0.0
+        # pressure drop formula uses flow_rate / pipe_capacity
+        ratio = alloc / p["max_flow_capacity"] if p["max_flow_capacity"]>0 else 1.0
+        effective_capacity = p["max_flow_capacity"]
+        if ratio > 0.9:
+            effective_capacity = int(p["max_flow_capacity"] * 0.8)
+        elif ratio > 0.8:
+            effective_capacity = int(p["max_flow_capacity"] * 0.9)
+        # maintenance/degraded adjustments
+        if p["maintenance_status"] == "maintenance":
+            effective_capacity = int(effective_capacity * 0.7)
+        if p["maintenance_status"] == "degraded":
+            effective_capacity = int(effective_capacity * 0.5)
+        if util_pct > 95.0:
+            bottleneck_pipes.append(pid)
+        if util_pct < 50.0:
+            underutilized_capacity += int(p["max_flow_capacity"] - alloc)
+        pressure_status = "normal"
+        if util_pct <= 80.0:
+            pressure_status = "normal"
+        elif util_pct <= 90.0:
+            pressure_status = "reduced"
+        else:
+            pressure_status = "critical"
+        optimal_flow_allocation.append({
+            "pipe_id": pid,
+            "allocated_flow_rate": int(alloc),
+            "utilization_percentage": round(util_pct, 2),
+            "effective_capacity": int(effective_capacity),
+            "pressure_status": pressure_status
+        })
+    # Reservoir status: compute net inflow - outflow from allocated_pipe by matching node ids
+    reservoir_status = []
+    node_inflow = defaultdict(int)
+    node_outflow = defaultdict(int)
+    for p in pipe_segments:
+        pid = p["pipe_id"]
+        start = p["start_node_id"]
+        end = p["end_node_id"]
+        flow = allocated_pipe.get(pid, 0)
+        node_outflow[start] += flow
+        node_inflow[end] += flow
+    for r in reservoir_nodes:
+        inflow = node_inflow.get(r["node_id"], 0)
+        outflow = node_outflow.get(r["node_id"], 0)
+        net_flow = inflow - outflow
+        volume_change = net_flow / 1000.0  # liters per minute to cubic meters per minute, cumulative but we treat as instantaneous change
+        final_level = r["current_water_level"] + volume_change
+        overflow_risk = final_level > r["overflow_threshold"]
+        utilization_rate = r["current_water_level"] / r["max_storage_capacity"] if r["max_storage_capacity"]>0 else 0.0
+        reservoir_status.append({
+            "reservoir_id": r["reservoir_id"],
+            "final_water_level": int(final_level),
+            "overflow_risk": bool(overflow_risk),
+            "utilization_rate": round(utilization_rate, 4)
+        })
+    # Compute production cost
+    total_production_cost = 0.0
+    for s in source_nodes:
+        prod = min(s["current_production_rate"], s["max_output_capacity"])
+        total_production_cost += prod * s["operational_cost"]
+    # Cycle analysis summary
+    cycles_detected = len(cycles)
+    # Network efficiency score calculation
+    total_available_capacity = sum(sum(p["max_flow_capacity"] for p in pipe_segments if p["start_node_id"]==s["source_id"]) for s in source_nodes)
+    # If no outgoing from sources, sum outgoing edges from source ids in graph
+    if total_available_capacity == 0:
+        total_available_capacity = sum(p["max_flow_capacity"] for p in pipe_segments)
+    priority_satisfaction_bonus = 0.0
+    for zr in zone_results:
+        zinfo = next((z for z in demand_zones if z["zone_id"]==zr["zone_id"]), None)
+        if zinfo:
+            priority_satisfaction_bonus += zr["flow_delivered"] * (6 - zinfo["priority_level"]) * 10
+    cycle_penalty = cycles_detected * 50
+    network_eff_score = 0.0
+    if total_available_capacity > 0:
+        network_eff_score = (total_flow_delivered / total_available_capacity) * 100.0 + priority_satisfaction_bonus - cycle_penalty
+    # Prepare cycle paths as sequences of node ids
+    cycle_paths_out = cycles
+    result = {
+        "optimal_flow_allocation": sorted(optimal_flow_allocation, key=lambda x: x["pipe_id"]),
+        "zone_satisfaction": sorted(zone_results, key=lambda x: x["zone_id"]),
+        "network_efficiency_score": round(network_eff_score, 4),
+        "cycle_analysis": {
+            "cycles_detected": cycles_detected,
+            "cycle_paths": cycle_paths_out,
+            "redistributed_flow": int(redistributed_total)
+        },
+        "reservoir_status": sorted(reservoir_status, key=lambda x: x["reservoir_id"]),
+        "system_metrics": {
+            "total_flow_delivered": int(total_flow_delivered),
+            "total_production_cost": round(total_production_cost, 4),
+            "bottleneck_pipes": sorted(bottleneck_pipes),
+            "underutilized_capacity": int(underutilized_capacity)
+        }
+    }
+    return result

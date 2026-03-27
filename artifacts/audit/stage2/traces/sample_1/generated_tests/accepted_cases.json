@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "4\n[]\n[]\n{\"2\": true, \"1\": true}\n\"satisfiability\"\n[{\"variables\": [0, 1, 2], \"count\": 1}]",
+    "output_text": "{\"error\": \"cardinality constraints conflict with forced_assignments\"}"
+  },
+  {
+    "case_index": 1,
+    "input_text": "5\n[[[0, false], [1, false]], [[1, true], [2, false]], [[2, true], [3, false]], [[3, true], [4, false]], [[4, true], [0, true]], [[0, true], [2, true]]]\n[5, 10, 10, 10, 20, 15]\n{\"04\": false, \"1\": true}\n\"weighted\"\n[{\"variables\": [0, 1, 2, 3, 4], \"count\": 2}]",
+    "output_text": "{\"satisfiable\": false, \"assignment\": [], \"satisfied_clauses\": 0, \"total_weight\": 0, \"unsatisfied_clauses\": [0, 1, 2, 3, 4, 5], \"strongly_connected_components\": 1, \"implication_graph_edges\": 14, \"cardinality_satisfied\": false, \"cardinality_details\": [], \"conflict_clusters\": [], \"forced_assignments_applied\": 0}"
+  },
+  {
+    "case_index": 2,
+    "input_text": "3\n[[[0, false], [1, false]], [[1, false], [0, false]]]\n[7, 7]\n{\"0\": false, \"1\": false, \"2\": true}\n\"satisfiability\"\n[{\"variables\": [0, 1, 2], \"count\": 1}]",
+    "output_text": "{\"satisfiable\": false, \"assignment\": [], \"satisfied_clauses\": 0, \"total_weight\": 0, \"unsatisfied_clauses\": [0, 1], \"strongly_connected_components\": 3, \"implication_graph_edges\": 5, \"cardinality_satisfied\": false, \"cardinality_details\": [], \"conflict_clusters\": [], \"forced_assignments_applied\": 0}"
+  }
+]

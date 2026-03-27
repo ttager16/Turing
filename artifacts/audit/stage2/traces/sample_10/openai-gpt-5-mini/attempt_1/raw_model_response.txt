@@ -1,0 +1,90 @@
+from typing import List, Dict, Any, Set, Tuple
+
+def allocate_minimum_teams(projects: List[Dict[str, Any]], teams: List[Dict[str, Any]]) -> int:
+    # Build list of all phases with required skills and deadlines (use min of phase.deadline and project_deadline)
+    phases = []
+    for p in projects:
+        p_deadline = p.get('project_deadline', None)
+        for ph in p.get('phases', []):
+            d = ph.get('deadline')
+            if p_deadline is not None:
+                d = min(d, p_deadline)
+            phases.append({
+                'required_skills': set(ph.get('required_skills', [])),
+                'deadline': d
+            })
+    # Sort phases by deadline (earliest first) — greedy scheduling
+    phases.sort(key=lambda x: x['deadline'])
+    # Preprocess teams: compute skill sets and availability
+    team_skills = []
+    team_avail = []
+    for t in teams:
+        skills = set()
+        for m in t.get('members', []):
+            skills.update(m.get('skills', []))
+        team_skills.append(skills)
+        team_avail.append(int(t.get('base_availability', 0)))
+
+    n_teams = len(teams)
+    if not phases:
+        return 0
+    # Feasibility: can first k teams (best choice among teams) complete all phases?
+    # Since which teams chosen matters, for feasibility we should choose the k teams that maximize utility.
+    # Heuristic: pick k teams with largest availability and with broadest skill coverage. We'll try selecting top-k by combined score.
+    def feasible(k: int) -> bool:
+        if k <= 0:
+            return False
+        # Score teams by (availability, number of skills)
+        indices = list(range(n_teams))
+        indices.sort(key=lambda i: (team_avail[i], len(team_skills[i])), reverse=True)
+        chosen = indices[:k]
+        # Combine skills and availability
+        combined_skills = set()
+        for i in chosen:
+            combined_skills |= team_skills[i]
+        # Quick fail: if any phase requires skill not in combined_skills -> infeasible
+        for ph in phases:
+            if not ph['required_skills'].issubset(combined_skills):
+                return False
+        # We need to schedule phases into team time before their deadlines.
+        # Model: we have k teams each with avail days; a phase requires as many days as 1 unit (assume each phase takes 1 day)
+        # The problem statement doesn't give phase durations; assume each phase consumes 1 day of a team's availability.
+        # Assign each phase to one of chosen teams before its deadline.
+        # Greedy: for each phase (by earliest deadline), assign it to the chosen team with available time and that has all required skills.
+        # For fairness, try to use team with latest remaining availability that still meets deadline to balance load.
+        # Create remaining availability per chosen team
+        rem = {i: team_avail[i] for i in chosen}
+        # For each phase in order
+        for ph in phases:
+            req = ph['required_skills']
+            dl = ph['deadline']
+            # Among chosen teams that have skills superset and have at least 1 day remaining and availability >= 1 and dl >=1 (deadline not used per team)
+            # We must ensure the team can finish the phase before the phase deadline. Since we don't track current time, treat capacity as days that can be scheduled before deadlines.
+            # We'll assume all availability can be used up to the phase.deadline; so for heuristic, prefer teams with rem>0 and skills cover.
+            candidate = None
+            # choose team with maximum remaining availability that can do it
+            best_rem = -1
+            for i in chosen:
+                if rem[i] > 0 and req.issubset(team_skills[i]):
+                    if rem[i] > best_rem:
+                        candidate = i
+                        best_rem = rem[i]
+            if candidate is None:
+                return False
+            rem[candidate] -= 1
+        return True
+
+    # Binary search minimal k between 1 and n_teams
+    lo, hi = 1, n_teams
+    ans = n_teams + 1
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        if feasible(mid):
+            ans = mid
+            hi = mid - 1
+        else:
+            lo = mid + 1
+    if ans == n_teams + 1:
+        # impossible: return total teams if even all teams can't do it, or 0 if no feasible
+        return n_teams if feasible(n_teams) else 0
+    return ans

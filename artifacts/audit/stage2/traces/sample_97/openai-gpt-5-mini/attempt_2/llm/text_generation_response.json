@@ -1,0 +1,76 @@
+{
+  "id": "resp_0cf1b47f628c67450069c3334ecfe081a2b0ec472e32f5c1fb",
+  "object": "response",
+  "created_at": 1774400334,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774400364,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0cf1b47f628c67450069c3334f538881a29ffbed3c81c9ee9c",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0cf1b47f628c67450069c3334f8f1081a2a84774658ca261f8",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict\n\nclass TrieNode:\n    __slots__ = (\"children\", \"words\")\n    def __init__(self):\n        self.children = {}  # char -> TrieNode\n        self.words = set()  # set of (segment, word) strings to allow segment isolation\n\nclass SegmentIndex:\n    def __init__(self):\n        # segment_id -> dict word -> set of (user_id, version)\n        self.segments = {}\n        # track offline buffers: user_id -> segment -> list of words (inserts/deletes as tuples)\n        self.offline_buffers = {}\n\n        # deterministic version counter per segment to order edits\n        self.version = {}\n\n    def _ensure_segment(self, seg):\n        if seg not in self.segments:\n            self.segments[seg] = {}  # word -> set of (user_id, ver, op) op 'ins' or 'del'\n            self.version[seg] = 0\n\n    def insert(self, seg, word, user_id, offline=False):\n        self._ensure_segment(seg)\n        self.version[seg] += 1\n        ver = self.version[seg]\n        if offline:\n            self.offline_buffers.setdefault(user_id, {}).setdefault(seg, []).append((\"ins\", word, ver))\n        else:\n            self.segments[seg].setdefault(word, []).append((\"ins\", user_id, ver))\n\n    def delete(self, seg, word, user_id, offline=False):\n        self._ensure_segment(seg)\n        self.version[seg] += 1\n        ver = self.version[seg]\n        if offline:\n            self.offline_buffers.setdefault(user_id, {}).setdefault(seg, []).append((\"del\", word, ver))\n        else:\n            # deletion recorded as an op; we don't remove immediately to preserve versions\n            self.segments[seg].setdefault(word, []).append((\"del\", user_id, ver))\n\n    def merge_offline_for_segment(self, seg, user_id):\n        # apply buffered ops deterministically by version order\n        buf = self.offline_buffers.get(user_id, {}).get(seg, [])\n        if not buf:\n            return\n        # sort by recorded version to keep deterministic order\n        buf_sorted = sorted(buf, key=lambda x: x[2])\n        for op, word, _ver in buf_sorted:\n            if op == \"ins\":\n                self.segments.setdefault(seg, {}).setdefault(word, []).append((\"ins\", user_id, _ver))\n            else:\n                self.segments.setdefault(seg, {}).setdefault(word, []).append((\"del\", user_id, _ver))\n        # clear buffer for that segment\n        self.offline_buffers[user_id][seg] = []\n\n    def merge_all_offline(self):\n        for user_id in list(self.offline_buffers.keys()):\n            for seg in list(self.offline_buffers[user_id].keys()):\n                self.merge_offline_for_segment(seg, user_id)\n\n    def resolve_segment_words(self, seg):\n        # returns set of current words in segment after deterministic merge:\n        # For each word, process ops by increasing version; final state preserved if last op is 'ins'\n        self._ensure_segment(seg)\n        result = set()\n        for word, ops in self.segments[seg].items():\n            # ops are tuples (\"ins\"/\"del\", user_id, ver) or from offline where user_id may be used as provided\n            sorted_ops = sorted(ops, key=lambda x: x[2])\n            state = False\n            for op, _user, _ver in sorted_ops:\n                if op == \"ins\":\n                    state = True\n                else:\n                    state = False\n            if state:\n                result.add(word)\n        return result\n\nclass HybridTrie:\n    def __init__(self):\n        self.root = TrieNode()\n    def insert(self, seg, word):\n        node = self.root\n        key = f\"{seg}::{word}\"\n        for ch in word:\n            if ch not in node.children:\n                node.children[ch] = TrieNode()\n            node = node.children[ch]\n            node.words.add(key)\n        # also add at root to allow empty prefix searches if ever needed\n        self.root.words.add(key)\n    def remove(self, seg, word):\n        key = f\"{seg}::{word}\"\n        # traverse and remove key from word sets; prune nodes if empty\n        stack = []\n        node = self.root\n        stack.append((None, node, None))\n        for ch in word:\n            if ch not in node.children:\n                return\n            node = node.children[ch]\n            stack.append((ch, node, None))\n        # remove key from all nodes along path\n        for ch, nd, _ in stack:\n            if key in nd.words:\n                nd.words.remove(key)\n        # prune any childless nodes with empty words set\n        for i in range(len(stack)-1, 0, -1):\n            ch, nd, _ = stack[i]\n            if not nd.words and not nd.children:\n                parent = stack[i-1][1]\n                if ch in parent.children:\n                    del parent.children[ch]\n            else:\n                break\n\n    def search_prefix(self, seg, prefix):\n        node = self.root\n        for ch in prefix:\n            if ch not in node.children:\n                return []\n            node = node.children[ch]\n        key_prefix = f\"{seg}::\"\n        matches = []\n        for k in node.words:\n            if k.startswith(key_prefix):\n                matches.append(k.split(\"::\",1)[1])\n        # unique and deterministic order\n        seen = set()\n        out = []\n        for w in sorted(matches):\n            if w not in seen:\n                seen.add(w)\n                out.append(w)\n        return out\n\ndef parse_data(data):\n    # data format \"segment_id:content\"\n    if \":\" not in data:\n        return None, None\n    seg, content = data.split(\":\", 1)\n    return seg, content\n\ndef collaborative_editor(operations: List[Dict[str, str]]) -> Dict[str, List[str]]:\n    trie = HybridTrie()\n    index = SegmentIndex()\n    last_search_matches = None\n\n    for op in operations:\n        user = op.get(\"user_id\", \"\")\n        action = op.get(\"operation\", \"\")\n        data = op.get(\"data\", \"\")\n        seg, content = parse_data(data)\n        if action == \"insert\":\n            if seg is None: continue\n            # insert word into segment; treat as immediate online\n            index.insert(seg, content, user, offline=False)\n            # after applying, resolve segment words and sync trie for that word\n            # Deterministic: if resolved contains word then ensure in trie\n            cur_words = index.resolve_segment_words(seg)\n            if content in cur_words:\n                trie.insert(seg, content)\n        elif action == \"delete\":\n            if seg is None: continue\n            index.delete(seg, content, user, offline=False)\n            # after deletion, resolve and update trie: remove if not present anymore\n            cur_words = index.resolve_segment_words(seg)\n            if content not in cur_words:\n                trie.remove(seg, content)\n        elif action == \"merge_offline\":\n            # data uses segment:ignored maybe; allow merging for segment specified or all\n            if seg is None:\n                index.merge_all_offline()\n            else:\n                # merge for all users buffers for that segment\n                for u in list(index.offline_buffers.keys()):\n                    index.merge_offline_for_segment(seg, u)\n            # after merge, update trie for that segment fully\n            cur_words = index.resolve_segment_words(seg) if seg is not None else None\n            if seg is not None:\n                # rebuild segment entries in trie: remove words not present and add present\n                # find existing words by searching root words that start with seg::\n                # Simple approach: gather existing by traversing trie - but we can derive from resolve\n                present = cur_words\n                # remove any words in trie that belong to seg but not present\n                # gather candidates from root.words\n                candidates = []\n                prefix = f\"{seg}::\"\n                for k in list(trie.root.words):\n                    if k.startswith(prefix):\n                        candidates.append(k.split(\"::\",1)[1])\n                for w in candidates:\n                    if w not in present:\n                        trie.remove(seg, w)\n                for w in present:\n                    trie.insert(seg, w)\n            else:\n                # no seg specified: sync all segments\n                for seg_id in list(index.segments.keys()):\n                    present = index.resolve_segment_words(seg_id)\n                    # clean candidates\n                    candidates = []\n                    prefix = f\"{seg_id}::\"\n                    for k in list(trie.root.words):\n                        if k.startswith(prefix):\n                            candidates.append(k.split(\"::\",1)[1])\n                    for w in candidates:\n                        if w not in present:\n                            trie.remove(seg_id, w)\n                    for w in present:\n                        trie.insert(seg_id, w)\n        elif action == \"search\":\n            if seg is None:\n                last_search_matches = []\n            else:\n                matches = trie.search_prefix(seg, content)\n                last_search_matches = matches\n\n    if last_search_matches is None:\n        return {}\n    return {\"matches\": last_search_matches}"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 937,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1940,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2877
+  },
+  "user": null,
+  "metadata": {}
+}

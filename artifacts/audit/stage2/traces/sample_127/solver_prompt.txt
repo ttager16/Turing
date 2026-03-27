@@ -1,0 +1,192 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+In a next-generation multi-zone smart city infrastructure project, engineers must establish a multi-layered power grid that spans different terrains, ecological habitats, and technical restrictions simultaneously. The system must integrate dynamic constraints such as phased environmental regulation changes, cable capacity expansions, and safety compliance tiers that evolve over the project timeline.
+Each edge in the system corresponds to a candidate cable route linking two zones and includes label functions that compute multiple cost factors based on external states such as time windows, partial assignments of other edges, or zone-specific rules.
+
+The task is to engineer a Python-based solution that determines an optimal spanning structure minimizing the total weighted cost while enforcing all ecological, modular expansion, and operational safety constraints across multiple project stages.
+The algorithm must ensure deterministic behavior, reproducibility, and correctness for all valid inputs.
+
+---
+
+### Objectives
+
+1. **Advanced Cost Evaluation**
+   Implement label functions that compute edge costs. Each label function must depend on a shared runtime state dictionary passed to it at execution.
+
+2. **Algorithm for Interconnected Constraints**
+   Implement a deterministic variant of Kruskal’s algorithm to compute the minimum spanning structure, ensuring that all constraints are enforced before adding each edge.
+
+3. **Multi-Stage Optimization**
+   Recompute the spanning structure when state variables such as phase index or load change. Earlier edge selections must be reevaluated when costs or connectivity conditions differ in later stages.
+
+---
+
+### Additional Constraints and Instructions
+
+* The `graph` dictionary must include two mandatory special keys:
+
+  * `"_state"` — a dictionary passed to every label function as its single argument.
+  * `"_constraints"` — a dictionary specifying runtime control parameters.
+
+* The `_constraints` dictionary must include:
+
+  * `"required_edges"`: list of edges that must be included.
+
+    * If these edges form a cycle, the function must return:
+
+      ```python
+      [{"error": "Required edges form a cycle"}]
+      ```
+
+  * `"forbidden_edges"`: list of edges that must be excluded.
+
+    * If a required edge is also forbidden, return:
+
+      ```python
+      [{"error": "Required edge is forbidden"}]
+      ```
+
+  * `"degree_limits"`: dictionary `{node: max_degree}`.
+
+    * If degree limits make the spanning structure impossible, return:
+
+      ```python
+      [{"error": "Degree limit infeasible"}]
+      ```
+
+  * `"phase_blocklist"`: list of edges to exclude for the current phase index.
+
+  * `"round_cost_to"`: integer specifying the number of decimal places to round edge costs before comparison.
+
+* All edges must be treated as **undirected** and represented in canonical form `(min(u, v), max(u, v))`.
+
+* The algorithm must sort edges deterministically by `(rounded_cost, u, v)` and apply strict lexicographic tie-breaking.
+
+* The result must be lexicographically sorted before returning.
+
+* If the graph is disconnected, return a **minimum spanning forest** covering all string-labeled nodes.
+
+* Each label function must be evaluated with `graph["_state"]` as input.
+
+  * If the function raises an exception or returns a non-finite number, that edge must be skipped.
+  * If all edges fail, return:
+
+    ```python
+    [{"error": "No valid edges available"}]
+    ```
+
+* Self-loops `(u == v)` are invalid and must be ignored.
+
+---
+
+### Label Functions
+
+Each edge’s cost must be defined as a lambda-style function string.
+For example:
+
+```python
+"0": [["1", "lambda s: 2"], ["2", "lambda s: s['load'] * 3"]]
+```
+
+---
+
+### Function Signature
+
+```python
+from typing import Dict, List, Any, Union
+
+def compute_multi_stage_mst(
+    graphs: List[Dict[str, List[List[Any]]]]
+) -> List[Union[List[List[str]], Dict[str, str]]]:
+```
+
+---
+
+### Sample Input A
+
+```python
+# Stage 1: a square "0"-"1"-"2"-"3" with a diagonal; no constraints
+g1 = {
+    "0": [["1", "lambda s: 2"], ["3", "lambda s: 2"]],
+    "1": [["0", "lambda s: 2"], ["2", "lambda s: 1"]],
+    "2": [["1", "lambda s: 1"], ["3", "lambda s: 2"], ["0", "lambda s: 5"]],
+    "3": [["2", "lambda s: 2"], ["0", "lambda s: 2"]],
+    "_state": {},
+    "_constraints": {
+        "required_edges": [],
+        "forbidden_edges": [],
+        "degree_limits": {},
+        "phase_blocklist": [],
+        "round_cost_to": 3
+    }
+}
+# MST choice: edges with costs 1,2,2 → [["1","2"], ["0","1"], ["0","3"]]
+# after canonical+lex sort: [["0","1"], ["0","3"], ["1","2"]]
+
+# Stage 2: same shape, but forbid ["0","1"]; require ["2","3"]
+g2 = {
+    "0": [["1", "lambda s: 2"], ["3", "lambda s: 2"]],
+    "1": [["0", "lambda s: 2"], ["2", "lambda s: 1"]],
+    "2": [["1", "lambda s: 1"], ["3", "lambda s: 2"]],
+    "3": [["2", "lambda s: 2"], ["0", "lambda s: 2"]],
+    "_state": {},
+    "_constraints": {
+        "required_edges": [["2", "3"]],
+        "forbidden_edges": [["0", "1"]],
+        "degree_limits": {},
+        "phase_blocklist": [],
+        "round_cost_to": 3
+    }
+}
+# Feasible forest edges of minimum total cost honoring constraints:
+# Must take ["2","3"]. Best connectors avoiding ["0","1"]: pick ["1","2"] and ["0","3"].
+# Result (canonical+lex sorted): [["0","3"], ["1","2"], ["2","3"]]
+
+graphs = [g1, g2]
+```
+
+---
+
+### Expected Output A
+
+```python
+[
+  [["0", "1"], ["0", "3"], ["1", "2"]],   # for g1
+  [["0", "3"], ["1", "2"], ["2", "3"]]    # for g2
+]
+```
+
+---
+
+### Example Error Output
+
+If any infeasibility or constraint conflict occurs, the function should return a list containing an error object, such as:
+
+```python
+[{"error": "Required edges form a cycle"}]
+```
+
+or
+
+```python
+[{"error": "Degree limit infeasible"}]
+```
+
+Starter Code:
+```python
+from typing import Dict, List, Any
+import math
+
+def compute_multi_stage_mst(
+    graphs: List[Dict[int, List[List[Any]]]]
+) -> List[List[List[int]]]:
+```

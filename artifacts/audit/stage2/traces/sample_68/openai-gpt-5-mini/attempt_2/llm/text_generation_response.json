@@ -1,0 +1,76 @@
+{
+  "id": "resp_0b4d288c4e19365d0069c32b3ac3c481958980e147358e34ce",
+  "object": "response",
+  "created_at": 1774398266,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398281,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0b4d288c4e19365d0069c32b3b13cc81958709e5245960d9e7",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0b4d288c4e19365d0069c32b3b39088195b3c020ea1a77d9bc",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Union, Optional\n\ndef manage_shard_connections(operations: List[List[Union[str, int, None]]]) -> List[str]:\n    MAX_SHARDS = 2000\n    MAX_LOAD = 500\n\n    def load_of(s: int) -> int:\n        return (s % 100) + 1\n\n    # Current state\n    parent = {}  # node -> parent\n    rank = {}\n    comp_load = {}  # root -> total load\n    members = {}  # root -> set of members\n\n    # Version history: list of snapshots. Version 0 is initial.\n    # To keep memory reasonable and allow historical queries efficiently for up to 2000 shards,\n    # we snapshot the parent mapping of roots and comp_load and members at each version.\n    # Since operations <=10000 and shards<=2000 this is acceptable.\n    versions = []\n\n    def ensure_node(x: int):\n        if x in parent:\n            return\n        parent[x] = x\n        rank[x] = 0\n        lw = load_of(x)\n        comp_load[x] = lw\n        members[x] = set([x])\n\n    def find(x: int) -> int:\n        # path compression\n        if parent[x] != x:\n            parent[x] = find(parent[x])\n        return parent[x]\n\n    def union_op(a: int, b: int) -> bool:\n        ensure_node(a)\n        ensure_node(b)\n        ra = find(a)\n        rb = find(b)\n        if ra == rb:\n            return True\n        total = comp_load[ra] + comp_load[rb]\n        if total > MAX_LOAD:\n            return False\n        # union by rank\n        if rank[ra] < rank[rb]:\n            ra, rb = rb, ra\n        parent[rb] = ra\n        if rank[ra] == rank[rb]:\n            rank[ra] += 1\n        # merge members and loads\n        comp_load[ra] = total\n        members[ra].update(members[rb])\n        # remove rb data\n        del comp_load[rb]\n        del members[rb]\n        return True\n\n    def split_op(a: int, b: int) -> bool:\n        # split b into its own singleton if a and b connected\n        if a not in parent or b not in parent:\n            # if either missing, they are singleton; then not connected unless equal\n            if a == b:\n                return False  # can't split self\n            return False\n        if a == b:\n            return False\n        ra = find(a)\n        rb = find(b)\n        if ra != rb:\n            return False\n        # isolate b: remove from members[ra], create new root for b\n        # We must handle if b is root; but split semantics isolate b only.\n        # Remove b from current component and make it its own root.\n        # parent pointers: set parent[b]=b and adjust others. For nodes where parent path went through b,\n        # path compression will handle later. Ensure consistency: if b was root, need to pick new root for remaining members.\n        # We'll create new root for remaining members by choosing another member (if any).\n        # Approach: if b is root ra, then we need to make one of other members the new root and reassign parents.\n        # Simpler: rebuild component of remaining members: pick one member m != b as root and set parent of each accordingly.\n        # Members set available.\n        comp_members = members[ra]\n        # remove b\n        comp_members.remove(b)\n        # create new singleton for b\n        parent[b] = b\n        rank[b] = 0\n        comp_load[b] = load_of(b)\n        members[b] = set([b])\n        # Update remaining component:\n        if len(comp_members) == 0:\n            # no remaining members, remove old component data\n            del comp_load[ra]\n            del members[ra]\n            # ra might be b; handled\n        else:\n            # choose new root m0\n            m0 = next(iter(comp_members))\n            # reassign parent for all members to m0 and set ranks\n            for m in comp_members:\n                parent[m] = m0\n            parent[m0] = m0\n            # compute new load\n            new_load = sum(load_of(m) for m in comp_members)\n            # update structures: remove old root ra entries if different\n            if ra != m0:\n                if ra in comp_load:\n                    del comp_load[ra]\n                if ra in members:\n                    del members[ra]\n            comp_load[m0] = new_load\n            members[m0] = set(comp_members)\n            # set rank for m0 (reset)\n            rank[m0] = 0\n        return True\n\n    def snapshot():\n        # store deep copies of parent for existing nodes, comp_load, members\n        # To save space, we store parent mapping for nodes (integers) existing now.\n        versions.append({\n            'parent': parent.copy(),\n            'comp_load': comp_load.copy(),\n            'members': {r: set(s) for r, s in members.items()},\n        })\n\n    # initialize version 0\n    snapshot()  # initial empty state\n\n    results: List[str] = []\n    current_version = 0\n\n    for op in operations:\n        typ = op[0]\n        a = op[1]\n        b = op[2]\n        v = op[3]\n\n        if typ == \"union\":\n            ensure_node(a)\n            ensure_node(b)\n            res = union_op(a, b)\n            snapshot()\n            current_version += 1\n            results.append(\"True\" if res else \"False\")\n        elif typ == \"split\":\n            ensure_node(a)\n            ensure_node(b)\n            res = split_op(a, b)\n            snapshot()\n            current_version += 1\n            results.append(\"True\" if res else \"False\")\n        elif typ == \"find\":\n            # ensure nodes exist per spec\n            if a not in parent or b not in parent:\n                # if absent, they are singletons possibly not equal\n                if a == b:\n                    results.append(\"True\")\n                else:\n                    results.append(\"False\")\n            else:\n                res = (find(a) == find(b))\n                results.append(\"True\" if res else \"False\")\n        elif typ == \"find_versioned\":\n            ver = v\n            if not isinstance(ver, int) or ver < 0 or ver > current_version:\n                results.append(\"False\")\n            else:\n                snap = versions[ver]\n                par = snap['parent']\n                mem = snap['members']\n                # if nodes absent in that version, they are singletons\n                def find_in_snap(x: int) -> int:\n                    if x not in par:\n                        return x\n                    # iterative find without compression\n                    while par[x] != x:\n                        x = par[x]\n                    return x\n                if a == b:\n                    results.append(\"True\")\n                else:\n                    ra = find_in_snap(a)\n                    rb = find_in_snap(b)\n                    results.append(\"True\" if ra == rb else \"False\")\n        else:\n            # unknown op\n            results.append(\"False\")\n\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1946,
+    "input_tokens_details": {
+      "cached_tokens": 1920
+    },
+    "output_tokens": 1548,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3494
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN7GHNhqBFG0jD51qGK9ZblyCRSiZ",
+  "object": "chat.completion",
+  "created": 1774401829,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[0, 1, 2, 3]\",\n        \"{\\\"0\\\": [{\\\"to\\\": 1, \\\"capacity\\\": 3, \\\"cost\\\": 1.0, \\\"time_windows\\\": [[0, 2], [7, 9]], \\\"forbidden_pairs\\\": [], \\\"obstruction_time\\\": null}, {\\\"to\\\": 3, \\\"capacity\\\": 2, \\\"cost\\\": 5.0, \\\"time_windows\\\": [[1, 4]], \\\"forbidden_pairs\\\": [], \\\"obstruction_time\\\": null}], \\\"1\\\": [{\\\"to\\\": 2, \\\"capacity\\\": 2, \\\"cost\\\": 0.5, \\\"time_windows\\\": [[5, 5]], \\\"forbidden_pairs\\\": [[0, 0]], \\\"obstruction_time\\\": null}], \\\"2\\\": [{\\\"to\\\": 3, \\\"capacity\\\": 5, \\\"cost\\\": 2.0, \\\"time_windows\\\": [[5, 9]], \\\"forbidden_pairs\\\": [], \\\"obstruction_time\\\": 7}], \\\"3\\\": []}\",\n        \"[{\\\"id\\\": 0, \\\"source\\\": 0, \\\"sink\\\": 3, \\\"demand\\\": 3, \\\"priority\\\": 0, \\\"max_split\\\": 2}]\",\n        \"10\",\n        \"[{\\\"node\\\": 1, \\\"capacity\\\": 2, \\\"cost_per_unit_per_time\\\": 0.5}, {\\\"node\\\": 2, \\\"capacity\\\": 1, \\\"cost_per_unit_per_time\\\": 0.2}]\",\n        \"null\"\n      ],\n      \"focus\": \"Cyclic time windows + instantaneous edge + self-conflict ([0,0]) + holding at intermediate nodes + edge-specific obstruction mid-window\"\n    },\n    {\n      \"input_lines\": [\n        \"[0, 1, 2]\",\n        \"{\\\"0\\\": [{\\\"to\\\": 1, \\\"capacity\\\": 3, \\\"cost\\\": -5.0, \\\"time_windows\\\": [[0, 2]], \\\"forbidden_pairs\\\": [[0, 1], [1, 2]], \\\"obstruction_time\\\": null}], \\\"1\\\": [{\\\"to\\\": 2, \\\"capacity\\\": 6, \\\"cost\\\": 1.0, \\\"time_windows\\\": [[0, 3]], \\\"forbidden_pairs\\\": [], \\\"obstruction_time\\\": null}], \\\"2\\\": []}\",\n        \"[{\\\"id\\\": 0, \\\"source\\\": 0, \\\"sink\\\": 2, \\\"demand\\\": 2, \\\"priority\\\": 0, \\\"max_split\\\": 1}, {\\\"id\\\": 1, \\\"source\\\": 0, \\\"sink\\\": 2, \\\"demand\\\": 2, \\\"priority\\\": 2, \\\"max_split\\\": 1}, {\\\"id\\\": 2, \\\"source\\\": 0, \\\"sink\\\": 2, \\\"demand\\\": 2, \\\"priority\\\": 1, \\\"max_split\\\": 1}]\",\n        \"4\",\n        \"null\",\n        \"null\"\n      ],\n      \"focus\": \"Negative-cost edges + transitive conflict chain ([[0,1],[1,2]]) + priority-based routing (id 1 routed first) to test cycle-avoidance and ordering\"\n    },\n    {\n      \"input_lines\": [\n        \"[0, 1, 2, 3, 4]\",\n        \"{\\\"0\\\": [{\\\"to\\\": 1, \\\"capacity\\\": 5, \\\"cost\\\": 2.0, \\\"time_windows\\\": [[0, 3]], \\\"forbidden_pairs\\\": [], \\\"obstruction_time\\\": null}], \\\"1\\\": [{\\\"to\\\": 2, \\\"capacity\\\": 2, \\\"cost\\\": 1.0, \\\"time_windows\\\": [[1, 4]], \\\"forbidden_pairs\\\": [], \\\"obstruction_time\\\": null}, {\\\"to\\\": 3, \\\"capacity\\\": 4, \\\"cost\\\": 1.5, \\\"time_windows\\\": [[1, 5]], \\\"forbidden_pairs\\\": [], \\\"obstruction_time\\\": null}], \\\"2\\\": [{\\\"to\\\": 1, \\\"capacity\\\": 3, \\\"cost\\\": 0.8, \\\"time_windows\\\": [[2, 5]], \\\"forbidden_pairs\\\": [], \\\"obstruction_time\\\": null}, {\\\"to\\\": 4, \\\"capacity\\\": 10, \\\"cost\\\": 3.0, \\\"time_windows\\\": [[2, 5]], \\\"forbidden_pairs\\\": [], \\\"obstruction_time\\\": 3}], \\\"3\\\": [{\\\"to\\\": 4, \\\"capacity\\\": 10, \\\"cost\\\": 2.0, \\\"time_windows\\\": [[2, 6]], \\\"forbidden_pairs\\\": [], \\\"obstruction_time\\\": null}], \\\"4\\\": []}\",\n        \"[{\\\"id\\\": 0, \\\"source\\\": 0, \\\"sink\\\": 4, \\\"demand\\\": 3.7, \\\"priority\\\": 1, \\\"max_split\\\": 3}, {\\\"id\\\": 1, \\\"source\\\": 0, \\\"sink\\\": 4, \\\"demand\\\": 1.3, \\\"priority\\\": 0, \\\"max_split\\\": 2}]\",\n        \"7\",\n        \"[{\\\"node\\\": 2, \\\"capacity\\\": 2, \\\"cost_per_unit_per_time\\\": 0.2}]\",\n        \"[{\\\"u\\\": 1, \\\"v\\\": 2, \\\"block_time\\\": 4}]\"\n      ],\n      \"focus\": \"Fractional demands + time-reversible small reverse edge + holding costs + partial edge obstruction (edge-specific at t=3 and global obstruction at (1,2) at t=4) to test fractional/integer adaptation and obstruction precedence\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3837,
+    "completion_tokens": 4904,
+    "total_tokens": 8741,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3712,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

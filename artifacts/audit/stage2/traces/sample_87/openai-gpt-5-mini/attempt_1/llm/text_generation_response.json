@@ -1,0 +1,76 @@
+{
+  "id": "resp_09ff2ded32cf420d0069c32fdec67881a29023677f1a5be3d7",
+  "object": "response",
+  "created_at": 1774399454,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774399484,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_09ff2ded32cf420d0069c32fdf4ba481a2bb03204f9b3ecb38",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_09ff2ded32cf420d0069c32fdfa21881a29ee9da5e163b6831",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "def fenwick_tree_stock_analyzer(prices, operations):\n    from decimal import Decimal, getcontext, ROUND_HALF_UP\n\n    # Set precision sufficient for sums; use 10 places to be safe, round to 2 at output\n    getcontext().prec = 28\n\n    # Validation helpers\n    def is_number(x):\n        return isinstance(x, (int, float, Decimal))\n\n    # Input validations\n    if not isinstance(prices, list):\n        return {\"error\": \"Prices must be a list of numeric values\"}\n    if len(prices) == 0:\n        return {\"error\": \"Price array cannot be empty\"}\n    # Check numeric and positivity\n    dec_prices = []\n    for p in prices:\n        if not is_number(p):\n            return {\"error\": \"All price values must be numeric\"}\n        try:\n            d = Decimal(str(p))\n        except Exception:\n            return {\"error\": \"All price values must be numeric\"}\n        # Must be > 0 (positive only)\n        if d <= 0:\n            return {\"error\": \"Stock prices cannot be negative\"}\n        # Round to at most 2 decimal places input (but accept)\n        dec_prices.append(d)\n\n    n = len(dec_prices)\n\n    if not isinstance(operations, list) or any(not isinstance(op, list) for op in operations):\n        return {\"error\": \"Operations must be a list of lists\"}\n\n    # Fenwick Tree implementation (1-based)\n    tree = [Decimal('0')] * (n + 1)\n    values = [Decimal('0')] * n  # keep current values\n\n    def fenwick_add(idx, delta):\n        i = idx + 1\n        while i <= n:\n            tree[i] += delta\n            i += i & -i\n\n    def fenwick_sum_idx(idx):\n        # sum from 0..idx inclusive\n        if idx < 0:\n            return Decimal('0')\n        i = idx + 1\n        s = Decimal('0')\n        while i > 0:\n            s += tree[i]\n            i -= i & -i\n        return s\n\n    # Build tree: O(n log n)\n    for i, val in enumerate(dec_prices):\n        values[i] = val\n        fenwick_add(i, val)\n\n    results = []\n    # Process operations\n    for op in operations:\n        if not isinstance(op, list):\n            return {\"error\": \"Operations must be a list of lists\"}\n        if len(op) == 0:\n            return {\"error\": \"Invalid operation format\"}\n        cmd = op[0]\n        if cmd == \"update\":\n            if len(op) != 3:\n                return {\"error\": \"Invalid operation format\"}\n            idx = op[1]\n            new_val = op[2]\n            if not isinstance(idx, int):\n                return {\"error\": \"Index out of bounds\"}\n            if idx < 0 or idx >= n:\n                return {\"error\": \"Index out of bounds\"}\n            if not is_number(new_val):\n                return {\"error\": \"Update value must be positive numeric\"}\n            try:\n                nd = Decimal(str(new_val))\n            except Exception:\n                return {\"error\": \"Update value must be positive numeric\"}\n            if nd <= 0:\n                return {\"error\": \"Update value must be positive numeric\"}\n            # compute delta and apply\n            delta = nd - values[idx]\n            values[idx] = nd\n            fenwick_add(idx, delta)\n        elif cmd == \"prefix_sum\":\n            if len(op) != 2:\n                return {\"error\": \"Invalid operation format\"}\n            idx = op[1]\n            if not isinstance(idx, int):\n                return {\"error\": \"Index out of bounds\"}\n            if idx < 0 or idx >= n:\n                return {\"error\": \"Index out of bounds\"}\n            s = fenwick_sum_idx(idx)\n            # Round to 2 decimal places using bankers? use ROUND_HALF_UP per typical finance\n            s = s.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)\n            results.append(float(s))\n        elif cmd == \"range_sum\":\n            if len(op) != 3:\n                return {\"error\": \"Invalid operation format\"}\n            start = op[1]\n            end = op[2]\n            if not (isinstance(start, int) and isinstance(end, int)):\n                return {\"error\": \"Index out of bounds\"}\n            if start < 0 or end < 0 or start >= n or end >= n:\n                return {\"error\": \"Index out of bounds\"}\n            if start > end:\n                return {\"error\": \"Invalid range: start index cannot be greater than end index\"}\n            s = fenwick_sum_idx(end) - fenwick_sum_idx(start - 1)\n            s = s.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)\n            results.append(float(s))\n        else:\n            return {\"error\": \"Invalid operation format\"}\n\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1884,
+    "input_tokens_details": {
+      "cached_tokens": 1792
+    },
+    "output_tokens": 1048,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2932
+  },
+  "user": null,
+  "metadata": {}
+}

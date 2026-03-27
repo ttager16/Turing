@@ -1,0 +1,136 @@
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Dict, List, Tuple
+import heapq
+
+def robust_shortest_path(
+        graph: Dict[str, List[List]],
+        start_node: str,
+        end_node: str,
+        is_peak_hour: bool,
+        min_reliability: float,
+        robustness_weight: float
+) -> List[str]:
+    # Error checks
+    if not isinstance(graph, dict):
+        return {"error": "Graph must be a dictionary"}
+    # node count
+    if len(graph) > 1000:
+        return {"error": "Graph cannot have more than 1000 nodes"}
+    # is_peak_hour type
+    if not isinstance(is_peak_hour, bool):
+        return {"error": "is_peak_hour must be a boolean"}
+    # start/end presence
+    if start_node not in graph:
+        return {"error": "Start node not found in graph"}
+    if end_node not in graph:
+        return {"error": "End node not found in graph"}
+    # min_reliability and robustness_weight bounds
+    if not (isinstance(min_reliability, (int, float))):
+        return {"error": "Minimum reliability must be between 0.1 and 1.0"}
+    if not (0.1 <= float(min_reliability) <= 1.0):
+        return {"error": "Minimum reliability must be between 0.1 and 1.0"}
+    if not (isinstance(robustness_weight, (int, float))):
+        return {"error": "Robustness weight must be between 0.1 and 2.0"}
+    if not (0.1 <= float(robustness_weight) <= 2.0):
+        return {"error": "Robustness weight must be between 0.1 and 2.0"}
+
+    # Validate edges and neighbors
+    for node, edges in graph.items():
+        if not isinstance(edges, list):
+            return {"error": "Edge list contains invalid types"}
+        if len(edges) > 50:
+            return {"error": "Node cannot have more than 50 edges"}
+        for edge in edges:
+            if (not isinstance(edge, list)) or len(edge) != 5:
+                return {"error": "Edge list contains invalid types"}
+            neighbor, base_weight, congestion_multiplier, reliability_score, peak_hour_adjustment = edge
+            if not isinstance(neighbor, str):
+                return {"error": "Edge list contains invalid types"}
+            if neighbor not in graph:
+                return {"error": "Neighbor node not found in graph"}
+            # numeric checks
+            if not isinstance(base_weight, (int, float)):
+                return {"error": "Edge list contains invalid types"}
+            if not isinstance(congestion_multiplier, (int, float)):
+                return {"error": "Edge list contains invalid types"}
+            if not isinstance(reliability_score, (int, float)):
+                return {"error": "Edge list contains invalid types"}
+            if not isinstance(peak_hour_adjustment, (int, float)):
+                return {"error": "Edge list contains invalid types"}
+            # base weight constraints
+            if base_weight <= 0:
+                return {"error": "Base weight must be positive"}
+            if base_weight > 1000:
+                return {"error": "Base weight must not exceed 1000"}
+            # congestion multiplier
+            if not (1.0 <= float(congestion_multiplier) <= 5.0):
+                return {"error": "Congestion multiplier must be between 1.0 and 5.0"}
+            # reliability_score
+            if not (0.1 <= float(reliability_score) <= 1.0):
+                return {"error": "Reliability score must be between 0.1 and 1.0"}
+            # peak_hour_adjustment
+            if not (1.0 <= float(peak_hour_adjustment) <= 3.0):
+                return {"error": "Peak hour adjustment must be between 1.0 and 3.0"}
+
+    # Single node case
+    if start_node == end_node:
+        return [start_node]
+
+    # Dijkstra variant: state tracks node with accumulated final_weight and robustness_score.
+    # We want minimal final_weight among paths whose robustness_score >= min_reliability.
+    # Since robustness_score is sum(reliability * robustness_weight). Note min_reliability is threshold for that sum.
+    # We'll run Dijkstra minimizing final_weight but only consider paths with robustness >= threshold at termination.
+    # However need to ensure we can explore paths that may have higher weight but meet robustness. We'll keep for each node a dict mapping discretized robustness_sum to best final_weight.
+    # Discretize robustness_sum to 2 decimals as required.
+    def dec2(x: float) -> Decimal:
+        return Decimal(str(x)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    min_rel_dec = dec2(min_reliability)
+    rob_weight = float(robustness_weight)
+
+    # Priority queue sorted by final_weight, store (final_weight_decimal, -robustness_decimal, node, path, robustness_decimal)
+    # Using -robustness to prefer higher robustness when same weight.
+    pq = []
+    start_fw = Decimal('0.00')
+    start_rob = Decimal('0.00')
+    heapq.heappush(pq, (start_fw, -start_rob, start_node, [start_node], start_rob))
+
+    # For each node, map robustness_decimal string to minimal final_weight Decimal seen.
+    best = {n: {} for n in graph.keys()}
+
+    while pq:
+        fw, neg_rob, node, path, rob = heapq.heappop(pq)
+        # If reached end and meets reliability threshold, return path
+        if node == end_node and rob >= min_rel_dec:
+            return path
+        # Skip if this state is not better than recorded
+        rob_key = format(rob, 'f')
+        recorded = best[node].get(rob_key)
+        if recorded is not None and recorded < fw:
+            continue
+        # Explore neighbors
+        for edge in graph[node]:
+            neighbor, base_weight, congestion_multiplier, reliability_score, peak_hour_adjustment = edge
+            # compute edge final weight
+            bw = Decimal(str(base_weight))
+            cm = Decimal(str(congestion_multiplier))
+            pha = Decimal(str(peak_hour_adjustment))
+            if is_peak_hour:
+                edge_w = (bw * cm * pha)
+            else:
+                edge_w = (bw * cm)
+            # round edge_w to 2 decimals then sum
+            edge_w = Decimal(edge_w).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            new_fw = (fw + edge_w).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            # robustness addition
+            add_rob = Decimal(str(float(reliability_score) * rob_weight))
+            add_rob = add_rob.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            new_rob = (rob + add_rob).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            neigh_key = format(new_rob, 'f')
+            prev_bw = best[neighbor].get(neigh_key)
+            if prev_bw is None or new_fw < prev_bw:
+                best[neighbor][neigh_key] = new_fw
+                heapq.heappush(pq, (new_fw, -new_rob, neighbor, path + [neighbor], new_rob))
+
+    # If exhausted and no path meets threshold
+    return []

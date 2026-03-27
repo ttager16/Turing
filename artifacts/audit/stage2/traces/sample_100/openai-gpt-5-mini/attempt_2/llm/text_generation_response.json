@@ -1,0 +1,76 @@
+{
+  "id": "resp_0bd4d349df0f1ac90069c334440fd8819196156448f5930bcc",
+  "object": "response",
+  "created_at": 1774400580,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774400607,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0bd4d349df0f1ac90069c3344457fc8191bc1bd576d5854ecb",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0bd4d349df0f1ac90069c33444bfc081919fff13291e987449",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List\nimport heapq\n\nINF = 10**30\n\ndef find_graph_center(graph: Dict[str, List[List[int]]]) -> int:\n    # Validate graph dict\n    if not isinstance(graph, dict) or len(graph) == 0:\n        return -1\n    # Parse nodes and validate keys\n    nodes = {}\n    for k, v in graph.items():\n        if not isinstance(k, str):\n            return -1\n        try:\n            kid = int(k)\n        except Exception:\n            return -1\n        if not isinstance(v, list):\n            return -1\n        nodes[kid] = v\n    # Build normalized undirected adjacency with min weights, ignore self-loops\n    adj = {}  # int -> dict neighbor->weight\n    for u_str, neighs in nodes.items():\n        u = u_str\n        if u not in adj:\n            adj[u] = {}\n        for item in neighs:\n            if not (isinstance(item, list) or isinstance(item, tuple)) or len(item) != 2:\n                return -1\n            v_raw, w = item\n            # neighbor id validation: must be int or string representing int? prompt: neighbor IDs that are not integers => invalid\n            if isinstance(v_raw, str):\n                try:\n                    v = int(v_raw)\n                except Exception:\n                    return -1\n            elif isinstance(v_raw, int):\n                v = v_raw\n            else:\n                return -1\n            if not isinstance(w, int) or isinstance(w, bool):\n                return -1\n            if w < 0:\n                return -1\n            if u == v:\n                continue\n            # undirected: set both directions with min weight\n            if v not in adj:\n                adj[v] = {}\n            prev = adj[u].get(v)\n            if prev is None or w < prev:\n                adj[u][v] = w\n            prev2 = adj[v].get(u)\n            if prev2 is None or w < prev2:\n                adj[v][u] = w\n    if len(adj) == 0:\n        return -1\n    # iterative DFS to label components\n    visited = set()\n    components = []  # list of lists of nodes\n    for node in sorted(adj.keys()):\n        if node in visited:\n            continue\n        stack = [node]\n        comp = []\n        visited.add(node)\n        while stack:\n            cur = stack.pop()\n            comp.append(cur)\n            for nb in adj[cur]:\n                if nb not in visited:\n                    visited.add(nb)\n                    stack.append(nb)\n        components.append(sorted(comp))\n    # If there are nodes in input that had empty neighbor lists but weren't in adj (isolated), include them\n    # nodes dict keys are all node ids from input; ensure isolated nodes included\n    input_node_ids = set(nodes.keys())\n    for nid in input_node_ids:\n        if nid not in adj:\n            adj[nid] = {}\n            components.append([nid])\n    # Recompute components to merge any duplicates and ensure all nodes included uniquely\n    # Use DFS over adj keys\n    visited = set()\n    comps = []\n    for node in sorted(adj.keys()):\n        if node in visited:\n            continue\n        stack = [node]\n        visited.add(node)\n        comp = []\n        while stack:\n            cur = stack.pop()\n            comp.append(cur)\n            for nb in adj[cur]:\n                if nb not in visited:\n                    visited.add(nb)\n                    stack.append(nb)\n        comps.append(sorted(comp))\n    components = comps\n    # Check if all components are singletons\n    all_singleton = all(len(c) == 1 for c in components)\n    # Helper: unweighted iterative DFS to find farthest node (by hop count)\n    def unweighted_farthest(start, comp_set):\n        visited_local = set([start])\n        stack = [(start, 0)]\n        far_node = start\n        far_dist = 0\n        while stack:\n            cur, d = stack.pop()\n            if d > far_dist or (d == far_dist and cur < far_node):\n                far_dist = d\n                far_node = cur\n            for nb in adj[cur]:\n                if nb in comp_set and nb not in visited_local:\n                    visited_local.add(nb)\n                    stack.append((nb, d + 1))\n        return far_node\n    # Dijkstra\n    def dijkstra(source, comp_set):\n        dist = {n: INF for n in comp_set}\n        dist[source] = 0\n        h = [(0, source)]\n        while h:\n            d, u = heapq.heappop(h)\n            if d != dist[u]:\n                continue\n            for v, w in adj[u].items():\n                if v not in comp_set:\n                    continue\n                nd = d + w\n                if nd < dist[v]:\n                    dist[v] = nd\n                    heapq.heappush(h, (nd, v))\n        return dist\n    # For each component evaluate candidates and pruning\n    best_global_node = None\n    best_global_ecc = INF\n    # For components singletons: collect for possible all-singleton case\n    singleton_nodes = []\n    for comp in components:\n        if len(comp) == 1:\n            singleton_nodes.append(comp[0])\n            continue\n        comp_set = set(comp)\n        # seed candidates: farthest heuristic\n        s = comp[0]\n        a = unweighted_farthest(s, comp_set)\n        b = unweighted_farthest(a, comp_set)\n        # highest-degree node and smallest-ID node\n        deg = -1\n        deg_node = comp[0]\n        for n in comp:\n            d = len(adj[n])\n            if d > deg or (d == deg and n < deg_node):\n                deg = d\n                deg_node = n\n        smallest = min(comp)\n        candidates = {a, b, deg_node, smallest}\n        # initialize LB and UB per node using distances from run candidates incrementally\n        LB = {n: 0 for n in comp}  # lower bounds on eccentricity\n        UB = {n: INF for n in comp}\n        evaluated = set()\n        component_best_node = None\n        component_best_ecc = INF\n        # order to run Dijkstra: run from candidates first\n        run_sources = list(sorted(candidates))\n        # limit number of initial candidate runs to len(run_sources)\n        for src in run_sources:\n            dist = dijkstra(src, comp_set)\n            evaluated.add(src)\n            # update UB: for any v, eccentricity <= dist[src][v] + max_dist_from_src\n            max_from_src = 0\n            for v in comp:\n                dv = dist[v]\n                if dv < INF and dv > max_from_src:\n                    max_from_src = dv\n            for v in comp:\n                dv = dist[v]\n                if dv >= INF:\n                    # unreachable within component shouldn't happen\n                    continue\n                # ecc(v) >= max over sources of dist[src][v]\n                if dv > LB[v]:\n                    LB[v] = dv\n                # UB via this source: ecc(v) <= dist[v->src] + ecc(src) <= dist[v] + max_from_src\n                ub_candidate = dv + max_from_src\n                if ub_candidate < UB[v]:\n                    UB[v] = ub_candidate\n            # update component best from this source's eccentricity\n            ecc_src = max(dist[v] for v in comp if dist[v] < INF)\n            if ecc_src < component_best_ecc or (ecc_src == component_best_ecc and src < component_best_node):\n                component_best_ecc = ecc_src\n                component_best_node = src\n        # Now pruning: consider remaining nodes that could beat current component_best_ecc\n        # We'll iterate remaining nodes sorted by LB ascending to try promising ones first\n        remaining = [v for v in comp if v not in evaluated]\n        # compute initial LB using the distances we have (already done). Now prune nodes with LB >= component_best_ecc\n        candidates_to_check = [v for v in remaining if LB[v] < component_best_ecc]\n        # sort by LB then node id\n        candidates_to_check.sort(key=lambda x: (LB[x], x))\n        for v in candidates_to_check:\n            # recompute full distances from v\n            dist = dijkstra(v, comp_set)\n            ecc_v = max(dist[u] for u in comp if dist[u] < INF)\n            # update bounds using this source\n            max_from_src = ecc_v\n            for u in comp:\n                dv = dist[u]\n                if dv > LB[u]:\n                    LB[u] = dv\n                ub_candidate = dv + max_from_src\n                if ub_candidate < UB[u]:\n                    UB[u] = ub_candidate\n            if ecc_v < component_best_ecc or (ecc_v == component_best_ecc and v < component_best_node):\n                component_best_ecc = ecc_v\n                component_best_node = v\n            # further prune remaining nodes\n            # quick check: if LB of a node >= component_best_ecc skip later (we'll naturally skip since building list once)\n        # after evaluating, compare to global\n        if component_best_node is not None:\n            if (component_best_ecc < best_global_ecc) or (component_best_ecc == best_global_ecc and component_best_node < best_global_node):\n                best_global_ecc = component_best_ecc\n                best_global_node = component_best_node\n    # Handle all-singleton case\n    if best_global_node is None:\n        if len(singleton_nodes) == 0:\n            return -1\n        return min(singleton_nodes)\n    return best_global_node"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1368,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2061,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3429
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,76 @@
+{
+  "id": "resp_08ac0e34db522b4f0069c31c630ba881a18b15dd31d2d71584",
+  "object": "response",
+  "created_at": 1774394467,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774394471,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_08ac0e34db522b4f0069c31c63547081a1b6ace9709b4a0227",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_08ac0e34db522b4f0069c31c6380a881a196753d0da41bde61",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\nimport bisect\n\ndef manage_high_freq_trades(\n    markets: List[List[float]],\n    operations: List[str],\n    prices: List[float],\n    market_indices: List[int]\n) -> List[int]:\n    # Represent each market as a list kept mostly sorted; use bisect for operations.\n    # For efficiency, wrap markets in lists (they already are). We'll maintain sorted order on updates.\n    results: List[int] = []\n    n_ops = len(operations)\n    for i in range(n_ops):\n        op = operations[i]\n        price = prices[i]\n        midx = market_indices[i]\n        if midx < 0 or midx >= len(markets):\n            # invalid market index: for FIND return -1, for UPDATE ignore\n            if op == \"FIND\":\n                results.append(-1)\n            continue\n        market = markets[midx]\n        if op == \"FIND\":\n            # binary search for exact price\n            lo = bisect.bisect_left(market, price)\n            if lo < len(market) and market[lo] == price:\n                results.append(lo)\n            else:\n                results.append(-1)\n        elif op == \"UPDATE\":\n            # Update behavior: if price exists replace (no-op), else insert maintaining sorted order.\n            lo = bisect.bisect_left(market, price)\n            if lo < len(market) and market[lo] == price:\n                market[lo] = price\n            else:\n                market.insert(lo, price)\n        else:\n            # Unknown op: ignore; if FIND expected, return -1\n            if op == \"FIND\":\n                results.append(-1)\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1184,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 374,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1558
+  },
+  "user": null,
+  "metadata": {}
+}

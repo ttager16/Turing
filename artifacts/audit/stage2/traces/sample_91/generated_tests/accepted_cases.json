@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "\"The FooBar climbs in 2021.\"",
+    "output_text": "[[\"The\", \"OTHER\"], [\"FooBar\", \"ENTITY\"], [\"climbs\", \"VERB\"], [\"in\", \"PREP\"], [\"2021\", \"OTHER\"]]"
+  },
+  {
+    "case_index": 1,
+    "input_text": "\"Mega Inc., reported profits of $ 1,000 thousand; meanwhile, USD/JPY dropped.\"",
+    "output_text": "[[\"Mega Inc.\", \"ENTITY\"], [\"reported\", \"OTHER\"], [\"profits\", \"NOUN\"], [\"of\", \"PREP\"], [\"$ 1,000 thousand\", \"VALUE\"], [\"meanwhile\", \"OTHER\"], [\"USD/JPY\", \"ENTITY\"], [\"dropped\", \"OTHER\"]]"
+  },
+  {
+    "case_index": 2,
+    "input_text": "\"Meanwhile, Alpha Co. announced a 12.5% rise and £10 Million investment; usd/eur is unaffected.\"",
+    "output_text": "[[\"Meanwhile,\", \"OTHER\"], [\"Alpha Co.\", \"ENTITY\"], [\"announced\", \"OTHER\"], [\"a\", \"DET\"], [\"12.5%\", \"VALUE\"], [\"rise\", \"OTHER\"], [\"and\", \"OTHER\"], [\"£10\", \"OTHER\"], [\"Million\", \"ENTITY\"], [\"investment\", \"OTHER\"], [\"usd/eur\", \"OTHER\"], [\"is\", \"OTHER\"], [\"unaffected\", \"OTHER\"]]"
+  }
+]

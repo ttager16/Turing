@@ -1,0 +1,126 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+The task is to manage a hospital’s **emergency department queue**.
+Each patient has a **unique ID** and an **initial severity score**, which dynamically changes after each treatment.
+The goal is to produce a **treatment order** that updates severities after each patient is treated.
+
+### Rules
+
+* **Treatment Priority:**
+  Patients with higher severity are treated first.
+
+* **Aging Adjustment:**
+  After each patient is treated, the remaining patients’ severities are updated as follows:
+
+  * Odd patient IDs -> severity + `aging_interval`
+  * Even patient IDs -> severity - `aging_interval`
+
+* **Arrival Order (Tie-Breaker):**
+  If two patients have the same severity, the one who appeared earlier in the input list is treated first.
+
+* The aging adjustment happens **after** each treatment, not before the first one.
+
+
+## Function Signature
+
+```python
+from typing import List
+
+def manage_patient_queue(patients: List[List[int]], aging_interval: int) -> dict:
+    pass
+```
+
+
+## Input
+
+* `patients` — a list of lists, where each inner list contains two integers:
+  `[patient_id, initial_severity]`
+  Example: `[[101, 5], [102, 6], [103, 4], [104, 4]]`
+* `aging_interval` - an positive integer that represents how much the severity changes after each treatment.
+
+
+
+## Output
+
+* A dictionary containing:
+  `{"treatment_order": [patient_ids_in_order]}`
+
+Example:
+
+```python
+{
+  "treatment_order": [102, 101, 103, 104]
+}
+```
+
+
+
+## Example Walkthrough
+
+* Input:
+
+  ```python
+  patients = [[101, 5], [102, 6], [103, 4], [104, 4]]
+  aging_interval = 2
+  ```
+
+* Step 1: Initial severities
+
+  * 101 -> 5
+  * 102 -> 6
+  * 103 -> 4
+  * 104 -> 4
+    Treat 102 first (highest severity).
+
+* Step 2: Apply aging adjustment
+
+  * 101 (odd) -> 5 + 2 = 7
+  * 103 (odd) -> 4 + 2 = 6
+  * 104 (even) -> 4 - 2 = 2
+    Treat 101 next.
+
+* Step 3: Apply aging adjustment
+
+  * 103 (odd) -> 6 + 2 = 8
+  * 104 (even) -> 2 - 2 = 0
+    Treat 103 next.
+
+* Step 4: Remaining
+
+  * 104 -> 0
+    Treat 104 last.
+
+* Final treatment order: `[102, 101, 103, 104]`
+
+
+
+## Tie-Breakers
+
+* If two patients have the same severity, treat the one who appeared earlier in the input list first.
+
+
+
+## Error Handling
+
+The function must return **error dictionaries** instead of raising exceptions.
+
+* `{'error': 'Invalid input type'}` — if `patients` and `aging_interval` does not follow the input type
+* `{'error': 'Empty patient list'}` — if `patients` is empty
+* `{'error': 'Invalid patient format'}` — if any patient entry is not follwoing the input
+
+Starter Code:
+```python
+from typing import List
+import heapq
+
+def manage_patient_queue(patients: List[List[int]], aging_interval: int) -> dict:
+```

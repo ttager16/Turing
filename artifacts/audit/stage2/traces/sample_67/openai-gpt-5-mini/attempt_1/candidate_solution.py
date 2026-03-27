@@ -1,0 +1,312 @@
+def persistent_disjoint_set(
+    operations: List[Tuple[str, Optional[int], Optional[int], Optional[int], Optional[Any]]]
+) -> List[Union[bool, List[int]]]:
+    # We'll implement a persistent forest per version represented by:
+    # - parent map for tree edges (root parent pointers for DSU without path compression)
+    # - adjacency map for the forest (each edge with capacity) to support attributes via LCA
+    # Structural sharing: store per-version dicts, copy-on-write small changes.
+    results: List[Union[bool, List[int]]] = []
+    versions = []  # each version is dict: {'parent':{}, 'rank':{}, 'adj':{}, 'up':{}, 'minup':{}, 'maxup':{}, 'depth':{}}
+    # initial empty version 0
+    versions.append({
+        'parent': {},  # DSU parent (representative)
+        'rank': {},
+        'adj': {},     # adjacency list: node -> list of (neighbor, capacity)
+        'root': {},    # node -> root id
+        # LCA tables per version:
+        'up': {},      # node -> list of ancestors
+        'minup': {},   # node -> list of min capacities to ancestor
+        'maxup': {},   # node -> list of max capacities
+        'depth': {},   # node -> depth
+    })
+    max_version = 0
+    LOG = 17  # will grow if needed
+
+    def ensure_log(n):
+        nonlocal LOG
+        need = max(1, (n).bit_length())
+        if need > LOG:
+            LOG = need
+            # Rebuild up tables for all versions as needed lazily when accessed; but to keep simple, we allow larger LOG and pad lists on queries.
+
+    def copy_version(v):
+        base = versions[v]
+        new = {
+            'parent': base['parent'].copy(),
+            'rank': base['rank'].copy(),
+            'adj': {k: list(vv) for k,vv in base['adj'].items()},
+            'root': base['root'].copy(),
+            'up': {k: list(vv) for k,vv in base['up'].items()},
+            'minup': {k: list(vv) for k,vv in base['minup'].items()},
+            'maxup': {k: list(vv) for k,vv in base['maxup'].items()},
+            'depth': base['depth'].copy(),
+        }
+        return new
+
+    def find_rep(version_dict, x):
+        parent = version_dict['parent']
+        # no path compression
+        while x in parent and parent[x] != x:
+            x = parent[x]
+        return x if x in parent else x
+
+    def make_node(version_dict, x):
+        if x not in version_dict['parent']:
+            version_dict['parent'][x] = x
+            version_dict['rank'][x] = 0
+            version_dict['adj'].setdefault(x, [])
+            version_dict['root'][x] = x
+            version_dict['up'][x] = [x] + [x]* (LOG -1)
+            version_dict['minup'][x] = [10**18] * LOG
+            version_dict['maxup'][x] = [-10**18] * LOG
+            version_dict['depth'][x] = 0
+
+    def build_lca_from(version_dict, start):
+        # BFS/DFS from start to build up tables for its tree
+        stack = [(start, start, 0, None)]  # node, parent, depth, edge_cap
+        adj = version_dict['adj']
+        while stack:
+            node, parent_node, depth, cap = stack.pop()
+            if node in version_dict['depth'] and version_dict['depth'][node] == depth and version_dict['up'].get(node):
+                # assume already built
+                pass
+            version_dict['depth'][node] = depth
+            up_list = [parent_node] + [0]*(LOG-1)
+            min_list = [10**18] + [10**18]*(LOG-1)
+            max_list = [-10**18] + [-10**18]*(LOG-1)
+            if cap is None:
+                min_list[0] = 10**18
+                max_list[0] = -10**18
+            else:
+                min_list[0] = cap
+                max_list[0] = cap
+            version_dict['up'][node] = up_list
+            version_dict['minup'][node] = min_list
+            version_dict['maxup'][node] = max_list
+            for i in range(1, LOG):
+                prev = version_dict['up'][node][i-1]
+                version_dict['up'][node][i] = version_dict['up'].get(prev, [prev]*LOG)[i-1]
+                version_dict['minup'][node][i] = min(version_dict['minup'][node][i-1],
+                                                     version_dict['minup'].get(prev, [10**18]*LOG)[i-1])
+                version_dict['maxup'][node][i] = max(version_dict['maxup'][node][i-1],
+                                                     version_dict['maxup'].get(prev, [-10**18]*LOG)[i-1])
+            for nei, ncap in adj.get(node, []):
+                if nei == parent_node:
+                    continue
+                stack.append((nei, node, depth+1, ncap))
+
+    def ensure_tree_tables(version_dict, node):
+        if node not in version_dict['up'] or len(version_dict['up'][node]) < LOG:
+            # build for component
+            root = version_dict['root'].get(node, node)
+            # find any node in that component to start
+            build_lca_from(version_dict, root)
+
+    def lca_query(version_dict, a, b):
+        if a == b:
+            return [0,0]
+        if a not in version_dict['depth'] or b not in version_dict['depth']:
+            return []
+        if version_dict['root'].get(a,None) != version_dict['root'].get(b,None):
+            return []
+        ensure_tree_tables(version_dict, a)
+        ensure_tree_tables(version_dict, b)
+        da = version_dict['depth'][a]
+        db = version_dict['depth'][b]
+        minv = 10**18
+        maxv = -10**18
+        if da < db:
+            a, b = b, a
+            da, db = db, da
+        diff = da - db
+        for i in range(LOG-1, -1, -1):
+            if diff & (1<<i):
+                minv = min(minv, version_dict['minup'][a][i])
+                maxv = max(maxv, version_dict['maxup'][a][i])
+                a = version_dict['up'][a][i]
+        if a == b:
+            return [minv if minv!=10**18 else 0, maxv if maxv!=-10**18 else 0]
+        for i in range(LOG-1, -1, -1):
+            if version_dict['up'][a][i] != version_dict['up'][b][i]:
+                minv = min(minv, version_dict['minup'][a][i], version_dict['minup'][b][i])
+                maxv = max(maxv, version_dict['maxup'][a][i], version_dict['maxup'][b][i])
+                a = version_dict['up'][a][i]
+                b = version_dict['up'][b][i]
+        # now parents are same
+        minv = min(minv, version_dict['minup'][a][0], version_dict['minup'][b][0])
+        maxv = max(maxv, version_dict['maxup'][a][0], version_dict['maxup'][b][0])
+        return [minv if minv!=10**18 else 0, maxv if maxv!=-10**18 else 0]
+
+    for op in operations:
+        typ, a, b, ver, extra = op
+        if typ == 'branch':
+            from_v = ver
+            new = copy_version(from_v)
+            versions.append(new)
+            max_version += 1
+        elif typ == 'union':
+            a0, b0, v0, cap = a, b, ver, extra
+            base = versions[v0]
+            new = copy_version(v0)
+            ensure_log(max(a0, b0, 1))
+            make_node(new, a0)
+            make_node(new, b0)
+            ra = find_rep(new, a0)
+            rb = find_rep(new, b0)
+            if ra != rb:
+                # union by rank
+                if new['rank'][ra] < new['rank'][rb]:
+                    ra, rb = rb, ra
+                    a0, b0 = b0, a0
+                new['parent'][rb] = ra
+                if new['rank'][ra] == new['rank'][rb]:
+                    new['rank'][ra] += 1
+                # add edge in adjacency
+                new['adj'].setdefault(a0, []).append((b0, cap))
+                new['adj'].setdefault(b0, []).append((a0, cap))
+                # set roots: choose ra as root id; update root mapping for component nodes lazily: set for rb root to ra by scanning nodes in that component is expensive.
+                # We'll set root for a0,b0 to ra and rely on build_lca to traverse.
+                new['root'][ra] = ra
+                new['root'][rb] = ra
+                # Build LCA tables for the connected part starting at ra
+                build_lca_from(new, ra)
+            versions.append(new)
+            max_version += 1
+        elif typ == 'find':
+            a0, b0, v0 = a, b, ver
+            version_dict = versions[v0]
+            ra = find_rep(version_dict, a0)
+            rb = find_rep(version_dict, b0)
+            results.append(ra == rb)
+        elif typ == 'attributes':
+            a0, b0, v0 = a, b, ver
+            version_dict = versions[v0]
+            res = lca_query(version_dict, a0, b0)
+            results.append(res)
+        elif typ == 'split':
+            a0, b0, v0 = a, b, ver
+            base = versions[v0]
+            new = copy_version(v0)
+            # remove direct edge between a0 and b0 if present
+            def remove_edge(lst, target):
+                for i, (nei, cap) in enumerate(lst):
+                    if nei == target:
+                        lst.pop(i)
+                        return True
+                return False
+            ra = find_rep(new, a0)
+            rb = find_rep(new, b0)
+            removed = False
+            if a0 in new['adj']:
+                removed = remove_edge(new['adj'][a0], b0) or removed
+            if b0 in new['adj']:
+                removed = remove_edge(new['adj'][b0], a0) or removed
+            if removed:
+                # After removal, the component may split into two; we need to recompute roots and lca tables for affected parts.
+                # We'll BFS from a0 to mark its component, rest nodes in previous root become other component.
+                from collections import deque
+                visited = set()
+                dq = deque([a0])
+                visited.add(a0)
+                while dq:
+                    node = dq.popleft()
+                    new['root'][node] = a0
+                    for nei, _ in new['adj'].get(node, []):
+                        if nei not in visited:
+                            visited.add(nei)
+                            dq.append(nei)
+                # other nodes that had previous root equal to previous root and not visited need new root set to b0's component root
+                # BFS from b0
+                visited2 = set()
+                dq = deque([b0])
+                visited2.add(b0)
+                while dq:
+                    node = dq.popleft()
+                    new['root'][node] = b0
+                    for nei, _ in new['adj'].get(node, []):
+                        if nei not in visited2:
+                            visited2.add(nei)
+                            dq.append(nei)
+                # rebuild lca from both roots
+                build_lca_from(new, a0)
+                build_lca_from(new, b0)
+            versions.append(new)
+            max_version += 1
+        elif typ == 'merge_versions':
+            vX, vY = ver, extra  # here ver holds vX, extra holds vY per signature
+            # but per Problem signature in operations tuple it's (None,None,vX,vY)
+            # so ver is vX, extra is vY
+            v1 = ver
+            v2 = extra
+            base1 = versions[v1]
+            base2 = versions[v2]
+            # attempt to merge by overlaying edges from both; collect all edges and ensure no negative capacities
+            # since each version is forest, merging should not create cycles; we will greedily union edges from both versions
+            new = copy_version(v1)
+            # integrate edges from v2 that are not present in v1
+            # build set of edges in v1
+            def edge_set(adj):
+                s = set()
+                for u, lst in adj.items():
+                    for vtx, cap in lst:
+                        if u <= vtx:
+                            s.add((u, vtx, cap))
+                return s
+            s1 = edge_set(base1['adj'])
+            s2 = edge_set(base2['adj'])
+            # conflicts defined as negative capacities or same edge with different capacities? Problem says conflicts or negative capacities make merges fail.
+            # We'll fail if any edge in s2 has cap < 0 or an edge present with negative cap or different cap -> treat different cap as conflict.
+            conflict = False
+            for (u,vv,cap) in s2:
+                if cap < 0:
+                    conflict = True
+                    break
+                # check if edge exists in s1
+                found = False
+                for (x,y,cx) in s1:
+                    if x == u and y == vv:
+                        found = True
+                        if cx != cap:
+                            conflict = True
+                        break
+                if conflict:
+                    break
+            if conflict:
+                results.append(False)
+                # still must produce next version as copy of v1 per deterministic rule
+                versions.append(new)
+                max_version += 1
+            else:
+                # add edges from s2 that are missing
+                for (u,vv,cap) in s2:
+                    if (u,vv,cap) not in s1:
+                        # add edge
+                        new['adj'].setdefault(u, []).append((vv, cap))
+                        new['adj'].setdefault(vv, []).append((u, cap))
+                        # union in parent structure
+                        make_node(new, u)
+                        make_node(new, vv)
+                        ru = find_rep(new, u)
+                        rv = find_rep(new, vv)
+                        if ru != rv:
+                            if new['rank'][ru] < new['rank'][rv]:
+                                ru, rv = rv, ru
+                            new['parent'][rv] = ru
+                            if new['rank'][ru] == new['rank'][rv]:
+                                new['rank'][ru] += 1
+                            new['root'][ru] = ru
+                            new['root'][rv] = ru
+                        # else if already connected, adding this edge would create cycle, but problem says merges do not create cycles; assume data ensures that.
+                # rebuild lca tables for all roots involved (brute force over nodes in new['adj'])
+                for node in list(new['adj'].keys()):
+                    if node not in new['depth']:
+                        # find a node in this component as root
+                        build_lca_from(new, node)
+                versions.append(new)
+                max_version += 1
+                results.append(True)
+        else:
+            # unknown op
+            versions.append(copy_version(0))
+            max_version += 1
+    return results

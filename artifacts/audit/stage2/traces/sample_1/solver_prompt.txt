@@ -1,0 +1,158 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+A multinational logistics network manages delivery route assignments across distribution centers. Each route assignment is a boolean variable representing whether a route is assigned to a driver. The system must handle:
+
+- **2-SAT implications**: Route assignment constraints where one assignment implies restrictions on others
+- **Cardinality constraints**: Exactly K routes from a priority set must be assigned
+- **Weighted priorities**: Each constraint has a priority weight for optimization
+- **Feasibility validation**: Ensuring pre-assigned routes don't create unsolvable situations
+
+**Function Signature**
+```python
+def main(num_variables, clauses, clause_weights, forced_assignments, optimization_mode, cardinality_constraints) -> dict
+```
+
+## Constraints
+
+1. num_variables must be integer in range [1, 5000]
+2. clauses must be list with length in range [0, 50000]
+3. Each clause must be list containing exactly 2 literals
+4. Each literal must be list [variable_index, is_negated] where variable_index is integer and is_negated is boolean
+5. variable_index must be in range [0, num_variables-1]
+6. is_negated must be boolean True or False
+7. Clause cannot contain same variable twice
+8. clause_weights must be list with same length as clauses
+9. Each weight must be integer in range [1, 1000]
+10. forced_assignments must be dictionary with string keys representing integers in [0, num_variables-1] and boolean values
+11. optimization_mode must be exactly "satisfiability" or "weighted"
+12. cardinality_constraints must be list of dictionaries
+13. Each cardinality constraint dict must have keys "variables" (list) and "count" (integer)
+14. Each "variables" list must contain at least 1 variable index
+15. Each "variables" list cannot have duplicate indices
+16. Each "count" must be integer >= 0; count=0 means all variables in that constraint must be false
+17. Each "count" must be <= length of corresponding "variables" list
+18. All variable indices in cardinality_constraints must be in [0, num_variables-1]
+19. Before solving, validate that each cardinality constraint is feasible with forced_assignments: if forced_true_count > required_count, constraint is infeasible
+20. If forced_true_count + unforced_count < required_count, constraint is infeasible
+21. When solving, 2-SAT satisfiability is checked first (variable and negation in same SCC)
+22. Then cardinality constraints are validated against final assignment
+23. If either 2-SAT or cardinality is unsatisfiable, return unsatisfiable status with empty assignment
+24. Weighted local search must maintain cardinality satisfaction (cannot flip variable if it violates cardinality)
+25. Conflict clusters are identified as variable pairs from unsatisfied clauses only; each unique unordered pair {var1, var2} appears once in the list
+
+## Error Handling
+
+Return {"error": "<error_msg>"} for:
+- num_variables invalid: {"error": "num_variables must be integer between 1 and 5000"}
+- clauses invalid: {"error": "clauses must be list with length 0 to 50000"}
+- clause length wrong: {"error": "each clause must contain exactly 2 literals"}
+- literal format wrong: {"error": "each literal must be list [variable_index, is_negated]"}
+- variable_index invalid: {"error": "variable_index must be integer in range [0, num_variables-1]"}
+- is_negated not boolean: {"error": "is_negated must be boolean True or False"}
+- same variable in clause: {"error": "clause cannot contain same variable twice"}
+- clause_weights mismatch: {"error": "clause_weights length must equal clauses length"}
+- weight out of range: {"error": "each weight must be integer between 1 and 1000"}
+- forced_assignments not dict: {"error": "forced_assignments must be dictionary"}
+- forced_assignments key invalid: {"error": "forced_assignments keys must represent integers in range [0, num_variables-1]"}
+- forced_assignments value not boolean: {"error": "forced_assignments values must be boolean"}
+- optimization_mode invalid: {"error": "optimization_mode must be 'satisfiability' or 'weighted'"}
+- cardinality_constraints not list: {"error": "cardinality_constraints must be list"}
+- cardinality constraint missing keys: {"error": "each cardinality constraint must have 'variables' and 'count' keys"}
+- cardinality "variables" not list: {"error": "cardinality constraint 'variables' must be list"}
+- cardinality "count" not integer: {"error": "cardinality constraint 'count' must be integer"}
+- cardinality "variables" empty: {"error": "cardinality constraint 'variables' cannot be empty"}
+- cardinality "variables" has duplicates: {"error": "cardinality constraint 'variables' cannot have duplicates"}
+- cardinality "count" negative: {"error": "cardinality constraint 'count' cannot be negative"}
+- cardinality "count" exceeds variables: {"error": "cardinality constraint 'count' cannot exceed variable count"}
+- cardinality variable index invalid: {"error": "cardinality constraint variable indices must be in range [0, num_variables-1]"}
+- cardinality infeasible with forced: {"error": "cardinality constraints conflict with forced_assignments"}
+
+## Sample Input
+```python
+num_variables = 4
+clauses = [
+    [[0, False], [1, False]],
+    [[1, True], [2, False]],
+    [[2, True], [3, False]]
+]
+clause_weights = [10, 20, 30]
+forced_assignments = {"2": True}
+optimization_mode = "weighted"
+cardinality_constraints = [
+    {"variables": [0, 1, 2, 3], "count": 2}
+]
+```
+
+## Sample Output
+```python
+{
+    "satisfiable": True,
+    "assignment": [True, False, True, False],
+    "satisfied_clauses": 2,
+    "total_weight": 30,
+    "unsatisfied_clauses": [2],
+    "strongly_connected_components": 8,
+    "implication_graph_edges": 7,
+    "cardinality_satisfied": True,
+    "cardinality_details": [
+        {"constraint_index": 0, "satisfied": True, "assigned_count": 2, "required_count": 2}
+    ],
+    "conflict_clusters": [[2, 3]],
+    "forced_assignments_applied": 1
+}
+```
+
+## Output Format
+- satisfiable: boolean true if all constraints satisfied, false otherwise
+- assignment: list of boolean values (length num_variables) if satisfiable, empty list if unsatisfiable
+- satisfied_clauses: integer count of 2-SAT clauses satisfied by assignment (0 if unsatisfiable)
+- total_weight: integer sum of weights of satisfied clauses (0 if unsatisfiable)
+- unsatisfied_clauses: list of clause indices not satisfied (all indices if unsatisfiable)
+- strongly_connected_components: integer count of SCCs in implication graph
+- implication_graph_edges: integer count of edges added to implication graph
+- cardinality_satisfied: boolean true if all cardinality constraints met by assignment, false otherwise
+- cardinality_details: list of dicts with keys constraint_index, satisfied, assigned_count, required_count
+- conflict_clusters: list of lists; each inner list contains 2 variable indices from an unsatisfied clause (no duplicate pairs)
+- forced_assignments_applied: integer count of forced assignments (length of forced_assignments dict)
+
+## Algorithm Specification
+
+1. **Input Validation** (in order): num_variables → clauses → clause_weights → forced_assignments → optimization_mode → cardinality_constraints
+
+2. **Pre-Solve Cardinality Check**: For each cardinality constraint, count forced_true and calculate if feasible. If any constraint infeasible, return error.
+
+3. **Build Implication Graph**: Create 2N vertices (one per literal). For each clause (a OR b), add edges (¬a → b) and (¬b → a). For each forced variable, add edges making opposite literal unreachable.
+
+4. **Find SCCs**: Use Kosaraju two-pass DFS. Return component IDs and count.
+
+5. **Check 2-SAT Satisfiability**: If any variable i has component_id[pos_i] == component_id[neg_i], return UNSATISFIABLE with empty assignment.
+
+6. **Compute Base Assignment**: For each variable i, set to true if component_id[pos_i] > component_id[neg_i]; else false.
+
+7. **Apply Forced Assignments**: Override any base assignment with forced values. Convert string keys in forced_assignments to integers for processing.
+
+8. **Check Cardinality Satisfaction**: For each constraint, count true assignments in its variable set. If count != required_count, mark unsatisfiable and return empty assignment.
+
+9. **Evaluate Clauses**: Count satisfied clauses and total weight from satisfied clause weights.
+
+10. **Find Conflict Clusters** (only from unsatisfied clauses): For each unsatisfied clause, add [var1, var2] to conflict_clusters if not already present (each unique unordered pair appears once).
+
+11. **Local Search Optimization** (only in "weighted" mode): Loop up to 100 iterations. For each variable in sequential order 0 to N-1, test flipping it. If flip increases total weight AND maintains cardinality satisfaction, apply flip and restart loop from variable 0. Otherwise continue to next variable. Stop when no flip increases weight.
+
+12. **Return Result**: Build and return output dictionary with all fields populated.
+
+Starter Code:
+```python
+from collections import defaultdict
+
+def main(num_variables, clauses, clause_weights, forced_assignments, optimization_mode, cardinality_constraints):
+```

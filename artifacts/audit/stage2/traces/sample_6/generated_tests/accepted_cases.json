@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[[[1, 1.0], [2, 2.0]], [[3, 2.0], [2, 0.5]], [[3, 1.0]], [[4, 1.5]], []]\n[{\"source\": 0, \"sink\": 4, \"demand\": 8.0, \"type_of_good\": \"chemicals\", \"daily_capacity_changes\": [5, 5, 5]}, {\"source\": 0, \"sink\": 4, \"demand\": 6.0, \"type_of_good\": \"perishables\", \"daily_capacity_changes\": [6, 6, 6]}]\n[[0, 3], [0, 1]]\n[2.0, 2.0, 2.0, 1.0, 0.0]",
+    "output_text": "[[[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [6.0, 0.0, 0.0, 6.0, 6.0, 6.0]], 25.800000000000004]"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[[[1, 1.0], [3, 5.0]], [[2, 1.0]], [[3, 1.0]], []]\n[{\"source\": 0, \"sink\": 3, \"demand\": 4.0, \"type_of_good\": \"pharmaceuticals\", \"daily_capacity_changes\": [0, 0]}, {\"source\": 0, \"sink\": 3, \"demand\": 10.0, \"type_of_good\": \"textiles\", \"daily_capacity_changes\": [5, 5]}]\n[[0, 2], [0, 3]]\n[0.0, 0.0, 0.0, 0.0]",
+    "output_text": "[[[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]], 0.0]"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[[[1, 1.0], [2, 1.2]], [[3, 0.8], [2, 0.2]], [[3, 0.6]], [[4, 1.0]], []]\n[{\"source\": 0, \"sink\": 4, \"demand\": 50.0, \"type_of_good\": \"electronics\", \"daily_capacity_changes\": [20, 20, 20, 20, 20]}, {\"source\": 0, \"sink\": 4, \"demand\": 30.0, \"type_of_good\": \"pharmaceuticals\", \"daily_capacity_changes\": [10, 10, 10, 10, 10]}, {\"source\": 2, \"sink\": 4, \"demand\": 10.0, \"type_of_good\": \"chemicals\", \"daily_capacity_changes\": [5, 5, 5]}]\n[[0, 4], [0, 2], [0, 3]]\n[100.0, 5.0, 5.0, 10.0, 0.0]",
+    "output_text": "[[[0.0, 20.0, 0.0, 0.0, 20.0, 20.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]], 60.0]"
+  }
+]

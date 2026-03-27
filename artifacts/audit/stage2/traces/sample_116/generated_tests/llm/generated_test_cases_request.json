@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: optimize_multicommodity_flow\n\nProblem Statement:\nA logistics company needs to distribute multiple types of goods (for example, electronics and furniture) from a central warehouse to various retail outlets through a network of connected hubs.\n\nEach route:\n\n* Has a maximum capacity per commodity.\n* Has a transportation cost per unit.\n\n\n## **Goal**\n\n* Maximize the total quantity delivered to each outlet within its demand range.\n* Ensure no route exceeds its capacity.\n* Among all maximum-delivery solutions, minimize total transportation cost.\n\n\n## **Input**\n\n* **`graph`** (`dict[str, dict[str, list[int]]]`):\n\n  * Represents the logistics network.\n  * Each key is a string `\"u,v\"` representing a directed edge from node `u` to node `v`.\n  * Each value is a dictionary:\n\n    * Key → commodity name (`str`)\n    * Value → list `[capacity, cost]`\n\n      * `capacity` (`int`): maximum capacity allowed on this route.\n      * `cost` (`int`): cost per unit for that commodity.\n\n* **`demands`** (`dict[str, dict[str, list[int]]]`):\n\n  * Represents outlet demands.\n  * Each key is a retail outlet node ID as a string.\n  * Each value is a dictionary:\n\n    * Key → commodity name (`str`)\n    * Value → list `[min_demand, max_demand]`\n\n      * `min_demand` (`int`): minimum required units.\n      * `max_demand` (`int`): maximum allowed units.\n\n* **`source`** (`str`):\n\n  * The central warehouse node ID.\n\n* **`sinks`** (`list[str]`):\n\n  * A list of outlet node IDs representing retail destinations.\n\n* **`commodities`** (`list[str]`):\n\n  * A list of commodity names to distribute.\n\n\n\n## **Constraints**\n\n* There must be at least 2 nodes.\n* Cost must be >= 1.\n* Capacity must be >= 1.\n* Minimum demand must be >= 0 and <= maximum demand.\n* Graph, demands, sinks, and commodities must not be empty.\n* The graph must be directed (edges are one-way).\n* No edge can be a self-loop (for example `\"1,1\"` is invalid).\n* Each edge key must follow the `\"u,v\"` format (exactly one comma).\n* No external libraries can be used.\n\n\n\n## **Output**\n\n* Return a dictionary of the form `{sink: {commodity: delivered_amount}}`.\n* Each key `sink` is a string representing the outlet node.\n* Each `delivered_amount` is an integer.\n* If a valid path exists: deliver the **maximum feasible amount** within the demand range that minimizes cost.\n* If no path exists for a commodity: assign its **minimum demand** as a fallback.\n\n\n\n## **Error Handling**\n\n* Return `{'error': 'Invalid input type'}` if any input type is incorrect.\n* Return `{'error': 'Empty input data'}` if any of `graph`, `demands`, `sinks`, or `commodities` is empty.\n* Return `{'error': 'Invalid edge format'}` if any edge key does not follow `\"u,v\"` format.\n* Return `{'error': 'Constraint violation'}` if any other constraint is broken (such as self-loops, negative cost, or capacity).\n\n\n\n## **Function Signature**\n\n```python\ndef optimize_multicommodity_flow(\n    graph: dict[str, dict[str, list[int]]],\n    demands: dict[str, dict[str, list[int]]],\n    source: str,\n    sinks: list[str],\n    commodities: list[str]\n) -> dict[str, dict[str, int]] | dict[str, str]:\n    ...\n```\n\n\n\n## **Example 1 — Feasible Paths Exist**\n\n**Input:**\n\n```python\ngraph = {\n    \"0,1\": {\"electronics\": [10, 5], \"furniture\": [6, 3]},\n    \"1,2\": {\"electronics\": [8, 2], \"furniture\": [5, 4]},\n    \"0,3\": {\"electronics\": [7, 4], \"furniture\": [10, 1]},\n    \"3,2\": {\"electronics\": [6, 3], \"furniture\": [8, 2]}\n}\n\ndemands = {\n    \"2\": {\"electronics\": [5, 10], \"furniture\": [4, 8]}\n}\n\nsource = \"0\"\nsinks = [\"2\"]\ncommodities = [\"electronics\", \"furniture\"]\n```\n\n**Output:**\n\n```python\n{\n    \"2\": {\n        \"electronics\": 10,\n        \"furniture\": 8\n    }\n}\n```\n\n**Explanation:**\n\n* The warehouse `\"0\"` can deliver goods to outlet `\"2\"` through two possible paths:\n\n  * Path A: `0 → 1 → 2`\n  * Path B: `0 → 3 → 2`\n* Both commodities are delivered within their demand ranges, maximizing delivery and minimizing cost.\n\n\n\n## **Example 2 — No Path Exists**\n\n**Input:**\n\n```python\ngraph = {\n    \"0,1\": {\"electronics\": [10, 5]},\n    \"1,3\": {\"electronics\": [4, 3]},\n    \"0,2\": {\"furniture\": [6, 2]}\n}\n\ndemands = {\n    \"4\": {\"electronics\": [5, 10], \"furniture\": [3, 6]}\n}\n\nsource = \"0\"\nsinks = [\"4\"]\ncommodities = [\"electronics\", \"furniture\"]\n```\n\n**Output:**\n\n```python\n{\n    \"4\": {\n        \"electronics\": 5,\n        \"furniture\": 3\n    }\n}\n```\n\n**Explanation:**\n\n* Outlet `\"4\"` is unreachable from the warehouse `\"0\"`.\n* Each commodity is assigned its minimum demand as a fallback.\n\nStarter Code:\n```python\ndef optimize_multicommodity_flow(\n    graph: dict[str, dict[str, list[int]]],\n    demands: dict[str, dict[str, list[int]]],\n    source: str,\n    sinks: list[str],\n    commodities: list[str]\n) -> dict[str, dict[str, int]] | dict[str, str]:\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"{\\\"0,1\\\": {\\\"electronics\\\": [10, 5], \\\"furniture\\\": [6, 3]}, \\\"1,2\\\": {\\\"electronics\\\": [8, 2], \\\"furniture\\\": [5, 4]}, \\\"0,3\\\": {\\\"electronics\\\": [7, 4], \\\"furniture\\\": [10, 1]}, \\\"3,2\\\": {\\\"electronics\\\": [6, 3], \\\"furniture\\\": [8, 2]}}\\n{\\\"2\\\": {\\\"electronics\\\": [5, 10], \\\"furniture\\\": [4, 8]}}\\n\\\"0\\\"\\n[\\\"2\\\"]\\n[\\\"electronics\\\", \\\"furniture\\\"]\",\n    \"output\": \"{\\\"2\\\": {\\\"electronics\\\": 10, \\\"furniture\\\": 8}}\"\n  },\n  {\n    \"input\": \"{\\\"0,1\\\": {\\\"electronics\\\": [10, 5]}, \\\"1,3\\\": {\\\"electronics\\\": [4, 3]}, \\\"0,2\\\": {\\\"furniture\\\": [6, 2]}}\\n{\\\"4\\\": {\\\"electronics\\\": [5, 10], \\\"furniture\\\": [3, 6]}}\\n\\\"0\\\"\\n[\\\"4\\\"]\\n[\\\"electronics\\\", \\\"furniture\\\"]\",\n    \"output\": \"{\\\"4\\\": {\\\"electronics\\\": 5, \\\"furniture\\\": 3}}\"\n  },\n  {\n    \"input\": \"{\\\"0,1\\\": {\\\"electronics\\\": [8, 3]}, \\\"1,2\\\": {\\\"electronics\\\": [5, 2]}, \\\"0,3\\\": {\\\"electronics\\\": [4, 1]}}\\n{\\\"2\\\": {\\\"electronics\\\": [3, 5]}, \\\"3\\\": {\\\"electronics\\\": [2, 4]}}\\n\\\"0\\\"\\n[\\\"2\\\", \\\"3\\\"]\\n[\\\"electronics\\\"]\",\n    \"output\": \"{\\\"2\\\": {\\\"electronics\\\": 5}, \\\"3\\\": {\\\"electronics\\\": 4}}\"\n  }\n]\n"
+    }
+  ]
+}

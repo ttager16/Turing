@@ -1,0 +1,76 @@
+{
+  "id": "resp_0456ae323724af440069c332ba5ac081908b1baa2c23d1a5c1",
+  "object": "response",
+  "created_at": 1774400186,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774400219,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0456ae323724af440069c332baaed8819096b90092667008fe",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0456ae323724af440069c332bada5c8190ba3a43337bad4dc8",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import time\nfrom typing import List, Dict, Any\nfrom collections import deque, defaultdict\n\ndef optimize_delivery_network(graph_nodes: List[Dict], road_segments: List[Dict], \n                            delivery_locations: List[Dict], depot_node_id: int, \n                            traffic_schedule: Dict, max_computation_time: int) -> Dict[str, Any]:\n    start_time = time.time()\n    # Basic validations\n    if not isinstance(graph_nodes, list) or not isinstance(road_segments, list) or not isinstance(delivery_locations, list):\n        return {\"error\": \"Input is not valid\"}\n    if len(delivery_locations) == 0:\n        return {\"error\": \"No delivery locations provided\"}\n    node_ids = {n.get(\"node_id\") for n in graph_nodes if isinstance(n, dict)}\n    if depot_node_id not in node_ids:\n        return {\"error\": \"Invalid depot node reference\"}\n    # Coordinate validation\n    for n in graph_nodes:\n        coords = n.get(\"coordinates\")\n        nid = n.get(\"node_id\")\n        if not isinstance(coords, tuple) or len(coords) != 2:\n            return {\"error\": f\"Invalid coordinates for node {nid}\"}\n        x,y = coords\n        if not (0 <= x <= 1000 and 0 <= y <= 1000):\n            return {\"error\": f\"Invalid coordinates for node {nid}\"}\n    # Road node references\n    seg_by_id = {}\n    for seg in road_segments:\n        sid = seg.get(\"segment_id\")\n        s = seg.get(\"start_node\")\n        e = seg.get(\"end_node\")\n        if s not in node_ids or e not in node_ids:\n            return {\"error\": f\"Invalid node reference in road segment {sid}\"}\n        seg_by_id[sid] = dict(seg)\n    # Time window validation\n    for loc in delivery_locations:\n        if loc.get(\"earliest_delivery_time\") >= loc.get(\"latest_delivery_time\"):\n            return {\"error\": f\"Invalid delivery time window for location {loc.get('location_id')}\"}\n    # Traffic schedule validation: overlapping peak hours\n    peaks = traffic_schedule.get(\"peak_hours\", [])\n    # check overlaps\n    sorted_peaks = sorted(peaks, key=lambda x: x.get(\"start_time\",0))\n    for i in range(1, len(sorted_peaks)):\n        if sorted_peaks[i][\"start_time\"] < sorted_peaks[i-1][\"end_time\"]:\n            return {\"error\": \"Overlapping peak hours detected\"}\n    weather_factor = traffic_schedule.get(\"weather_impact_factor\", 1.0)\n    construction = set(traffic_schedule.get(\"construction_zones\", []))\n    # Preprocess road segments: adjust activation windows and travel times\n    adj_segments = {}\n    for seg in road_segments:\n        sid = seg[\"segment_id\"]\n        seg_copy = dict(seg)\n        orig_windows = seg.get(\"activation_windows\", [])\n        td = seg.get(\"traffic_density\", 0.0)\n        windows = []\n        for w in orig_windows:\n            st = w[\"start_time\"]\n            en = w[\"end_time\"]\n            duration = en - st\n            if td > 0.7:\n                duration = int(duration * 0.8)\n            en_adj = st + max(0, duration)\n            windows.append({\"start_time\": st, \"end_time\": en_adj})\n        seg_copy[\"activation_windows\"] = windows\n        # apply weather impact to travel time\n        seg_copy[\"adjusted_travel_time\"] = max(1, int(seg[\"base_travel_time\"] * weather_factor))\n        # apply construction zones capacity reduction if either node is in construction\n        if seg_copy[\"start_node\"] in construction or seg_copy[\"end_node\"] in construction:\n            seg_copy[\"adjusted_capacity\"] = max(1, int(seg_copy[\"capacity_limit\"] * 0.5))\n        else:\n            seg_copy[\"adjusted_capacity\"] = seg_copy[\"capacity_limit\"]\n        adj_segments[sid] = seg_copy\n    # Build adjacency list\n    adj = defaultdict(list)\n    for sid, seg in adj_segments.items():\n        adj[seg[\"start_node\"]].append((seg[\"end_node\"], sid))\n        # assume roads are bidirectional? Problem unclear—use directed as given. For connectivity we add reverse too for reachability\n        adj[seg[\"end_node\"]].append((seg[\"start_node\"], sid))\n    # Graph connectivity validation: every delivery node must be reachable from depot considering existence of segments (ignoring windows)\n    # BFS for connectivity\n    q = deque([depot_node_id])\n    visited = {depot_node_id}\n    while q:\n        u = q.popleft()\n        for v,_ in adj[u]:\n            if v not in visited:\n                visited.add(v)\n                q.append(v)\n    for loc in delivery_locations:\n        if loc[\"node_id\"] not in visited:\n            return {\"error\": \"Graph contains disconnected components\"}\n    # Capacity validation: if any delivery vehicle_load > any segment along minimal path capacity? Hard to know; perform while routing; also check simple impossibility: vehicle_load > max capacity of all segments connecting depot to that node -> we check max capacity in graph\n    max_segment_capacity = max((seg.get(\"adjusted_capacity\", seg.get(\"capacity_limit\",0)) for seg in adj_segments.values()), default=0)\n    for loc in delivery_locations:\n        if loc.get(\"vehicle_load\",0) > max_segment_capacity:\n            return {\"error\": f\"Vehicle load exceeds road capacity for segment {list(adj_segments.keys())[0] if adj_segments else 0}\"}\n    # Priority sort\n    delivery_locations_sorted = sorted(delivery_locations, key=lambda x: x.get(\"priority_level\", 5))\n    # Track segment utilizations over scheduling horizon (0-1440)\n    segment_utilization = {sid: 0 for sid in adj_segments}\n    # For results\n    optimal_paths = []\n    undeliverable = []\n    total_system_efficiency = 0.0\n    bottlenecks = set()\n    peak_usage_count = 0\n    peak_time_total = 0\n    # Helper: check if segment active at time t\n    def is_active(seg, t):\n        for w in seg[\"activation_windows\"]:\n            if w[\"start_time\"] <= t <= w[\"end_time\"]:\n                return True\n        return False\n    # Time-aware BFS per delivery\n    for loc in delivery_locations_sorted:\n        if time.time() - start_time > max_computation_time:\n            return {\"error\": \"Computation time exceeded maximum limit\"}\n        loc_id = loc[\"location_id\"]\n        target = loc[\"node_id\"]\n        earliest = loc[\"earliest_delivery_time\"]\n        latest = loc[\"latest_delivery_time\"]\n        priority = loc[\"priority_level\"]\n        vload = loc[\"vehicle_load\"]\n        # BFS states: node, current_time, path_nodes, used_segments, travel_time_sum\n        # Start at depot at time earliest (schedule at earliest feasible)\n        found_paths = []\n        # We'll attempt scheduling at times from earliest to latest\n        for sched_time in range(earliest, latest+1):\n            # simple BFS with time accumulation\n            q = deque()\n            q.append((depot_node_id, sched_time, [depot_node_id], [], 0))  # at depot at sched_time, travel time sum zero; we will add node base_delay of depot\n            seen = set()\n            while q:\n                if time.time() - start_time > max_computation_time:\n                    return {\"error\": \"Computation time exceeded maximum limit\"}\n                node, cur_t, path_nodes, used_segs, travel_sum = q.popleft()\n                if node == target:\n                    # compute total travel time: travel_sum + depot base_delay (processing delay at depot)\n                    depot_delay = next((n[\"base_delay\"] for n in graph_nodes if n[\"node_id\"]==depot_node_id),0)\n                    total_travel_time = travel_sum + depot_delay\n                    # Time penalty\n                    time_penalty = max(0, cur_t - latest)\n                    window_urgency = 100.0 / (latest - earliest + 1)\n                    cap_util = (vload / (sum(adj_segments[s][\"adjusted_capacity\"] for s in used_segs) / len(used_segs))) if used_segs else 0\n                    priority_weight = priority * 25\n                    path_eff = total_travel_time + (time_penalty * window_urgency) + (cap_util * 50 * priority_weight / priority_weight if priority_weight!=0 else cap_util*50*1)\n                    # Note: priority_weight already multiplied, but formula: (Capacity Utilization Factor × Priority Weight)\n                    # recompute properly:\n                    cap_util_factor = (vload / min((adj_segments[s][\"adjusted_capacity\"] for s in used_segs), default=max_segment_capacity)) * 50 if used_segs else 0\n                    path_eff = total_travel_time + (time_penalty * window_urgency) + (cap_util_factor * priority_weight)\n                    found_paths.append({\n                        \"scheduled_delivery_time\": cur_t,\n                        \"path_nodes\": list(path_nodes),\n                        \"total_travel_time\": total_travel_time,\n                        \"path_efficiency_score\": float(path_eff),\n                        \"road_segments_used\": list(used_segs)\n                    })\n                    # continue to find potentially better at same scheduled time\n                    continue\n                # explore neighbors\n                for v, sid in adj[node]:\n                    if sid in used_segs:\n                        continue\n                    seg = adj_segments[sid]\n                    # check capacity\n                    if vload > seg[\"adjusted_capacity\"]:\n                        continue\n                    # check active at current time cur_t\n                    if not is_active(seg, cur_t):\n                        continue\n                    # next time after traversing: add travel time + node base_delay at arrival node\n                    travel_t = seg[\"adjusted_travel_time\"]\n                    node_delay = next((n[\"base_delay\"] for n in graph_nodes if n[\"node_id\"]==v),0)\n                    arrival_t = cur_t + travel_t + node_delay\n                    # ensure arrival within latest (we can allow arriving later but will incur penalty)\n                    new_travel_sum = travel_sum + travel_t + node_delay\n                    new_path = path_nodes + [v]\n                    new_used = used_segs + [sid]\n                    state_key = (v, arrival_t, tuple(new_used))\n                    if state_key in seen:\n                        continue\n                    seen.add(state_key)\n                    q.append((v, arrival_t, new_path, new_used, new_travel_sum))\n        # select best path among found_paths prioritizing lower path_efficiency_score\n        if not found_paths:\n            undeliverable.append(loc_id)\n            continue\n        best = min(found_paths, key=lambda x: x[\"path_efficiency_score\"])\n        # validate capacities along chosen path: increment utilization\n        for sid in best[\"road_segments_used\"]:\n            segment_utilization[sid] += vload\n        # bottleneck detection later\n        optimal_paths.append({\n            \"delivery_location_id\": loc_id,\n            \"path_nodes\": best[\"path_nodes\"],\n            \"total_travel_time\": int(best[\"total_travel_time\"]),\n            \"path_efficiency_score\": float(best[\"path_efficiency_score\"]),\n            \"scheduled_delivery_time\": int(best[\"scheduled_delivery_time\"]),\n            \"road_segments_used\": best[\"road_segments_used\"]\n        })\n        total_system_efficiency += best[\"path_efficiency_score\"]\n    # After processing all, compute utilization summary\n    total_capacity = 0\n    total_used = 0\n    for sid, seg in adj_segments.items():\n        cap = seg[\"adjusted_capacity\"]\n        total_capacity += cap\n        used = segment_utilization.get(sid,0)\n        total_used += used\n        if cap > 0 and used / cap > 0.8:\n            bottlenecks.add(sid)\n    average_capacity_util = (total_used / total_capacity) if total_capacity>0 else 0.0\n    # Peak hour usage: compute proportion of utilizations that occurred during peak hours - approximate as 0 if we didn't track time per segment; we can estimate by checking if any scheduled_delivery_time in peaks\n    peak_hours = traffic_schedule.get(\"peak_hours\", [])\n    peak_count = 0\n    total_deliv = len(optimal_paths) if optimal_paths else 1\n    for p in optimal_paths:\n        t = p[\"scheduled_delivery_time\"]\n        for ph in peak_hours:\n            if ph[\"start_time\"] <= t <= ph[\"end_time\"]:\n                peak_count += 1\n                break\n    peak_hour_usage = peak_count / total_deliv if total_deliv>0 else 0.0\n    bottleneck_list = sorted(list(bottlenecks))\n    # Final checks for time\n    if time.time() - start_time > max_computation_time:\n        return {\"error\": \"Computation time exceeded maximum limit\"}\n    result = {\n        \"optimal_paths\": optimal_paths,\n        \"total_system_efficiency\": float(total_system_efficiency),\n        \"undeliverable_locations\": undeliverable,\n        \"traffic_utilization_summary\": {\n            \"peak_hour_usage\": float(round(peak_hour_usage,2)),\n            \"average_capacity_utilization\": float(round(average_capacity_util,2)),\n            \"bottleneck_segments\": bottleneck_list\n        }\n    }\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2738,
+    "input_tokens_details": {
+      "cached_tokens": 2688
+    },
+    "output_tokens": 2836,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 5574
+  },
+  "user": null,
+  "metadata": {}
+}

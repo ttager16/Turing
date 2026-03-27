@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6jNdlwd3ZYaPrPezN2YYHJz4ymX",
+  "object": "chat.completion",
+  "created": 1774399789,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"\\\"The FooBar climbs in 2021.\\\"\"\n      ],\n      \"focus\": \"heuristic: non-sentence-initial mixed-case single word should be ENTITY; numeric literal (2021) is not VALUE\"\n    },\n    {\n      \"input_lines\": [\n        \"\\\"Mega Inc., reported profits of $ 1,000 thousand; meanwhile, USD/JPY dropped.\\\"\"\n      ],\n      \"focus\": \"company merge with trailing-comma stripping; currency value merge with spaces and thousands separator; semicolon dropped; lowercase 'meanwhile' (tagging vs preservation); currency-pair merge USD/JPY\"\n    },\n    {\n      \"input_lines\": [\n        \"\\\"Meanwhile, Alpha Co. announced a 12.5% rise and £10 Million investment; usd/eur is unaffected.\\\"\"\n      ],\n      \"focus\": \"discourse-marker comma preservation (case-sensitive); Co. company merge with period retained; percentage and currency merges (decimal percent, magnitude case-insensitive); lowercase currency pair should NOT match pattern\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2657,
+    "completion_tokens": 2737,
+    "total_tokens": 5394,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2496,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

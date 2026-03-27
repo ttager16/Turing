@@ -1,0 +1,130 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [],
+      [],
+      [
+        [
+          10,
+          [
+            "S1"
+          ]
+        ]
+      ],
+      100,
+      0
+    ],
+    "input_lines": [
+      "[]",
+      "[]",
+      "[[10, [\"S1\"]]]",
+      "100",
+      "0"
+    ],
+    "focus": "no_vulnerabilities_should_return_true_even_if_patches_exist_and_threshold_is_zero"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        "S1",
+        "S2"
+      ],
+      [
+        "C1",
+        "C2"
+      ],
+      [
+        [
+          5,
+          [
+            "S1",
+            "C1"
+          ]
+        ],
+        [
+          5,
+          [
+            "S2",
+            "C2"
+          ]
+        ],
+        [
+          1,
+          [
+            "C1"
+          ]
+        ],
+        [
+          1,
+          [
+            "C2"
+          ]
+        ],
+        [
+          100,
+          [
+            "S1",
+            "S2",
+            "C1",
+            "C2"
+          ]
+        ]
+      ],
+      10,
+      0
+    ],
+    "input_lines": [
+      "[\"S1\", \"S2\"]",
+      "[\"C1\", \"C2\"]",
+      "[[5, [\"S1\", \"C1\"]], [5, [\"S2\", \"C2\"]], [1, [\"C1\"]], [1, [\"C2\"]], [100, [\"S1\", \"S2\", \"C1\", \"C2\"]]]",
+      "10",
+      "0"
+    ],
+    "focus": "large_hardening_bonus_can_make_adding_small_zero_day_patches_profitable_negative_net_cost_case"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        "S1"
+      ],
+      [
+        "C1"
+      ],
+      [
+        [
+          10,
+          [
+            "S1",
+            "S1"
+          ]
+        ],
+        [
+          5,
+          [
+            "C1"
+          ]
+        ],
+        [
+          7,
+          [
+            "S1",
+            "C1"
+          ]
+        ]
+      ],
+      3,
+      15
+    ],
+    "input_lines": [
+      "[\"S1\"]",
+      "[\"C1\"]",
+      "[[10, [\"S1\", \"S1\"]], [5, [\"C1\"]], [7, [\"S1\", \"C1\"]]]",
+      "3",
+      "15"
+    ],
+    "focus": "patch_lists_with_duplicate_vulnerability_entries_must_be_deduplicated_so_standard_exploit_counts_as_one"
+  }
+]

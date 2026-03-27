@@ -1,0 +1,98 @@
+from typing import List, Dict, Any
+from collections import defaultdict
+
+def optimize_rehearsal_schedule(
+    actor_availability: List[List],
+    scene_requirements: List[Dict[str, Any]],
+    historical_data: Dict[str, List[int]],
+    role_mapping: Dict[str, Dict[str, float]],
+    transport_times: Dict[str, int],
+    buffer_intervals: int,
+    rehearsal_capacity: Dict[str, int]
+) -> Dict[str, Dict[str, List[str]]]:
+    # prepare actor structures
+    actors = [a[0] for a in actor_availability]
+    avail_map = {a[0]: set(a[1]) for a in actor_availability}
+    # historical availability probability
+    p_available = {}
+    for actor in actors:
+        hist = historical_data.get(actor, [])
+        p_available[actor] = (sum(hist) / len(hist)) if hist else 0.5
+    # role fit default
+    def role_fit(actor, role):
+        return role_mapping.get(actor, {}).get(role, 1.0)
+    # transport lookup symmetric
+    def transport(a, b):
+        if a == b: return 0
+        key1 = f"{a}-{b}"
+        key2 = f"{b}-{a}"
+        return transport_times.get(key1, transport_times.get(key2, 5))  # default moderate travel
+    # sort actors for deterministic tie-breaker
+    sorted_actors = sorted(actors)
+    name_index = {a: i for i, a in enumerate(sorted_actors)}
+    # result init
+    schedule = {}
+    # track assignments per actor: list of (scene_time, scene_id)
+    assignments = defaultdict(list)
+    # track counts
+    assigned_counts = {a: 0 for a in actors}
+    # index scenes by time to check conflicts easily
+    scenes = sorted(scene_requirements, key=lambda s: s['time_slot'])
+    # helper to check buffer/conflict
+    def can_assign(actor, scene_time):
+        # availability
+        if scene_time not in avail_map.get(actor, set()):
+            return False
+        # capacity
+        cap = rehearsal_capacity.get(actor, 0)
+        if assigned_counts.get(actor, 0) >= cap:
+            return False
+        # buffer: ensure no assigned scene within buffer_intervals (including consecutive)
+        for t, _ in assignments[actor]:
+            if abs(t - scene_time) <= buffer_intervals:
+                return False
+        return True
+    # For each scene, for each role and number needed, pick best actors greedily maximizing score
+    for scene in scenes:
+        sid = scene['scene_id']
+        time = scene['time_slot']
+        roles = scene['roles']
+        schedule[sid] = {r: [] for r in roles}
+        # For multi-actor per role, iterate filling slots
+        for role, needed in roles.items():
+            for _ in range(needed):
+                # build candidate list
+                candidates = []
+                for actor in actors:
+                    if not can_assign(actor, time): continue
+                    # actor cannot already be assigned to same scene (one role per scene)
+                    already_in_scene = any(s == sid for _, s in assignments[actor])
+                    if already_in_scene: continue
+                    # compute workload U_workload
+                    maxcap = rehearsal_capacity.get(actor, 1)
+                    U_workload = (assigned_counts.get(actor, 0) / maxcap) if maxcap > 0 else 1.0
+                    # travel cost C_travel: average travel to other assigned actors in this scene (none so far -> 0)
+                    current_scene_actors = []
+                    for r2, lst in schedule[sid].items():
+                        current_scene_actors.extend(lst)
+                    travel_costs = []
+                    for other in current_scene_actors:
+                        travel_costs.append(transport(actor, other))
+                    C_travel = (sum(travel_costs) / len(travel_costs)) if travel_costs else 0.0
+                    # compute score
+                    P_av = p_available.get(actor, 0.5)
+                    W_fit = role_fit(actor, role)
+                    P_name = 0.001 * name_index.get(actor, 0)
+                    score = 2.0 * P_av + 1.5 * W_fit - 0.3 * U_workload - 0.1 * C_travel - P_name
+                    candidates.append((score, actor))
+                if not candidates:
+                    # cannot fill slot
+                    break
+                # pick best
+                candidates.sort(key=lambda x: (-x[0], x[1]))
+                chosen = candidates[0][1]
+                schedule[sid][role].append(chosen)
+                # update assignment records
+                assigned_counts[chosen] += 1
+                assignments[chosen].append((time, sid))
+    return schedule

@@ -1,0 +1,76 @@
+{
+  "id": "resp_0d768b5ad7fdc4e90069c32c19337081969b2385749d78657d",
+  "object": "response",
+  "created_at": 1774398489,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398505,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0d768b5ad7fdc4e90069c32c197a9c8196bf546604f7daa3b6",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0d768b5ad7fdc4e90069c32c19a4408196b09396faf6a817cf",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any\nfrom collections import defaultdict, deque\nimport math\n\ndef detect_anomalies(transaction_data: List[Dict[str, Any]], \n                     historical_data: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:\n    # Validation helpers\n    def valid_cid(cid):\n        return isinstance(cid, str) and cid != \"\" and all(c.isupper() or c.isdigit() for c in cid)\n    def valid_amount(a):\n        return (isinstance(a, (int, float)) and a > 0)\n    def valid_timestamp(t):\n        return isinstance(t, int) and t > 0\n    # Basic input presence\n    if not transaction_data:\n        return []\n    if not isinstance(transaction_data, list) or not isinstance(historical_data, dict):\n        return []\n    # Validate transaction_data schema\n    for tx in transaction_data:\n        if not isinstance(tx, dict):\n            return []\n        required = {'customer_id','amount','location','timestamp','linked_accounts'}\n        if set(tx.keys()) != required:\n            return []\n        cid = tx['customer_id']\n        if not valid_cid(cid):\n            return []\n        if not valid_amount(tx['amount']):\n            return []\n        if not valid_timestamp(tx['timestamp']):\n            return []\n        la = tx['linked_accounts']\n        if not isinstance(la, list) or len(la) != 1:\n            return []\n        if not valid_cid(la[0]):\n            return []\n    # Validate historical_data schema\n    for k, v in historical_data.items():\n        if not valid_cid(k):\n            return []\n        if not isinstance(v, list):\n            return []\n        for tx in v:\n            if not isinstance(tx, dict):\n                return []\n            req = {'amount','location','timestamp','linked_accounts'}\n            if set(tx.keys()) != req:\n                return []\n            if not valid_amount(tx['amount']):\n                return []\n            if not valid_timestamp(tx['timestamp']):\n                return []\n            la = tx['linked_accounts']\n            if not isinstance(la, list) or not (len(la) == 0 or len(la) == 1):\n                return []\n            if len(la) == 1 and not valid_cid(la[0]):\n                return []\n\n    # Build graph: nodes from all customer_ids in transactions and historical edges (if any)\n    graph = defaultdict(list)  # directed edges u -> v\n    nodes = set()\n    # Add new batch edges\n    for tx in transaction_data:\n        u = tx['customer_id']\n        v = tx['linked_accounts'][0]\n        nodes.add(u); nodes.add(v)\n        graph[u].append(v)\n        if v not in graph:\n            graph.setdefault(v, [])\n    # Optionally include historical edges relevant: include edges where either endpoint appears in batch\n    batch_nodes = set(nodes)\n    for cid, hist in historical_data.items():\n        # include historical entries only if cid in batch_nodes or their linked account in batch_nodes\n        for tx in hist:\n            la = tx['linked_accounts']\n            if len(la) == 1:\n                u = cid\n                v = la[0]\n                if u in batch_nodes or v in batch_nodes:\n                    nodes.add(u); nodes.add(v)\n                    graph[u].append(v)\n                    if v not in graph:\n                        graph.setdefault(v, [])\n\n    # Union-Find DSU\n    parent = {}\n    rank = {}\n    def make_set(x):\n        if x not in parent:\n            parent[x] = x\n            rank[x] = 0\n    def find(x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n    def union(x, y):\n        rx = find(x); ry = find(y)\n        if rx == ry:\n            return\n        if rank[rx] < rank[ry]:\n            parent[rx] = ry\n        else:\n            parent[ry] = rx\n            if rank[rx] == rank[ry]:\n                rank[rx] += 1\n\n    for n in nodes:\n        make_set(n)\n    for u in graph:\n        for v in graph[u]:\n            union(u, v)\n\n    # Historical stats: median and MAD, and 7-day historical avg rate (transactions per hour)\n    hist_amounts = {}\n    hist_timestamps = {}\n    for cid in nodes:\n        hist_amounts[cid] = []\n        hist_timestamps[cid] = []\n    for cid, hist in historical_data.items():\n        for tx in hist:\n            if cid in hist_amounts:\n                hist_amounts[cid].append(float(tx['amount']))\n                hist_timestamps[cid].append(int(tx['timestamp']))\n\n    def median(lst):\n        s = sorted(lst)\n        n = len(s)\n        if n == 0:\n            return None\n        mid = n // 2\n        if n % 2 == 1:\n            return s[mid]\n        return (s[mid-1] + s[mid]) / 2.0\n\n    def mad(lst, med):\n        diffs = [abs(x - med) for x in lst]\n        return median(diffs) if diffs else 0.0\n\n    stats = {}\n    for cid in nodes:\n        amts = hist_amounts.get(cid, [])\n        if len(amts) >= 2:\n            med = median(amts)\n            m = mad(amts, med)\n            stats[cid] = {'median': med, 'mad': m}\n        else:\n            stats[cid] = None\n    # Historical rate: compute average transactions per hour over last 7 days in historical timestamps if any\n    rates = {}\n    SEVEN_DAYS = 7 * 24 * 3600\n    for cid in nodes:\n        ts = sorted(hist_timestamps.get(cid, []))\n        if not ts:\n            rates[cid] = 0.0\n            continue\n        latest = ts[-1]\n        window_start = latest - SEVEN_DAYS\n        count = sum(1 for t in ts if t >= window_start)\n        # average per hour\n        rates[cid] = count / (7 * 24.0)\n\n    # For burst detection: for each sender, count transactions in 1-hour window in the batch and compare to historical average per hour\n    # Prepare batch timestamps per customer\n    batch_times = defaultdict(list)\n    for tx in transaction_data:\n        batch_times[tx['customer_id']].append(tx['timestamp'])\n    # For each transaction, evaluate rules\n    results = []\n    K = 3  # hops\n    # Precompute adjacency for BFS (graph)\n    for tx in transaction_data:\n        u = tx['customer_id']\n        v = tx['linked_accounts'][0]\n        anomaly = False\n        # Amount outlier\n        if historical_data:\n            stat = stats.get(u)\n            if stat is not None:\n                med = stat['median']; m = stat['mad']\n                thresh = med + 3.5 * (1.4826 * m)\n                if float(tx['amount']) > thresh:\n                    anomaly = True\n        # Cycle detection using DSU: only search if u and v in same DSU component\n        if u in parent and v in parent and find(u) == find(v):\n            # BFS from v up to depth K to see if can reach u within <=K hops\n            visited = set([v])\n            dq = deque()\n            dq.append((v,0))\n            found_cycle = False\n            while dq:\n                curr, depth = dq.popleft()\n                if depth > K:\n                    continue\n                if curr == u and depth > 0:\n                    found_cycle = True\n                    break\n                if depth == K:\n                    continue\n                for nei in graph.get(curr, []):\n                    if nei not in visited:\n                        visited.add(nei)\n                        dq.append((nei, depth+1))\n            if found_cycle:\n                anomaly = True\n        # High-frequency bursts: compare count in any 1-hour window in batch for u to 7-day historical avg per hour * factor\n        times = sorted(batch_times.get(u, []))\n        burst = False\n        if times:\n            # sliding window count within 3600 seconds\n            left = 0\n            maxcount = 0\n            for right in range(len(times)):\n                while times[right] - times[left] > 3600:\n                    left += 1\n                maxcount = max(maxcount, right - left + 1)\n            hist_rate_per_hour = rates.get(u, 0.0)\n            # if historical rate is zero, but there are multiple in hour, consider burst if more than 3 in hour\n            threshold_count = max(3, math.ceil(hist_rate_per_hour * 1.0 * 3))  # heuristic: 3x historical hourly rate, at least 3\n            if maxcount > threshold_count:\n                burst = True\n        if burst:\n            anomaly = True\n        results.append({'customer_id': u, 'anomaly': bool(anomaly)})\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1328,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1946,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3274
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: sort_investment_portfolios\n\nProblem Statement:\n### Problem Statement\n\nA financial analytics firm requires a Python-based algorithm to efficiently process and rank a large network of multi-level investment portfolios. Each portfolio may contain nested sub-portfolios and cross-references to other portfolios, forming an interconnected dependency graph. Every portfolio includes measurable attributes such as risk and return values, and the algorithm must determine a globally consistent ranking based on these metrics.\n\nThe goal is to design a deterministic and validation-strict sorting system that can handle complex data hierarchies, cyclical references, and missing relationships without compromising structural integrity or reproducibility. The function must compute composite scores derived from return-to-risk ratios and cross-reference influence, sort top-level portfolios by these scores, and preserve the nested structure of all sub-portfolios. Any malformed or invalid input must trigger fail-fast behavior by returning an empty list immediately.\n\n\n### Objectives\n\n1. Graph Construction and Validation\n   * Construct a directed graph from portfolios, capturing both sub-portfolio (hierarchical) and reference (cross-link) edges.\n   * Validate input structure before computation. Any invalid node or field must cause an immediate [] return.\n   * All adjacency relationships must be deduplicated and sorted lexicographically.\n2. Cycle Handling and Deterministic Scoring\n   * Detect strongly connected components (cycles).\n   * All nodes within a cycle share the same final score, equal to the arithmetic mean of their members base scores (return / risk). This value is not further adjusted by reference averaging for those members and is used only when other portfolios average over their references.\n   * Within a cycle, the lexicographically smallest portfolio name represents the group for ordering.\n3. Score Calculation\n   For each portfolio p:\n   score(p) = (return / risk) + 0.1 * average(score(references))\n   * References to missing portfolios are ignored.\n   * All arithmetic must remain finite.\n   * No division by zero is allowed.\n4. Stable Sorting and Output Preservation\n   * Sort only top-level portfolios by:\n     1. Descending _score (higher first)\n     2. Ascending name (for ties)\n   * Preserve the internal order of sub_portfolios and references exactly as in the input.\n5. Deterministic Traversal Rules\n   * All nodes and adjacency lists must be processed in lexicographic order.\n   * Traversal or set iteration must never depend on Pythons internal hashing order.\n   * Lexicographic processing and deduplication apply to internal graph structures only and must not modify the order of references or sub_portfolios in the returned output.\n\n\n### Constraints\n* Implemented in pure Python, no external libraries.\n* If the input list portfolios is empty, return [] immediately.\n* Structural validation (Any invalid type, missing key, or malformed field triggers immediate return of [])\n  * Each input portfolio must be a dictionary containing exactly the keys: name, risk, return, references, sub_portfolios.\n  * name must be a non-empty string of English letters.\n  * risk and return must be numeric (int or float).\n  * risk must be strictly greater than 0.\n  * references and sub_portfolios must be lists.\n  * All portfolio names must be unique across the entire hierarchy.\n* Reference and hierarchy rules\n  * Duplicate entries in references must be ignored (treated as one).\n  * References to unknown portfolio names must be ignored (not treated as errors).\n  * Self-references (a portfolio referencing itself) must cause a validation failure and return [].\n* Cycle rules\n  * Cycles must be collapsed into single strongly connected groups.\n  * The cycles final score is the arithmetic mean of its members base scores and is not modified by reference averaging for those members.\n  * The lexicographically smallest portfolio name in the cycle represents the group in final sorting.\n* Score calculation\n  * For each valid portfolio,\n    score(p) = (return / risk) + 0.1 * average(score(references))\n  * Missing or invalid references are ignored.\n  * All floating-point values (risk, return, _score) must be rounded to exactly 10 decimal places before being returned.\n* Sorting and ranking\n  * Top-level portfolios are sorted first by _score descending, then by name ascending.\n  * Equal scores within floating tolerance (1e-12) must retain lexicographic stability.\n  * The _rank field starts at 1 and increases sequentially without gaps.\n* Output integrity\n  * Each portfolio dictionary in the result must include all original fields plus _score and _rank.\n  * sub_portfolios and references must appear exactly as given in the input.\n* Failure conditions\n  * Any non-deterministic ordering or missing field is considered failure.\n\n\n### Function Signature\n\n```python\ndef sort_investment_portfolios(portfolios: List[Dict[str, Any]]) -> List[Dict[str, Any]]:\n    pass\n```\n\n\n### Sample Input\n\n```python\nportfolios = [\n    {\n        'name': 'A',\n        'risk': 0.2,\n        'return': 6.0,\n        'references': ['B'],\n        'sub_portfolios': []\n    },\n    {\n        'name': 'B',\n        'risk': 0.3,\n        'return': 7.0,\n        'references': ['A'],\n        'sub_portfolios': []\n    }\n]\n```\n\n\n### Sample Output\n\n```python\n[\n    {\n        'name': 'A',\n        'risk': 0.2,\n        'return': 6.0,\n        'references': ['B'],\n        'sub_portfolios': [],\n        '_score': 26.6666666667,\n        '_rank': 1\n    },\n    {\n        'name': 'B',\n        'risk': 0.3,\n        'return': 7.0,\n        'references': ['A'],\n        'sub_portfolios': [],\n        '_score': 26.6666666667,\n        '_rank': 2\n    }\n]\n```\n\n\n### Expected Output Format\n\nReturn a list of dictionaries representing the top-level portfolios, each containing all original fields plus _score and _rank.\nIf validation fails, return [].\n\nStarter Code:\n```python\nfrom decimal import Decimal, ROUND_HALF_UP\nimport math\nfrom functools import cmp_to_key\nfrom heapq import heappush, heappop\n\n\ndef sort_investment_portfolios(portfolios: list[dict]) -> list[dict]:\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[{\\\"name\\\": \\\"A\\\", \\\"risk\\\": 0.2, \\\"return\\\": 6.0, \\\"references\\\": [\\\"B\\\"], \\\"sub_portfolios\\\": []}, {\\\"name\\\": \\\"B\\\", \\\"risk\\\": 0.3, \\\"return\\\": 7.0, \\\"references\\\": [\\\"A\\\"], \\\"sub_portfolios\\\": []}]\",\n    \"output\": \"[{\\\"name\\\": \\\"A\\\", \\\"risk\\\": 0.2, \\\"return\\\": 6.0, \\\"references\\\": [\\\"B\\\"], \\\"sub_portfolios\\\": [], \\\"_score\\\": 26.6666666667, \\\"_rank\\\": 1}, {\\\"name\\\": \\\"B\\\", \\\"risk\\\": 0.3, \\\"return\\\": 7.0, \\\"references\\\": [\\\"A\\\"], \\\"sub_portfolios\\\": [], \\\"_score\\\": 26.6666666667, \\\"_rank\\\": 2}]\"\n  },\n  {\n    \"input\": \"[{\\\"name\\\": \\\"A\\\", \\\"risk\\\": 2.0, \\\"return\\\": 10.0, \\\"references\\\": [], \\\"sub_portfolios\\\": []}]\",\n    \"output\": \"[{\\\"name\\\": \\\"A\\\", \\\"risk\\\": 2.0, \\\"return\\\": 10.0, \\\"references\\\": [], \\\"sub_portfolios\\\": [], \\\"_score\\\": 5.0, \\\"_rank\\\": 1}]\"\n  },\n  {\n    \"input\": \"[{\\\"name\\\": \\\"Alpha\\\", \\\"risk\\\": 1.0, \\\"return\\\": 6.0, \\\"references\\\": [], \\\"sub_portfolios\\\": []}, {\\\"name\\\": \\\"Beta\\\", \\\"risk\\\": 1.0, \\\"return\\\": 3.0, \\\"references\\\": [], \\\"sub_portfolios\\\": []}]\",\n    \"output\": \"[{\\\"name\\\": \\\"Alpha\\\", \\\"risk\\\": 1.0, \\\"return\\\": 6.0, \\\"references\\\": [], \\\"sub_portfolios\\\": [], \\\"_score\\\": 6.0, \\\"_rank\\\": 1}, {\\\"name\\\": \\\"Beta\\\", \\\"risk\\\": 1.0, \\\"return\\\": 3.0, \\\"references\\\": [], \\\"sub_portfolios\\\": [], \\\"_score\\\": 3.0, \\\"_rank\\\": 2}]\"\n  }\n]\n"
+    }
+  ]
+}

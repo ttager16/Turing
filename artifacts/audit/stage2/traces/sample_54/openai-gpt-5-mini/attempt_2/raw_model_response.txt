@@ -1,0 +1,332 @@
+from typing import List, Dict, Any, Set, Tuple, Optional
+from collections import defaultdict, deque
+
+class ProductGraph:
+    def __init__(self):
+        # adjacency: id -> dict(neighbor_id -> weight)
+        self.adj = defaultdict(dict)
+
+    def add_node(self, pid: int):
+        self.adj.setdefault(pid, {})
+
+    def remove_node(self, pid: int):
+        if pid in self.adj:
+            for nb in list(self.adj[pid].keys()):
+                self.adj[nb].pop(pid, None)
+            self.adj.pop(pid, None)
+
+    def add_edge(self, a: int, b: int, weight: float = 1.0):
+        if a == b:
+            return
+        self.add_node(a); self.add_node(b)
+        # deterministic: accumulate weight
+        self.adj[a][b] = round(self.adj[a].get(b, 0.0) + float(weight), 8)
+        self.adj[b][a] = round(self.adj[b].get(a, 0.0) + float(weight), 8)
+
+    def remove_edge(self, a: int, b: int):
+        self.adj.get(a, {}).pop(b, None)
+        self.adj.get(b, {}).pop(a, None)
+
+    def reweight_edge(self, a: int, b: int, weight: float):
+        if b in self.adj.get(a, {}):
+            self.adj[a][b] = float(weight)
+            self.adj[b][a] = float(weight)
+
+    def neighbors(self, pid: int):
+        return self.adj.get(pid, {}).items()
+
+    def total_weight(self, pid: int):
+        return sum(self.adj.get(pid, {}).values())
+
+    def community_stats(self, start_pid: int, max_hops: int = 2):
+        # BFS deterministic order by sorted neighbor ids
+        visited = set()
+        q = deque()
+        q.append((start_pid, 0))
+        visited.add(start_pid)
+        total_weight = 0.0
+        edges = 0
+        nodes = 0
+        while q:
+            node, d = q.popleft()
+            nodes += 1
+            for nb, w in sorted(self.adj.get(node, {}).items()):
+                total_weight += w
+                edges += 1
+                if nb not in visited and d + 1 <= max_hops:
+                    visited.add(nb)
+                    q.append((nb, d + 1))
+        # edges counted twice across undirected traversal; adjust
+        edges = max(edges // 2, 0)
+        community_size = len(visited)
+        total_comm_weight = total_weight / 2.0  # since each undirected edge seen twice
+        # density: edges / possible pairs
+        if community_size <= 1:
+            density = 0.0
+        else:
+            possible = community_size * (community_size - 1) / 2.0
+            density = edges / possible if possible > 0 else 0.0
+        return {
+            'community_size': float(community_size),
+            'community_density': float(density),
+            'total_community_weight': float(total_comm_weight)
+        }
+
+class SegmentTree:
+    def __init__(self, keys_sorted: List[Tuple[str, int]]):
+        # keys_sorted: list of (category, product_id) sorted deterministically
+        # map each key to index
+        self.keys = keys_sorted
+        self.n = len(self.keys)
+        self.size = 1
+        while self.size < self.n:
+            self.size <<= 1
+        # tree holds additive boosts
+        self.tree = [0.0] * (2 * self.size)
+        # store base values optionally
+        self.base = [0.0] * self.n
+
+    def _apply_point(self, idx: int, val: float):
+        # point add on base array and update leaves (not needed for range add but kept)
+        if 0 <= idx < self.n:
+            self.base[idx] += val
+
+    def range_add(self, l: int, r: int, val: float):
+        # add val to interval [l, r) zero-based
+        l += self.size; r += self.size
+        while l < r:
+            if l & 1:
+                self.tree[l] += val; l += 1
+            if r & 1:
+                r -= 1; self.tree[r] += val
+            l >>= 1; r >>= 1
+
+    def point_query(self, idx: int):
+        # get accumulated value for idx
+        res = 0.0
+        i = idx + self.size
+        while i > 0:
+            res += self.tree[i]
+            i >>= 1
+        # include base if needed
+        if 0 <= idx < self.n:
+            res += self.base[idx]
+        return res
+
+def deterministic_sort_products(products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    # stable deterministic order by (category, id, name)
+    return sorted(products, key=lambda p: (p.get('category', ''), int(p.get('id', 0)), p.get('name', '')))
+
+def build_graph_from_products(products: List[Dict[str, Any]], user_sessions: List[Dict[str, Any]]) -> ProductGraph:
+    g = ProductGraph()
+    # add nodes
+    for p in products:
+        pid = int(p['id'])
+        g.add_node(pid)
+    # add edges from product related lists
+    for p in products:
+        a = int(p['id'])
+        for b in p.get('related_products', []):
+            try:
+                b_id = int(b)
+            except:
+                continue
+            g.add_edge(a, b_id, 1.0)
+    # add edges derived from co-browsing and co-purchase in sessions
+    for sess in user_sessions:
+        seen = []
+        for key in ('browse_history', 'purchase_history'):
+            for item in sess.get(key, []):
+                try:
+                    seen.append(int(item))
+                except:
+                    continue
+        # deterministic pairs by sorted order
+        seen = sorted(set(seen))
+        for i in range(len(seen)):
+            for j in range(i + 1, len(seen)):
+                g.add_edge(seen[i], seen[j], 0.5)
+    return g
+
+def compute_interaction_weights(products_map: Dict[int, Dict[str, Any]], user_data: Dict[str, Any]) -> Dict[int, float]:
+    # raw interaction weight from sessions: counts + time spent on category
+    weights = defaultdict(float)
+    sessions = user_data.get('sessions', [])
+    for sess in sessions:
+        for pid in sess.get('browse_history', []):
+            try:
+                pid = int(pid)
+            except:
+                continue
+            weights[pid] += 1.0
+        for pid in sess.get('purchase_history', []):
+            try:
+                pid = int(pid)
+            except:
+                continue
+            weights[pid] += 3.0
+        ts = sess.get('time_spent', {})
+        for cat, t in sorted(ts.items()):
+            # distribute time among products in that category deterministically
+            tval = float(t)
+            for pid, p in products_map.items():
+                if p.get('category') == cat:
+                    weights[pid] += tval / (10.0 + len(products_map))  # small contribution
+    # ensure every product has entry
+    for pid in products_map.keys():
+        weights.setdefault(pid, 0.0)
+    return weights
+
+def build_category_index(products: List[Dict[str, Any]]) -> Dict[str, List[int]]:
+    cat = defaultdict(list)
+    for p in sorted(products, key=lambda x: (x.get('category',''), int(x.get('id',0)), x.get('name',''))):
+        cat[p.get('category','')].append(int(p['id']))
+    return dict(cat)
+
+def simulate_concurrent_updates(updates: List[Tuple[str, Any]], product_graph: ProductGraph, segtree: SegmentTree, key_index_map: Dict[Tuple[str,int], int]):
+    # updates: list of ('range_add', category, lidx, ridx, value) or ('reweight', a,b,weight) processed sequentially
+    # ensure no overlapping product updated twice in same logical transaction: we just process sequentially deterministically
+    for up in updates:
+        if not up:
+            continue
+        if up[0] == 'range_add':
+            _, category, lidx, ridx, val = up
+            # apply on segtree for indices that match category in keys
+            # find leftmost index for lidx inclusive and rightmost for ridx exclusive (we're given indices)
+            # here lidx,ridx are indices in category product list
+            # build ranges by scanning keys to collect indices of that category
+            n = segtree.n
+            # collect positions
+            positions = [i for i, (cat, pid) in enumerate(segtree.keys) if cat == category]
+            if not positions:
+                continue
+            L = 0 if lidx < 0 else lidx
+            R = len(positions) if ridx > len(positions) else ridx
+            if L >= R:
+                continue
+            lpos = positions[L]
+            rpos = positions[R-1] + 1
+            segtree.range_add(lpos, rpos, float(val))
+        elif up[0] == 'reweight':
+            _, a, b, w = up
+            product_graph.reweight_edge(int(a), int(b), float(w))
+        elif up[0] == 'add_edge':
+            _, a, b, w = up
+            product_graph.add_edge(int(a), int(b), float(w))
+        elif up[0] == 'remove_node':
+            _, a = up
+            product_graph.remove_node(int(a))
+        # deterministic; no return
+
+def custom_sort(products: List[Dict[str, Any]], user_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    # Prepare product map
+    products_copy = [dict(p) for p in products]
+    products_sorted = deterministic_sort_products(products_copy)
+    products_map = {int(p['id']): p for p in products_sorted}
+    # Build graph
+    sessions = user_data.get('sessions', [])
+    graph = build_graph_from_products(products_sorted, sessions)
+    # Interaction weights
+    interaction_weights = compute_interaction_weights(products_map, user_data)
+    max_weight = max(interaction_weights.values()) if interaction_weights else 0.0
+    # Popularity
+    popularity_map = {pid: float(p.get('popularity', 0)) for pid, p in products_map.items()}
+    max_pop = max(popularity_map.values()) if popularity_map else 0.0
+    # Flow scores: approximate by total edge weight connected to node
+    flow_scores = {pid: graph.total_weight(pid) for pid in products_map.keys()}
+    max_flow = max(flow_scores.values()) if flow_scores else 0.0
+    # Build category index and keys for segment tree
+    category_index = build_category_index(products_sorted)
+    keys = []
+    for cat in sorted(category_index.keys()):
+        for pid in category_index[cat]:
+            keys.append((cat, pid))
+    segtree = SegmentTree(keys)
+    key_index_map = {k: i for i, k in enumerate(keys)}
+    # Precompute category affinity from user preferences and time spent
+    pref_cats = list(user_data.get('preferences', {}).get('categories', []))
+    # deterministic: count occurrences and time_spent aggregated
+    time_by_cat = defaultdict(float)
+    for sess in sessions:
+        for cat, t in sorted(sess.get('time_spent', {}).items()):
+            time_by_cat[cat] += float(t)
+    cat_affinity = {}
+    for cat in keys:
+        pass
+    # compute per-category base boost: categories in preferences get small deterministic boosts
+    base_cat_boost = {}
+    for cat in sorted(category_index.keys()):
+        boost = 0.0
+        if cat in pref_cats:
+            boost += 1.0
+        boost += min(time_by_cat.get(cat, 0.0) / 300.0, 2.0)  # normalized time
+        base_cat_boost[cat] = float(boost)
+    # Apply some range updates: simulate concurrent updates (deterministically ordered)
+    updates = []
+    # For each category, if base boost positive, add range update for whole category
+    for cat in sorted(category_index.keys()):
+        if base_cat_boost.get(cat, 0.0) > 0.0:
+            # add to all products in category
+            updates.append(('range_add', cat, 0, len(category_index[cat]), base_cat_boost[cat] * 0.5))
+    # Also simulate reweight updates from sessions: if a product purchased, increase edge weight to others in session
+    for sess in sessions:
+        purchased = sorted(set(int(x) for x in sess.get('purchase_history', []) if isinstance(x, int) or (isinstance(x, str) and x.isdigit())))
+        browsed = sorted(set(int(x) for x in sess.get('browse_history', []) if isinstance(x, int) or (isinstance(x, str) and x.isdigit())))
+        for a in purchased:
+            for b in browsed:
+                if a != b:
+                    updates.append(('add_edge', a, b, 0.7))
+    # process updates sequentially
+    simulate_concurrent_updates(updates, graph, segtree, key_index_map)
+    # Now compute scores per product
+    scores = {}
+    for pid, p in sorted(products_map.items(), key=lambda x: int(x[0])):
+        # Interaction Score
+        raw_w = float(interaction_weights.get(pid, 0.0))
+        normalized_weight = raw_w / (max_weight + 0.1) if (max_weight + 0.1) > 0 else 0.0
+        interaction_score = 10.0 * (normalized_weight / (1.0 + normalized_weight)) if normalized_weight >= 0 else 0.0
+        # Popularity Score
+        pop = float(popularity_map.get(pid, 0.0))
+        normalized_pop = pop / (max_pop + 1.0) if (max_pop + 1.0) > 0 else 0.0
+        popularity_score = 2.0 * (normalized_pop ** 0.6) if normalized_pop >= 0 else 0.0
+        # Category affinity
+        cat = p.get('category', '')
+        # deterministic affinity: 1.0 if in preferences, else proportion of time spent normalized
+        if cat in pref_cats:
+            category_affinity = 1.0
+        else:
+            category_affinity = min(time_by_cat.get(cat, 0.0) / (sum(time_by_cat.values()) + 1.0), 1.0)
+        category_score = category_affinity * 30.0
+        # Community score
+        comm = graph.community_stats(pid, max_hops=2)
+        size_score = min(comm['community_size'] / 5.0, 3.0)
+        density_score = comm['community_density'] * 2.0
+        weight_score = min(comm['total_community_weight'] / 10.0, 2.0)
+        community_score = size_score + density_score + weight_score
+        # Flow score
+        raw_flow = float(flow_scores.get(pid, 0.0))
+        normalized_flow = raw_flow / (max_flow + 0.1) if (max_flow + 0.1) > 0 else 0.0
+        flow_score = normalized_flow * 5.0
+        # Category boost via segment tree: lookup index
+        idx = key_index_map.get((cat, pid), None)
+        category_boost = 0.0
+        if idx is not None:
+            category_boost = category_affinity * 5.0
+            seg_add = segtree.point_query(idx)
+        else:
+            seg_add = 0.0
+        # Final score
+        total = interaction_score + popularity_score + category_score + community_score + flow_score + category_boost + float(seg_add)
+        # deterministic tie-breaker components included to ensure stable sorting: lower id preferred
+        scores[pid] = (total, interaction_score, popularity_score, category_score, community_score, flow_score, category_boost, seg_add)
+    # Sort products by descending priority score deterministically: use tuple with pid as tie-breaker
+    sorted_pids = sorted(scores.items(), key=lambda kv: (-kv[1][0], -kv[1][1], -kv[1][2], -kv[1][3], -kv[1][4], -kv[1][5], -kv[1][6], -kv[1][7], int(kv[0])))
+    result = []
+    for pid, _ in sorted_pids:
+        p = products_map[pid]
+        # return minimal fields as sample output suggests
+        result.append({'id': int(p['id']), 'name': p.get('name',''), 'category': p.get('category','')})
+    return result
+
+# If module is imported, custom_sort is available.
+# End of implementation.

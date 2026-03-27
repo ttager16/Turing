@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: real_time_stock_stack\n\nProblem Statement:\n### Problem Statement\n\nIn the high-frequency trading sector, a Python developer is tasked with designing a next-generation real-time analytics tool to manage and analyze a dynamic portfolio of stock symbols. Unlike traditional single-stream monitoring, this system must handle compound queries across multiple symbols, each with continuously fluctuating stock prices and various aggregation needs. The solution should employ advanced data structures (e.g., Segment Trees or Treaps) to concurrently track minimum and maximum prices per symbol, efficiently compute partial sums, and perform snapshot merges of related symbols-all while maintaining strict time and memory efficiency to accommodate millions of operations. By integrating multi-step reasoning and stateful interactions among different symbols, the developer must ensure minimal latency and maximal throughput under high-volume trading conditions.\n\n\n#### Objectives\n\n1. Create a unified data structure capable of:\n   * Inserting a stock price for a specific symbol in O(log n) or better time.\n   * Removing the most recent price while preserving aggregated historical data.\n   * Providing real-time minimum and maximum stock prices across individual symbols, as well as globally.\n   * Performing snapshot merges of related symbols to derive extended market insights.\n2. Support multi-dimensional queries, including compound checks (e.g., finding the min of one symbol while simultaneously computing the max of another), and interval-based aggregations (e.g., partial sum).\n3. Design the solution to handle complex corner cases such as interleaved updates across symbols, disjoint symbol sets, and simultaneous push/pop bursts.\n4. Optimize memory usage and ensure determinism across operations, without using brute-force recomputation.\n\n\n#### Constraints\n\n- The solution must be implemented in pure Python (no external libraries allowed).\n- Stock prices are integers in the range [-10^9, 10^9].\n- Operations include insertion, removal, multi-symbol min/max queries, range-based computations, and cluster merges.\n- Deterministic routing policy:\n  * The active symbol starts at ID 0.\n  * ['merge_clusters', None] creates a new symbol (next available ID) as a deep snapshot of the active symbol but does not switch the active symbol.\n  * The first subsequent ['push', price] after a merge is routed to the new symbol (one-shot redirect).\n  * ['pop', None] targets the most recently pushed-to symbol (MRU). if none, use the active symbol.\n- Deep snapshot semantics: After merge, source and new symbols are independent, subsequent pushes/pops to one must not affect the other.\n- Multiple occurrences of a symbol’s min/max must be handled so that popping one occurrence does not change that symbol’s get_min (or get_max) until the last occurrence is removed.\n- Global get_min(None) / get_max(None) must reflect the exact current state over all symbols. If lazy heaps are used, stale entries must not leak into answers.\n- ['range_sum', s] returns the sum of values that existed in symbol s at the time of its most recent merge event involving s, if s has never merged, return the sum of all values ever pushed so far to s. This baseline is analytic-only and does not decrease due to later pops.\n- On an empty symbol, pop returns None and get_min/get_max return None without raising exceptions.\n- If the operations list is empty ([]), the function must immediately return an empty list [].\n- Each operation must be a list of exactly two elements, e.g., ['push', 100] or ['get_max', None].\n   If any operation fails this format, return [].\n- The first element (operation name) must be a valid string in:\n   {\"push\", \"pop\", \"get_min\", \"get_max\", \"merge_clusters\", \"range_sum\"}.\n   If any operation name is invalid, return [].\n- For ['push', price]:\n   * price must be an integer within the range [-10^9, 10^9], otherwise return [].\n- For ['get_min' | 'get_max' | 'range_sum', x]:\n   * x must be either None or a non-negative integer (symbol ID), otherwise return [].\n- If the operations list contains invalid data types (e.g., dict, or string instead of list), return [].\n- If any invalid condition is encountered during validation or execution, the entire output must be [].\n\n\n#### Function Signature\n\n```python\nfrom typing import List, Optional, Any\n\ndef real_time_stock_stack(operations: List[List[Any]]) -> List[Optional[int]]:\n    \"\"\"\n    Implements a multi-layer real-time analytics system supporting various operations:\n    - ['push', price]: Insert a new stock price for the routed symbol (see policy in Constraints).\n    - ['pop', None]: Remove the most recently added price from the MRU-routed symbol.\n    - ['get_min', symbol_id]: Retrieve the current minimum price for the given symbol,\n                              or global minimum if symbol_id is None.\n    - ['get_max', symbol_id]: Retrieve the current maximum price for the given symbol,\n                              or global maximum if symbol_id is None.\n    - ['merge_clusters', None]: Create a new symbol as a deep snapshot of the active symbol.\n    - ['range_sum', symbol_id]: Return the sum defined by the range-sum baseline rule (see Constraints).\n\n    Validation rules:\n    - If operations == [] -> return []\n    - If any operation is invalid (wrong format, type, or range) -> return []\n    - Only the operations listed above are valid.\n    - The function must not mutate the input list.\n    \"\"\"\n    pass\n```\n\n\n#### Sample Input:\n\n```\noperations = [\n    ['push', 100],\n    ['push', 250],\n    ['get_max', None],\n    ['push', 80],\n    ['merge_clusters', None],\n    ['get_min', None],\n    ['pop', None],\n    ['push', 300],\n    ['get_min', 1],\n    ['get_max', 0],\n    ['range_sum', 0],\n    ['pop', None],\n    ['get_max', None]\n]\n```\n\n\n#### Expected Output:\n\n```\n[None, None, 250, None, None, 80, None, None, 80, 250, 430, None, 250]\n```\n\n\n#### Description of the Expected Output\n\n1. \"push\" and \"pop\" operations yield None since they do not return a value.\n2. \"get_max(None)\" returns 250 after pushing 100 and 250.\n3. \"merge_clusters\" creates a new symbol (ID=1) as a deep snapshot of symbol 0.\n4. \"get_min(None)\" returns 80, the global minimum.\n5. The post-merge \"push\" (300) routes to the new symbol (ID=1).\n6. \"range_sum(0)\" returns 430, the sum of prices in symbol 0 at its last merge snapshot.\n7. The final \"get_max(None)\" returns 250 after pops and updates.\n8. If operations are empty, malformed, or contains invalid data, the output must be [].\n\nStarter Code:\n```python\nfrom typing import List, Optional, Any\nimport heapq\n\n\ndef real_time_stock_stack(operations: List[List[Any]]) -> List[Optional[int]]:\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[[\\\"push\\\", 100], [\\\"push\\\", 250], [\\\"get_max\\\", null], [\\\"push\\\", 80], [\\\"merge_clusters\\\", null], [\\\"get_min\\\", null], [\\\"pop\\\", null], [\\\"push\\\", 300], [\\\"get_min\\\", 1], [\\\"get_max\\\", 0], [\\\"range_sum\\\", 0], [\\\"pop\\\", null], [\\\"get_max\\\", null]]\",\n    \"output\": \"[null, null, 250, null, null, 80, null, null, 80, 250, 430, null, 250]\"\n  },\n  {\n    \"input\": \"[[\\\"push\\\", 5], [\\\"push\\\", 2], [\\\"push\\\", 7], [\\\"get_min\\\", 0], [\\\"get_max\\\", 0], [\\\"pop\\\", null], [\\\"get_max\\\", 0], [\\\"pop\\\", null], [\\\"get_min\\\", 0], [\\\"pop\\\", null], [\\\"get_min\\\", 0], [\\\"get_max\\\", null]]\",\n    \"output\": \"[null, null, null, 2, 7, null, 5, null, 5, null, null, null]\"\n  },\n  {\n    \"input\": \"[[\\\"push\\\", 5], [\\\"push\\\", 3], [\\\"push\\\", 3], [\\\"get_min\\\", 0], [\\\"pop\\\", null], [\\\"get_min\\\", 0], [\\\"pop\\\", null], [\\\"get_min\\\", 0]]\",\n    \"output\": \"[null, null, null, 3, null, 3, null, 5]\"\n  }\n]\n"
+    }
+  ]
+}

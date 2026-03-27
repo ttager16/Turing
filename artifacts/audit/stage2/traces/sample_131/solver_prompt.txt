@@ -1,0 +1,130 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+A global logistics company operates a vast transportation network that connects cities through routes with defined travel costs and optional capacity limits. The company needs a Python-based system capable of dynamically managing these routes by adding, removing, and updating connections, while efficiently handling route-related queries such as finding the shortest path between cities or determining whether two cities remain connected after a series of updates. The solution must preserve state consistency after every modification, rigorously enforce capacity constraints, and follow deterministic rules whenever multiple equal-cost paths exist. The overall focus of this problem is on correctness, determinism, and maintaining an update-aware graph structure, without involving concurrency or large-scale offline preprocessing.
+
+
+### Objectives
+
+1. Implement a dynamic, memory-efficient graph data structure that can:
+   * Add and remove edges (routes)
+   * Update edge weights and capacities
+   * Process shortest-path and connectivity queries in the current graph state
+2. Guarantee deterministic results:
+   * When multiple shortest paths share the same total cost, always choose the path whose next node ID is smallest (lexicographic tie-breaking).
+3. Correctly apply capacity constraints:
+   * If a shortest-path query specifies a required demand, any edge with capacity below that demand must be ignored.
+4. Maintain consistent graph state:
+   * After any update or deletion, all subsequent queries must reflect the new configuration.
+   * Removing an edge must immediately disconnect its endpoints if no alternate path exists.
+
+
+### Constraints
+
+* Must be implemented in pure Python, with no external libraries.
+* Graph state persists across all queries within one function call.
+* Deterministic ordering is mandatory for all equal-cost paths.
+* If both graph_data and queries are empty, return [] immediately.
+* Both graph_data and queries must be lists of lists.
+   - Each element of graph_data must be exactly [u, v, w].
+   - Each element of queries must be exactly [query_type, u, v, arg].
+   - On any structural violation, the function must return [] immediately
+* u and v must be integers greater than or equal to 1, any non-integer, negative, zero, or missing value must cause the function to return [] immediately.
+* w must be a finite float or int with a value greater than or equal to 0, negative value, or invalid type must cause the function to return [] immediately.
+* Query schema and types:
+   - The query_type must be one of ("shortest_path", "connectivity_check", "add_edge", "remove_edge", "update_weight", "update_capacity").
+   - For "shortest_path", the argument arg represents the demand (finite float or int >= 0), if None, it should be treated as 0.
+   - For "connectivity_check", the argument is ignored (0 or None allowed).
+   - For "add_edge" and "update_weight", the argument represents the edge weight (finite float or int >= 0).
+   - For "update_capacity", the argument represents the capacity (finite float or int >= 0).
+   - For "remove_edge", the argument is ignored (0 or None allowed).
+   - Any schema or type violation must cause the function to return [] immediately.
+   - In the special case where u == v:
+      1. "shortest_path" must return 0.0
+      2. "connectivity_check" must return True
+* Undirected semantics and self-loops:
+   - The graph is undirected, all operations apply symmetrically to (u, v) and (v, u).
+   - Edge self-loops are invalid:
+      1. Any edge in graph_data with u == v must cause the function to return [] immediately.
+      2. Any update that adds or modifies an edge with u == v must cause the function to return [] immediately.
+   - Queries where u == v are allowed and follow the special-case outputs defined above.
+* Canonical edge rule and updates:
+   - Multiple "add_edge" calls for the same unordered pair merge into one canonical edge with weight = min(all added weights) and capacity unchanged (default 0.0 until set by "update_capacity").
+   - "update_weight" and "update_capacity" overwrite the canonical edge directly.
+   - "update_weight" or "update_capacity" on a non-existent edge must return [] immediately, while "remove_edge" on a non-existent edge is ignored (no-op).
+* Capacity defaults and filtering:
+   - Default capacity is 0.0 for every edge unless set by "update_capacity".
+   - During "shortest_path", an edge is traversable only if capacity >= demand.
+   - Shortest-path queries must not change capacity values.
+* When two or more neighboring nodes have the same current distance during path calculation, always visit them in order of their node IDs from smallest to largest. This ensures that if multiple paths have the same total cost, the path with the smallest node IDs is chosen consistently.
+
+
+
+### Function Signature
+
+```python
+def optimize_route_planning(
+    graph_data: List[List[Union[int, float]]],
+    queries: List[List[Union[str, int, float, None]]]
+) -> List[Union[float, bool]]:
+    """
+    Handles dynamic route updates and queries.
+
+    query_type can be one of:
+      - "shortest_path" : compute minimal travel cost (considering demand if given)
+      - "connectivity_check" : return True/False
+      - "add_edge" : add a new edge (weight given in arg)
+      - "remove_edge" : remove an existing edge
+      - "update_weight" : change edge weight (arg)
+      - "update_capacity" : change edge capacity (arg)
+    """
+    pass
+```
+
+
+### Sample Input
+
+```python
+graph_data = [[1, 2, 5.0], [2, 3, 10.0], [1, 3, 15.0]]
+queries = [
+    ["shortest_path", 1, 3, 0],
+    ["connectivity_check", 1, 3, 0]
+]
+```
+
+
+### Sample Output
+
+```
+[15.0, True]
+```
+
+
+### Expected Output Format
+
+The function returns a list of results aligned with the query order:
+* Each "shortest_path" query returns a float representing the minimum travel cost. If no valid path exists, it must return -1.0
+* Each "connectivity_check" query returns a boolean.
+* Update queries ("add_edge", "remove_edge", "update_weight", "update_capacity") do not append results.
+
+Starter Code:
+```python
+from typing import List, Union
+import math
+import heapq
+from collections import deque, defaultdict
+
+def optimize_route_planning(
+    graph_data: List[List[Union[int, float]]],
+    queries: List[List[Union[str, int, float, None]]]
+) -> List[Union[float, bool]]:
+    pass
+```

@@ -1,0 +1,88 @@
+from collections import deque
+from typing import Dict, List, Union
+
+def compute_dcei(temperature_readings, power_readings, window_size) -> Dict[str, Union[List[float], str]]:
+    # Validation order:
+    # a. Check for empty lists
+    if temperature_readings == [] and power_readings == []:
+        return {'error': 'No data provided'}
+    # b. Check for equal lengths
+    if not isinstance(temperature_readings, list) or not isinstance(power_readings, list):
+        return {'error': 'Unprocessable readings'}
+    if len(temperature_readings) != len(power_readings):
+        # if one empty and other not, this covers too
+        return {'error': 'Mismatched input lengths'}
+    n = len(temperature_readings)
+    # c. Check for valid window size
+    if not isinstance(window_size, int) or window_size <= 0 or window_size > n:
+        return {'error': 'Invalid window size'}
+    # d. Check for valid data types and value ranges
+    for lst in (temperature_readings, power_readings):
+        for x in lst:
+            if not isinstance(x, int):
+                return {'error': 'Unprocessable readings'}
+            if x < -1000 or x > 1000:
+                return {'error': 'Unprocessable readings'}
+    # Prepare deques storing indices only
+    temp_max = deque()
+    temp_min = deque()
+    power_max = deque()
+    power_min = deque()
+    results: List[float] = []
+    for i in range(n):
+        # Remove expired indices from fronts (must do before inserts as per constraints)
+        while temp_max and temp_max[0] <= i - window_size:
+            temp_max.popleft()
+        while temp_min and temp_min[0] <= i - window_size:
+            temp_min.popleft()
+        while power_max and power_max[0] <= i - window_size:
+            power_max.popleft()
+        while power_min and power_min[0] <= i - window_size:
+            power_min.popleft()
+        # Maintain monotonicity by removing from back
+        # temp_max: decreasing temperatures
+        while temp_max and temperature_readings[temp_max[-1]] <= temperature_readings[i]:
+            temp_max.pop()
+        temp_max.append(i)
+        # temp_min: increasing temperatures
+        while temp_min and temperature_readings[temp_min[-1]] >= temperature_readings[i]:
+            temp_min.pop()
+        temp_min.append(i)
+        # power_max: decreasing powers
+        while power_max and power_readings[power_max[-1]] <= power_readings[i]:
+            power_max.pop()
+        power_max.append(i)
+        # power_min: increasing powers
+        while power_min and power_readings[power_min[-1]] >= power_readings[i]:
+            power_min.pop()
+        power_min.append(i)
+        # When we have a full window, compute
+        if i >= window_size - 1:
+            # Ensure fronts are within window (again, as required)
+            while temp_max and temp_max[0] <= i - window_size:
+                temp_max.popleft()
+            while temp_min and temp_min[0] <= i - window_size:
+                temp_min.popleft()
+            while power_max and power_max[0] <= i - window_size:
+                power_max.popleft()
+            while power_min and power_min[0] <= i - window_size:
+                power_min.popleft()
+            # Get values
+            max_temp = temperature_readings[temp_max[0]]
+            min_temp = temperature_readings[temp_min[0]]
+            max_power = power_readings[power_max[0]]
+            min_power = power_readings[power_min[0]]
+            temp_fluct = max_temp - min_temp
+            power_delta = max_power - min_power
+            # Check constraints on computed values
+            if power_delta == 0:
+                return {'error': 'Division by zero detected'}
+            if temp_fluct == 0:
+                return {'error': 'Undefined fluctuation'}
+            # Compute DCEI using float division only here
+            dcei = round(temp_fluct / power_delta, 2)
+            # Ensure not NaN or inf (though should not happen)
+            if dcei != dcei or dcei == float('inf') or dcei == float('-inf'):
+                return {'error': 'Division by zero detected'}
+            results.append(dcei)
+    return {'result': results}

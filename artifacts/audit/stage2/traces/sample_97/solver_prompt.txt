@@ -1,0 +1,130 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+In a **global collaborative text editing platform**, thousands of users simultaneously modify millions of distributed documents.  
+Each document is divided into multiple text **segments**, allowing independent editing, synchronization, and offline operation.  
+The challenge is to maintain **consistency, concurrency control, and efficient prefix-based querying** under extreme scale — ensuring all edits remain conflict-free and recoverable after disconnections.
+
+To achieve this, you must implement a **hybrid data structure** that combines:
+- A **Trie** for prefix-based text searches, and  
+- A **Segment-based Index** for partitioned text management and offline merge simulation.
+
+This system should handle **real-time insertions, deletions, searches, and merges**, preserving all user changes while ensuring that concurrent edits do not corrupt shared data.
+
+---
+
+### Objectives
+
+1. **Hybrid Structure Integration**  
+   Combine a Trie with a segment-based indexing approach to support fast lookups and dynamic segment management.
+
+2. **Conflict Resolution**  
+   When multiple users edit the same segment, ensure all versions are preserved and merged deterministically.
+
+3. **Offline Merge Simulation**  
+   Support operations that merge offline edits safely into the main shared state.
+
+4. **Real-Time Search**  
+   Allow prefix-based and segment-based searches that retrieve all relevant text fragments efficiently.
+
+5. **Fault Tolerance and Efficiency**  
+   Handle several hundred sequential operations while maintaining internal consistency and preventing corruption.
+
+---
+### Constraints
+
+* `1 <= len(operations) <= 500`
+* No external Python libraries allowed.
+* Focus on correctness and efficiency, not true network concurrency.
+* Each primary operation (`insert`, `delete`, `search`, `merge_offline`) should execute in **O(N)** or better time.
+* The hybrid data structure must remain internally consistent after every mutation.
+
+---
+### Function Signature
+
+```python
+def collaborative_editor(operations: list[dict[str, str]]) -> dict[str, list[str]]:
+    pass
+````
+
+---
+
+### Parameters
+
+* **operations:** A list of JSON-compatible operation objects, where each operation has:
+
+  * `"user_id"` — Unique identifier of the user performing the action.
+  * `"operation"` — One of `"insert"`, `"delete"`, `"search"`, or `"merge_offline"`.
+  * `"data"` — Segment identifier and content, e.g., `"segment_1:collab"`.
+
+---
+
+### Return Format
+
+The function must return a dictionary with the key `"matches"` containing a list of words retrieved by the **last `"search"` operation** in the provided operations list.
+
+If no `"search"` operation is present, the function should return an empty dictionary `{}`.
+
+---
+
+### Example
+
+**Input:**
+
+```python
+operations = [
+    {"user_id": "userA", "operation": "insert", "data": "segment_1:collab"},
+    {"user_id": "userB", "operation": "insert", "data": "segment_1:collective"},
+    {"user_id": "userC", "operation": "delete", "data": "segment_1:collective"},
+    {"user_id": "userD", "operation": "insert", "data": "segment_2:colony"},
+    {"user_id": "userE", "operation": "search", "data": "segment_1:col"}
+]
+```
+
+**Output:**
+
+```python
+{"matches": ["collab"]}
+```
+
+---
+
+### Edge Cases
+
+1. Concurrent inserts into the same segment by different users.
+2. Deletions of non-existent text entries.
+3. Offline merges from disconnected nodes.
+4. Simultaneous searches and updates on shared segments.
+5. Multiple segment isolation ensuring no cross-contamination of data.
+
+---
+
+
+
+---
+
+### Expected Output Format
+
+Return a dictionary of the form:
+
+```python
+{"matches": ["word1", "word2", ...]}
+```
+
+representing all valid matches from the **last search** in the operation list.
+If no search is performed, return `{}`.
+
+Starter Code:
+```python
+from typing import List, Dict
+
+def collaborative_editor(operations: List[Dict[str, str]]) -> Dict[str, List[str]]:
+```

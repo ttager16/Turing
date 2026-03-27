@@ -1,0 +1,76 @@
+{
+  "id": "resp_0354b179c004563b0069c33305362481a3b04a0dd6cc97a718",
+  "object": "response",
+  "created_at": 1774400261,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774400279,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0354b179c004563b0069c333057cd081a3b6186fa3208d8129",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0354b179c004563b0069c33305d35081a38f2e25ec13a479ac",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from collections import defaultdict, deque\n\ndef get_shortest_paths(graph: dict, source: str, updates: list[list[str]]) -> dict:\n    # Validation helpers\n    def is_valid_id(x):\n        return isinstance(x, str) and x.isdigit()\n    if not isinstance(graph, dict) or not is_valid_id(source) or not isinstance(updates, list):\n        return {}\n    for k, v in graph.items():\n        if not is_valid_id(k): return {}\n        if not isinstance(v, list): return {}\n        for nb in v:\n            if not is_valid_id(nb): return {}\n    for op in updates:\n        if not isinstance(op, list) or len(op) != 3: return {}\n        if op[0] not in (\"activate\", \"deactivate\"): return {}\n        if not is_valid_id(op[1]) or not is_valid_id(op[2]): return {}\n    if graph == {} and updates == []:\n        return {}\n    # Build symmetric adjacency\n    adj = defaultdict(set)\n    for u, nbs in graph.items():\n        for v in nbs:\n            if u == v: continue\n            adj[u].add(v)\n            adj[v].add(u)\n    # Apply updates atomically to adj (record nodes)\n    nodes = set(adj.keys())\n    for op, u, v in updates:\n        nodes.add(u); nodes.add(v)\n        if u == v:\n            continue\n        if op == \"activate\":\n            adj[u].add(v); adj[v].add(u)\n        else:  # deactivate\n            adj[u].discard(v); adj[v].discard(u)\n    # Ensure neighbor lists deterministic\n    for n in list(nodes):\n        if n not in adj:\n            adj[n] = set()\n    # Deterministic BFS initial from source\n    dist = {n: -1 for n in adj.keys()}\n    parent = {}  # child -> parent (lexicographically smallest parent achieving dist)\n    if source not in adj:\n        adj[source] = set()\n        dist[source] = 0\n    queue = []\n    if source in adj:\n        dist[source] = 0\n        queue = [source]\n    level = 0\n    while queue:\n        queue.sort()\n        nextq = []\n        for u in queue:\n            for v in sorted(adj[u]):\n                if v == u: continue\n                if dist[v] == -1:\n                    dist[v] = level + 1\n                    parent[v] = u\n                    nextq.append(v)\n                else:\n                    # if equal distance, ensure parent is lexicographically smallest\n                    if dist[v] == level + 1:\n                        if parent.get(v, None) is None or u < parent[v]:\n                            parent[v] = u\n        level += 1\n        queue = nextq\n    # After atomic updates we must repair incrementally:\n    # According to requirements, we've already applied updates before BFS propagation.\n    # However need to follow activation/deactivation incremental semantics.\n    # We'll simulate targeted invalidation+repair based on updates list:\n    # Build set of deactivations and activations from updates to determine parents broken.\n    # First, process deactivations: find those that removed a parent edge.\n    # Recompute parent edges from current adj: if parent[child] edge missing -> invalidate subtree.\n    broken_children = []\n    for child, par in list(parent.items()):\n        if par not in adj[child] or child not in adj[par]:\n            broken_children.append(child)\n    # Invalidate broken children and their descendants (by parent pointers)\n    invalid = set()\n    stack = list(broken_children)\n    for c in stack:\n        if c in invalid: continue\n        # BFS down parent-child tree: children are nodes whose parent == node\n        to_visit = [c]\n        while to_visit:\n            x = to_visit.pop()\n            if x in invalid: continue\n            invalid.add(x)\n            # collect nodes whose parent is x\n            for node, p in list(parent.items()):\n                if p == x and node not in invalid:\n                    to_visit.append(node)\n    for x in invalid:\n        dist[x] = -1\n        parent.pop(x, None)\n    # Boundary repair: multi-source BFS from neighbors that have non-negative distances\n    # Collect sources: nodes with dist >=0\n    repair_sources = sorted([n for n, d in dist.items() if d >= 0])\n    # We'll BFS outward but only visit nodes currently unreachable (dist==-1) or can be improved\n    # Use level-synchronous with deterministic order\n    # Initialize frontier with repair_sources\n    frontier = repair_sources[:]\n    visited_level = {n: dist[n] for n in frontier}\n    level = 0\n    # But we must process by increasing distance value; so build buckets by current dist\n    buckets = defaultdict(list)\n    for n in frontier:\n        buckets[dist[n]].append(n)\n    current = min(buckets.keys()) if buckets else None\n    processed = set()\n    while buckets:\n        current = min(k for k in buckets.keys())\n        queue = sorted(buckets.pop(current))\n        next_bucket_nodes = defaultdict(list)\n        for u in queue:\n            if u in processed: continue\n            processed.add(u)\n            for v in sorted(adj[u]):\n                if v == u: continue\n                # candidate distance\n                cand = dist[u] + 1\n                if dist.get(v, -1) == -1 or cand < dist.get(v, float('inf')) or (cand == dist.get(v) and u < parent.get(v, \"\")):\n                    # update\n                    dist[v] = cand\n                    parent[v] = u\n                    next_bucket_nodes[cand].append(v)\n        for k, lst in next_bucket_nodes.items():\n            buckets[k].extend(lst)\n    # Ensure every node present\n    for n in adj.keys():\n        if n not in dist:\n            dist[n] = -1\n    # Return sorted dict by lexicographic node id\n    return {n: dist[n] for n in sorted(dist.keys())}"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1322,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1295,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2617
+  },
+  "user": null,
+  "metadata": {}
+}

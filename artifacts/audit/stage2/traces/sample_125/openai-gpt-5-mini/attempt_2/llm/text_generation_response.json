@@ -1,0 +1,76 @@
+{
+  "id": "resp_0d08c70398295d5f0069c33bbc213c819ca9caaefa26ef02b9",
+  "object": "response",
+  "created_at": 1774402492,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774402519,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0d08c70398295d5f0069c33bbc738c819ca8e0507193642026",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0d08c70398295d5f0069c33bbc9f0c819c88817af0f5c2fa54",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Union\nimport math\nimport collections\nimport sys\n\ndef build_minimum_spanning_tree(n: int, edges: List[List[int]]) -> Union[Dict[str, Any], None]:\n    if n == 1:\n        return {\n            'mst_edges': [],\n            'statistics': {\n                'total_cost': 0,\n                'num_edges': 0,\n                'max_edge_weight': 0,\n                'min_edge_weight': 0,\n                'positive_cost_sum': 0,\n                'negative_cost_sum': 0,\n                'num_positive_edges': 0,\n                'num_negative_edges': 0,\n                'avg_edge_weight': 0,\n                'edge_weight_range': 0,\n                'second_best_total_cost': None,\n                'min_swap_delta': None,\n                'max_swap_delta': None,\n                'bridges_count': 0,\n                'edge_weight_median': 0,\n                'cost_stddev': 0.00\n            }\n        }\n    # Preprocess: ignore self-loops, keep minimum weight for duplicates (undirected)\n    edge_map = {}\n    for u, v, w in edges:\n        if u == v: \n            continue\n        a, b = (u, v) if u < v else (v, u)\n        key = (a, b)\n        if key not in edge_map or w < edge_map[key]:\n            edge_map[key] = w\n    # Build list\n    edge_list = [(u, v, w) for (u, v), w in edge_map.items()]\n    # If not enough edges to connect\n    if len(edge_list) < n - 1:\n        return None\n    # DSU\n    parent = list(range(n))\n    rank = [0]*n\n    def find(x):\n        while parent[x]!=x:\n            parent[x]=parent[parent[x]]\n            x=parent[x]\n        return x\n    def union(x,y):\n        rx, ry = find(x), find(y)\n        if rx==ry: return False\n        if rank[rx]<rank[ry]:\n            parent[rx]=ry\n        else:\n            parent[ry]=rx\n            if rank[rx]==rank[ry]:\n                rank[rx]+=1\n        return True\n    # Kruskal but need deterministic tie-breaking to get lexicographically smallest MST when multiple equal-cost MSTs.\n    # Sort edges by (weight, u, v)\n    edge_list.sort(key=lambda e: (e[2], e[0], e[1]))\n    mst_edges = []\n    mst_set = set()\n    total_cost = 0\n    for u,v,w in edge_list:\n        if union(u,v):\n            mst_edges.append((u,v,w))\n            mst_set.add((u,v))\n            total_cost += w\n            if len(mst_edges) == n-1:\n                break\n    if len(mst_edges) != n-1:\n        return None\n    # Build adjacency for MST\n    mst_adj = [[] for _ in range(n)]\n    for u,v,w in mst_edges:\n        mst_adj[u].append((v,w))\n        mst_adj[v].append((u,w))\n    # stats basic\n    weights = [w for _,_,w in mst_edges]\n    max_w = max(weights) if weights else 0\n    min_w = min(weights) if weights else 0\n    pos_sum = sum(w for w in weights if w>0)\n    neg_sum = sum(w for w in weights if w<0)\n    num_pos = sum(1 for w in weights if w>0)\n    num_neg = sum(1 for w in weights if w<0)\n    num_edges = len(weights)\n    avg = round(total_cost / num_edges) if num_edges>0 else 0\n    w_range = max_w - min_w if num_edges>0 else 0\n    # median\n    sorted_w = sorted(weights)\n    if num_edges==0:\n        median = 0\n    elif num_edges%2==1:\n        median = sorted_w[num_edges//2]\n    else:\n        median = round((sorted_w[num_edges//2 -1] + sorted_w[num_edges//2])/2)\n    # stddev population\n    if num_edges==0:\n        stddev = 0.00\n    else:\n        mean = total_cost/num_edges\n        var = sum((wi-mean)**2 for wi in weights)/num_edges\n        stddev = round(math.sqrt(var)+1e-12,2)\n    # Bridges count in original graph\n    # Build adjacency from edge_map\n    adj = [[] for _ in range(n)]\n    for (u,v),w in edge_map.items():\n        adj[u].append(v)\n        adj[v].append(u)\n    # If original graph disconnected then return None per spec\n    # Need to check connectivity of original graph: all nodes must be reachable via edges (not necessarily)\n    # The problem says if graph has multiple components return None.\n    visited = [False]*n\n    stack=[0]\n    visited[0]=True\n    while stack:\n        x=stack.pop()\n        for y in adj[x]:\n            if not visited[y]:\n                visited[y]=True\n                stack.append(y)\n    if not all(visited):\n        return None\n    sys.setrecursionlimit(max(10000, n+10))\n    time = 0\n    tin = [-1]*n\n    low = [-1]*n\n    bridges = []\n    def dfs(u, p):\n        nonlocal time\n        tin[u]=low[u]=time; time+=1\n        for v in adj[u]:\n            if v==p: continue\n            if tin[v]!=-1:\n                low[u]=min(low[u], tin[v])\n            else:\n                dfs(v, u)\n                low[u]=min(low[u], low[v])\n                if low[v]>tin[u]:\n                    a,b = (u,v) if u<v else (v,u)\n                    bridges.append((a,b))\n    for i in range(n):\n        if tin[i]==-1:\n            dfs(i, -1)\n    bridges_count = len(bridges)\n    # For swap deltas: for each non-MST edge, adding it creates cycle; remove heaviest edge on that cycle (if multiple, remove edge with highest weight; if tie choose lexicographically largest edge? spec says remove the heaviest edge)\n    # Need LCA or for simplicity since n<=10000 and edges maybe large, we'll preprocess parent and max edge to ancestor via binary lifting\n    LOG = (n-1).bit_length()+1\n    up = [[-1]*n for _ in range(LOG)]\n    maxw = [[-10**18]*n for _ in range(LOG)]\n    depth = [0]*n\n    def dfs2(u,p):\n        for v,w in mst_adj[u]:\n            if v==p: continue\n            depth[v]=depth[u]+1\n            up[0][v]=u\n            maxw[0][v]=w\n            dfs2(v,u)\n    # root at 0\n    up[0][0]=-1\n    maxw[0][0]=-10**18\n    dfs2(0,-1)\n    for k in range(1,LOG):\n        for v in range(n):\n            if up[k-1][v]!=-1:\n                up[k][v]=up[k-1][up[k-1][v]]\n                maxw[k][v]=max(maxw[k-1][v], maxw[k-1][up[k-1][v]])\n            else:\n                up[k][v]=-1\n                maxw[k][v]=maxw[k-1][v]\n    def query_max(u,v):\n        if u==v: return -10**18\n        if depth[u]<depth[v]:\n            u,v=v,u\n        diff = depth[u]-depth[v]\n        res = -10**18\n        k=0\n        while diff:\n            if diff&1:\n                res = max(res, maxw[k][u])\n                u = up[k][u]\n            diff >>=1; k+=1\n        if u==v: return res\n        for k in range(LOG-1,-1,-1):\n            if up[k][u]!=-1 and up[k][u]!=up[k][v]:\n                res = max(res, maxw[k][u], maxw[k][v])\n                u=up[k][u]; v=up[k][v]\n        res = max(res, maxw[0][u], maxw[0][v])\n        return res\n    # Build set of MST edges for quick check using pair\n    mst_pairs = set((u,v) for u,v,w in mst_edges)\n    swap_deltas = []\n    second_best = None\n    for (u,v), w in edge_map.items():\n        if (u,v) in mst_pairs:\n            continue\n        # find max on path u-v in MST\n        mx = query_max(u,v)\n        # if mx is -inf something wrong\n        delta = w - mx\n        if delta>0:\n            swap_deltas.append(delta)\n            new_cost = total_cost + delta\n            if second_best is None or new_cost < second_best:\n                second_best = new_cost\n        elif delta==0:\n            # alternative MST with same cost; but spec wants second_best strictly greater\n            # do nothing\n            pass\n    if swap_deltas:\n        min_swap = min(swap_deltas)\n        max_swap = max(swap_deltas)\n    else:\n        min_swap = None\n        max_swap = None\n    # second_best_total_cost: if exist alternative spanning trees with greater cost, minimal among them -> we computed via single-edge swaps; however some alternatives may require multi-edge changes producing slightly larger cost but smaller than any 1-swap; but in MST theory, second-best MST can be found by checking all non-MST edges swapping heaviest on path -> this yields second best.\n    second_best_total_cost = second_best\n    # Prepare mst_edges lexicographically sorted as [u,v] with u<v\n    out_edges = [[u,v] for u,v,w in mst_edges]\n    out_edges = [ [u,v] if u<v else [v,u] for u,v in out_edges ]\n    out_edges.sort(key=lambda x: (x[0], x[1]))\n    result = {\n        'mst_edges': out_edges,\n        'statistics': {\n            'total_cost': total_cost,\n            'num_edges': num_edges,\n            'max_edge_weight': max_w,\n            'min_edge_weight': min_w,\n            'positive_cost_sum': pos_sum,\n            'negative_cost_sum': neg_sum,\n            'num_positive_edges': num_pos,\n            'num_negative_edges': num_neg,\n            'avg_edge_weight': avg,\n            'edge_weight_range': w_range,\n            'second_best_total_cost': second_best_total_cost,\n            'min_swap_delta': min_swap,\n            'max_swap_delta': max_swap,\n            'bridges_count': bridges_count,\n            'edge_weight_median': median,\n            'cost_stddev': stddev\n        }\n    }\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2181,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2397,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4578
+  },
+  "user": null,
+  "metadata": {}
+}

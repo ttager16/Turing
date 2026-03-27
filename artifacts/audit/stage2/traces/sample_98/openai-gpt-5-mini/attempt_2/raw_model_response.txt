@@ -1,0 +1,177 @@
+from typing import List
+from array import array
+
+def max_synergy_path(matrix: List[List[int]], water_costs: List[List[int]], budget: int) -> int:
+    R = len(matrix)
+    if R == 0:
+        return 0
+    C = len(matrix[0])
+    N = R * C
+    # Buckets for fertility 0..10000
+    MAXF = 10000
+    buckets = [[] for _ in range(MAXF + 1)]
+    for r in range(R):
+        row = matrix[r]
+        for c in range(C):
+            f = row[c]
+            buckets[f].append((r, c))
+    # storage arrays per cell index = r*C + c
+    length = array('I', [0]) * N  # unsigned int
+    total_cost = array('I', [0]) * N
+    start_fert = array('I', [0]) * N
+    start_r = array('I', [0]) * N
+    start_c = array('I', [0]) * N
+    hash1 = array('Q', [0]) * N  # unsigned long long
+    hash2 = array('Q', [0]) * N
+    last_r = array('I', [0]) * N
+    last_c = array('I', [0]) * N
+
+    BASE1 = 911382323
+    BASE2 = 972663749
+    MASK64 = (1 << 64) - 1
+
+    # neighbor order Right, Left, Down, Up
+    neigh = [(0,1),(0,-1),(1,0),(-1,0)]
+
+    # initialize bests to zero-length (no path)
+    best_overall = (0, 0, 0, 0, 0, 0, 0, 0, 0)  # tuple matching stored fields for best final answer
+    # To compare states lexicographically per dominance rules we define helpers
+
+    def idx(r,c):
+        return r * C + c
+
+    def state_tuple_at(i):
+        return (length[i], total_cost[i], start_fert[i], start_r[i], start_c[i],
+                hash1[i], hash2[i], last_r[i], last_c[i])
+
+    # For dominance comparison: S dominates T if:
+    # L > L_T or (L==L_T and C < C_T) or (L==L_T and C==C_T and tie_tuple smaller)
+    def dominates(S, T):
+        # S and T are tuples as above
+        if S[0] > T[0]:
+            return True
+        if S[0] < T[0]:
+            return False
+        if S[1] < T[1]:
+            return True
+        if S[1] > T[1]:
+            return False
+        # compare remaining tuple lexicographically
+        tailS = (S[2], S[3], S[4], S[5], S[6], S[7], S[8])
+        tailT = (T[2], T[3], T[4], T[5], T[6], T[7], T[8])
+        return tailS < tailT
+
+    # Iterate fertilities nondecreasing
+    for f in range(MAXF + 1):
+        bucket = buckets[f]
+        if not bucket:
+            continue
+        # process each cell in bucket in deterministic order: row-major
+        bucket.sort()  # sorts by (r,c)
+        for (r,c) in bucket:
+            i = idx(r,c)
+            w = water_costs[r][c]
+            # Candidate: start here as single-cell path, if within budget
+            if w <= budget:
+                h1 = ( (0 * BASE1) + (i + 1) ) & MASK64
+                h2 = ( (0 * BASE2) + (i + 1) ) & MASK64
+                cand = (1, w, f, r, c, h1, h2, r, c)
+                # compare with existing stored at i
+                cur = state_tuple_at(i)
+                if length[i] == 0:
+                    # no previous, accept
+                    length[i] = 1
+                    total_cost[i] = w
+                    start_fert[i] = f
+                    start_r[i] = r
+                    start_c[i] = c
+                    hash1[i] = h1
+                    hash2[i] = h2
+                    last_r[i] = r
+                    last_c[i] = c
+                else:
+                    # if cand dominates current, replace
+                    if dominates(cand, cur):
+                        length[i] = cand[0]
+                        total_cost[i] = cand[1]
+                        start_fert[i] = cand[2]
+                        start_r[i] = cand[3]
+                        start_c[i] = cand[4]
+                        hash1[i] = cand[5]
+                        hash2[i] = cand[6]
+                        last_r[i] = cand[7]
+                        last_c[i] = cand[8]
+            else:
+                # cannot start here; leave as zero-length unless improved from neighbors
+                pass
+            # Relax to neighbors with strictly greater fertility
+            for dr, dc in neigh:
+                nr = r + dr
+                nc = c + dc
+                if nr < 0 or nr >= R or nc < 0 or nc >= C:
+                    continue
+                if matrix[nr][nc] <= f:
+                    continue
+                j = idx(nr, nc)
+                # Only propagate if current cell has a feasible state
+                if length[i] == 0:
+                    continue
+                # build new candidate for neighbor j by extending i -> neighbor cell j
+                new_len = length[i] + 1
+                new_cost = total_cost[i] + water_costs[nr][nc]
+                if new_cost > budget:
+                    continue
+                new_start_fert = start_fert[i]
+                new_start_r = start_r[i]
+                new_start_c = start_c[i]
+                # update hash by appending j
+                new_h1 = ( (hash1[i] * BASE1) + (j + 1) ) & MASK64
+                new_h2 = ( (hash2[i] * BASE2) + (j + 1) ) & MASK64
+                new_last_r = nr
+                new_last_c = nc
+                cand = (new_len, new_cost, new_start_fert, new_start_r, new_start_c,
+                        new_h1, new_h2, new_last_r, new_last_c)
+                cur = state_tuple_at(j)
+                if length[j] == 0:
+                    # accept
+                    length[j] = cand[0]
+                    total_cost[j] = cand[1]
+                    start_fert[j] = cand[2]
+                    start_r[j] = cand[3]
+                    start_c[j] = cand[4]
+                    hash1[j] = cand[5]
+                    hash2[j] = cand[6]
+                    last_r[j] = cand[7]
+                    last_c[j] = cand[8]
+                else:
+                    if dominates(cand, cur):
+                        length[j] = cand[0]
+                        total_cost[j] = cand[1]
+                        start_fert[j] = cand[2]
+                        start_r[j] = cand[3]
+                        start_c[j] = cand[4]
+                        hash1[j] = cand[5]
+                        hash2[j] = cand[6]
+                        last_r[j] = cand[7]
+                        last_c[j] = cand[8]
+        # end bucket
+    # After processing all, select best feasible state among all cells by same dominance criteria,
+    # but only considering states with length>0 (feasible w.r.t budget)
+    best = None
+    for i in range(N):
+        if length[i] == 0:
+            continue
+        S = state_tuple_at(i)
+        # For final selection, dominance same as per definition; choose best S
+        if best is None or dominates(S, best):
+            best = S
+        elif S[0] == best[0] and S[1] == best[1]:
+            # if equal length and cost, need tie-breakers per problem statement:
+            # 2) starting cell lowest fertility (already in tuple), then start_r,start_c, then (h1,h2), then ending cell
+            tailS = (S[2], S[3], S[4], S[5], S[6], S[7], S[8])
+            tailB = (best[2], best[3], best[4], best[5], best[6], best[7], best[8])
+            if tailS < tailB:
+                best = S
+    if best is None:
+        return 0
+    return int(best[0])

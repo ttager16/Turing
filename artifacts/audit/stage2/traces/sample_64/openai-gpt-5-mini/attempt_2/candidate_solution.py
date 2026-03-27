@@ -1,0 +1,185 @@
+def optimize_city_layout(zones: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    # Disjoint set (union-find)
+    n = len(zones)
+    id_to_index = {z['id']: i for i, z in enumerate(zones)}
+    parent = list(range(n))
+    rank = [0]*n
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def union(i, j):
+        ri, rj = find(i), find(j)
+        if ri == rj:
+            return False
+        if rank[ri] < rank[rj]:
+            parent[ri] = rj
+        else:
+            parent[rj] = ri
+            if rank[ri] == rank[rj]:
+                rank[ri] += 1
+        return True
+
+    # Compute axis-aligned bounding boxes
+    bboxes: List[Tuple[float,float,float,float]] = []
+    for z in zones:
+        coords = z.get('coordinates', [])
+        if not coords:
+            bboxes.append((0.0,0.0,0.0,0.0))
+            continue
+        xs = [c[0] for c in coords]
+        ys = [c[1] for c in coords]
+        xmin, xmax = min(xs), max(xs)
+        ymin, ymax = min(ys), max(ys)
+        bboxes.append((xmin, ymin, xmax, ymax))
+
+    # Helper: bbox intersection (non-empty)
+    def bbox_intersect(a, b):
+        ax0, ay0, ax1, ay1 = a
+        bx0, by0, bx1, by1 = b
+        return not (ax1 < bx0 or bx1 < ax0 or ay1 < by0 or by1 < ay0)
+
+    # Resource compatibility: currently only water has global threshold check.
+    # If zones have per-zone max_water_capacity, merging must keep total <= min of provided maxes? 
+    # Spec: "If any zone has max_water_capacity and the sum exceeds it, those zones should not have been unioned"
+    # Interpret as: if any zone provides max_water_capacity, then merged sum must be <= that zone's max; to be conservative, require sum <= min(max_water_capacity among the pair if present).
+    def water_compatible(i, j):
+        zi = zones[i].get('resources', {}).get('water', {})
+        zj = zones[j].get('resources', {}).get('water', {})
+        cap_i = zi.get('capacity', 0)
+        cap_j = zj.get('capacity', 0)
+        total = (cap_i or 0) + (cap_j or 0)
+        # collect any max constraints from either zone
+        max_i = zones[i].get('resources', {}).get('max_water_capacity', None)
+        max_j = zones[j].get('resources', {}).get('max_water_capacity', None)
+        # If both None, compare to global threshold
+        # Define global threshold
+        MAX_WATER_CAPACITY = 1000000  # large default; can be tuned
+        # If either provides max, use min of provided as constraint
+        if max_i is not None or max_j is not None:
+            constraints = [v for v in (max_i, max_j) if v is not None]
+            limit = min(constraints) if constraints else MAX_WATER_CAPACITY
+        else:
+            limit = MAX_WATER_CAPACITY
+        return total <= limit
+
+    # For general compatibility: if water resource exists in either zone, require water_compatible.
+    def resources_compatible(i, j):
+        ri = zones[i].get('resources', {})
+        rj = zones[j].get('resources', {})
+        # Check water compatibility if any has water
+        if 'water' in ri or 'water' in rj:
+            if not water_compatible(i, j):
+                return False
+        # roads have optional max_density per input; if present, ensure sum densities <= min(max_density) if provided
+        if 'roads' in ri or 'roads' in rj:
+            di = ri.get('roads', {}).get('density', 0) or 0
+            dj = rj.get('roads', {}).get('density', 0) or 0
+            total_d = di + dj
+            max_i = ri.get('roads', {}).get('max_density', None)
+            max_j = rj.get('roads', {}).get('max_density', None)
+            if max_i is not None or max_j is not None:
+                constraints = [v for v in (max_i, max_j) if v is not None]
+                limit = min(constraints) if constraints else None
+                if limit is not None and total_d > limit:
+                    return False
+        # Other resources: assume compatible
+        return True
+
+    # Phase 1 & 2: find adjacency pairs and union if compatible
+    # Using simple O(n^2) check (n <= 2000)
+    for i in range(n):
+        for j in range(i+1, n):
+            if bbox_intersect(bboxes[i], bboxes[j]):
+                if resources_compatible(i, j):
+                    union(i, j)
+
+    # Phase 3: aggregate per set
+    groups: Dict[int, List[int]] = {}
+    for i in range(n):
+        r = find(i)
+        groups.setdefault(r, []).append(i)
+
+    merged = []
+    for leader in sorted(groups.keys(), key=lambda x: min(zones[i]['id'] for i in groups[x])):
+        members = groups[leader]
+        # sort members by original zone id ascending for deterministic concatenation
+        members_sorted = sorted(members, key=lambda i: zones[i]['id'])
+        ids = [zones[i]['id'] for i in members_sorted]
+        count = len(ids)
+        new_id = min(ids) * 100 + count
+        types = [zones[i].get('type') for i in members_sorted]
+        merged_type = types[0] if all(t == types[0] for t in types) else 'mixed'
+        # coordinates concatenation in ascending original id order
+        coords = []
+        for i in members_sorted:
+            coords.extend(zones[i].get('coordinates', []))
+        # resources aggregation
+        agg_resources: Dict[str, Any] = {}
+        # collect all resource keys present
+        resource_keys = []
+        for i in members_sorted:
+            resource_keys.extend(list(zones[i].get('resources', {}).keys()))
+        resource_keys = sorted(set(resource_keys))
+        for key in resource_keys:
+            if key == 'water':
+                total_cap = 0
+                routes = []
+                for i in members_sorted:
+                    w = zones[i].get('resources', {}).get('water', {})
+                    total_cap += w.get('capacity', 0) or 0
+                    rts = w.get('routes', [])
+                    if rts:
+                        routes.extend(rts)
+                agg_resources['water'] = {'capacity': total_cap, 'routes': routes}
+                # If any zone had max_water_capacity, preserve min as metadata? Spec doesn't require storing it.
+            elif key == 'roads':
+                total_density = 0
+                connections = []
+                for i in members_sorted:
+                    rd = zones[i].get('resources', {}).get('roads', {})
+                    total_density += rd.get('density', 0) or 0
+                    conns = rd.get('connections', [])
+                    if conns:
+                        connections.extend(conns)
+                agg_resources['roads'] = {'density': total_density, 'connections': connections}
+            else:
+                # conservative aggregation: numeric sum, lists concat, others -> list of values
+                vals = [zones[i].get('resources', {}).get(key) for i in members_sorted]
+                # detect numeric
+                numeric = True
+                list_like = True
+                for v in vals:
+                    if isinstance(v, (int, float)):
+                        list_like = False
+                    elif isinstance(v, list):
+                        numeric = False
+                    else:
+                        numeric = False
+                        list_like = False
+                if numeric:
+                    agg_resources[key] = sum((v or 0) for v in vals)
+                elif list_like:
+                    out = []
+                    for v in vals:
+                        if v:
+                            out.extend(v)
+                    agg_resources[key] = out
+                else:
+                    agg_resources[key] = vals
+        merged.append({
+            'id': new_id,
+            'type': merged_type,
+            'coordinates': coords,
+            'resources': agg_resources
+        })
+
+    # Deterministic ordering: sort by id ascending
+    merged.sort(key=lambda z: z['id'])
+    return merged
+
+# Note: For higher fidelity spatial queries, integrate an R-tree (e.g., rtree library) to index bounding boxes
+# and replace the O(n^2) adjacency loop. For true polygon unions use libraries like shapely.

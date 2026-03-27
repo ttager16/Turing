@@ -1,0 +1,76 @@
+{
+  "id": "resp_000874aa773d86f90069c31a7fb80c81929756b8f09df4cb79",
+  "object": "response",
+  "created_at": 1774393983,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774394002,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_000874aa773d86f90069c31a8038c481929dfbdd6830e3c3d7",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_000874aa773d86f90069c31a80786481928f27d6a5f85f360e",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\nimport math\nfrom collections import defaultdict, deque\n\ndef maximize_station_spacing(locations: List[List[int]],\n                             tiers: List[int],\n                             bridges: List[List[int]],\n                             R: int,\n                             k: int) -> float:\n    # Union-find for tier connectivity\n    max_tier = max(tiers) if tiers else -1\n    parent = {}\n    def find(a):\n        parent.setdefault(a, a)\n        while parent[a] != a:\n            parent[a] = parent[parent[a]]\n            a = parent[a]\n        return a\n    def union(a,b):\n        ra, rb = find(a), find(b)\n        if ra!=rb:\n            parent[rb]=ra\n    for a,b in bridges:\n        union(a,b)\n    # map each point's tier component\n    tier_comp = [find(t) if t in parent or bridges else t for t in tiers]\n    # build movement graph components using spatial grid to limit edges (distance <= R)\n    n = len(locations)\n    if k > n:\n        return -1.0\n    # grid cell size R\n    cell_size = R\n    grid = defaultdict(list)\n    for i,(x,y) in enumerate(locations):\n        gx = x//cell_size\n        gy = y//cell_size\n        grid[(gx,gy)].append(i)\n    adj = [[] for _ in range(n)]\n    R2 = R*R\n    for i,(x,y) in enumerate(locations):\n        gx = x//cell_size\n        gy = y//cell_size\n        for dx in (-1,0,1):\n            for dy in (-1,0,1):\n                for j in grid.get((gx+dx, gy+dy), []):\n                    if j<=i: continue\n                    if tier_comp[i] != tier_comp[j]:\n                        continue\n                    dx0 = x - locations[j][0]\n                    dy0 = y - locations[j][1]\n                    if dx0*dx0 + dy0*dy0 <= R2:\n                        adj[i].append(j)\n                        adj[j].append(i)\n    # find connected components\n    comp_id = [-1]*n\n    comps = []\n    cid = 0\n    for i in range(n):\n        if comp_id[i]!=-1: continue\n        # BFS\n        q = [i]\n        comp_id[i]=cid\n        for u in q:\n            for v in adj[u]:\n                if comp_id[v]==-1:\n                    comp_id[v]=cid\n                    q.append(v)\n        comps.append(q)\n        cid+=1\n    # we need exactly k from a single component; consider components with size>=k\n    candidate_components = [comp for comp in comps if len(comp)>=k]\n    if not candidate_components:\n        return -1.0\n    # helper to test if in component we can pick k points with pairwise >= D using greedy with spatial hashing\n    def feasible_in_comp(comp, D):\n        D2 = D*D\n        # sort points arbitrarily (e.g., by x)\n        pts = [(locations[i][0], locations[i][1], i) for i in comp]\n        pts.sort()\n        cell = max(1e-9, D)  # cell size D\n        grid2 = {}\n        chosen = 0\n        for x,y,i in pts:\n            gx = int(math.floor(x/cell))\n            gy = int(math.floor(y/cell))\n            ok = True\n            for dx in (-1,0,1):\n                for dy in (-1,0,1):\n                    key = (gx+dx, gy+dy)\n                    if key in grid2:\n                        for jx,jy in grid2[key]:\n                            dx0 = x-jx\n                            dy0 = y-jy\n                            if dx0*dx0 + dy0*dy0 < D2 - 1e-9:\n                                ok = False\n                                break\n                        if not ok:\n                            break\n                if not ok:\n                    break\n            if ok:\n                grid2.setdefault((gx,gy), []).append((x,y))\n                chosen += 1\n                if chosen>=k:\n                    return True\n        return False\n\n    import math\n    # binary search D between 0 and max possible distance (use bounding box)\n    xs = [p[0] for p in locations]\n    ys = [p[1] for p in locations]\n    minx, maxx = min(xs), max(xs)\n    miny, maxy = min(ys), max(ys)\n    hi = math.hypot(maxx-minx, maxy-miny)\n    lo = 0.0\n    # check initial feasibility quickly: if any component can pick k with D=0\n    possible = False\n    for comp in candidate_components:\n        if len(comp) >= k:\n            possible = True\n            break\n    if not possible:\n        return -1.0\n    # binary search with tolerance\n    for _ in range(40):\n        mid = (lo+hi)/2\n        ok_any = False\n        for comp in candidate_components:\n            if feasible_in_comp(comp, mid):\n                ok_any = True\n                break\n        if ok_any:\n            lo = mid\n        else:\n            hi = mid\n    return lo"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1100,
+    "input_tokens_details": {
+      "cached_tokens": 1024
+    },
+    "output_tokens": 1143,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2243
+  },
+  "user": null,
+  "metadata": {}
+}

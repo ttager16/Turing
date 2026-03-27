@@ -1,0 +1,76 @@
+{
+  "id": "resp_0ffef40c539e555a0069c323488f6c81a3ae927f99662dabd9",
+  "object": "response",
+  "created_at": 1774396232,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774396268,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0ffef40c539e555a0069c32349521881a38c1a2a9089c4dd02",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0ffef40c539e555a0069c32349929081a3b23fa1cf7a4b8174",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Tuple, Dict, Union, Set, Optional\nfrom collections import defaultdict, deque\nimport heapq\nimport math\n\nclass VehicleEntry(dict):\n    pass\n\ndef optimize_fleet_scheduling(\n    cities: List[List[Union[str, int, int]]],\n    vehicles: List[List[Union[int, int]]],\n    traffic_data: Dict[str, int],\n    demands: Optional[Dict[str, int]] = None,\n    hub_capacity: Optional[Dict[str, int]] = None,\n    updates: Optional[List[List[Union[str, Optional[int]]]]] = None,\n    phases: Optional[List[Dict[str, int]]] = None\n) -> Dict[str, VehicleEntry]:\n    # Normalize inputs\n    city_windows: Dict[str, Tuple[int,int]] = {}\n    city_list = []\n    for name, s, e in cities:\n        city_list.append(name)\n        city_windows[name] = (int(s*60), int(e*60))  # hours->minutes\n    # Apply updates deterministically: removals before additions/changes, order by key\n    if updates:\n        # group by key, process None removals first\n        updates_sorted = sorted(updates, key=lambda x: (x[0], 0 if x[1] is None else 1))\n        for key, val in updates_sorted:\n            if val is None:\n                traffic_data.pop(key, None)\n            else:\n                traffic_data[key] = int(val)\n    # Build directed graph adjacency\n    adj = defaultdict(list)\n    for k,v in traffic_data.items():\n        if '-' in k:\n            a,b = k.split('-',1)\n            if isinstance(v,int) and v>=0:\n                adj[a].append((b,int(v)))\n    # Helper: shortest path times and parents using Dijkstra\n    def dijkstra(src):\n        dist = {src:0}\n        prev = {}\n        h = [(0,src)]\n        while h:\n            d,u = heapq.heappop(h)\n            if d!=dist[u]: continue\n            for v,w in adj.get(u,[]):\n                nd = d + w\n                if v not in dist or nd < dist[v]:\n                    dist[v]=nd\n                    prev[v]=u\n                    heapq.heappush(h,(nd,v))\n        return dist, prev\n    # reconstruct path\n    def path_from(prev, src, dst):\n        if dst==src: return [src]\n        if dst not in prev and dst!=src: \n            return None\n        cur=dst\n        p=[cur]\n        while cur!=src:\n            cur=prev.get(cur)\n            if cur is None:\n                return None\n            p.append(cur)\n        return list(reversed(p))\n    # fuel cost formula\n    def fuel_cost(minutes, capacity):\n        if minutes<=0: return 0\n        base_rate=0.1\n        eff = 1 + capacity/200.0\n        cost = base_rate * minutes * eff\n        c = int(cost)  # truncation\n        if c<1: c=1\n        return c\n    # Candidate routes per vehicle: single-city stays + shortest paths between ordered pairs\n    # Precompute all-pairs shortest paths for cities present\n    all_prev = {}\n    all_dist = {}\n    for c in city_list:\n        d,p = dijkstra(c)\n        all_dist[c]=d\n        all_prev[c]=p\n    # Build candidate list per vehicle (same for all, capacity only affects scoring)\n    candidate_routes = {}\n    # Candidate routes are limited to single-city stay and shortest paths between ordered city pairs where reachable\n    routes = []\n    for src in city_list:\n        # single stay\n        routes.append([src])\n        for dst in city_list:\n            if src==dst: continue\n            if dst in all_dist[src]:\n                p = path_from(all_prev[src], src, dst)\n                if p:\n                    routes.append(p)\n    # deduplicate\n    uniq = []\n    seen = set()\n    for r in routes:\n        key = tuple(r)\n        if key not in seen:\n            seen.add(key)\n            uniq.append(r)\n    routes = uniq\n    # scoring function per vehicle\n    def route_value(route, capacity):\n        # number_of_cities_visited counts unique cities visited\n        num = len(route)\n        # travel time sum along path edges\n        tt = 0\n        for i in range(len(route)-1):\n            a,b = route[i], route[i+1]\n            # find edge time\n            found = None\n            for v,w in adj.get(a,[]):\n                if v==b:\n                    found=w; break\n            if found is None:\n                tt += 0\n            else:\n                tt += found\n        fc = fuel_cost(tt, capacity)\n        val = 10 * num - fc\n        return val, tt, fc\n    # Prepare vehicles sorted ascending by (capacity, id)\n    vehicles_sorted = sorted([(int(v[1]), int(v[0])) for v in vehicles], key=lambda x:(x[0], x[1]))\n    # limit candidates per vehicle to top 30 by value\n    def top_routes_for_capacity(cap):\n        scored = []\n        for r in routes:\n            val,tt,fc = route_value(r, cap)\n            scored.append(( -val, r, tt, fc, val))\n        scored.sort()\n        res=[]\n        for i,item in enumerate(scored[:30]):\n            _, r, tt, fc, val = item\n            res.append((r, tt, fc, val))\n        return res\n    # Decide DP vs greedy\n    small_instance = (len(city_list) <= 18 and len(vehicles_sorted) <= 12)\n    assigned = {}  # vehicleid -> (route, tt, fc)\n    used_cities = set()\n    # phases handling: if phases provided, vehicles keep first chosen route across phases; demands/hub_capacity allow multiple vehicles per city\n    vehicle_persistent = {}\n    # If small: DP over subset of cities per vehicle? We'll implement simplified DP: for each vehicle choose best route not conflicting with already chosen cities (unless demands or phases present)\n    if small_instance:\n        # brute force per vehicle order (capacity,id) choose best combination via DP across vehicles to maximize sum of route_values with conflict constraint (no city visited by more than one vehicle unless demands or phases)\n        n = len(vehicles_sorted)\n        cap_ids = vehicles_sorted\n        # precompute top candidates per vehicle\n        cand_list = []\n        for cap, vid in cap_ids:\n            cands = top_routes_for_capacity(cap)\n            # include empty route\n            cands = [ ([], 0, 0, 0) ] + cands\n            cand_list.append(cands)\n        # DP by iterative map of used_cities set bitmask is infeasible; instead backtracking with pruning\n        best_assign = {}\n        best_score = -10**9\n        def backtrack(i, used, score, assign):\n            nonlocal best_score, best_assign\n            if i==n:\n                if score>best_score:\n                    best_score=score\n                    best_assign=assign.copy()\n                return\n            cap, vid = cap_ids[i]\n            for r,tt,fc,val in cand_list[i]:\n                cities_in = set(r)\n                conflict = False\n                if (demands or phases or demands is not None):\n                    conflict = False\n                else:\n                    if used & set(cities_in):\n                        conflict = True\n                if conflict:\n                    continue\n                assign[vid]=(r,tt,fc,val)\n                backtrack(i+1, used | set(cities_in), score+val, assign)\n                assign.pop(vid,None)\n            # also option to assign none already covered by empty candidate\n        backtrack(0, set(), 0, {})\n        # fill assigned\n        for cap,vid in cap_ids:\n            if vid in best_assign:\n                r,tt,fc,_ = best_assign[vid]\n                assigned[vid]=(r,tt,fc)\n            else:\n                assigned[vid]=([],0,0)\n    else:\n        # greedy heuristic: process vehicles in ascending (capacity,id), pick highest-value non-overlapping candidate route; if none, empty\n        for cap, vid in vehicles_sorted:\n            cands = top_routes_for_capacity(cap)\n            chosen = None\n            for r,tt,fc,val in sorted(cands, key=lambda x:-x[3]):\n                cities_in = set(r)\n                if not (demands or phases or demands is not None):\n                    if used_cities & cities_in:\n                        continue\n                chosen = (r,tt,fc,val)\n                break\n            if chosen:\n                r,tt,fc,_ = chosen\n                assigned[vid]=(r,tt,fc)\n                if not (demands or phases or demands is not None):\n                    used_cities |= set(r)\n            else:\n                assigned[vid]=([],0,0)\n    # Build schedules: arrival times: initial arrival at max(0, start_window). For a route, starting city arrival is its window start or 0, but spec: initial arrival is max(0, start_window)\n    output: Dict[str, VehicleEntry] = {}\n    for cap, vid in vehicles_sorted:\n        r, tt, fc = assigned.get(vid, ([],0,0))\n        entry = VehicleEntry()\n        entry['Route']=r.copy()\n        entry['TravelTime']=int(tt)\n        entry['FuelCost']=int(fc)\n        # build schedule\n        sched = []\n        if not r:\n            entry['Schedule']=[]\n        else:\n            # start at first city's window start (in minutes) or 0\n            cur_time = max(0, city_windows.get(r[0], (0,0))[0])\n            sched.append([r[0], round(cur_time/60.0,2)])\n            for i in range(len(r)-1):\n                a,b = r[i], r[i+1]\n                edge_time = None\n                for v,w in adj.get(a,[]):\n                    if v==b:\n                        edge_time=w; break\n                if edge_time is None:\n                    edge_time = 0\n                cur_time += edge_time\n                # upon arrival may need to wait until window start\n                win = city_windows.get(b,(0,0))\n                arr = max(cur_time, win[0])\n                cur_time = arr\n                sched.append([b, round(cur_time/60.0,2)])\n        entry['Schedule']=sched\n        output[f\"Vehicle{vid}\"]=entry\n    # Ensure vehicles not in vehicles_sorted (shouldn't happen) are included as empty\n    existing = set(v for _,v in vehicles_sorted)\n    for v in vehicles:\n        vid = int(v[0])\n        if vid not in existing:\n            output[f\"Vehicle{vid}\"] = VehicleEntry({'Route':[],'TravelTime':0,'FuelCost':0,'Schedule':[]})\n    return output"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2024,
+    "input_tokens_details": {
+      "cached_tokens": 1920
+    },
+    "output_tokens": 2342,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4366
+  },
+  "user": null,
+  "metadata": {}
+}

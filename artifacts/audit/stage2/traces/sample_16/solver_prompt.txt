@@ -1,0 +1,60 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement:
+- A global aerospace agency is building an autonomous satellite control system to process real time telemetry data from multiple orbital satellites.
+- Each satellite transmits a stream of integer readings representing signal stability levels collected over time.
+- To ensure optimal downstream analysis, the agency wants to distribute these readings into exactly K telemetry channels, each of which must maintain:
+ - A strictly increasing pattern of stability levels (for smooth trend detection), and
+ - A minimum improvement gap D between consecutive readings (to ensure significant signal gain).
+- Every reading must be assigned to exactly one channel, and each channel must remain strictly increasing and satisfy the D gap rule.
+- The engineers want to maximize the signal diversity potential mathematically defined as the product of the lengths of all K channels.
+- Your task is to help them determine the maximum possible product of the lengths of these K strictly increasing telemetry sequences, each satisfying the minimum gap condition D.
+- If it is impossible to distribute all readings across K valid channels, return 0.
+
+#### Objective:
+- You are given an integer array nums and integers K and D.
+- Split all elements of nums into exactly K disjoint strictly increasing subsequences such that for every subsequence, the difference between consecutive elements is at least D (i.e., for any adjacent elements x, y in a subsequence, y - x >= D). Each element of nums must belong to exactly one subsequence.
+- Return the maximum possible product of the lengths of the K subsequences.
+- If it is impossible to partition nums into K subsequences that satisfy the constraints, return 0.
+- Subsequences must respect relative order from nums (i.e., each subsequence is formed by taking elements in the same order as they appear in nums), and they must be strictly increasing while also satisfying the D gap.
+
+#### Function Signature:
+```python
+def maxProductKIncreasing(nums: List[int], K: int, D: int) -> int:
+```
+
+#### Examples:
+```python
+Input: nums = [1, 3, 5, 2, 4, 6], K = 2, D = 1
+Output: 9
+Explanation:
+One optimal partition:
+ S1 = [1, 3, 5]  (length 3)
+ S2 = [2, 4, 6]  (length 3)
+Product = 3 * 3 = 9
+
+Input: nums = [1, 2, 3], K = 4, D = 1
+Output: 0
+Explanation: Impossible to split 3 elements into 4 non empty subsequences.
+```
+
+#### Constraints:
+- 1 <= nums.length <= 200
+- 1 <= K <= min(10, nums.length)
+- 0 <= D <= 10^4
+- -10^4 <= nums[i] <= 10^4
+
+Starter Code:
+```python
+from typing import List
+from collections import deque
+
+def maxProductKIncreasing(nums: List[int], K: int, D: int) -> int:
+```

@@ -1,0 +1,339 @@
+def main(num_variables: int, clauses: List[List[int]], compute_backbone: bool,
+         query_literals_for_closure: List[int], identify_equivalence_classes: bool,
+         identify_opposition_classes: bool, extract_conflict_core: bool,
+         compute_scc_outdegrees: bool, max_backbone_tests: int) -> dict:
+
+    # Validation
+    if not (20 <= num_variables <= 350):
+        return {"error": "Number of variables must be between 20 and 350 inclusive"}
+    if not (15 <= len(clauses) <= 1200):
+        return {"error": "Number of clauses must be between 15 and 1200 inclusive"}
+    seen_clauses = set()
+    vars_in_clauses = set()
+    for c in clauses:
+        if not (isinstance(c, list) and len(c) == 2 and isinstance(c[0], int) and isinstance(c[1], int)):
+            return {"error": "Each clause must contain exactly 2 distinct integers representing literals"}
+        a, b = c
+        if a == 0 or b == 0 or not (1 <= abs(a) <= num_variables) or not (1 <= abs(b) <= num_variables):
+            return {"error": "Each literal must be non-zero with absolute value between 1 and num_variables inclusive"}
+        if a == b:
+            return {"error": "Each clause must contain exactly 2 distinct integers representing literals"}
+        if a == -b:
+            return {"error": "Clause cannot contain both x and -x for any variable x"}
+        tpl = (a, b)
+        if tpl in seen_clauses:
+            return {"error": "No two clauses in the input can be identical"}
+        seen_clauses.add(tpl)
+        vars_in_clauses.add(abs(a)); vars_in_clauses.add(abs(b))
+    if len(vars_in_clauses) < 12:
+        return {"error": "At least 12 distinct variables must appear across all clauses"}
+    if not (0 <= len(query_literals_for_closure) <= 10):
+        return {"error": "Query literals list length must be between 0 and 10 inclusive"}
+    qset = set()
+    for q in query_literals_for_closure:
+        if q == 0 or not (1 <= abs(q) <= num_variables):
+            return {"error": "Each query literal must have absolute value between 1 and num_variables inclusive"}
+        if q in qset:
+            return {"error": "Query literals must not contain duplicates"}
+        if -q in qset:
+            return {"error": "Query literals must not contain both x and -x for any variable x"}
+        qset.add(q)
+    if not (0 <= max_backbone_tests <= num_variables):
+        return {"error": "Maximum backbone tests must be between 0 and num_variables inclusive"}
+    if compute_backbone and max_backbone_tests < 1:
+        return {"error": "When compute_backbone is true, max_backbone_tests must be at least 1"}
+
+    # Helpers for indexing literals to nodes: map literal L to node index
+    # positive literal x -> index 2*(x-1); negative -x -> index 2*(x-1)+1
+    def lit_to_node(lit: int) -> int:
+        v = abs(lit)
+        base = 2 * (v - 1)
+        return base if lit > 0 else base + 1
+
+    def node_to_lit(node: int) -> int:
+        var = node // 2 + 1
+        return var if node % 2 == 0 else -var
+
+    total_nodes = 2 * num_variables
+
+    # Build implication graph
+    def build_graph(clauses_list: List[Tuple[int,int]]):
+        g = [[] for _ in range(total_nodes)]
+        gt = [[] for _ in range(total_nodes)]
+        edge_to_clause = dict()  # (u,v) -> clause index (first occurrence)
+        for idx, (a, b) in enumerate(clauses_list):
+            na = lit_to_node(-a)
+            bnode = lit_to_node(b)
+            g[na].append(bnode)
+            gt[bnode].append(na)
+            edge_to_clause[(na, bnode)] = idx
+
+            nb = lit_to_node(-b)
+            anode = lit_to_node(a)
+            g[nb].append(anode)
+            gt[anode].append(nb)
+            edge_to_clause[(nb, anode)] = idx
+        return g, gt, edge_to_clause
+
+    clauses_tuples = [tuple(c) for c in clauses]
+    graph, graph_t, edge_to_clause = build_graph(clauses_tuples)
+
+    # Kosaraju
+    visited = [False]*total_nodes
+    order = []
+
+    def dfs1(u):
+        visited[u] = True
+        for v in graph[u]:
+            if not visited[v]:
+                dfs1(v)
+        order.append(u)
+
+    for i in range(total_nodes):
+        if not visited[i]:
+            dfs1(i)
+
+    comp = [-1]*total_nodes
+    cur_comp = 0
+
+    def dfs2(u, cid):
+        comp[u] = cid
+        for v in graph_t[u]:
+            if comp[v] == -1:
+                dfs2(v, cid)
+
+    for u in reversed(order):
+        if comp[u] == -1:
+            dfs2(u, cur_comp)
+            cur_comp += 1
+
+    num_sccs = cur_comp
+    scc_sizes = [0]*num_sccs
+    for cidx in comp:
+        scc_sizes[cidx] += 1
+    largest_scc = max(scc_sizes) if scc_sizes else 0
+    average_scc = round(sum(scc_sizes)/len(scc_sizes), 2) if scc_sizes else 0.0
+
+    # Check satisfiable
+    conflicting_vars = []
+    for var in range(1, num_variables+1):
+        p = comp[lit_to_node(var)]
+        n = comp[lit_to_node(-var)]
+        if p == n:
+            conflicting_vars.append(var)
+    satisfiable = (len(conflicting_vars) == 0)
+
+    # scc_indices mapping
+    scc_indices = {}
+    for node in range(total_nodes):
+        lit = node_to_lit(node)
+        scc_indices[str(lit)] = comp[node]
+
+    # Assignment if satisfiable using rule: if comp[pos] > comp[neg] -> true
+    assignment = []
+    if satisfiable:
+        for var in range(1, num_variables+1):
+            p = comp[lit_to_node(var)]
+            n = comp[lit_to_node(-var)]
+            if p > n:
+                assignment.append(var)
+            else:
+                assignment.append(-var)
+    else:
+        assignment = []
+
+    # Compute backbone
+    backbone_literals = []
+    if compute_backbone and satisfiable:
+        # initial assignment mapping
+        assigned = {var: (assignment[var-1] > 0) for var in range(1, num_variables+1)}
+        tested = 0
+        for var in range(1, num_variables+1):
+            if tested >= max_backbone_tests:
+                break
+            # try flipping var: add unit clause forcing opposite value
+            forced_lit = -var if assigned[var] else var
+            # build augmented clauses
+            augmented = clauses_tuples + [(forced_lit, forced_lit)]
+            g2, gt2, _ = build_graph(augmented)
+            # run kosaraju on g2
+            visited2 = [False]*total_nodes
+            order2 = []
+            def dfs1b(u):
+                visited2[u] = True
+                for v in g2[u]:
+                    if not visited2[v]:
+                        dfs1b(v)
+                order2.append(u)
+            for i in range(total_nodes):
+                if not visited2[i]:
+                    dfs1b(i)
+            comp2 = [-1]*total_nodes
+            cid = 0
+            def dfs2b(u, idd):
+                comp2[u] = idd
+                for v in gt2[u]:
+                    if comp2[v] == -1:
+                        dfs2b(v, idd)
+            for u in reversed(order2):
+                if comp2[u] == -1:
+                    dfs2b(u, cid)
+                    cid += 1
+            conflict = False
+            for v in range(1, num_variables+1):
+                if comp2[lit_to_node(v)] == comp2[lit_to_node(-v)]:
+                    conflict = True
+                    break
+            if conflict:
+                # forced literal is opposite of forced_lit (since forced_lit caused contradiction), so original assignment literal is backbone
+                original_lit = var if assigned[var] else -var
+                backbone_literals.append(original_lit)
+            tested += 1
+        backbone_literals.sort(key=lambda x: (abs(x), x<0))
+    else:
+        backbone_literals = []
+
+    backbone_size = len(backbone_literals)
+
+    # Implication closures
+    implication_closures = {}
+    if query_literals_for_closure:
+        for q in query_literals_for_closure:
+            start = lit_to_node(q)
+            stack = [start]
+            vis = [False]*total_nodes
+            vis[start] = True
+            res = []
+            while stack:
+                u = stack.pop()
+                res.append(node_to_lit(u))
+                for v in graph[u]:
+                    if not vis[v]:
+                        vis[v] = True
+                        stack.append(v)
+            # sort by abs, negative before positive for same var
+            res_sorted = sorted(set(res), key=lambda lit: (abs(lit), 0 if lit<0 else 1))
+            implication_closures[str(q)] = res_sorted
+    else:
+        implication_closures = {}
+
+    # Equivalence classes: variables whose pos and pos of other are in same SCC
+    equivalence_classes = []
+    if identify_equivalence_classes and satisfiable:
+        comp_to_posvars = defaultdict(list)
+        for var in range(1, num_variables+1):
+            comp_pos = comp[lit_to_node(var)]
+            comp_to_posvars[comp_pos].append(var)
+        for members in comp_to_posvars.values():
+            if len(members) >= 2:
+                equivalence_classes.append(sorted(members))
+        equivalence_classes.sort(key=lambda lst: lst[0])
+    else:
+        equivalence_classes = []
+
+    equivalence_class_count = len(equivalence_classes)
+
+    # Opposition classes: pos x and neg y in same SCC => x opp y
+    opposition_pairs = set()
+    if identify_opposition_classes and satisfiable:
+        for x in range(1, num_variables+1):
+            for y in range(x+1, num_variables+1):
+                if comp[lit_to_node(x)] == comp[lit_to_node(-y)] and comp[lit_to_node(y)] == comp[lit_to_node(-x)]:
+                    opposition_pairs.add((x, y))
+        opposition_classes = [list(p) for p in sorted(opposition_pairs, key=lambda t: t[0])]
+    else:
+        opposition_classes = []
+
+    opposition_class_count = len(opposition_classes)
+
+    # Conflict core if unsatisfiable
+    conflict_core = []
+    conflict_core_size = 0
+    if not satisfiable and extract_conflict_core:
+        # pick first conflicting variable, BFS from pos node to neg node on implication graph
+        var = conflicting_vars[0]
+        src = lit_to_node(var)
+        dst = lit_to_node(-var)
+        prev = [-1]*total_nodes
+        q = deque([src])
+        visited_b = [False]*total_nodes
+        visited_b[src] = True
+        found = False
+        while q:
+            u = q.popleft()
+            if u == dst:
+                found = True
+                break
+            for v in graph[u]:
+                if not visited_b[v]:
+                    visited_b[v] = True
+                    prev[v] = u
+                    q.append(v)
+        if found:
+            path_nodes = []
+            cur = dst
+            while cur != -1:
+                path_nodes.append(cur)
+                if cur == src:
+                    break
+                cur = prev[cur]
+            path_nodes = list(reversed(path_nodes))
+            # collect edges
+            edges = []
+            for i in range(len(path_nodes)-1):
+                edges.append((path_nodes[i], path_nodes[i+1]))
+            used_clause_idxs = []
+            for e in edges:
+                if e in edge_to_clause:
+                    used_clause_idxs.append(edge_to_clause[e])
+            used_clause_idxs = sorted(set(used_clause_idxs))
+            conflict_core = [clauses[idx] for idx in used_clause_idxs]
+            conflict_core_size = len(conflict_core)
+        else:
+            conflict_core = []
+            conflict_core_size = 0
+    else:
+        conflict_core = []
+        conflict_core_size = 0
+
+    # SCC out-degrees and sinks
+    scc_outdegrees = []
+    sink_scc_indices = []
+    if compute_scc_outdegrees:
+        outdeg = [0]*num_sccs
+        for u in range(total_nodes):
+            for v in graph[u]:
+                if comp[u] != comp[v]:
+                    outdeg[comp[u]] += 1
+        scc_outdegrees = outdeg
+        sink_scc_indices = sorted([i for i, d in enumerate(outdeg) if d == 0])
+    else:
+        scc_outdegrees = []
+        sink_scc_indices = []
+
+    sink_scc_count = len(sink_scc_indices)
+
+    result = {
+        "satisfiable": satisfiable,
+        "assignment": assignment,
+        "num_sccs": num_sccs,
+        "total_nodes": total_nodes,
+        "total_edges": 2*len(clauses),
+        "largest_scc_size": largest_scc,
+        "average_scc_size": average_scc,
+        "scc_indices": scc_indices,
+        "backbone_literals": backbone_literals,
+        "backbone_size": backbone_size,
+        "implication_closures": implication_closures,
+        "equivalence_classes": equivalence_classes,
+        "equivalence_class_count": equivalence_class_count,
+        "opposition_classes": opposition_classes,
+        "opposition_class_count": opposition_class_count,
+        "conflicting_variables": conflicting_vars,
+        "conflict_core": conflict_core,
+        "conflict_core_size": conflict_core_size,
+        "scc_outdegrees": scc_outdegrees,
+        "sink_scc_indices": sink_scc_indices,
+        "sink_scc_count": sink_scc_count
+    }
+    return result

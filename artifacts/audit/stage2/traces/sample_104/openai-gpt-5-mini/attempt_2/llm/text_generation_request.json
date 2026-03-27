@@ -1,0 +1,30 @@
+{
+  "model": "gpt-5-mini",
+  "input": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are a careful coding assistant. Return the best possible answer for the task."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Solve the following Python coding task.\n\nRequirements:\n- Return only Python code.\n- Implement the requested entry function exactly.\n- Do not include explanations before or after the code.\n- Use only the Python standard library unless the prompt explicitly permits otherwise.\n\nProblem Statement:\n## Smart-City Multi-Level Resource Allocation — Deterministic, Cost-Aware Matching\n\n### Problem\nAllocate utilities (water, electricity, bandwidth) from provider nodes to consumer nodes on a **multi-level bipartite graph** with integer capacities/demands, layer compatibility, consumer merge/split operations, and provider maintenance/peak states. Output **only** the final allocation.\n\n### Single Entry Function\n```python\ndef optimize_resource_allocation(graph: \"BipartiteGraph\") -> list[list[str]]:\n    ...\n````\n\n### Input (`graph`)\n\nJSON-serializable dict:\n\n* `providers`: list of dicts\n  `id: str`, `cap: int>=0`, `em_cap: int>=0`, `priority: int>=0`, `state: \"normal\"|\"peak\"|\"maintenance\"`, `layer: int`, `segment: str`\n* `consumers`: list of dicts\n  `id: str`, `dem: int>=0`, `tier: \"critical\"|\"essential\"|\"normal\"`, `layer: int`, `segment: str`\n* `edges`: list of `[provider_id: str, consumer_id: str, max_edge: int>=0, unit_cost: float]`\n  Edges **may exist before endpoints**; an edge becomes **usable** only when both endpoints exist **and** `provider.layer == consumer.layer`.\n* `prev_alloc` (optional): list of `[provider_id, consumer_id, amount:int>=0]` describing a previous allocation baseline.\n* `ops`: ordered list of operations applied **before** allocation. Accept either a list-of-lists or a single flattened op:\n\n  1. `[\"set_state\", provider_id, state]`\n  2. `[\"set_capacity\", provider_id, cap, em_cap]`\n  3. `[\"merge_consumers\", new_id, [consumer_ids...]]`\n     Demand = sum of merged consumers; tier = **tier with the highest numerical weight** (weights below); layer = common layer; segment = first consumer’s segment; old IDs removed.\n     *If multiple tiers tie in weight, pick the tier of the first ID in the `consumer_ids` list.*\n  4. `[\"split_consumer\", old_id, [{\"id\",\"dem\",\"tier\",\"layer\",\"segment\"}, ...]]` (old removed)\n  5. `[\"add_edge\", provider_id, consumer_id, max_edge, unit_cost]` (replaces if exists)\n  6. `[\"remove_edge\", provider_id, consumer_id]`\n\n### Output\n\nA list of `(provider_id, consumer_id)` pairs; **each pair equals one unit** of allocation. Return `[]` if no feasible allocation.\n\n### Deterministic Rules\n\n1. **Normalization**\n\n   * Negative `cap`, `em_cap`, `dem`, `max_edge` → **coerce to `0`**.\n   * Numeric strings are parsed; **non-parsable numeric fields** are coerced to safe defaults (`0` for integers, `1e9` for `unit_cost`).\n   * Provider usable capacity by state:\n     `maintenance → 0`, `normal → cap`, `peak → cap + em_cap`.\n\n2. **Fairness (Lexicographic Weighted Max-Min)**\n\n   * Tier weights: `critical=3`, `essential=2`, `normal=1`.\n   * Repeat until no more feasible units:\n\n     * Among consumers with unmet demand that have at least one eligible provider, choose the consumer minimizing\n       `allocated_i / (weight(tier_i) * dem_i)`.\n       Tie-break by `consumer_id` (lexicographic).\n\n3. **Provider Choice per Unit**\n\n   * For the chosen consumer, among eligible providers (positive remaining capacity, valid usable edge), minimize:\n\n     ```\n     effective_cost = unit_cost\n                      - 0.1 * priority\n                      + 0.5 * I[(provider,consumer) not in prev_alloc with amount>0]\n     ```\n   * **Indicator definition:** `I[condition] = 1` if the condition is true, else `0`.\n   * Tie-break by `(provider_id, consumer_id)` (lexicographic).\n\n4. **Layer & Edge Constraints**\n\n   * Usable only if `provider.layer == consumer.layer`.\n   * Enforce per-edge `max_edge` across all units for `(provider, consumer)`.\n\n5. **Operations & Bounds**\n\n   * Apply `ops` **in order**. If applying an op would violate bounds, **ignore that op**.\n   * Bounds after ops:\n     `0 ≤ len(providers) ≤ 20`, `0 ≤ len(consumers) ≤ 30`, `0 ≤ len(edges) ≤ 200`,\n     `sum(cap)+sum(em_cap) ≤ 200`, `sum(dem) ≤ 200`.\n     IDs are expected unique within their sets; if duplicates appear, later entries **deterministically overwrite** earlier ones.\n\n6. **Determinism**\n\n   * No randomness; all selections use the specified tie-breakers only.\n\n### Complexity Target (verifiable locally)\n\n* With the stated bounds, a unit-by-unit allocator should complete within\n  `O(U * (log C + log P + log E))`, where `U = total allocated units ≤ 200`.\n\n### Example\n\n**Input**\n\n```python\ngraph = {\n  \"providers\": [\n    {\"id\":\"P1\",\"cap\":5,\"em_cap\":2,\"priority\":3,\"state\":\"normal\",\"layer\":0,\"segment\":\"S1\"},\n    {\"id\":\"P2\",\"cap\":3,\"em_cap\":1,\"priority\":1,\"state\":\"maintenance\",\"layer\":0,\"segment\":\"S1\"}\n  ],\n  \"consumers\": [\n    {\"id\":\"C1\",\"dem\":4,\"tier\":\"critical\",\"layer\":0,\"segment\":\"Z1\"},\n    {\"id\":\"C2\",\"dem\":2,\"tier\":\"normal\",\"layer\":0,\"segment\":\"Z1\"}\n  ],\n  \"edges\": [\n    [\"P1\",\"C1\",5,2.0],\n    [\"P1\",\"C2\",2,1.0],\n    [\"P2\",\"C1\",3,1.5]\n  ],\n  \"prev_alloc\": [[\"P1\",\"C2\",1]],\n  \"ops\": [\n    [\"set_state\",\"P2\",\"normal\"]\n  ]\n}\n```\n\n**Output**\n\n```python\n[[\"P1\",\"C1\"], [\"P1\",\"C1\"], [\"P1\",\"C1\"], [\"P1\",\"C1\"], [\"P1\",\"C2\"]]\n```\n\nStarter Code:\n```python\n# main.py\nfrom typing import Any, Dict, List, Tuple\n\ndef optimize_resource_allocation(graph: \"BipartiteGraph\") -> List[List[str]]:\n```\n"
+        }
+      ]
+    }
+  ],
+  "reasoning": {
+    "effort": "minimal"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 4096
+}

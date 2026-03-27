@@ -1,0 +1,76 @@
+{
+  "id": "resp_05195bb3045f51410069c32d4b63b881a3a1bdb19358adddeb",
+  "object": "response",
+  "created_at": 1774398795,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398816,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_05195bb3045f51410069c32d4c406c81a3a355ceadc481c408",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_05195bb3045f51410069c32d4c797081a3a8bf25d40b16fe2d",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Tuple\n\ndef adaptive_heap_update(data_streams: List[List[List]]) -> List[str]:\n    # Validation\n    if not isinstance(data_streams, list) or len(data_streams) < 3:\n        return []\n    for ex in data_streams:\n        if not isinstance(ex, list):\n            return []\n        for item in ex:\n            if (not isinstance(item, list)) or len(item) != 3:\n                return []\n            sym, vol, volm = item\n            if not isinstance(sym, str) or sym == \"\" or any(c < 'A' or c > 'Z' for c in sym):\n                return []\n            if not (isinstance(vol, float) or isinstance(vol, int)):\n                return []\n            vol = float(vol)\n            if not (0.0 <= vol <= 1.0):\n                return []\n            if not isinstance(volm, int) or volm <= 0:\n                return []\n    # Helper: compute priority\n    def compute_priority(volatility: float, volume: int) -> float:\n        return volatility * (volume ** 0.25)\n    # Custom max-heap implementation for per-exchange lists.\n    class MaxHeap:\n        def __init__(self):\n            self.a: List[Tuple[float, float, str, int, int]] = []  # (priority, volatility, symbol, volume, idx)\n        def _cmp_item(self, item):\n            # For heap ordering: primary priority, then volatility, then lexicographically smaller symbol\n            # Since we want max-heap, store values directly used in comparisons.\n            return item\n        def push(self, priority, volatility, symbol, volume, idx):\n            self.a.append((priority, volatility, symbol, volume, idx))\n            self._sift_up(len(self.a)-1)\n        def pop(self):\n            if not self.a:\n                return None\n            top = self.a[0]\n            last = self.a.pop()\n            if self.a:\n                self.a[0] = last\n                self._sift_down(0)\n            return top\n        def peek(self):\n            return self.a[0] if self.a else None\n        def _sift_up(self, i):\n            while i > 0:\n                p = (i-1)//2\n                if self._better(self.a[i], self.a[p]):\n                    self.a[i], self.a[p] = self.a[p], self.a[i]\n                    i = p\n                else:\n                    break\n        def _sift_down(self, i):\n            n = len(self.a)\n            while True:\n                l = 2*i+1\n                r = 2*i+2\n                best = i\n                if l < n and self._better(self.a[l], self.a[best]):\n                    best = l\n                if r < n and self._better(self.a[r], self.a[best]):\n                    best = r\n                if best == i:\n                    break\n                self.a[i], self.a[best] = self.a[best], self.a[i]\n                i = best\n        def _better(self, x, y):\n            # return True if x should be above y\n            # Compare priority first\n            if x[0] != y[0]:\n                return x[0] > y[0]\n            # then higher volatility\n            if x[1] != y[1]:\n                return x[1] > y[1]\n            # then lexicographically smaller symbol\n            return x[2] < y[2]\n        def __len__(self):\n            return len(self.a)\n    # Build per-exchange heaps\n    per_heaps: List[MaxHeap] = []\n    # Also we need to maintain indices to allow k-way extraction; store original index within exchange\n    for ex in data_streams:\n        h = MaxHeap()\n        for idx, (sym, vol, volm) in enumerate(ex):\n            volf = float(vol)\n            pr = compute_priority(volf, volm)\n            # push (priority, volatility, symbol, volume, idx)\n            h.push(pr, volf, sym, volm, idx)\n        per_heaps.append(h)\n    # Global coordinator heap: entries are (priority, volatility, symbol, exchange_idx, version, volume)\n    # We'll implement same MaxHeap but for coordinator\n    class CoordHeap:\n        def __init__(self):\n            self.a: List[Tuple[float, float, str, int, int, int]] = []\n        def push(self, priority, volatility, symbol, exch_idx, version, volume):\n            self.a.append((priority, volatility, symbol, exch_idx, version, volume))\n            self._sift_up(len(self.a)-1)\n        def pop(self):\n            if not self.a:\n                return None\n            top = self.a[0]\n            last = self.a.pop()\n            if self.a:\n                self.a[0] = last\n                self._sift_down(0)\n            return top\n        def _sift_up(self, i):\n            while i > 0:\n                p = (i-1)//2\n                if self._better(self.a[i], self.a[p]):\n                    self.a[i], self.a[p] = self.a[p], self.a[i]\n                    i = p\n                else:\n                    break\n        def _sift_down(self, i):\n            n = len(self.a)\n            while True:\n                l = 2*i+1\n                r = 2*i+2\n                best = i\n                if l < n and self._better(self.a[l], self.a[best]):\n                    best = l\n                if r < n and self._better(self.a[r], self.a[best]):\n                    best = r\n                if best == i:\n                    break\n                self.a[i], self.a[best] = self.a[best], self.a[i]\n                i = best\n        def _better(self, x, y):\n            # compare priority, volatility, symbol\n            if x[0] != y[0]:\n                return x[0] > y[0]\n            if x[1] != y[1]:\n                return x[1] > y[1]\n            return x[2] < y[2]\n        def __len__(self):\n            return len(self.a)\n    coord = CoordHeap()\n    # Versioning per symbol: map symbol -> latest version number (incrementing)\n    versions = {}  # symbol -> int\n    # Also track discovered symbols to avoid duplicates in output via stale handling; but per spec we allow multiple inserts and only output highest current when extracted\n    # Initialize coordinator with top of each exchange heap\n    for ei, h in enumerate(per_heaps):\n        top = h.peek()\n        if top:\n            pr, volf, sym, volm, idx = top\n            # version is 1 for initial\n            versions.setdefault(sym, 0)\n            versions[sym] += 1\n            ver = versions[sym]\n            # When inserting into coordinator, we will pop from per-exchange heap only when we consume that exchange's entry\n            coord.push(pr, volf, sym, ei, ver, volm)\n            # remove from per-exchange heap since we've promoted it to coordinator (simulate consumption pointer)\n            h.pop()\n    result = []\n    emitted = set()\n    # Process coordinator until empty\n    while len(coord) > 0:\n        entry = coord.pop()\n        if entry is None:\n            break\n        pr, volf, sym, ei, ver, volm = entry\n        # Check current version for symbol; if this is stale (ver < versions[sym]) discard\n        cur_ver = versions.get(sym, 0)\n        if ver < cur_ver:\n            # stale, skip\n            pass\n        else:\n            # Accept if not already emitted\n            if sym not in emitted:\n                result.append(sym)\n                emitted.add(sym)\n            # else if already emitted, we still proceed (but do not append)\n        # After extracting one candidate from exchange ei, push next from that exchange heap if exists\n        h = per_heaps[ei]\n        next_top = h.pop()\n        if next_top:\n            npr, nvolf, nsym, nvolm, nidx = next_top\n            # create new version for this symbol\n            versions.setdefault(nsym, 0)\n            versions[nsym] += 1\n            nver = versions[nsym]\n            coord.push(npr, nvolf, nsym, ei, nver, nvolm)\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 847,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1834,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2681
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6hmSc8F3sT0MHYBAWHtiwd7nz89",
+  "object": "chat.completion",
+  "created": 1774399690,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[]\"],\"focus\":\"Empty operations list -> should immediately return []\"}, {\"input_lines\":[\"[[\\\"push\\\", 10], [\\\"push\\\", 20], [\\\"merge_clusters\\\", null], [\\\"push\\\", 5], [\\\"push\\\", 30], [\\\"get_min\\\", null], [\\\"range_sum\\\", 0], [\\\"range_sum\\\", 1], [\\\"pop\\\", null], [\\\"get_max\\\", null], [\\\"pop\\\", null], [\\\"get_min\\\", 1], [\\\"get_max\\\", 0]]\"],\"focus\":\"One-shot redirect after merge, MRU routing across symbols, and range_sum baseline for source vs. merged symbol\"}, {\"input_lines\":[\"[[\\\"push\\\", 1000000000], [\\\"push\\\", -1000000000], [\\\"push\\\", 500], [\\\"push\\\", 500], [\\\"get_min\\\", 0], [\\\"merge_clusters\\\", null], [\\\"push\\\", 500], [\\\"get_max\\\", 1], [\\\"pop\\\", null], [\\\"get_min\\\", 1], [\\\"merge_clusters\\\", null], [\\\"push\\\", -1000000000], [\\\"pop\\\", null], [\\\"get_min\\\", null], [\\\"pop\\\", null], [\\\"pop\\\", null], [\\\"pop\\\", null], [\\\"pop\\\", null], [\\\"get_min\\\", 0], [\\\"get_max\\\", null], [\\\"range_sum\\\", 0]]\"],\"focus\":\"Boundary values (±1e9), duplicate mins/maxs, deep snapshots independence across multiple merges, many pops including empty pops, and range_sum after later merge\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2040,
+    "completion_tokens": 4324,
+    "total_tokens": 6364,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3968,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

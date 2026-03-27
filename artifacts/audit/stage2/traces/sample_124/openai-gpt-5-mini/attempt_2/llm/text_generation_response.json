@@ -1,0 +1,76 @@
+{
+  "id": "resp_04d8935203afc0010069c33b8ee1dc819d9224dbe855ac3578",
+  "object": "response",
+  "created_at": 1774402446,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774402463,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_04d8935203afc0010069c33b8f25d8819da625bb8e1179a72e",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_04d8935203afc0010069c33b8f57b0819d9c049c48fc4a4f2a",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import collections\nfrom typing import List, Deque\n\ndef design_metro_system(\n    demand_matrix: List[List[int]],\n    cost_matrix: List[List[int]],\n    budget: int,\n    max_avg_time: float\n) -> bool:\n    n = len(demand_matrix)\n    # Quick checks\n    if n == 0:\n        return True\n    # If budget zero but any demand between distinct stations exists, impossible\n    if budget <= 0:\n        for i in range(n):\n            for j in range(n):\n                if i != j and demand_matrix[i][j] > 0:\n                    return False\n        return True\n\n    # Helper: compute all-pairs shortest path lengths (unweighted) via BFS from each node\n    def all_pairs_shortest_paths(adj):\n        dist = [[-1]*n for _ in range(n)]\n        for s in range(n):\n            q: Deque[int] = collections.deque([s])\n            dist[s][s] = 0\n            while q:\n                u = q.popleft()\n                for v in adj[u]:\n                    if dist[s][v] == -1:\n                        dist[s][v] = dist[s][u] + 1\n                        q.append(v)\n        return dist\n\n    # Initial empty adjacency\n    adj = [set() for _ in range(n)]\n    remaining_budget = budget\n\n    # Precompute total demand per node for prioritization\n    total_out = [sum(row) for row in demand_matrix]\n    total_in = [sum(demand_matrix[i][j] for i in range(n)) for j in range(n)]\n    node_weight = [total_out[i] + sum(demand_matrix[r][i] for r in range(n)) for i in range(n)]\n\n    # Candidate edges list (i<j)\n    candidates = []\n    for i in range(n):\n        for j in range(i+1, n):\n            c = cost_matrix[i][j] if cost_matrix[i][j] >= 0 else cost_matrix[j][i]\n            # benefit heuristic: demand between i and j plus demands to/from heavy nodes\n            demand_pair = demand_matrix[i][j] + demand_matrix[j][i]\n            # node centrality proxy\n            central = node_weight[i] + node_weight[j]\n            # score: higher demand and centrality, lower cost => higher priority\n            score = (demand_pair * 3 + central) / (1 + c)\n            candidates.append((score, i, j, c))\n    # Sort descending by score\n    candidates.sort(reverse=True, key=lambda x: x[0])\n\n    # Greedy: iteratively add best edge that fits budget and improves connectivity for demanded pairs\n    # We'll also try to ensure connectivity among nodes that have any demand.\n    demand_nodes = set()\n    for i in range(n):\n        for j in range(n):\n            if demand_matrix[i][j] > 0:\n                demand_nodes.add(i)\n                demand_nodes.add(j)\n\n    # Ensure we at least connect the demand nodes: build a cheap spanning-like set among demand nodes\n    # Use Kruskal-like on candidates constrained to demand_nodes first\n    parent = list(range(n))\n    def find(a):\n        while parent[a] != a:\n            parent[a] = parent[parent[a]]\n            a = parent[a]\n        return a\n    def union(a,b):\n        ra, rb = find(a), find(b)\n        if ra==rb: return False\n        parent[rb]=ra\n        return True\n\n    # Consider candidate edges sorted by cost efficiency first for demand nodes\n    demand_candidates = sorted([ (cost_matrix[i][j] if i<j else cost_matrix[j][i], i, j) \n                                for _,i,j,_ in candidates if i in demand_nodes and j in demand_nodes ],\n                               key=lambda x: x[0])\n    for c,i,j in demand_candidates:\n        if remaining_budget < c:\n            continue\n        if union(i,j):\n            adj[i].add(j); adj[j].add(i)\n            remaining_budget -= c\n\n    # Now add more edges from top-scoring candidates while budget allows to reduce average time\n    for score,i,j,c in candidates:\n        if remaining_budget < c:\n            continue\n        # if already connected directly, skip if doesn't help connectivity\n        if j in adj[i]:\n            continue\n        # Tentatively add edge and see improvement in weighted total distance\n        # Compute current distances\n        cur_dist = all_pairs_shortest_paths(adj)\n        # If any demanded pair currently disconnected, treat distance as large (inf)\n        disconnected = False\n        total_passengers = 0\n        cur_total_time = 0\n        for a in range(n):\n            for b in range(n):\n                dmd = demand_matrix[a][b]\n                if dmd == 0:\n                    continue\n                total_passengers += dmd\n                da = cur_dist[a][b]\n                if da == -1:\n                    disconnected = True\n                    # set large proxy\n                    cur_total_time += dmd * (n+5)\n                else:\n                    cur_total_time += dmd * da\n        # Now distances after adding edge\n        adj[i].add(j); adj[j].add(i)\n        new_dist = all_pairs_shortest_paths(adj)\n        new_total_time = 0\n        new_disconnected = False\n        for a in range(n):\n            for b in range(n):\n                dmd = demand_matrix[a][b]\n                if dmd == 0:\n                    continue\n                db = new_dist[a][b]\n                if db == -1:\n                    new_disconnected = True\n                    new_total_time += dmd * (n+5)\n                else:\n                    new_total_time += dmd * db\n        # Evaluate improvement per cost\n        improvement = cur_total_time - new_total_time\n        if improvement > 0 and remaining_budget >= c:\n            # keep edge\n            remaining_budget -= c\n        else:\n            # revert\n            adj[i].remove(j); adj[j].remove(i)\n\n    # Final check: compute final distances\n    final_dist = all_pairs_shortest_paths(adj)\n    total_passengers = 0\n    total_time = 0\n    for a in range(n):\n        for b in range(n):\n            dmd = demand_matrix[a][b]\n            if dmd == 0:\n                continue\n            total_passengers += dmd\n            db = final_dist[a][b]\n            if db == -1:\n                return False\n            total_time += dmd * db\n    if total_passengers == 0:\n        return True\n    avg_time = total_time / total_passengers\n    return avg_time <= max_avg_time"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1685,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1426,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3111
+  },
+  "user": null,
+  "metadata": {}
+}

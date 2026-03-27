@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[]\n[{\"id\": \"dest1\", \"priority\": 1, \"time_window\": [9, 11], \"penalty\": 100}, {\"id\": \"dest2\", \"priority\": 2, \"time_window\": [12, 14], \"penalty\": 50}]\n{\"current\": {\"wind_speed\": 5, \"wind_direction\": \"N\", \"restricted_zones\": []}, \"forecast\": []}\n{\"air_lanes\": [{\"lane_id\": \"L1\", \"congestion_level\": \"low\"}], \"hub_connectivity\": {\"hub1\": [\"hub2\"]}}",
+    "output_text": "{}"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[{\"id\": \"g1\", \"fuel_level\": 80, \"max_fuel\": 100, \"wind_tolerance\": 2}, {\"id\": \"g2\", \"fuel_level\": 30, \"max_fuel\": 50, \"wind_tolerance\": 4}]\n[{\"id\": \"dA\", \"priority\": 1, \"time_window\": [8, 10], \"penalty\": 10}, {\"id\": \"dB\", \"priority\": 2, \"time_window\": [10, 12], \"penalty\": 5}]\n{\"current\": {\"wind_speed\": 10, \"wind_direction\": \"W\", \"restricted_zones\": []}, \"forecast\": []}\n{\"air_lanes\": [{\"lane_id\": \"L1\", \"congestion_level\": \"low\"}], \"hub_connectivity\": {\"hubX\": [\"hubY\"], \"hubY\": [\"hubX\"]}}",
+    "output_text": "{\"g1\": [], \"g2\": []}"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[{\"id\": \"D50\", \"fuel_level\": 50, \"max_fuel\": 100, \"wind_tolerance\": 10}, {\"id\": \"D40\", \"fuel_level\": 40, \"max_fuel\": 80, \"wind_tolerance\": 5}, {\"id\": \"D10\", \"fuel_level\": 10, \"max_fuel\": 100, \"wind_tolerance\": 8}]\n[{\"id\": \"P1\", \"priority\": 1, \"time_window\": [9, 10], \"penalty\": 100}, {\"id\": \"P2\", \"priority\": 2, \"time_window\": [11, 12], \"penalty\": 50}, {\"id\": \"P3\", \"priority\": 1, \"time_window\": [13, 14], \"penalty\": 80}]\n{\"current\": {\"wind_speed\": 5, \"wind_direction\": \"NE\", \"restricted_zones\": []}, \"forecast\": [{\"time\": 12, \"wind_speed\": 20, \"wind_direction\": \"N\", \"restricted_zones\": []}]}\n{\"air_lanes\": [{\"lane_id\": \"L1\", \"congestion_level\": \"medium\"}], \"hub_connectivity\": {\"hubA\": [\"hubB\", \"hubC\"], \"hubB\": [\"hubA\", \"hubC\"], \"hubC\": [\"hubA\"]}}",
+    "output_text": "{\"D50\": [], \"D40\": [\"P3\"], \"D10\": [{\"hub\": \"hubA\", \"refuel\": true}, \"P1\"]}"
+  }
+]

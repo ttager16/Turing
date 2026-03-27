@@ -1,0 +1,144 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "0": [
+          [
+            "0",
+            1,
+            1.0,
+            0.5,
+            1.0
+          ]
+        ]
+      },
+      "0",
+      "0",
+      true,
+      0.9,
+      1.0
+    ],
+    "input_lines": [
+      "{\"0\": [[\"0\", 1, 1.0, 0.5, 1.0]]}",
+      "\"0\"",
+      "\"0\"",
+      "true",
+      "0.9",
+      "1.0"
+    ],
+    "focus": "Single-node graph with a self-loop; start==end should immediately return [start_node] regardless of edge reliability or peak hour."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "0": [
+          [
+            "1",
+            10,
+            1.2,
+            0.4,
+            1.0
+          ],
+          [
+            "2",
+            6,
+            1.5,
+            0.2,
+            1.0
+          ]
+        ],
+        "1": [
+          [
+            "3",
+            10,
+            1.1,
+            0.4,
+            1.0
+          ]
+        ],
+        "2": [
+          [
+            "3",
+            6,
+            1.5,
+            0.2,
+            1.0
+          ]
+        ],
+        "3": []
+      },
+      "0",
+      "3",
+      false,
+      0.8,
+      1.0
+    ],
+    "input_lines": [
+      "{\"0\": [[\"1\", 10, 1.2, 0.4, 1.0], [\"2\", 6, 1.5, 0.2, 1.0]], \"1\": [[\"3\", 10, 1.1, 0.4, 1.0]], \"2\": [[\"3\", 6, 1.5, 0.2, 1.0]], \"3\": []}",
+      "\"0\"",
+      "\"3\"",
+      "false",
+      "0.8",
+      "1.0"
+    ],
+    "focus": "Two alternative paths: one meets the robustness threshold while the faster-looking alternative fails reliability; ensures correct filtering by robustness before selecting minimal travel time."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "0": [
+          [
+            "1",
+            10,
+            1.11,
+            0.33,
+            1.2
+          ],
+          [
+            "2",
+            8,
+            1.25,
+            0.5,
+            1.3
+          ]
+        ],
+        "1": [
+          [
+            "3",
+            10,
+            1.07,
+            0.33,
+            1.2
+          ]
+        ],
+        "2": [
+          [
+            "3",
+            12,
+            1.0,
+            0.1,
+            1.3
+          ]
+        ],
+        "3": []
+      },
+      "0",
+      "3",
+      true,
+      0.99,
+      1.5
+    ],
+    "input_lines": [
+      "{\"0\": [[\"1\", 10, 1.11, 0.33, 1.2], [\"2\", 8, 1.25, 0.5, 1.3]], \"1\": [[\"3\", 10, 1.07, 0.33, 1.2]], \"2\": [[\"3\", 12, 1.0, 0.1, 1.3]], \"3\": []}",
+      "\"0\"",
+      "\"3\"",
+      "true",
+      "0.99",
+      "1.5"
+    ],
+    "focus": "Precision-sensitive case: robustness sums border the min_reliability when multiplied by robustness_weight (requires two-decimal precision); ensures correct rounding and threshold comparison under peak-hour weightings."
+  }
+]

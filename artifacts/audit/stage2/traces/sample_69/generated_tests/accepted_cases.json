@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "{\"X\": [\"Y\", \"Z\"], \"Y\": [\"Z\"], \"Z\": []}\n[{\"intersection\": \"X\", \"traffic_density\": 0.5, \"accidents\": [], \"priority_requests\": []}, {\"intersection\": \"X\", \"traffic_density\": 0.5, \"accidents\": [], \"priority_requests\": []}, {\"intersection\": \"Y\", \"traffic_density\": 1.0, \"accidents\": [\"LANE_OUTAGE\"], \"priority_requests\": []}, {\"intersection\": \"W\", \"priority_requests\": [\"EMERGENCY\"]}, {\"intersection\": \"Z\", \"traffic_density\": \"high\", \"accidents\": [], \"priority_requests\": []}]",
+    "output_text": "{\"W\": {\"signal_timing\": 43, \"overflow_indicator\": false}, \"X\": {\"signal_timing\": 52, \"overflow_indicator\": false}, \"Y\": {\"signal_timing\": 43, \"overflow_indicator\": true}, \"Z\": {\"signal_timing\": 43, \"overflow_indicator\": false}}"
+  },
+  {
+    "case_index": 1,
+    "input_text": "{\"A\": [\"B\"], \"B\": [], \"C\": [\"A\", \"B\"]}\n[{\"intersection\": \"A\", \"traffic_density\": 0.8, \"accidents\": [\"LANE_OUTAGE\"], \"priority_requests\": []}, {\"intersection\": \"A\", \"traffic_density\": 0.6, \"accidents\": [], \"priority_requests\": []}, {\"intersection\": \"B\", \"traffic_density\": 0.76, \"accidents\": [], \"priority_requests\": []}, {\"intersection\": \"C\"}]",
+    "output_text": "{\"A\": {\"signal_timing\": 31, \"overflow_indicator\": true}, \"B\": {\"signal_timing\": 59, \"overflow_indicator\": true}, \"C\": {\"signal_timing\": 45, \"overflow_indicator\": false}}"
+  },
+  {
+    "case_index": 2,
+    "input_text": "{\"n-1\": [\"n_2\"], \"n_2\": [], \"LONG NAME\": [\"n-1\", \"n_2\"]}\n[{\"intersection\": \"n-1\", \"traffic_density\": 0.25, \"accidents\": [], \"priority_requests\": []}, {\"intersection\": \"n_1_extra\", \"traffic_density\": 0.0, \"accidents\": [], \"priority_requests\": []}, {\"intersection\": \"LONG NAME\", \"traffic_density\": 0.7, \"accidents\": [], \"priority_requests\": []}, {\"intersection\": \"n_2\", \"traffic_density\": 0.75, \"accidents\": [], \"priority_requests\": [\"EMERGENCY\"]}, {\"intersection\": \"n-2\", \"traffic_density\": 0.751, \"accidents\": [], \"priority_requests\": []}]",
+    "output_text": "{\"LONG NAME\": {\"signal_timing\": 55, \"overflow_indicator\": false}, \"n-1\": {\"signal_timing\": 30, \"overflow_indicator\": false}, \"n-2\": {\"signal_timing\": 58, \"overflow_indicator\": true}, \"n_1_extra\": {\"signal_timing\": 20, \"overflow_indicator\": true}, \"n_2\": {\"signal_timing\": 66, \"overflow_indicator\": false}}"
+  }
+]

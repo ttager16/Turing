@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6dNmauTyfGXW0mldVuJfwm72grL",
+  "object": "chat.completion",
+  "created": 1774399417,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[0.01, 10000.00, 250.55, 250.45]\",\"[[\\\"prefix_sum\\\", 0], [\\\"prefix_sum\\\", 3], [\\\"range_sum\\\", 1, 2], [\\\"update\\\", 0, 0.02], [\\\"update\\\", 3, 9999.99], [\\\"range_sum\\\", 0, 3], [\\\"prefix_sum\\\", 3], [\\\"range_sum\\\", 3, 3]]\"],\"focus\":\"Precision and boundary checks: very small and very large float values, updates to first and last indices, single-index range query\"},{\"input_lines\":[\"[1.10, 2.20, 3.30, 4.40, 5.50, 6.60, 7.70, 8.80, 9.90, 10.00]\",\"[[\\\"range_sum\\\", 0, 9], [\\\"prefix_sum\\\", 4], [\\\"update\\\", 5, 0.55], [\\\"update\\\", 0, 11.11], [\\\"range_sum\\\", 0, 5], [\\\"range_sum\\\", 3, 7], [\\\"update\\\", 9, 20.00], [\\\"prefix_sum\\\", 9], [\\\"range_sum\\\", 8, 9], [\\\"update\\\", 5, 6.60], [\\\"prefix_sum\\\", 5]]\"],\"focus\":\"Batch updates and overlapping queries: multiple updates to same index, mid-array modifications, full-range and sub-range queries to verify consistency over sequences of operations\"},{\"input_lines\":[\"[12.34, 56.78, 90.12]\",\"[]\"],\"focus\":\"No operations: empty operations list should return an empty result list and not alter the initial data structure\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2315,
+    "completion_tokens": 2131,
+    "total_tokens": 4446,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1728,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

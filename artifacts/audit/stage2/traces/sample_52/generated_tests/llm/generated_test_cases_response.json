@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN65spbPV2r1xTwYE5UOz12oo2XWt",
+  "object": "chat.completion",
+  "created": 1774397340,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[]\",\"[]\",\"1\"],\"focus\":\"Both lists empty -> should return 'No data provided' (empty-list check precedes window-size validation).\"},{\"input_lines\":[\"[1, -1, 3]\",\"[10, 10, 10]\",\"3\"],\"focus\":\"Single full window where power max == min -> should trigger 'Division by zero detected'.\"},{\"input_lines\":[\"[0, 2.5, 5]\",\"[10, 11, 12]\",\"2\"],\"focus\":\"Non-integer temperature reading (float) -> should return 'Unprocessable readings' after type/value validation.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1996,
+    "completion_tokens": 1495,
+    "total_tokens": 3491,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1344,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

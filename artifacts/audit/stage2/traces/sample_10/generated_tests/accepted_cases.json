@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[{\"phases\": [{\"required_skills\": [\"python\"], \"deadline\": 3}, {\"required_skills\": [\"security\"], \"deadline\": 5}], \"project_deadline\": 5}]\n[{\"members\": [{\"name\": \"A\", \"skills\": [\"python\", \"java\"]}], \"base_availability\": 3}, {\"members\": [{\"name\": \"B\", \"skills\": []}], \"base_availability\": 10}, {\"members\": [{\"name\": \"C\", \"skills\": [\"security\"]}], \"base_availability\": 5}]",
+    "output_text": "3"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[{\"phases\": [{\"required_skills\": [\"python\", \"testing\"], \"deadline\": 7}], \"project_deadline\": 7}, {\"phases\": [{\"required_skills\": [\"java\", \"ml\"], \"deadline\": 7}, {\"required_skills\": [\"docker\"], \"deadline\": 6}], \"project_deadline\": 8}]\n[{\"members\": [{\"name\": \"T1M1\", \"skills\": [\"python\", \"java\"]}, {\"name\": \"T1M2\", \"skills\": [\"testing\"]}], \"base_availability\": 7}, {\"members\": [{\"name\": \"T2M1\", \"skills\": [\"ml\", \"docker\"]}], \"base_availability\": 6}, {\"members\": [{\"name\": \"T3M1\", \"skills\": [\"python\", \"ml\", \"testing\", \"docker\", \"java\"]}], \"base_availability\": 4}]",
+    "output_text": "3"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[{\"phases\": [{\"required_skills\": [\"python\", \"React\"], \"deadline\": 10}], \"project_deadline\": 10}]\n[{\"members\": [{\"name\": \"X\", \"skills\": [\"Python\", \"react\"]}], \"base_availability\": 10}, {\"members\": [{\"name\": \"Y\", \"skills\": [\"python\", \"React\"]}], \"base_availability\": 5}, {\"members\": [{\"name\": \"Z\", \"skills\": [\"React\"]}], \"base_availability\": 10}]",
+    "output_text": "2"
+  }
+]

@@ -1,0 +1,96 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {},
+      5,
+      5,
+      3
+    ],
+    "input_lines": [
+      "{}",
+      "5",
+      "5",
+      "3"
+    ],
+    "focus": "start equals end with an empty graph (edge case for trivial path)"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "1000,2000": [
+          7,
+          5
+        ],
+        "2000,3000": [
+          2,
+          5
+        ],
+        "1000,3000": [
+          6,
+          4
+        ],
+        "3000,1000": [
+          1,
+          6
+        ],
+        "2000,4000": [
+          1,
+          5
+        ],
+        "4000,3000": [
+          1,
+          5
+        ]
+      },
+      1000,
+      3000,
+      5
+    ],
+    "input_lines": [
+      "{\"1000,2000\": [7, 5], \"2000,3000\": [2, 5], \"1000,3000\": [6, 4], \"3000,1000\": [1, 6], \"2000,4000\": [1, 5], \"4000,3000\": [1, 5]}",
+      "1000",
+      "3000",
+      "5"
+    ],
+    "focus": "large node IDs with cycles; direct short edge is below security threshold so longer feasible routes must be chosen (testing tie/equal-cost alternatives)"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "1,2": [
+          0,
+          10
+        ],
+        "2,3": [
+          0,
+          10
+        ],
+        "1,3": [
+          5,
+          10
+        ],
+        "3,4": [
+          1,
+          10
+        ],
+        "1,4": [
+          100,
+          1
+        ]
+      },
+      1,
+      4,
+      10
+    ],
+    "input_lines": [
+      "{\"1,2\": [0, 10], \"2,3\": [0, 10], \"1,3\": [5, 10], \"3,4\": [1, 10], \"1,4\": [100, 1]}",
+      "1",
+      "4",
+      "10"
+    ],
+    "focus": "zero-cost high-security edges vs higher-cost alternatives; ensure edges with insufficient security are ignored"
+  }
+]

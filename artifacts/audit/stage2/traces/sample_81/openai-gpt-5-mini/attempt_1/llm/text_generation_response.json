@@ -1,0 +1,76 @@
+{
+  "id": "resp_006c5cf61d23f42c0069c32df03d24819189a86b2ee7970284",
+  "object": "response",
+  "created_at": 1774398960,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398981,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_006c5cf61d23f42c0069c32df07ee481919aa84c333412ea00",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_006c5cf61d23f42c0069c32df0b78081918a90bc0a795f5ca9",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Any, Dict, Optional\nfrom threading import RLock\nfrom collections import defaultdict, deque\nimport bisect\nimport time\n\n# Lightweight self-balancing like structure using sorted lists per ward keyed by (priority, emergency_flag, arrival_seq)\n# Global registry maps id -> record\n# Concurrency simulated via RLock for atomic operations\n# Segment update optimization: when changing priority or transferring, only affected ward lists are updated\n# Mass updates handled by batch operations with minimal scans using mapping by priority groups\n\nclass Patient:\n    __slots__ = ('id', 'ward', 'priority', 'emergency', 'duration', 'seq')\n    def __init__(self, pid:int, ward:str, priority:int, emergency:bool, duration:int, seq:int):\n        self.id = pid\n        self.ward = ward\n        self.priority = priority\n        self.emergency = emergency\n        self.duration = duration\n        self.seq = seq\n\n    def key(self):\n        # Lower priority value -> higher urgency; emergency first\n        return (self.priority, 0 if self.emergency else 1, self.seq, self.id)\n\nclass WardQueue:\n    def __init__(self):\n        self.list = []  # sorted list of keys\n        self.map = {}   # id -> Patient\n\n    def insert(self, patient: Patient):\n        k = patient.key()\n        bisect.insort_left(self.list, (k, patient.id))\n        self.map[patient.id] = patient\n\n    def remove(self, pid: int) -> Optional[Patient]:\n        p = self.map.pop(pid, None)\n        if p is None:\n            return None\n        k = p.key()\n        i = bisect.bisect_left(self.list, (k, pid))\n        # scan around to find exact id\n        n = len(self.list)\n        for j in range(max(0, i-2), min(n, i+3)):\n            if self.list[j][1] == pid:\n                self.list.pop(j)\n                break\n        return p\n\n    def update_priority(self, pid:int, new_priority:int):\n        p = self.map.get(pid)\n        if not p:\n            return None\n        # remove and reinsert\n        self.remove(pid)\n        p.priority = new_priority\n        self.insert(p)\n        return p\n\n    def transfer_out(self, pid:int):\n        return self.remove(pid)\n\n    def quick_bulk_repriority(self, ids, new_priority):\n        # Only process provided ids; remove and reinsert\n        updated = []\n        for pid in ids:\n            if pid in self.map:\n                p = self.map[pid]\n                self.remove(pid)\n                p.priority = new_priority\n                self.insert(p)\n                updated.append(pid)\n        return updated\n\nclass Hospital:\n    def __init__(self):\n        self.lock = RLock()\n        self.wards: Dict[str, WardQueue] = defaultdict(WardQueue)\n        self.registry: Dict[int, Patient] = {}\n        self.seq_counter = 0\n        # For quick lookup per priority groups across wards for mass ops\n        self.priority_index: Dict[int, set] = defaultdict(set)\n\n    def _next_seq(self):\n        self.seq_counter += 1\n        return self.seq_counter\n\n    def insert(self, info: Dict[str,Any]) -> str:\n        with self.lock:\n            pid = info['id']\n            if pid in self.registry:\n                return f\"Patient {pid} already exists\"\n            ward = info['ward']\n            priority = info.get('priority', 999)\n            emergency = bool(info.get('emergency', False))\n            duration = info.get('duration', 0)\n            seq = self._next_seq()\n            p = Patient(pid, ward, priority, emergency, duration, seq)\n            self.registry[pid] = p\n            self.wards[ward].insert(p)\n            self.priority_index[priority].add(pid)\n            return f\"Patient {pid} added to ward {ward}\"\n\n    def delete(self, info: Dict[str,Any]) -> str:\n        with self.lock:\n            pid = info['id']\n            p = self.registry.pop(pid, None)\n            if not p:\n                return f\"Patient {pid} not found\"\n            self.wards[p.ward].remove(pid)\n            # remove from priority index\n            if p.priority in self.priority_index and pid in self.priority_index[p.priority]:\n                self.priority_index[p.priority].remove(pid)\n            return f\"Patient {pid} removed from system\"\n\n    def transfer(self, info: Dict[str,Any]) -> str:\n        with self.lock:\n            pid = info['id']\n            new_ward = info['new_ward']\n            p = self.registry.get(pid)\n            if not p:\n                return f\"Patient {pid} not found\"\n            if p.ward == new_ward:\n                return f\"Patient {pid} already in ward {new_ward}\"\n            # remove from old ward and insert into new ward, preserving seq and priority\n            old_ward = p.ward\n            self.wards[old_ward].transfer_out(pid)\n            p.ward = new_ward\n            self.wards[new_ward].insert(p)\n            return f\"Patient {pid} transferred to ward {new_ward}\"\n\n    def reorder(self, info: Dict[str,Any]) -> str:\n        with self.lock:\n            pid = info['id']\n            new_priority = info['new_priority']\n            simulate_mass = bool(info.get('simulate_mass_update', False))\n            p = self.registry.get(pid)\n            if not p:\n                return f\"Patient {pid} not found\"\n            old_priority = p.priority\n            if simulate_mass:\n                # Simulate mass reprioritization: all patients in same old priority across hospital get moved\n                affected = list(self.priority_index.get(old_priority, set()))\n                # Update priority index efficiently\n                if affected:\n                    for apid in affected:\n                        ap = self.registry.get(apid)\n                        if not ap:\n                            continue\n                        # remove from old ward list and update\n                        self.wards[ap.ward].remove(apid)\n                        ap.priority = new_priority\n                        self.wards[ap.ward].insert(ap)\n                    # move index set\n                    self.priority_index[new_priority].update(affected)\n                    self.priority_index[old_priority].clear()\n                return f\"Patient {pid} updated to priority {new_priority} with mass update simulation\"\n            else:\n                # single update\n                self.wards[p.ward].update_priority(pid, new_priority)\n                # update registry and index\n                if pid in self.priority_index.get(old_priority, set()):\n                    self.priority_index[old_priority].remove(pid)\n                self.priority_index[new_priority].add(pid)\n                return f\"Patient {pid} updated to priority {new_priority}\"\n\n    def process_command(self, cmd):\n        op = cmd[0]\n        info = cmd[1] if len(cmd) > 1 else {}\n        if op == 'insert':\n            return self.insert(info)\n        elif op == 'delete':\n            return self.delete(info)\n        elif op == 'transfer':\n            return self.transfer(info)\n        elif op == 'reorder':\n            return self.reorder(info)\n        else:\n            return f\"Unknown command {op}\"\n\n# Entry function\ndef manage_patient_queue(commands: List[List]) -> List[str]:\n    hosp = Hospital()\n    outputs = []\n    start_time = time.time()\n    for cmd in commands:\n        try:\n            res = hosp.process_command(cmd)\n        except Exception as e:\n            res = f\"Error processing command {cmd[0]}: {e}\"\n        outputs.append(res)\n        # Ensure responsiveness: if many commands, we could yield internally; here we just track time\n        if (time.time() - start_time) > 0.49:\n            # simulate propagation deadline: quick sync checkpoint\n            with hosp.lock:\n                pass\n            start_time = time.time()\n    return outputs"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 938,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1685,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2623
+  },
+  "user": null,
+  "metadata": {}
+}

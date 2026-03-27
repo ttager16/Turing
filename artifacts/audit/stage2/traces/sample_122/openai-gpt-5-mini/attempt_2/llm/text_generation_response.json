@@ -1,0 +1,76 @@
+{
+  "id": "resp_038a7f2f587c9cff0069c33b13cda48191954eae495dc578cc",
+  "object": "response",
+  "created_at": 1774402323,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774402349,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_038a7f2f587c9cff0069c33b14571081919afd47e0eaa8772e",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_038a7f2f587c9cff0069c33b148b7481919471d878f097113c",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Tuple\nfrom collections import defaultdict, deque\nimport heapq\nimport math\n\ndef find_optimal_multilayer_network(\n    layer_graphs: List[Dict[str, Any]],\n    critical_nodes: Dict[str, float]\n) -> List[Dict[str, int]]:\n    # Build aggregated nodes balances and edges with layer info\n    node_balance = defaultdict(float)\n    edges = []  # list of (layer_id, u, v, base_cost, capacity)\n    node_layers = defaultdict(set)\n    for layer in layer_graphs:\n        lid = layer.get(\"layer_id\")\n        nodes = layer.get(\"nodes\", {})\n        for n, b in nodes.items():\n            node_balance[n] += float(b)\n            node_layers[n].add(lid)\n        for e in layer.get(\"edges\", []):\n            u = e[\"from\"]; v = e[\"to\"]\n            cost = float(e[\"cost\"])\n            cap = float(e[\"capacity\"])\n            edges.append((lid, u, v, cost, cap))\n            node_layers[u].add(lid); node_layers[v].add(lid)\n    # Check global supply==demand\n    total_supply = sum(v for v in node_balance.values() if v > 0)\n    total_demand = -sum(v for v in node_balance.values() if v < 0)\n    if abs(total_supply - total_demand) > 1e-9:\n        return []\n    # Build adjusted costs\n    def priority_weight(node):\n        w = critical_nodes.get(str(node), critical_nodes.get(node, None))\n        if w is None:\n            return 1.0\n        try:\n            w = float(w)\n        except:\n            w = 1.0\n        return max(0.1, w)\n    adj_edges = []  # store with id\n    for idx, (lid, u, v, base_cost, cap) in enumerate(edges):\n        pu = priority_weight(u); pv = priority_weight(v)\n        factor = 1.0 / (pu * pv) if (pu * pv) != 0 else 1.0\n        adj_cost = base_cost * factor\n        adj_edges.append({\n            \"id\": idx, \"layer_id\": lid, \"u\": u, \"v\": v,\n            \"cost\": adj_cost, \"cap\": cap, \"base_cost\": base_cost\n        })\n    # Build flow network with super source/sink: create directed edges as given (no reverse direction unless present)\n    # We'll implement min-cost flow via successive shortest augmenting paths (Dijkstra potentials)\n    # Nodes: all unique node ids plus 'S' and 'T'\n    nodes = set(node_balance.keys())\n    S = \"__src__\"; T = \"__sink__\"\n    # Assign demands: supply nodes -> edge from S to node with capacity = supply, cost 0\n    # demand nodes -> edge from node to T with capacity = -demand, cost 0\n    # Also include original edges u->v with capacity and cost\n    # Build adjacency with residual edges\n    class Edge:\n        __slots__ = (\"to\",\"rev\",\"cap\",\"cost\",\"orig_id\",\"layer_id\",\"u\",\"v\")\n        def __init__(self, to, rev, cap, cost, orig_id=None, layer_id=None, u=None, v=None):\n            self.to = to; self.rev = rev; self.cap = cap; self.cost = cost\n            self.orig_id = orig_id; self.layer_id = layer_id; self.u = u; self.v = v\n    graph = defaultdict(list)\n    def add_edge(frm, to, cap, cost, orig_id=None, layer_id=None, u=None, v=None):\n        graph[frm].append(Edge(to, len(graph[to]), cap, cost, orig_id, layer_id, u, v))\n        graph[to].append(Edge(frm, len(graph[frm]) - 1, 0.0, -cost, None, None, None, None))\n    # Add supply/demand edges\n    for n, bal in node_balance.items():\n        if bal > 0:\n            add_edge(S, n, bal, 0.0)\n        elif bal < 0:\n            add_edge(n, T, -bal, 0.0)\n    # If there are no supplies and demands, trivial empty selection\n    if total_supply == 0 and total_demand == 0:\n        return []\n    # Add network edges\n    for e in adj_edges:\n        if e[\"cap\"] <= 0:\n            continue\n        add_edge(e[\"u\"], e[\"v\"], e[\"cap\"], e[\"cost\"], orig_id=e[\"id\"], layer_id=e[\"layer_id\"], u=e[\"u\"], v=e[\"v\"])\n    # Feasibility quick check: capacity from S must reach T via residual capacities (maxflow)\n    # compute maxflow via Dinic-like BFS/DFS without costs (simple Edmonds-Karp using BFS)\n    def maxflow_bfs_capacity():\n        # clone capacities\n        cap_graph = {}\n        for u, lst in graph.items():\n            cap_graph[u] = [edge.cap for edge in lst]\n        flow = 0.0\n        while True:\n            parent = {S: (None, None)}\n            q = deque([S])\n            while q and T not in parent:\n                u = q.popleft()\n                for i, e in enumerate(graph[u]):\n                    if cap_graph[u][i] > 1e-12 and e.to not in parent:\n                        parent[e.to] = (u, i)\n                        q.append(e.to)\n            if T not in parent:\n                break\n            # find bottleneck\n            v = T; bott = float(\"inf\")\n            while v != S:\n                u, i = parent[v]\n                bott = min(bott, cap_graph[u][i])\n                v = u\n            v = T\n            while v != S:\n                u, i = parent[v]\n                cap_graph[u][i] -= bott\n                rev = graph[u][i].rev\n                # find index of reverse edge in graph[v] is graph[v][rev]\n                cap_graph[v][rev] += bott\n                v = u\n            flow += bott\n        return flow\n    mf = maxflow_bfs_capacity()\n    if abs(mf - total_supply) > 1e-8:\n        return []\n    # Min-cost flow from S to T for flow = total_supply\n    N = list(graph.keys())\n    potential = {n:0.0 for n in graph}\n    flow_needed = total_supply\n    flow = 0.0\n    cost = 0.0\n    parent = {}\n    while flow < flow_needed - 1e-12:\n        # Dijkstra\n        dist = {n: math.inf for n in graph}\n        dist[S] = 0.0\n        prev = {n: None for n in graph}\n        prev_edge = {n: None for n in graph}\n        h = [(0.0, S)]\n        while h:\n            d,u = heapq.heappop(h)\n            if d > dist[u] + 1e-15: continue\n            for i, e in enumerate(graph[u]):\n                if e.cap > 1e-12:\n                    v = e.to\n                    nd = d + e.cost + potential[u] - potential[v]\n                    if nd + 1e-15 < dist[v]:\n                        dist[v] = nd\n                        prev[v] = u\n                        prev_edge[v] = i\n                        heapq.heappush(h, (nd, v))\n        if dist[T] == math.inf:\n            return []\n        for n in graph:\n            if dist[n] < math.inf:\n                potential[n] += dist[n]\n        # augment\n        addf = flow_needed - flow\n        v = T\n        while v != S:\n            u = prev[v]\n            eidx = prev_edge[v]\n            e = graph[u][eidx]\n            addf = min(addf, e.cap)\n            v = u\n        v = T\n        while v != S:\n            u = prev[v]\n            eidx = prev_edge[v]\n            e = graph[u][eidx]\n            re = graph[v][e.rev]\n            e.cap -= addf\n            re.cap += addf\n            cost += addf * e.cost\n            v = u\n        flow += addf\n    # After flow, check critical nodes connectivity: each critical node with non-zero balance must be connected to at least one supply node in used edges\n    # Build graph of used edges with positive flow (i.e., reverse residual cap > 0 on original edges)\n    used_adj = defaultdict(set)\n    used_edge_records = {}  # key (layer,u,v) -> flow\n    for u, lst in graph.items():\n        for e in lst:\n            if e.orig_id is not None:\n                # original forward edge; residual reverse edge at e.to list index e.rev has cap = flow sent\n                rev_edge = graph[e.to][e.rev]\n                flow_sent = rev_edge.cap  # because reverse edge cap increased by flow\n                if flow_sent > 1e-12:\n                    used_adj[e.u].add(e.v)\n                    key = (e.layer_id, e.u, e.v)\n                    used_edge_records[key] = used_edge_records.get(key, 0.0) + flow_sent\n    # Determine supply nodes that actually supplied >0\n    supply_nodes_supplied = set()\n    for e in graph[S]:\n        rev = graph[e.to][e.rev]\n        supplied = rev.cap  # flow sent from S to node is now in reverse cap\n        if supplied > 1e-12:\n            supply_nodes_supplied.add(e.to)\n    # For each critical node with non-zero balance, check reachability from any supply node in used_adj via BFS/DFS (across node ids)\n    for c, w in critical_nodes.items():\n        # c may be string or number; try to match keys in node_balance\n        try:\n            if c in node_balance:\n                cn = c\n            else:\n                # try numeric\n                cn = int(c) if isinstance(c, str) and c.isdigit() else c\n                if cn not in node_balance:\n                    # try float key\n                    cn = float(c) if isinstance(c, str) else c\n            if cn not in node_balance:\n                continue\n        except:\n            cn = c\n            if cn not in node_balance:\n                continue\n        if abs(node_balance[cn]) < 1e-12:\n            continue\n        # BFS from any supply node to see if can reach cn\n        found = False\n        visited = set()\n        dq = deque(supply_nodes_supplied)\n        while dq:\n            x = dq.popleft()\n            if x in visited: continue\n            visited.add(x)\n            if x == cn:\n                found = True; break\n            for y in used_adj.get(x, ()):\n                if y not in visited:\n                    dq.append(y)\n        if not found:\n            return []\n    # Prepare output: list unique used edges (layer_id, from, to)\n    result = []\n    for (layer_id, u, v), fval in used_edge_records.items():\n        if fval > 1e-12:\n            result.append({\"layer_id\": layer_id, \"from\": u, \"to\": v})\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 3054,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2440,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 5494
+  },
+  "user": null,
+  "metadata": {}
+}

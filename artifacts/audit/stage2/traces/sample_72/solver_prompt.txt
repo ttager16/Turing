@@ -1,0 +1,126 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+A major financial institution requires a reliable, data-driven module to detect suspicious customer activity using only historical transaction records and a new batch of transactions.
+Each customer represents a node, and each money transfer represents a directed edge between two nodes.
+Your task is to analyze the new batch of transactions in the context of the historical data and flag customers whose recent activities appear abnormal such as unusually large amounts, excessive transaction frequency, or circular money flows (cycles).
+
+
+#### Objectives
+
+1. **Dynamic Graph Construction:**
+   Build an in-memory directed graph using:
+   * All transactions in the new batch (transaction_data).
+   * Relevant edges from the historical data (optionally filtered by a time window).
+     Each transaction defines exactly one directed edge u -> v, where u = customer_id and v = linked_accounts[0].
+
+2. **Anomaly Detection Algorithm (with Union-Find):**
+   Implement detection rules for the following behaviors.
+   The cycle detection rule must leverage a Union-Find (Disjoint Set Union) structure to efficiently identify whether two nodes belong to the same connected component before performing bounded BFS/DFS:
+
+   * Unusual Amounts:
+     Compare each customer’s transaction amount against their historical median and median absolute deviation (MAD).
+     If a new transaction exceeds (median + 3.5 * 1.4826 * MAD), mark it as suspicious.
+
+   * Cycle Detection (Using DSU):
+     If a new transaction u -> v forms a short cycle (money returning from v back to u within <= 3 hops), flag it as potentially fraudulent.
+     Use Union-Find to prune unreachable components and minimize redundant cycle checks.
+
+   * High-Frequency Bursts:
+     If a customer performs significantly more transactions within a short window (e.g., 1 hour) compared to their 7-day historical average, flag the anomaly.
+
+3. Historical Comparison:
+   Use only the data provided in historical_data to compute each customer’s past behavior (e.g., median, MAD, transaction rate).
+
+
+#### Constraints
+
+- Must be implemented in pure Python (no external libraries allowed).
+- Input presence:
+  * If transaction_data is missing or empty, immediately return [].
+  * historical_data must be provided (can be empty). if empty, process transactions but skip amount-outlier checks everywhere.
+- Schema validation:
+  * Each element in transaction_data must be a dict with keys {customer_id, amount, location, timestamp, linked_accounts}, on violation return [].
+  * historical_data must map each customer_id (str) to a list of dicts with the same keys {amount, location, timestamp, linked_accounts}, on violation return [].
+- Validity rules, on violation the function must immediately return []:
+  * customer_id must contain only uppercase English letters and digits.
+  * amount is a positive float or int (> 0).
+  * timestamp is a positive integer (UNIX seconds).
+  * linked_accounts must be a list.
+    - In transaction_data, it must contain exactly one valid customer ID (the sole recipient).
+    - In historical_data, it may be empty or exactly one valid customer ID.
+- Cycle detection:
+  * Cycle search depth limited to K = 3 hops (detects cycles up to 4 nodes).
+  * Cycle detection must leverage Union-Find (DSU) to prune unreachable components before bounded BFS/DFS.
+- Amount outlier rule:
+  * Use robust threshold: amount > median + 3.5 * (1.4826 * MAD).
+  * If a customer has fewer than 2 historical transactions, skip this rule for that customer.
+
+#### Function Signature
+
+```python
+def detect_anomalies(transaction_data: List[Dict[str, Any]], 
+                     historical_data: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    pass
+```
+
+
+#### Sample Input/Output
+
+**Input:**
+
+```python
+transaction_data = [
+    {'customer_id': 'A001', 'amount': 300,  'location': 'DE', 'timestamp': 1638072800, 'linked_accounts': ['Z999']},
+    {'customer_id': 'Z999', 'amount': 50,   'location': 'UK', 'timestamp': 1638072900, 'linked_accounts': ['A001']},
+    {'customer_id': 'B123', 'amount': 200,  'location': 'US', 'timestamp': 1638073000, 'linked_accounts': ['Z999']}
+]
+
+historical_data = {
+    'A001': [
+        {'amount': 100, 'location': 'DE', 'timestamp': 1637062800, 'linked_accounts': []},
+        {'amount': 500, 'location': 'NL', 'timestamp': 1637062900, 'linked_accounts': []}
+    ],
+    'Z999': [
+        {'amount': 60,  'location': 'UK', 'timestamp': 1637063000, 'linked_accounts': []}
+    ],
+    'B123': [
+        {'amount': 50,  'location': 'US', 'timestamp': 1637063100, 'linked_accounts': []}
+    ]
+}
+```
+
+**Output:**
+
+```python
+[
+    {'customer_id': 'A001', 'anomaly': False},
+    {'customer_id': 'Z999', 'anomaly': True},
+    {'customer_id': 'B123', 'anomaly': False}
+]
+```
+
+
+#### Expected Output Format
+
+The function should return a list of dictionaries where each element corresponds to one transaction in the input batch, containing:
+
+* customer_id -> sender ID
+* anomaly -> True if the transaction is flagged as abnormal (based on outlier, cycle, or burst criteria, with the cycle rule using Union-Find), otherwise False.
+
+Starter Code:
+```python
+from typing import List, Dict, Any
+
+def detect_anomalies(transaction_data: List[Dict[str, Any]], 
+                     historical_data: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    pass
+```

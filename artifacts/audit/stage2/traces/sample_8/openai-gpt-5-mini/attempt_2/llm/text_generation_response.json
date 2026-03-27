@@ -1,0 +1,76 @@
+{
+  "id": "resp_01b932bb7d0f51a30069c3199a116c8192b4af7af493d4c575",
+  "object": "response",
+  "created_at": 1774393754,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774393777,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_01b932bb7d0f51a30069c3199a98148192815446a191361f00",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_01b932bb7d0f51a30069c3199ae1208192bd6507a57347874a",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Tuple\nfrom collections import defaultdict, deque\n\ndef optimize_supply_chain(resources: list, demand_forecasts: list, disruption_factors: list) -> dict:\n    # Build center lookup\n    centers = {}\n    for r in resources:\n        centers[r['center_id']] = {\n            'center_id': r['center_id'],\n            'location': r['location'],\n            'inventory': int(r['inventory']),\n            'capacity': int(r['capacity']),\n            'connected': list(r.get('connected_centers', []))\n        }\n    # Map location to center_id (assume one center per location as sample implies)\n    loc_to_center = {}\n    for c in centers.values():\n        loc_to_center[c['location']] = c['center_id']\n    # Compute total severity per center\n    severity = defaultdict(float)\n    for d in disruption_factors:\n        s = float(d.get('severity', 0.0))\n        for cid in d.get('affected_centers', []):\n            severity[cid] += s\n    for cid in severity:\n        if severity[cid] > 1.0:\n            severity[cid] = 1.0\n    # Effective inventory after disruption (integer)\n    effective_inv = {}\n    for cid, c in centers.items():\n        eff = int(round(c['inventory'] * (1.0 - severity.get(cid, 0.0))))\n        if eff < 0:\n            eff = 0\n        effective_inv[cid] = eff\n    # Compute total forecast per location and preserve product-level forecasts per location\n    loc_forecasts = defaultdict(int)\n    loc_product_forecasts = defaultdict(list)  # location -> list of (priority, product_id, forecast)\n    for f in demand_forecasts:\n        loc = f['location']\n        qty = int(f['forecast'])\n        loc_forecasts[loc] += qty\n        loc_product_forecasts[loc].append((int(f.get('priority', 0)), f['product_id'], qty))\n    # Determine surplus and deficit per center (aggregated)\n    surplus = {}\n    deficit = {}\n    for cid, c in centers.items():\n        loc = c['location']\n        total_forecast = loc_forecasts.get(loc, 0)\n        inv = effective_inv.get(cid, 0)\n        diff = inv - total_forecast\n        if diff > 0:\n            surplus[cid] = diff\n        elif diff < 0:\n            deficit[cid] = -diff\n    # Precompute adjacency including one-hop via single intermediate\n    adjacency = {}\n    for cid, c in centers.items():\n        direct = set(c['connected'])\n        adjacency[cid] = {'direct': direct, 'onehop': {}}\n    # For one-hop, build paths cid -> intermediate -> target\n    for a in centers:\n        for mid in adjacency[a]['direct']:\n            if mid not in centers:\n                continue\n            for b in centers[mid]['connected']:\n                if b == a: continue\n                # allow if not directly connected already; still consider both\n                # store path distance as abs diff of center_ids sum maybe\n                adjacency[a]['onehop'][b] = mid\n    # Prepare list of deficit centers with products sorted by priority\n    # For each deficit center, expand product-level demands by priority ascending\n    deficit_requests = []  # entries: (to_center_id, priority, product_id, qty)\n    for loc, plist in loc_product_forecasts.items():\n        to_cid = loc_to_center.get(loc)\n        if to_cid is None: continue\n        # sort by priority ascending (lower number = higher priority)\n        plist_sorted = sorted(plist, key=lambda x: x[0])\n        for prio, pid, qty in plist_sorted:\n            # Only consider requests if center has aggregate deficit\n            if to_cid in deficit:\n                deficit_requests.append((to_cid, prio, pid, qty))\n    # Deterministic processing: process deficit_requests in order of center id ascending then priority\n    deficit_requests.sort(key=lambda x: (x[0], x[1], x[2]))\n    routes = []\n    # Helper to find candidate senders for a given receiver\n    def candidate_senders(receiver):\n        candidates = []\n        for sid, s_amt in surplus.items():\n            if s_amt <= 0:\n                continue\n            # direct?\n            if receiver in adjacency[sid]['direct']:\n                dist = abs(sid - receiver)\n                hop = 0\n                candidates.append((sid, s_amt, hop, dist, [sid, receiver]))\n            # one-hop?\n            mid = adjacency[sid]['onehop'].get(receiver)\n            if mid is not None:\n                dist = abs(sid - receiver)\n                hop = 1\n                candidates.append((sid, s_amt, hop, dist, [sid, mid, receiver]))\n        # Sort by: higher surplus, smaller center_id diff (dist), (hop prefer 0? not specified so distance covers), then sender id\n        candidates.sort(key=lambda x: (-x[1], x[3], x[0]))\n        return candidates\n    # Process each product request, allocate from candidates until fulfilled or no surplus\n    for to_cid, prio, pid, req_qty in deficit_requests:\n        remaining = req_qty\n        # Also cap by aggregate deficit remaining\n        agg_def = deficit.get(to_cid, 0)\n        if agg_def <= 0:\n            continue\n        remaining = min(remaining, agg_def)\n        # Find senders and allocate\n        while remaining > 0:\n            cand = candidate_senders(to_cid)\n            if not cand:\n                break\n            sender_id, s_amt, hop, dist, path = cand[0]\n            transfer = min(remaining, s_amt)\n            if transfer <= 0:\n                break\n            # Ensure sender not exceeding capacity? transfers reduce sender inventory only, capacity applies at receiver end when adding\n            # Also ensure receiver capacity not exceeded\n            receiver_capacity = centers[to_cid]['capacity']\n            receiver_current = effective_inv.get(to_cid, 0)\n            # Sum incoming already planned to receiver\n            incoming_planned = sum(r['quantity'] for r in routes if r['to'] == centers[to_cid]['location'])\n            avail_space = receiver_capacity - (receiver_current + incoming_planned)\n            if avail_space <= 0:\n                break\n            transfer = min(transfer, avail_space)\n            if transfer <= 0:\n                break\n            # Make integer\n            transfer = int(transfer)\n            # Record route (from location name)\n            routes.append({\n                'from': centers[sender_id]['location'],\n                'to': centers[to_cid]['location'],\n                'product_id': pid,\n                'quantity': transfer\n            })\n            # Update surplus and effective_inv and deficit\n            surplus[sender_id] -= transfer\n            effective_inv[sender_id] -= transfer\n            if surplus[sender_id] <= 0:\n                surplus.pop(sender_id, None)\n            effective_inv[to_cid] = effective_inv.get(to_cid, 0) + transfer\n            deficit[to_cid] -= transfer\n            if deficit[to_cid] <= 0:\n                deficit.pop(to_cid, None)\n            remaining -= transfer\n    # After processing, ensure no negative or over-capacity\n    inventory_adjustments = []\n    for cid in sorted(centers.keys()):\n        new_inv = effective_inv.get(cid, 0)\n        if new_inv < 0:\n            new_inv = 0\n        if new_inv > centers[cid]['capacity']:\n            new_inv = centers[cid]['capacity']\n        inventory_adjustments.append({'center_id': cid, 'new_inventory': int(new_inv)})\n    return {'routes': routes, 'inventory_adjustments': inventory_adjustments}"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1324,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1663,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2987
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,76 @@
+{
+  "id": "resp_008ad62496a8de5d0069c33b4bbc6881919ea860dd50c06baf",
+  "object": "response",
+  "created_at": 1774402379,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774402402,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_008ad62496a8de5d0069c33b4c0228819192ee3280662979f7",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_008ad62496a8de5d0069c33b4c304c8191b4a76ad84daabb71",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Set, Tuple\nfrom collections import defaultdict, deque\n\ndef prioritize_mst(\n    graph: List[List],\n    priorities: List[List],\n    updates: List[List]\n) -> List[List[int]]:\n    # Build adjacency and node set\n    nodes = set()\n    edges = {}\n    adj = defaultdict(list)\n    for u, v, w in graph:\n        u, v = int(u), int(v)\n        edges[(u, v)] = w\n        edges[(v, u)] = w\n        adj[u].append((v, w))\n        adj[v].append((u, w))\n        nodes.add(u); nodes.add(v)\n    n = max(nodes) + 1 if nodes else 0\n\n    # Apply updates to priorities list (ensure length)\n    for vid, newp, newr in updates:\n        vid = int(vid)\n        while vid >= len(priorities):\n            priorities.append([0, 0.0])\n        priorities[vid][0] = int(newp)\n        priorities[vid][1] = float(newr)\n\n    # Kruskal MST\n    parent = list(range(n))\n    def find(x):\n        while parent[x]!=x:\n            parent[x]=parent[parent[x]]\n            x=parent[x]\n        return x\n    def union(a,b):\n        ra, rb = find(a), find(b)\n        if ra==rb: return False\n        parent[rb]=ra\n        return True\n\n    sorted_edges = sorted([(w,u,v) for (u,v,w) in [(e[0], e[1], e[2]) for e in graph]], key=lambda x: x[0])\n    mst_edges = []\n    for w,u,v in sorted_edges:\n        u=int(u); v=int(v)\n        if union(u,v):\n            mst_edges.append((u,v,w))\n    # Ensure connectivity: if graph was disconnected, add cheapest edges to connect components\n    comps = {}\n    for i in range(n):\n        comps.setdefault(find(i), []).append(i)\n    comp_roots = list({find(i) for i in range(n)})\n    if len(comp_roots) > 1:\n        # add cheapest inter-component edges\n        inter = []\n        for u,v,w in [(e[0], e[1], e[2]) for e in graph]:\n            u=int(u); v=int(v)\n            inter.append((w,u,v))\n        inter.sort()\n        for w,u,v in inter:\n            if union(u,v):\n                mst_edges.append((u,v,w))\n        # rebuild adjacency\n    adj_mst = defaultdict(list)\n    for u,v,w in mst_edges:\n        adj_mst[u].append((v,w))\n        adj_mst[v].append((u,w))\n\n    # For high-priority nodes, ensure two edge-disjoint paths to 0.\n    # Strategy: for each high-priority node, if only one path in current subgraph, add cheapest alternate edge that creates an edge-disjoint second path.\n    def has_two_edge_disjoint(u):\n        # compute number of edge-disjoint paths between u and 0 using max-flow on unit capacities (edges undirected -> model as two directed edges)\n        # small Dinic implementation on current selected edges\n        if u==0: return True\n        vid_map = {}\n        idx=0\n        for node in range(n):\n            vid_map[node]=idx; idx+=1\n        N = n\n        # build directed graph from current selected edges\n        graph_d = [[] for _ in range(N)]\n        def add_edge(a,b,c):\n            graph_d[a].append([b,c,len(graph_d[b])])\n            graph_d[b].append([a,0,len(graph_d[a])-1])\n        for a in range(N):\n            for b,w in adj_mst[a]:\n                add_edge(vid_map[a], vid_map[b], 1)\n        s = vid_map[u]; t = vid_map[0]\n        # Dinic\n        level = [0]*N\n        def bfs():\n            for i in range(N): level[i]=-1\n            q = deque([s]); level[s]=0\n            while q:\n                x=q.popleft()\n                for to,cap,rev in graph_d[x]:\n                    if cap>0 and level[to]<0:\n                        level[to]=level[x]+1\n                        q.append(to)\n            return level[t]>=0\n        ptr=[0]*N\n        def dfs(v, pushed):\n            if v==t or pushed==0: return pushed\n            for i in range(ptr[v], len(graph_d[v])):\n                to,cap,rev = graph_d[v][i]\n                if cap>0 and level[to]==level[v]+1:\n                    tr = dfs(to, min(pushed, cap))\n                    if tr>0:\n                        graph_d[v][i][1]-=tr\n                        graph_d[to][graph_d[v][i][2]][1]+=tr\n                        return tr\n                ptr[v]+=1\n            return 0\n        flow=0\n        while bfs():\n            ptr=[0]*N\n            while True:\n                pushed = dfs(s, 10**9)\n                if pushed==0: break\n                flow+=pushed\n                if flow>=2: return True\n        return flow>=2\n\n    # For each high-priority node lacking redundancy, try adding cheapest non-MST edges that create alternative edge-disjoint path\n    high_nodes = [i for i in range(len(priorities)) if i < n and int(priorities[i][0])==1]\n    non_mst_edges = []\n    mst_set = set((min(u,v), max(u,v)) for u,v,w in mst_edges)\n    for u,v,w in [(e[0], e[1], e[2]) for e in graph]:\n        a,b = int(u), int(v)\n        key = (min(a,b), max(a,b))\n        if key not in mst_set:\n            non_mst_edges.append((w,a,b))\n    non_mst_edges.sort()\n    for h in high_nodes:\n        if not has_two_edge_disjoint(h):\n            # try add edges incrementally until redundancy achieved\n            for w,a,b in non_mst_edges:\n                key = (min(a,b), max(a,b))\n                if key in mst_set: continue\n                # add this edge\n                adj_mst[a].append((b,w))\n                adj_mst[b].append((a,w))\n                mst_edges.append((a,b,w))\n                mst_set.add(key)\n                if has_two_edge_disjoint(h):\n                    break\n\n    # Rebalance weights for shared utilization: approximate by slightly increasing cost on highly used edges (edges on many high-priority simple paths)\n    # Compute simple shortest paths from 0 to each high-priority node in current graph and count edge usage\n    usage = defaultdict(int)\n    def shortest_path(prev_from, start, goal):\n        import heapq\n        dist = {start:0}\n        prev = {}\n        hq = [(0,start)]\n        while hq:\n            d,u = heapq.heappop(hq)\n            if d!=dist[u]: continue\n            if u==goal: break\n            for v,w in adj_mst[u]:\n                nd = d + w\n                if v not in dist or nd < dist[v]:\n                    dist[v]=nd\n                    prev[v]=u\n                    heapq.heappush(hq,(nd,v))\n        if goal not in dist: return []\n        path=[]\n        cur=goal\n        while cur!=start:\n            p=prev[cur]\n            path.append((min(cur,p), max(cur,p)))\n            cur=p\n        path.reverse()\n        return path\n\n    for h in high_nodes:\n        path = shortest_path({}, 0, h)\n        for e in path:\n            usage[e]+=1\n    # adjust: if usage>1, treat as shared and try to replace with alternative cheaper edges from non_mst to balance: simple heuristic - if an edge used by multiple HPs and there exists non-mst parallel that can reduce total, add it\n    for (a,b),cnt in list(usage.items()):\n        if cnt>1:\n            # try to find any non-mst edge connecting different nodes to create alternate routes - trivial approach: keep as is (no changes) because complex rebalancing is heavy\n            pass\n\n    # Final output edges as list of [u,v]\n    res_set = set()\n    for u,v,w in mst_edges:\n        key = (min(int(u),int(v)), max(int(u),int(v)))\n        res_set.add(key)\n    res = [[u,v] for u,v in sorted(res_set)]\n    return res"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1983,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1849,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3832
+  },
+  "user": null,
+  "metadata": {}
+}

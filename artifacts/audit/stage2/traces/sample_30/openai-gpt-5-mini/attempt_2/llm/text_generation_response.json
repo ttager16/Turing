@@ -1,0 +1,76 @@
+{
+  "id": "resp_03f42296c547de7f0069c31f9a81188192a13d99f310477361",
+  "object": "response",
+  "created_at": 1774395290,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774395312,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_03f42296c547de7f0069c31f9ac78481929d0e274df4501f25",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_03f42296c547de7f0069c31f9af9e081928b52239bfb2e8efb",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Any, Dict, List, Tuple, Optional\nimport json\nfrom collections import defaultdict\n\nclass UnionFind:\n    def __init__(self, elements: Optional[List[str]] = None) -> None:\n        self.parent = {}\n        self.size = {}\n        if elements:\n            for e in elements:\n                self.add(e)\n\n    def add(self, x: str) -> None:\n        if x not in self.parent:\n            self.parent[x] = x\n            self.size[x] = 1\n\n    def find(self, x: str) -> str:\n        if x not in self.parent:\n            self.add(x)\n        while self.parent[x] != x:\n            # path compression one step\n            self.parent[x] = self.parent[self.parent[x]]\n            x = self.parent[x]\n        return x\n\n    def union(self, a: str, b: str) -> str:\n        self.add(a); self.add(b)\n        ra = self.find(a); rb = self.find(b)\n        if ra == rb:\n            return ra\n        # union by size\n        if self.size[ra] < self.size[rb]:\n            ra, rb = rb, ra\n        self.parent[rb] = ra\n        self.size[ra] += self.size.get(rb, 0)\n        return ra\n\n    def groups(self) -> Dict[str, List[str]]:\n        roots = {}\n        for x in list(self.parent.keys()):\n            r = self.find(x)\n            roots.setdefault(r, []).append(x)\n        return roots\n\nclass InterestTrieNode:\n    def __init__(self):\n        self.children = {}\n        self.end = False\n\nclass InterestTrie:\n    def __init__(self) -> None:\n        self.root = InterestTrieNode()\n\n    def insert(self, word: str) -> None:\n        node = self.root\n        for ch in word:\n            if ch not in node.children:\n                node.children[ch] = InterestTrieNode()\n            node = node.children[ch]\n        node.end = True\n\n    def contains(self, word: str) -> bool:\n        node = self.root\n        for ch in word:\n            if ch not in node.children:\n                return False\n            node = node.children[ch]\n        return node.end\n\ndef detect_and_visualize_communities(user_interactions: List[List], interests: Dict[str, List[str]]) -> Dict[str, Any]:\n    # Edge cases: empty interactions\n    if not user_interactions:\n        if not interests:\n            return {\"communities\": [], \"visualization_data\": {\"nodes\": [], \"edges\": [], \"clusters\": []}}\n        # create individual communities for each interest user\n        nodes = []\n        communities = []\n        clusters = []\n        for u, ints in interests.items():\n            nodes.append({\"id\": u, \"interests\": list(dict.fromkeys(ints))})\n            communities.append({\"members\": [u], \"shared_interests\": list(dict.fromkeys(ints)), \"transition_events\": []})\n            clusters.append({\"root\": u, \"members\": [u]})\n        return {\"communities\": communities, \"visualization_data\": {\"nodes\": nodes, \"edges\": [], \"clusters\": clusters}}\n    # Prepare structures\n    uf = UnionFind()\n    trie = InterestTrie()\n    for uid, ints in interests.items():\n        for tag in ints:\n            trie.insert(tag)\n    # Track first appearance timestamps\n    first_seen = {}\n    # Track events list per cluster root (we'll aggregate later)\n    events = []  # list of tuples (timestamp, user_id, event_str)\n    edges_out = []\n    users_set = set()\n    # Process interactions in chronological order\n    # Ensure sorted by timestamp\n    interactions = [list(it) for it in user_interactions]\n    interactions.sort(key=lambda x: (int(x[2]), x[0], x[1]))\n    for a, b, ts in interactions:\n        a = str(a); b = str(b)\n        ts = int(ts)\n        users_set.add(a); users_set.add(b)\n        # record first appearance\n        if a not in first_seen:\n            first_seen[a] = ts\n            events.append((ts, a, \"joined_cluster\"))\n        if b not in first_seen:\n            first_seen[b] = ts\n            events.append((ts, b, \"joined_cluster\"))\n        # check if already in same cluster\n        same_before = False\n        if a in uf.parent and b in uf.parent:\n            if uf.find(a) == uf.find(b):\n                same_before = True\n        # record edge\n        edges_out.append({\"source\": a, \"target\": b, \"timestamp\": ts})\n        # If same cluster and repeated interaction, special event\n        if same_before:\n            if a == b:\n                events.append((ts, a, \"connected_with_self\"))\n            else:\n                events.append((ts, a, f\"connected_with_{b}\"))\n        # union them (this may merge clusters)\n        uf.union(a, b)\n    # Include users from interests only (no interactions)\n    for u in interests.keys():\n        users_set.add(u)\n        if u not in uf.parent:\n            uf.add(u)\n    # Build groups\n    groups = uf.groups()  # root -> members\n    # Aggregate shared interests per group\n    communities = []\n    # Prepare mapping from user to root at final state\n    user_root = {}\n    for r, members in groups.items():\n        for m in members:\n            user_root[m] = r\n    # Aggregate events per final group: apply rules and sort\n    events_sorted = sorted(events, key=lambda x: (x[0], x[1]))\n    events_per_group = defaultdict(list)\n    for ts, user, ev in events_sorted:\n        root = user_root.get(user, user)\n        events_per_group[root].append({user: ev, \"timestamp\": ts})\n    # For users who had interactions first_seen but no repeated events, they still have joined events present\n    # Now build communities list\n    for root, members in groups.items():\n        # members sorted for determinism\n        members_sorted = sorted(members)\n        # Aggregate interests\n        shared = []\n        seen_int = set()\n        for m in members_sorted:\n            for tag in interests.get(m, []):\n                if tag not in seen_int:\n                    seen_int.add(tag)\n                    shared.append(tag)\n        # If interests dict empty, shared should be []\n        if not interests:\n            shared = []\n        comm_events = events_per_group.get(root, [])\n        communities.append({\n            \"members\": members_sorted,\n            \"shared_interests\": shared,\n            \"transition_events\": comm_events\n        })\n    # Handle users with interests but no interactions who didn't get transition_events (should have empty)\n    # Visualization data\n    nodes = []\n    for u in sorted(users_set):\n        nodes.append({\"id\": u, \"interests\": list(dict.fromkeys(interests.get(u, [])))})\n    clusters_vis = []\n    for root, members in groups.items():\n        clusters_vis.append({\"root\": root, \"members\": sorted(members)})\n    visualization_data = {\"nodes\": nodes, \"edges\": edges_out, \"clusters\": clusters_vis}\n    return {\"communities\": communities, \"visualization_data\": visualization_data}\n\nif __name__ == \"__main__\":\n    user_interactions = [\n        ['user1', 'user2', 1620000000],\n        ['user2', 'user3', 1620000100],\n        ['user1', 'user4', 1620000200],\n        ['user4', 'user5', 1620000300],\n        ['user3', 'user5', 1620000400],\n        ['user1', 'user2', 1620000500],\n        ['user6', 'user7', 1620000600]\n    ]\n    interests = {\n        'user1': ['sports', 'music'],\n        'user2': ['music', 'travel'],\n        'user3': ['sports', 'travel'],\n        'user4': ['cooking', 'tech'],\n        'user5': ['cooking', 'travel', 'sports'],\n        'user6': ['gaming', 'tech'],\n        'user7': ['music', 'gaming']\n    }\n    result = detect_and_visualize_communities(user_interactions, interests)\n    print(json.dumps(result, indent=4))"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2397,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1772,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4169
+  },
+  "user": null,
+  "metadata": {}
+}

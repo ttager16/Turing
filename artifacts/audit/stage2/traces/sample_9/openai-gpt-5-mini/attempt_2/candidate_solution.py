@@ -1,0 +1,425 @@
+def _seed_from_id(sid):
+    if isinstance(sid, bool):
+        sid_str = str(sid)
+        h = int(hashlib.md5(sid_str.encode("utf-8")).hexdigest(), 16) % (2**32)
+        return h
+    try:
+        if isinstance(sid, (int,)) and not isinstance(sid, bool):
+            return int(sid)
+        # attempt numeric cast
+        if isinstance(sid, float) and sid.is_integer():
+            return int(sid)
+    except Exception:
+        pass
+    sid_str = str(sid)
+    return int(hashlib.md5(sid_str.encode("utf-8")).hexdigest(), 16) % (2**32)
+
+def _build_tree_from_nested_dict(tree: Dict[str, Any]) -> Tuple[int, Dict[int, List[int]]]:
+    if not isinstance(tree, dict) or 'node' not in tree:
+        return 1, {1: []}
+    adj = {}
+    def dfs(node):
+        nid = node.get('node')
+        if nid is None:
+            return
+        adj.setdefault(nid, [])
+        for ch in node.get('children', []):
+            cid = ch.get('node')
+            if cid is None:
+                continue
+            adj[nid].append(cid)
+            adj.setdefault(cid, [])
+            adj[nid]  # ensure
+            dfs(ch)
+    dfs(tree)
+    root = tree.get('node', 1)
+    # make undirected adjacency for depth calc
+    und = {}
+    for u, childs in adj.items():
+        und.setdefault(u, [])
+        for v in childs:
+            und.setdefault(v, [])
+            und[u].append(v)
+            und[v].append(u)
+    if root not in und:
+        und[root] = []
+    return root, und
+
+def _distribute_budget(values: List[float], budget: float) -> List[float]:
+    n = len(values)
+    cents_budget = int(round(budget * 100))
+    # replace zeros
+    vals = [v if v != 0 else 1e-9 for v in values]
+    total = sum(vals)
+    if total == 0:
+        base = [0 for _ in vals]
+        return [round(budget / n, 2) for _ in vals]
+    quotas = [v * cents_budget / total for v in vals]
+    floors = [int(math.floor(q)) for q in quotas]
+    rem = cents_budget - sum(floors)
+    remainders = [(quotas[i] - floors[i], i) for i in range(n)]
+    # sort by remainder desc, tie by index asc
+    remainders.sort(key=lambda x: (-x[0], x[1]))
+    add = [0]*n
+    for i in range(rem):
+        add[remainders[i][1]] = 1
+    cents = [floors[i] + add[i] for i in range(n)]
+    res = [round(c/100.0, 2) for c in cents]
+    # final adjust to exact budget due to rounding anomalies
+    total_res = round(sum(res), 2)
+    diff = round(budget - total_res, 2)
+    if abs(diff) >= 0.01:
+        # adjust smallest indices deterministically
+        step = 0.01 if diff > 0 else -0.01
+        k = int(round(abs(diff) / 0.01))
+        idx = 0
+        while k>0:
+            res[idx] = round(res[idx] + step, 2)
+            idx = (idx + 1) % n
+            k -= 1
+    return res
+
+class PreferenceTrieNode:
+    def __init__(self) -> None:
+        self.children: Dict[str, 'PreferenceTrieNode'] = {}
+        self.module_ids: Set[int] = set()
+
+class PreferenceTrie:
+    def __init__(self) -> None:
+        self.root = PreferenceTrieNode()
+
+    def index_module(self, module: Dict[str, Any]) -> None:
+        mid = module.get('id')
+        t = str(module.get('type', ''))
+        s = str(module.get('subject', ''))
+        # index [type, subject]
+        node = self.root
+        for key in (t, s):
+            if key not in node.children:
+                node.children[key] = PreferenceTrieNode()
+            node = node.children[key]
+            node.module_ids.add(mid)
+        # index ["", subject]
+        node = self.root
+        if "" not in node.children:
+            node.children[""] = PreferenceTrieNode()
+        node = node.children[""]
+        if s not in node.children:
+            node.children[s] = PreferenceTrieNode()
+        node = node.children[s]
+        node.module_ids.add(mid)
+        # index [type] (type-only)
+        node = self.root
+        if t not in node.children:
+            node.children[t] = PreferenceTrieNode()
+        node = node.children[t]
+        node.module_ids.add(mid)
+
+    def update_preference(self, keys: List[str], affected_module_ids: Set[int]) -> None:
+        node = self.root
+        for k in keys:
+            if k not in node.children:
+                node.children[k] = PreferenceTrieNode()
+            node = node.children[k]
+        node.module_ids.update(affected_module_ids)
+
+    def partial_match(self, keys_prefix: List[str]) -> Set[int]:
+        node = self.root
+        for k in keys_prefix:
+            if k not in node.children:
+                return set()
+            node = node.children[k]
+        # collect all module_ids in subtree
+        res = set()
+        stack = [node]
+        while stack:
+            cur = stack.pop()
+            res.update(cur.module_ids)
+            for child in cur.children.values():
+                stack.append(child)
+        return res
+
+    def preference_score(self, module: Dict[str, Any], preferences: Dict[str, List[str]]) -> float:
+        mid = module.get('id')
+        t = str(module.get('type', ''))
+        s = str(module.get('subject', ''))
+        score = 0.0
+        # type credit if module id exists on trie prefix [type]
+        if t != '':
+            ids = self.partial_match([t])
+            if mid in ids:
+                if preferences.get('format') and t in preferences.get('format'):
+                    score += 0.5
+        # subject credit if module id exists on [type,subject] or ["",subject]
+        ids1 = self.partial_match([t, s])
+        ids2 = self.partial_match(["", s])
+        if mid in ids1 or mid in ids2:
+            if preferences.get('topic_focus') and s in preferences.get('topic_focus'):
+                score += 0.5
+        # cap 0..1
+        return min(1.0, max(0.0, score))
+
+@dataclass
+class _Edge:
+    to: int
+    rev: int
+    cap: int
+    cost: float
+
+class MinCostMaxFlow:
+    def __init__(self, n: int) -> None:
+        self.n = n
+        self.graph: List[List[_Edge]] = [[] for _ in range(n)]
+
+    def add_edge(self, u: int, v: int, cap: int, cost: float) -> None:
+        self.graph[u].append(_Edge(v, len(self.graph[v]), cap, cost))
+        self.graph[v].append(_Edge(u, len(self.graph[u]) - 1, 0, -cost))
+
+    def min_cost_flow(self, s: int, t: int, maxf: int) -> Tuple[int, float]:
+        n = self.n
+        prevv = [0]*n
+        preve = [0]*n
+        INF = 10**9
+        res = 0.0
+        flow = 0
+        h = [0.0]*n  # potential
+        dist = [0.0]*n
+        while flow < maxf:
+            for i in range(n):
+                dist[i] = float('inf')
+            dist[s] = 0.0
+            pq = [(0.0, s)]
+            # Dijkstra with tie-breaking on node index ensures deterministic behavior
+            while pq:
+                d, v = heapq.heappop(pq)
+                if dist[v] < d - 1e-12:
+                    continue
+                for i, e in enumerate(self.graph[v]):
+                    if e.cap > 0:
+                        nd = dist[v] + e.cost + h[v] - h[e.to]
+                        # tie-breaker: include small epsilon based on from->to index to maintain stability
+                        if nd + 1e-12 < dist[e.to]:
+                            dist[e.to] = nd
+                            prevv[e.to] = v
+                            preve[e.to] = i
+                            heapq.heappush(pq, (nd, e.to))
+            if dist[t] == float('inf'):
+                break
+            for v in range(n):
+                h[v] += dist[v] if dist[v] < float('inf') else 0
+            d = maxf - flow
+            v = t
+            while v != s:
+                d = min(d, self.graph[prevv[v]][preve[v]].cap)
+                v = prevv[v]
+            flow += d
+            res += d * h[t]
+            v = t
+            while v != s:
+                e = self.graph[prevv[v]][preve[v]]
+                e.cap -= d
+                self.graph[v][e.rev].cap += d
+                v = prevv[v]
+        return flow, res
+
+class SegmentTree:
+    def __init__(self, n: int) -> None:
+        self.n = 1
+        while self.n < n:
+            self.n <<= 1
+        self.data = [0.0] * (2*self.n)
+
+    def range_add(self, l: int, r: int, val: float) -> None:
+        l += self.n
+        r += self.n
+        while l < r:
+            if l & 1:
+                self.data[l] += val
+                l += 1
+            if r & 1:
+                r -= 1
+                self.data[r] += val
+            l //= 2
+            r //= 2
+
+    def point_get(self, pos: int) -> float:
+        pos += self.n
+        res = 0.0
+        while pos >= 1:
+            res += self.data[pos]
+            pos //= 2
+        return res
+
+class HeavyLightDecomposition:
+    def __init__(self, root: int, adjacency: Dict[int, List[int]]) -> None:
+        self.root = root
+        self.adj = adjacency
+        self.parent = {}
+        self.size = {}
+        self.depth = {}
+        self.heavy = {}
+        self.head = {}
+        self.pos = {}
+        self.current_pos = 0
+        # ensure nodes list
+        nodes = list(adjacency.keys())
+        if root not in adjacency:
+            adjacency[root] = []
+        self._dfs(root, -1)
+        self._decompose(root, root)
+        self.seg = SegmentTree(len(nodes)+5)
+
+    def _dfs(self, v, p):
+        self.parent[v] = p
+        self.size[v] = 1
+        self.depth[v] = 0 if p == -1 else self.depth[p] + 1
+        self.heavy[v] = -1
+        maxsz = 0
+        for to in self.adj.get(v, []):
+            if to == p:
+                continue
+            self._dfs(to, v)
+            self.size[v] += self.size[to]
+            if self.size[to] > maxsz:
+                maxsz = self.size[to]
+                self.heavy[v] = to
+
+    def _decompose(self, v, h):
+        self.head[v] = h
+        self.pos[v] = self.current_pos
+        self.current_pos += 1
+        if self.heavy.get(v, -1) != -1:
+            self._decompose(self.heavy[v], h)
+        for to in self.adj.get(v, []):
+            if to == self.parent.get(v, -1) or to == self.heavy.get(v, -1):
+                continue
+            self._decompose(to, to)
+
+    def add_difficulty_on_path(self, u: int, v: int, delta: float) -> None:
+        while self.head[u] != self.head[v]:
+            if self.depth[self.head[u]] < self.depth[self.head[v]]:
+                u, v = v, u
+            hu = self.head[u]
+            self.seg.range_add(self.pos[hu], self.pos[u]+1, delta)
+            u = self.parent[hu]
+        if self.depth[u] > self.depth[v]:
+            u, v = v, u
+        self.seg.range_add(self.pos[u], self.pos[v]+1, delta)
+
+    def node_difficulty_bias(self, u: int) -> float:
+        if u not in self.pos:
+            return self.seg.point_get(self.pos[self.root])
+        return self.seg.point_get(self.pos[u])
+
+class ProbabilisticRefiner:
+    def __init__(self, performance_history: List[float], engagement_over_time: List[str], rng=None) -> None:
+        self.performance_history = list(performance_history) if performance_history else []
+        self.engagement_over_time = list(engagement_over_time) if engagement_over_time else []
+        self.rng = rng if rng is not None else random.Random(0)
+
+    def mastery_probability(self) -> float:
+        history = self.performance_history
+        if not history:
+            mean = 70.0
+            var = 0.0
+        else:
+            mean = sum(history)/len(history)
+            if len(history) >= 2:
+                denom = max(1, len(history)-1)
+                var = sum((x-mean)**2 for x in history)/denom
+            else:
+                var = 0.0
+        engagement = 'medium'
+        if self.engagement_over_time:
+            engagement = self.engagement_over_time[-1]
+        weight = {'high':1.1,'medium':1.0,'low':0.9}.get(engagement,1.0)
+        z = (mean - 70)/10.0 - math.sqrt(var)/50.0
+        # apply engagement weight multiplicatively
+        z = z * weight
+        # logistic
+        p = 1.0/(1.0+math.exp(-z))
+        p = max(0.05, min(0.95, p))
+        return p
+
+    def difficulty_adjustment(self, base_difficulty: float) -> float:
+        p = self.mastery_probability()
+        baseline_factor = 1 - (base_difficulty - 3)*0.05
+        baseline_factor = max(0.7, min(1.3, baseline_factor))
+        adj = (p - 0.5) * 1.4 * baseline_factor
+        return adj
+
+    def multi_phase_sampling(self, num_questions: int = 5) -> List[Tuple[int, bool]]:
+        res = []
+        for q in range(num_questions):
+            # simulate correctness by mastery probability
+            p = self.mastery_probability()
+            r = self.rng.random()
+            correct = r < p
+            # append synthetic score to performance_history
+            if correct:
+                score = self.rng.uniform(80,100)
+            else:
+                score = self.rng.uniform(50,70)
+            self.performance_history.append(score)
+            res.append((q, correct))
+        return res
+
+def personalize_learning(student_profile: Dict[str, Any], learning_modules: List[Dict[str, Any]], constraints: Dict[str, Any]) -> Dict[str, Any]:
+    # defaults
+    max_flow_cost = constraints.get('max_flow_cost', 100.0)
+    priority_subjects = constraints.get('priority_subjects', []) or []
+    max_diff_spread = constraints.get('max_difficulty_spread', 2)
+    max_concurrent = constraints.get('max_concurrent_modules', None)
+    # concurrency unlimited if missing or <=0
+    if max_concurrent is None or (isinstance(max_concurrent, (int,float)) and max_concurrent <= 0):
+        max_concurrent = None  # unlimited
+    # RNG
+    sid = student_profile.get('id')
+    seed = _seed_from_id(sid)
+    rng = random.Random(seed)
+    # build trie
+    trie = PreferenceTrie()
+    for m in learning_modules:
+        trie.index_module(m)
+    # build tree
+    root, adj = _build_tree_from_nested_dict(student_profile.get('current_path_tree', {}))
+    hld = HeavyLightDecomposition(root, adj)
+    # probabilistic refiner
+    perf_hist = list(student_profile.get('performance_history', []))
+    engagement = list(student_profile.get('engagement_over_time', []))
+    refiner = ProbabilisticRefiner(perf_hist, engagement, rng)
+    # run multi-phase sampling exactly 3 questions appended
+    refiner.multi_phase_sampling(num_questions=3)
+    # compute per-module values
+    module_scores = []
+    base_difficulties = []
+    depths = []
+    prefs = student_profile.get('preferences', {})
+    for idx, m in enumerate(learning_modules):
+        mid = m.get('id')
+        base = float(m.get('difficulty', 3.0))
+        base_difficulties.append(base)
+        # depth: if module id in HLD pos use that, else root
+        node_for_depth = mid if mid in hld.pos else root
+        depth = hld.depth.get(node_for_depth, 0)
+        depths.append(depth)
+        # preference score via trie and preferences
+        pref_score = trie.preference_score(m, prefs)
+        # priority_subjects boost
+        if str(m.get('subject','')) in priority_subjects:
+            pref_score = min(1.0, pref_score + 0.1)
+        # difficulty adjustment (not fed back into scoring)
+        diff_adj = refiner.difficulty_adjustment(base)
+        # scoring formula
+        score = 0.65 * pref_score + 0.25 * (0.5 + diff_adj/2.0) + 0.10 * (0.5 + 0.02*depth)
+        score = max(0.0, min(1.0, score))
+        module_scores.append(score)
+    n = len(learning_modules)
+    # build flow network: source(0), students part implicit single source to modules, modules nodes 1..n, sink n+1
+    S = 0
+    T = n + 1
+    mcmf = MinCostMaxFlow(n+2)
+    # source to each module with cap 1 and cost (1.0 - score)
+    for i, score in enumerate(module_scores):
+        cost = 1.0 - score
+        mcmf.add_edge(S, 1

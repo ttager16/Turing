@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: manage_trades\n\nProblem Statement:\n### Problem Statement\n\nIn the realm of high-frequency trading (HFT), global liquidity pools and complex trade interdependencies demand a hyper-optimized, concurrency-safe prioritization system. Instead of a simple binary heap for managing trades, this problem requires building a multi-layered priority queue driven by an advanced data structure that dynamically ranks trades based on evolving metrics such as profit potential, liquidity constraints, and cross-trade dependencies. Moreover, each trade’s priority must be updated in real-time as new market signals in, necessitating compound state tracking and multi-step reasoning to maintain consistency across multiple distributed nodes in a volatile environment.\n\n#### Objectives:\n\n1. **Augmented Priority Structure:** Construct a multi-dimensional priority queue class capable of advanced partial updates, using a segment tree to efficiently manage large-scale trade re-prioritizations without scanning or re-building the entire structure.\n\n2. **Distributed Dependency Synchronization:** Ensure that each trade’s priority is computed in tandem with interdependent trades (e.g., trades sharing liquidity sources or hedging positions). Implement a concurrency-safe graph or tree-based model to detect and propagate priority changes throughout dependent nodes.\n\n#### Constraints:\n\n* Must manage at least **100,0** concurrent trade entries, each capable of spawn or merge events triggering cascading priority updates.\n\n* No external Python libraries are allowed; all data structures (segment tree, heap, or graph) must be implemented manually.\n\n* The system must gracefully recover from message delays and partial data ingestion across geographically distributed nodes, ensuring eventually consistent priority orders.\n\n* **Deterministic Priority Formula:** For each trade `t` with `trade_id`, let:\n\n  * `P = market_data[trade_id]['new_profit']` (numeric),\n  * `L = market_data[trade_id]['liquidity_impact']` (multiplier),\n  * `D = len(dependencies)` (count of **direct** dependencies).\n\n  Compute a deterministic **score**:\n\n  ```\n  score(t) = P * L - 5 * D\n  ```\n\n  Higher `score` implies higher priority. Convert scores to priority ranks by sorting **descending** on `score`. **Tie-breakers** (in order): smaller `D`, then lexicographically smaller `trade_id`. Final priorities are 1-based ranks (1 = highest).\n\n* **Propagation Rule:** When `P` or `L` of any trade changes, recompute its `score` and propagate by recomputing all **downstream dependents** (i.e., trades that list it in `dependencies`). Use a topologically ordered index of the dependency DAG and a segment tree over the score array to support batched recomputations and range queries/updates triggered by spawn/merge events.\n\n#### Function Signature\n\n```python\ndef manage_trades(trade_data: List[Dict[str, Any]], market_data: Dict[str, Any]) -> List[Dict[str, Any]]:\n    pass\n```\n\n#### Sample Input/Output\n\n**Input:**\n\n```python\ntrade_data = [\n    {'trade_id': 'T1', 'priority': 12, 'profit': 250, 'dependencies': ['T2']},\n    {'trade_id': 'T2', 'priority': 9, 'profit': 300, 'dependencies': []},\n    {'trade_id': 'T3', 'priority': 15, 'profit': 80, 'dependencies': ['T2']},\n    {'trade_id': 'T4', 'priority': 10, 'profit': 200, 'dependencies': ['T1', 'T3']}\n]\nmarket_data = {\n    'T1': {'new_profit': 260, 'liquidity_impact': 0.95},\n    'T2': {'new_profit': 280, 'liquidity_impact': 0.88},\n    'T3': {'new_profit': 100, 'liquidity_impact': 0.90},\n    'T4': {'new_profit': 210, 'liquidity_impact': 1.05}\n}\n```\n\n**Output:**\n\n```python\n[\n    {'trade_id': 'T2', 'priority': 1, 'profit': 280, 'dependencies': []},\n    {'trade_id': 'T1', 'priority': 2, 'profit': 260, 'dependencies': ['T2']},\n    {'trade_id': 'T4', 'priority': 3, 'profit': 210, 'dependencies': ['T1', 'T3']},\n    {'trade_id': 'T3', 'priority': 4, 'profit': 100, 'dependencies': ['T2']}\n]\n```\n\n### Expected Output Format\n\n* The output should be a list of dictionaries, each representing a trade with updated priorities, profits, and any applicable dependency data.\n* Trades must be sorted in ascending order of priority (1 being highest priority).\n* Each dictionary must preserve the keys “trade_id,” “priority,” “profit,” and “dependencies,” reflecting the updated state after all segment tree or advanced structure computations have been applied.\n\nStarter Code:\n```python\r\nfrom typing import Any, Dict, List, Tuple, Optional\r\nimport threading\r\n\r\n\r\ndef manage_trades(trade_data: List[Dict[str, Any]], market_data: Dict[str, Any]) -> List[Dict[str, Any]]:\r\n    pass\r\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[{\\\"trade_id\\\": \\\"T1\\\", \\\"priority\\\": 12, \\\"profit\\\": 250, \\\"dependencies\\\": [\\\"T2\\\"]}, {\\\"trade_id\\\": \\\"T2\\\", \\\"priority\\\": 9, \\\"profit\\\": 300, \\\"dependencies\\\": []}, {\\\"trade_id\\\": \\\"T3\\\", \\\"priority\\\": 15, \\\"profit\\\": 80, \\\"dependencies\\\": [\\\"T2\\\"]}, {\\\"trade_id\\\": \\\"T4\\\", \\\"priority\\\": 10, \\\"profit\\\": 200, \\\"dependencies\\\": [\\\"T1\\\", \\\"T3\\\"]}]\\n{\\\"T1\\\": {\\\"new_profit\\\": 260, \\\"liquidity_impact\\\": 0.95}, \\\"T2\\\": {\\\"new_profit\\\": 280, \\\"liquidity_impact\\\": 0.88}, \\\"T3\\\": {\\\"new_profit\\\": 100, \\\"liquidity_impact\\\": 0.9}, \\\"T4\\\": {\\\"new_profit\\\": 210, \\\"liquidity_impact\\\": 1.05}}\",\n    \"output\": \"[{\\\"trade_id\\\": \\\"T2\\\", \\\"priority\\\": 1, \\\"profit\\\": 280.0, \\\"dependencies\\\": []}, {\\\"trade_id\\\": \\\"T1\\\", \\\"priority\\\": 2, \\\"profit\\\": 260.0, \\\"dependencies\\\": [\\\"T2\\\"]}, {\\\"trade_id\\\": \\\"T4\\\", \\\"priority\\\": 3, \\\"profit\\\": 210.0, \\\"dependencies\\\": [\\\"T1\\\", \\\"T3\\\"]}, {\\\"trade_id\\\": \\\"T3\\\", \\\"priority\\\": 4, \\\"profit\\\": 100.0, \\\"dependencies\\\": [\\\"T2\\\"]}]\"\n  },\n  {\n    \"input\": \"[{\\\"trade_id\\\": \\\"T1\\\", \\\"priority\\\": 12, \\\"profit\\\": 250, \\\"dependencies\\\": [\\\"T2\\\"]}, {\\\"trade_id\\\": \\\"T2\\\", \\\"priority\\\": 9, \\\"profit\\\": 300, \\\"dependencies\\\": []}, {\\\"trade_id\\\": \\\"T3\\\", \\\"priority\\\": 15, \\\"profit\\\": 80, \\\"dependencies\\\": [\\\"T2\\\"]}, {\\\"trade_id\\\": \\\"T4\\\", \\\"priority\\\": 10, \\\"profit\\\": 200, \\\"dependencies\\\": [\\\"T1\\\", \\\"T3\\\"]}]\\n{\\\"T1\\\": {\\\"new_profit\\\": 260, \\\"liquidity_impact\\\": 0.95}, \\\"T2\\\": {\\\"new_profit\\\": 280, \\\"liquidity_impact\\\": 0.88}, \\\"T3\\\": {\\\"new_profit\\\": 50, \\\"liquidity_impact\\\": 0.9}, \\\"T4\\\": {\\\"new_profit\\\": 210, \\\"liquidity_impact\\\": 1.05}}\",\n    \"output\": \"[{\\\"trade_id\\\": \\\"T2\\\", \\\"priority\\\": 1, \\\"profit\\\": 280.0, \\\"dependencies\\\": []}, {\\\"trade_id\\\": \\\"T1\\\", \\\"priority\\\": 2, \\\"profit\\\": 260.0, \\\"dependencies\\\": [\\\"T2\\\"]}, {\\\"trade_id\\\": \\\"T4\\\", \\\"priority\\\": 3, \\\"profit\\\": 210.0, \\\"dependencies\\\": [\\\"T1\\\", \\\"T3\\\"]}, {\\\"trade_id\\\": \\\"T3\\\", \\\"priority\\\": 4, \\\"profit\\\": 50.0, \\\"dependencies\\\": [\\\"T2\\\"]}]\"\n  },\n  {\n    \"input\": \"[{\\\"trade_id\\\": \\\"T1\\\", \\\"priority\\\": 12, \\\"profit\\\": 250, \\\"dependencies\\\": [\\\"T2\\\"]}, {\\\"trade_id\\\": \\\"T2\\\", \\\"priority\\\": 9, \\\"profit\\\": 300, \\\"dependencies\\\": []}, {\\\"trade_id\\\": \\\"T3\\\", \\\"priority\\\": 15, \\\"profit\\\": 80, \\\"dependencies\\\": [\\\"T2\\\"]}, {\\\"trade_id\\\": \\\"T4\\\", \\\"priority\\\": 10, \\\"profit\\\": 200, \\\"dependencies\\\": [\\\"T1\\\", \\\"T3\\\"]}]\\n{\\\"T1\\\": {\\\"new_profit\\\": 260, \\\"liquidity_impact\\\": 0.95}, \\\"T2\\\": {\\\"new_profit\\\": 280, \\\"liquidity_impact\\\": 0.2}, \\\"T3\\\": {\\\"new_profit\\\": 100, \\\"liquidity_impact\\\": 0.9}, \\\"T4\\\": {\\\"new_profit\\\": 210, \\\"liquidity_impact\\\": 1.05}}\",\n    \"output\": \"[{\\\"trade_id\\\": \\\"T1\\\", \\\"priority\\\": 1, \\\"profit\\\": 260.0, \\\"dependencies\\\": [\\\"T2\\\"]}, {\\\"trade_id\\\": \\\"T4\\\", \\\"priority\\\": 2, \\\"profit\\\": 210.0, \\\"dependencies\\\": [\\\"T1\\\", \\\"T3\\\"]}, {\\\"trade_id\\\": \\\"T3\\\", \\\"priority\\\": 3, \\\"profit\\\": 100.0, \\\"dependencies\\\": [\\\"T2\\\"]}, {\\\"trade_id\\\": \\\"T2\\\", \\\"priority\\\": 4, \\\"profit\\\": 280.0, \\\"dependencies\\\": []}]\"\n  }\n]\n"
+    }
+  ]
+}

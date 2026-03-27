@@ -1,0 +1,76 @@
+{
+  "id": "resp_0acd2fb6b8da2b930069c32a9f7514819e8b56acd3016a28f3",
+  "object": "response",
+  "created_at": 1774398111,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398123,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0acd2fb6b8da2b930069c32a9fb6cc819e9dd062550b505572",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0acd2fb6b8da2b930069c32a9fe178819e8422669b7205a9c8",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Set\n\ndef manage_device_clusters(devices: List[List], operations: List[List]) -> List[List[int]]:\n    # device_id -> efficiency\n    eff: Dict[int, float] = {}\n    # device_id -> state: 'active', 'standby', 'failed'\n    state: Dict[int, str] = {}\n    # initialize devices\n    for d, e in devices:\n        eff[d] = float(e)\n        state[d] = 'active'\n    # helper to create device if missing\n    def ensure_device(did: int):\n        if did not in eff:\n            eff[did] = 0.80\n            state[did] = 'active'\n    # process operations\n    for op in operations:\n        if not op: continue\n        typ = op[0]\n        if len(op) < 2:\n            continue\n        did = op[1]\n        if typ == 'join':\n            if did in state and state[did] == 'failed':\n                # join on failed? treat as new active (spec not explicit). We'll create as active.\n                eff.setdefault(did, 0.80)\n                state[did] = 'active'\n            else:\n                ensure_device(did)\n        elif typ == 'fail':\n            if did in state:\n                state[did] = 'failed'\n            else:\n                eff.setdefault(did, 0.80)\n                state[did] = 'failed'\n        elif typ == 'standby':\n            if did in state:\n                if state[did] != 'failed':\n                    state[did] = 'standby'\n            else:\n                eff.setdefault(did, 0.80)\n                state[did] = 'standby'\n        elif typ == 'resume':\n            if did in state and state[did] == 'standby':\n                state[did] = 'active'\n            else:\n                # no effect if nonexistent or not standby; if nonexistent, create active per edge-case\n                if did not in state:\n                    eff.setdefault(did, 0.80)\n                    state[did] = 'active'\n        else:\n            # unknown op -> ignore\n            pass\n\n    # collect active devices\n    active_ids = [did for did, st in state.items() if st == 'active']\n    if not active_ids:\n        return []\n    # split into high (>=0.75) and low (<0.75)\n    high: List[int] = []\n    low: List[int] = []\n    for did in active_ids:\n        if eff.get(did, 0.80) >= 0.75:\n            high.append(did)\n        else:\n            low.append(did)\n\n    # For high-efficiency devices we need to cluster such that any cluster's average >=0.75.\n    # Simple greedy approach: sort high by efficiency descending and try to merge to maximize clusters while maintaining average >=0.75.\n    # We'll form clusters by starting from highest efficiency, adding next highest if cluster avg stays >=0.75.\n    high.sort(key=lambda x: (-eff.get(x,0.8), x))\n    clusters: List[List[int]] = []\n    used: Set[int] = set()\n    for did in high:\n        if did in used:\n            continue\n        # start new cluster\n        members = [did]\n        total = eff.get(did, 0.8)\n        count = 1\n        used.add(did)\n        # try to add other unused highs in descending eff order\n        for jd in high:\n            if jd in used:\n                continue\n            new_total = total + eff.get(jd, 0.8)\n            new_count = count + 1\n            if new_total / new_count >= 0.75:\n                members.append(jd)\n                total = new_total\n                count = new_count\n                used.add(jd)\n        clusters.append(sorted(members))\n\n    # low efficiency devices each form single-device clusters\n    for did in low:\n        clusters.append([did])\n\n    # Now sort clusters by their minimum device_id, and sort devices within clusters ascending\n    clusters = [sorted(c) for c in clusters]\n    clusters.sort(key=lambda c: (c[0] if c else float('inf')))\n    return clusters"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 947,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 915,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1862
+  },
+  "user": null,
+  "metadata": {}
+}

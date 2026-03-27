@@ -1,0 +1,132 @@
+def manage_trades(trade_data: List[Dict[str, Any]], market_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    # Build trade map and dependency graph (edges: u -> v means v depends on u)
+    trades = {}
+    deps = defaultdict(list)          # trade -> list of its dependencies (direct)
+    rev = defaultdict(list)           # dependency -> list of dependents (downstream)
+    for t in trade_data:
+        tid = t['trade_id']
+        trades[tid] = {
+            'trade_id': tid,
+            'profit': t.get('profit', None),
+            'dependencies': list(t.get('dependencies', []))
+        }
+        deps[tid] = list(t.get('dependencies', []))
+        for d in deps[tid]:
+            rev[d].append(tid)
+
+    # Ensure all mentioned trades exist (if market_data references new ones, create)
+    for tid in set(list(trades.keys()) + list(market_data.keys())):
+        if tid not in trades:
+            trades[tid] = {'trade_id': tid, 'profit': None, 'dependencies': []}
+            deps[tid] = []
+    # Deterministic score function
+    def compute_score(tid: str) -> float:
+        md = market_data.get(tid, {})
+        P = md.get('new_profit', trades[tid]['profit'] if trades[tid]['profit'] is not None else 0)
+        L = md.get('liquidity_impact', 1.0)
+        D = len(deps.get(tid, []))
+        return P * L - 5 * D
+
+    # Topological sort to order recomputation downstream (detect cycles: treat cycles by breaking deterministically)
+    # Kahn's algorithm using explicit graph where edge u->v if v depends on u (rev gives that)
+    nodes = list(trades.keys())
+    indeg = {n: 0 for n in nodes}
+    for u in nodes:
+        for v in rev.get(u, []):
+            indeg[v] += 1
+    q = deque([n for n in nodes if indeg[n] == 0])
+    topo = []
+    while q:
+        u = q.popleft()
+        topo.append(u)
+        for v in rev.get(u, []):
+            indeg[v] -= 1
+            if indeg[v] == 0:
+                q.append(v)
+    # If cycle nodes remain, append them in deterministic order
+    remaining = [n for n in nodes if n not in topo]
+    remaining.sort()
+    topo.extend(remaining)
+
+    # Segment tree over score list: support point updates and range max queries if needed.
+    # We'll store array as per topo order.
+    index_of = {tid: i for i, tid in enumerate(topo)}
+    n = len(topo)
+    size = 1
+    while size < n:
+        size <<= 1
+    seg = [float('-inf')] * (2 * size)
+
+    lock = threading.Lock()
+
+    def seg_build():
+        for tid, i in index_of.items():
+            seg[size + i] = compute_score(tid)
+        for i in range(size - 1, 0, -1):
+            seg[i] = max(seg[2 * i], seg[2 * i + 1])
+
+    def seg_point_update(pos: int, value: float):
+        i = size + pos
+        seg[i] = value
+        i //= 2
+        while i:
+            seg[i] = max(seg[2 * i], seg[2 * i + 1])
+            i //= 2
+
+    seg_build()
+
+    # Determine which trades have P or L updates in market_data
+    changed = set()
+    for tid in market_data:
+        if tid in trades:
+            if 'new_profit' in market_data[tid] or 'liquidity_impact' in market_data[tid]:
+                changed.add(tid)
+
+    # Propagate: when a trade changes, recompute its score then all downstream dependents in topo order
+    # We'll collect all affected nodes by BFS/DFS on rev edges, then sort by topo index
+    affected = set()
+    for tid in changed:
+        affected.add(tid)
+        dq = deque([tid])
+        while dq:
+            u = dq.popleft()
+            for v in rev.get(u, []):
+                if v not in affected:
+                    affected.add(v)
+                    dq.append(v)
+    # Recompute profits and segment tree updates in topo order for determinism
+    affected_list = sorted(list(affected), key=lambda x: index_of[x])
+    with lock:
+        for tid in affected_list:
+            md = market_data.get(tid, {})
+            if 'new_profit' in md:
+                trades[tid]['profit'] = md['new_profit']
+            # recompute score and update seg
+            s = compute_score(tid)
+            seg_point_update(index_of[tid], s)
+
+    # After propagation, compute final scores for all (ensure seg reflects all)
+    # Extract scores and prepare sorting as specified: by descending score, tie-breaker smaller D, then lexicographic trade_id.
+    final_scores = {}
+    for tid in nodes:
+        # ensure profit updated if market_data provides
+        md = market_data.get(tid, {})
+        if 'new_profit' in md:
+            trades[tid]['profit'] = md['new_profit']
+        final_scores[tid] = compute_score(tid)
+
+    def sort_key(tid: str):
+        D = len(deps.get(tid, []))
+        return (-final_scores[tid], D, tid)
+
+    sorted_trades = sorted(nodes, key=sort_key)
+    # Assign 1-based priorities
+    output = []
+    for rank, tid in enumerate(sorted_trades, start=1):
+        output.append({
+            'trade_id': tid,
+            'priority': rank,
+            'profit': trades[tid]['profit'],
+            'dependencies': list(deps.get(tid, []))
+        })
+    return output

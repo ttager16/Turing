@@ -1,0 +1,193 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      4,
+      [],
+      [],
+      {
+        "2": true,
+        "1": true
+      },
+      "satisfiability",
+      [
+        {
+          "variables": [
+            0,
+            1,
+            2
+          ],
+          "count": 1
+        }
+      ]
+    ],
+    "input_lines": [
+      "4",
+      "[]",
+      "[]",
+      "{\"2\": true, \"1\": true}",
+      "\"satisfiability\"",
+      "[{\"variables\": [0, 1, 2], \"count\": 1}]"
+    ],
+    "focus": "Pre-solve cardinality infeasible: too many forced-true variables in a single cardinality constraint"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      5,
+      [
+        [
+          [
+            0,
+            false
+          ],
+          [
+            1,
+            false
+          ]
+        ],
+        [
+          [
+            1,
+            true
+          ],
+          [
+            2,
+            false
+          ]
+        ],
+        [
+          [
+            2,
+            true
+          ],
+          [
+            3,
+            false
+          ]
+        ],
+        [
+          [
+            3,
+            true
+          ],
+          [
+            4,
+            false
+          ]
+        ],
+        [
+          [
+            4,
+            true
+          ],
+          [
+            0,
+            true
+          ]
+        ],
+        [
+          [
+            0,
+            true
+          ],
+          [
+            2,
+            true
+          ]
+        ]
+      ],
+      [
+        5,
+        10,
+        10,
+        10,
+        20,
+        15
+      ],
+      {
+        "04": false,
+        "1": true
+      },
+      "weighted",
+      [
+        {
+          "variables": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "count": 2
+        }
+      ]
+    ],
+    "input_lines": [
+      "5",
+      "[[[0, false], [1, false]], [[1, true], [2, false]], [[2, true], [3, false]], [[3, true], [4, false]], [[4, true], [0, true]], [[0, true], [2, true]]]",
+      "[5, 10, 10, 10, 20, 15]",
+      "{\"04\": false, \"1\": true}",
+      "\"weighted\"",
+      "[{\"variables\": [0, 1, 2, 3, 4], \"count\": 2}]"
+    ],
+    "focus": "Format-sensitive forced_assignments keys (leading zero) and weighted mode with cardinality that restricts flips during local search"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      3,
+      [
+        [
+          [
+            0,
+            false
+          ],
+          [
+            1,
+            false
+          ]
+        ],
+        [
+          [
+            1,
+            false
+          ],
+          [
+            0,
+            false
+          ]
+        ]
+      ],
+      [
+        7,
+        7
+      ],
+      {
+        "0": false,
+        "1": false,
+        "2": true
+      },
+      "satisfiability",
+      [
+        {
+          "variables": [
+            0,
+            1,
+            2
+          ],
+          "count": 1
+        }
+      ]
+    ],
+    "input_lines": [
+      "3",
+      "[[[0, false], [1, false]], [[1, false], [0, false]]]",
+      "[7, 7]",
+      "{\"0\": false, \"1\": false, \"2\": true}",
+      "\"satisfiability\"",
+      "[{\"variables\": [0, 1, 2], \"count\": 1}]"
+    ],
+    "focus": "Duplicate unordered clause pairs (reversed order) to test conflict_cluster deduplication when forced assignments make those clauses unsatisfied"
+  }
+]

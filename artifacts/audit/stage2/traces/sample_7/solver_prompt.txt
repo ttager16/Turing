@@ -1,0 +1,249 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+A logistics company must perform **probabilistic route optimization** over a dynamic directed network with uncertain traffic.
+Each edge has **capacity**, **base cost**, and **base travel time**; traffic introduces **per-edge time variance**.
+Deliveries share edge capacities and consume driver-hours from **vehicle-type budgets**.
+Some deliveries are **priority** and must meet a **deadline feasibility** condition:
+their on-time probability must be ≥ `probabilistic_threshold`.
+Use **only the Python standard library**.
+
+---
+
+### Objectives
+
+1. **Route Assignment**
+
+   * **Expected cost:**
+     `E[Cost] = Σ(base_cost × amount × congestion_factor)`
+   * **Priority deliveries:** must satisfy the on-time probability threshold and use the lowest-cost feasible path.
+   * **Non-priority deliveries:** choose the lowest-cost feasible path within capacity and driver-hour limits.
+   * **Processing order:** priority deliveries first, then non-priority, all sorted deterministically.
+
+2. **Traffic Uncertainty**
+
+   * Each edge has an independent travel-time variance.
+
+     ```
+     P = Φ((deadline - μ) / σ)
+     Φ(x) = 0.5 * (1 + erf(x / sqrt(2)))
+     ```
+
+     where `μ = Σ(base_time × congestion_factor)` and
+     `σ² = Σ(variance × congestion_factor²)`.
+
+3. **Resource Constraints**
+
+   * Edge flow ≤ capacity.
+   * Driver-hours used by each vehicle:
+
+     ```
+     Σ(base_time × congestion_factor × amount) / vehicle_capacity ≤ driver_constraints
+     ```
+   * Vehicle with highest remaining budget ratio is chosen; ties → lexicographic order.
+
+4. **Tie-Breaking**
+
+   * Compare: total cost → fewer edges → lexicographic path.
+   * If still tied, use jitter (≤ 1e-6) via SHA-256 hash with `hash_seed`.
+   * Count each jitter-based decision as a tie broken.
+
+---
+
+### Constraints
+
+* ≤ 10,000 nodes and 40,000 directed edges.
+* No self-loops or duplicate edges.
+* All numeric inputs finite and ≥ 0.
+* Every `(u,v)` appears in `traffic_variance` as `"u-v"` with variance ≥ 0.
+* `0 ≤ probabilistic_threshold ≤ 1`.
+* Each delivery uses one path only.
+* Edge capacities only decrease (no replenishment).
+* One vehicle must serve all edges of a path.
+* Vehicle keys sorted lexicographically before processing.
+* Route entries follow key order: `u → v → delivery_type → amount → vehicle`.
+* Routes list: priority first → non-priority, maintaining path order.
+* No merged or zero-amount routes.
+* All dictionaries (e.g., `resource_usage`, `metrics`) returned with sorted keys.
+* **Metrics:**
+
+  ```
+  {"paths_considered": int, "ties_broken": int}
+  ```
+
+  counted deterministically.
+* Output must be identical for identical inputs and `hash_seed`.
+
+---
+
+### Required Implementation
+
+```python
+from typing import Any, Dict, List, Union
+
+def optimize_delivery_routes(
+    network: List[List[Union[int, float]]],
+    deliveries: List[Dict[str, Union[int, float, str]]],
+    priority_deliveries: List[Dict[str, Union[int, float, str]]],
+    traffic_variance: Dict[str, float],
+    vehicle_capacity: Dict[str, float],
+    driver_constraints: Dict[str, float],
+    congestion_factor: float,
+    hash_seed: int,
+    probabilistic_threshold: float
+) -> Dict[str, Any]:
+    """
+    Deterministic probabilistic routing solver:
+    - Enforces capacity and driver-hour limits
+    - Ensures on-time probability ≥ probabilistic_threshold for priority deliveries
+    - Minimizes expected cost using deterministic tie-breaking
+    - Produces reproducible, sorted outputs
+    """
+```
+
+---
+
+### Output Format
+
+```json
+{
+  "routes": [
+    {"u": 0, "v": 2, "delivery_type": "URGENT", "amount": 3.0, "vehicle": "TRUCK"},
+    {"u": 0, "v": 2, "delivery_type": "STANDARD", "amount": 6.0, "vehicle": "VAN"},
+    {"u": 1, "v": 2, "delivery_type": "EXPRESS", "amount": 4.0, "vehicle": "TRUCK"}
+  ],
+  "expected_cost": 75.0,
+  "delivery_status": [
+    {
+      "delivery_type": "URGENT",
+      "src": 0,
+      "dst": 2,
+      "requested": 3.0,
+      "delivered": 3.0,
+      "is_priority": true,
+      "deadline": 4.0,
+      "on_time_probability": 0.995088,
+      "route": [0, 2]
+    }
+  ],
+  "resource_usage": {"TRUCK": 0.0625, "VAN": 0.225},
+  "metrics": {"paths_considered": 1, "ties_broken": 0}
+}
+```
+
+---
+
+### Worked Example
+
+Inputs:
+
+```json
+{
+  "network": [[0, 1, 10.0, 5.0, 2.0], [1, 2, 8.0, 3.0, 1.5], [0, 2, 15.0, 7.0, 3.0]],
+  "deliveries": [
+    {"src": 0, "dst": 2, "type": "STANDARD", "amount": 6.0},
+    {"src": 1, "dst": 2, "type": "EXPRESS", "amount": 4.0}
+  ],
+  "priority_deliveries": [
+    {"type": "URGENT", "src": 0, "dst": 2, "deadline": 4.0, "required": 3.0}
+  ],
+  "traffic_variance": {"0-1": 0.1, "1-2": 0.2, "0-2": 0.15},
+  "vehicle_capacity": {"VAN": 10.0, "TRUCK": 20.0},
+  "driver_constraints": {"VAN": 8.0, "TRUCK": 12.0},
+  "congestion_factor": 1.0,
+  "hash_seed": 99,
+  "probabilistic_threshold": 0.8
+}
+```
+
+Expected output:
+
+```json
+{
+  "routes": [
+    {"u": 0, "v": 2, "delivery_type": "URGENT", "amount": 3.0, "vehicle": "TRUCK"},
+    {"u": 0, "v": 2, "delivery_type": "STANDARD", "amount": 6.0, "vehicle": "VAN"},
+    {"u": 1, "v": 2, "delivery_type": "EXPRESS", "amount": 4.0, "vehicle": "TRUCK"}
+  ],
+  "expected_cost": 75.0,
+  "delivery_status": [
+    {
+      "delivery_type": "URGENT",
+      "src": 0,
+      "dst": 2,
+      "requested": 3.0,
+      "delivered": 3.0,
+      "is_priority": true,
+      "deadline": 4.0,
+      "on_time_probability": 0.9950883627462404,
+      "route": [0, 2]
+    },
+    {
+      "delivery_type": "STANDARD",
+      "src": 0,
+      "dst": 2,
+      "requested": 6.0,
+      "delivered": 6.0,
+      "is_priority": false,
+      "deadline": 0.0,
+      "on_time_probability": 1.0,
+      "route": [0, 2]
+    },
+    {
+      "delivery_type": "EXPRESS",
+      "src": 1,
+      "dst": 2,
+      "requested": 4.0,
+      "delivered": 4.0,
+      "is_priority": false,
+      "deadline": 0.0,
+      "on_time_probability": 1.0,
+      "route": [1, 2]
+    }
+  ],
+  "resource_usage": {"TRUCK": 0.0625, "VAN": 0.225},
+  "metrics": {"paths_considered": 1, "ties_broken": 0}
+}
+```
+
+---
+
+### Validation Rules
+
+* Each `(u,v)` exists in `traffic_variance`.
+* No self-loops or duplicate edges.
+* Deterministic output for identical input and seed.
+
+Starter Code:
+```python
+from typing import Any, Dict, List, Union
+
+
+def optimize_delivery_routes(
+    network: List[List[Union[int, float]]],         # [u:int, v:int, capacity:float, base_cost:float, base_time:float]
+    deliveries: List[Dict[str, Union[int, float, str]]],           # {"src":int,"dst":int,"type":str,"amount":float}
+    priority_deliveries: List[Dict[str, Union[int, float, str]]],  # {"type":str,"src":int,"dst":int,"deadline":float,"required":float}
+    traffic_variance: Dict[str, float],             # "u-v" (directed) -> variance (time^2)
+    vehicle_capacity: Dict[str, float],             # vehicle -> capacity (amount per driver-hour)
+    driver_constraints: Dict[str, float],           # vehicle -> driver-hours budget
+    congestion_factor: float,                       # scales cost & time; variance scales by factor^2
+    hash_seed: int,                                 # deterministic tie-breaking seed
+    probabilistic_threshold: float                  # on-time probability threshold for priority deliveries
+) -> Dict[str, Any]:
+    """
+    Deterministic probabilistic routing solver:
+    - Supports partial deliveries under capacity and driver-hour constraints
+    - Applies per-type vehicle preference with fallback
+    - Computes per-path feasibility using on-time probability
+    - Returns deterministic, lexicographically ordered outputs
+    """
+    raise NotImplementedError
+```

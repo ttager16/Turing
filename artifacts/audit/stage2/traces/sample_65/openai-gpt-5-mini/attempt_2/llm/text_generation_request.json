@@ -1,0 +1,30 @@
+{
+  "model": "gpt-5-mini",
+  "input": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are a careful coding assistant. Return the best possible answer for the task."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Solve the following Python coding task.\n\nRequirements:\n- Return only Python code.\n- Implement the requested entry function exactly.\n- Do not include explanations before or after the code.\n- Use only the Python standard library unless the prompt explicitly permits otherwise.\n\nProblem Statement:\n### Problem Statement:\nYou are managing a distributed IoT system where devices transition between states (active, standby, failed) and must be organised into clusters based on efficiency scores. Implement a solution using Union-Find with advanced data structures to handle dynamic cluster formation and state management.\n\n#### Objectives:\n1. **Dynamic Clustering:** Use Union-Find (optionally augmented with segment trees) to manage cluster merges and splits based on device efficiency.\n2. **State Management:** Handle device state transitions (active, standby, failed) that affect cluster membership.\n3. **Efficiency-Based Grouping:** Cluster devices based on compatibility rules and average efficiency thresholds.\n\n#### Constraints:\n- No external Python libraries allowed\n- All device IDs are unique positive integers\n- Efficiency scores are floats in the range [0.0, 1.0]\n- Operations processed sequentially\n\n#### Device States & Operations:\n- **Initial:** All input devices start in 'active' state\n- **'join':** Add new device in 'active' state (default efficiency: 0.80 if not in input)\n- **'fail':** Permanently remove device from all clusters\n- **'standby':** Temporarily exclude device from clusters (can be resumed)\n- **'resume':** Reactivate a 'standby' device back to 'active'\n\n#### Clustering Rules:\n1. Only 'active' devices appear in output clusters\n2. Devices with efficiency ≥ 0.75 can cluster together if their combined average efficiency ≥ 0.75\n3. Devices with efficiency < 0.75 form individual single-device clusters\n4. Output clusters sorted by minimum device_id; devices within clusters sorted ascending\n\n#### Edge Cases:\n- Operations on non-existent devices create them with efficiency 0.80\n- Duplicate operations (e.g., 'fail' twice) have no additional effect\n- 'resume' only works on 'standby' devices\n- Empty operations list returns clusters of all initial devices\n- All devices failed returning an empty list []\n\n#### Function Signature:\n```python\ndef manage_device_clusters(devices: List[List], operations: List[List]) -> List[List[int]]:\n    \"\"\"\n    Args:\n        devices: List of [device_id, efficiency_score] lists\n        operations: List of [operation_type, device_id] lists\n                   operation_type in ['join', 'fail', 'standby', 'resume']\n    \n    Returns:\n        List of clusters, each cluster is a sorted list of device IDs\n    \"\"\"\n    pass\n```\n\n#### Example:\n**Input:**\n```python\ndevices = [[1, 0.92], [2, 0.88], [3, 0.75], [4, 0.66]]\noperations = [\n    ['join', 5],\n    ['standby', 2],\n    ['fail', 3],\n    ['resume', 2]\n]\n```\n\n**Output:**\n```python\n[\n    [1, 2, 5],  # avg efficiency: (0.92+0.88+0.80)/3 = 0.867 ≥ 0.75\n    [4]         # efficiency 0.66 < 0.75, separate cluster\n]\n```\n\n**Explanation:**\n- Device 5 added with efficiency 0.80\n- Device 2 goes to standby, then resumes (back in cluster)\n- Device 3 failed (removed)\n- Device 4 has low efficiency, forms its own cluster\n\n#### Expected Output Format:\nReturn a list of clusters where:\n- Each cluster is a list of device IDs in ascending order\n- Clusters are sorted by their minimum device_id\n- Only 'active' state devices are included\n\nStarter Code:\n```python\nfrom typing import List\ndef manage_device_clusters(devices: List[List], operations: List[List]) -> List[List[int]]:\n    \"\"\"\n    Args:\n        devices: List of [device_id, efficiency_score] lists\n        operations: List of [operation_type, device_id] lists\n                   operation_type in ['join', 'fail', 'standby', 'resume']\n    \n    Returns:\n        List of clusters, each cluster is a sorted list of device IDs\n    \"\"\"\n    pass\n```\n"
+        }
+      ]
+    }
+  ],
+  "reasoning": {
+    "effort": "minimal"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 4096
+}

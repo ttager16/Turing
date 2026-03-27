@@ -1,0 +1,353 @@
+from typing import List, Dict, Any
+import re
+import math
+import time
+from collections import defaultdict, deque
+
+def analyze_delivery_network(cities: List[Dict], roads: List[Dict], infrastructure_queries: List[Dict], cost_threshold: Dict) -> Dict[str, Any]:
+    # Validation helpers
+    if not cities:
+        return {"error": "No cities provided"}
+    if not roads:
+        return {"error": "No roads provided"}
+    city_ids = set()
+    city_map = {}
+    for c in cities:
+        cid = c.get("city_id")
+        if cid is None:
+            return {"error": "Input is not valid"}
+        name = c.get("city_name", "")
+        if not isinstance(name, str) or not (3 <= len(name) <= 50) or not re.match(r'^[A-Za-z0-9]+$', name):
+            return {"error": f"Invalid city name for city {cid}"}
+        pc = c.get("processing_capacity")
+        if not isinstance(pc, int) or not (100 <= pc <= 10000):
+            return {"error": f"Invalid processing capacity for city {cid}"}
+        city_ids.add(cid)
+        city_map[cid] = c
+    # cost_threshold validation
+    try:
+        max_acceptable_cost = cost_threshold["max_acceptable_cost"]
+        high_cost_multiplier = cost_threshold["high_cost_multiplier"]
+        efficiency_target = cost_threshold["efficiency_target"]
+    except Exception:
+        return {"error": "Invalid cost threshold configuration"}
+    if not (isinstance(max_acceptable_cost, int) and max_acceptable_cost >= 1):
+        return {"error": "Invalid cost threshold configuration"}
+    if not (isinstance(high_cost_multiplier, (int, float)) and 1.5 <= high_cost_multiplier <= 3.0):
+        return {"error": "Invalid cost threshold configuration"}
+    if not (isinstance(efficiency_target, int) and 5 <= efficiency_target <= 25):
+        return {"error": "Invalid cost threshold configuration"}
+    # roads validation and duplicate detection
+    seen_pairs = set()
+    road_map = {}
+    for r in roads:
+        rid = r.get("road_id")
+        if rid is None:
+            return {"error": "Input is not valid"}
+        a = r.get("city_a")
+        b = r.get("city_b")
+        if a not in city_ids or b not in city_ids:
+            return {"error": f"Invalid city reference in road {rid}"}
+        if a == b:
+            return {"error": f"Self-loop detected for road {rid}"}
+        if not isinstance(r.get("fuel_cost"), int) or r.get("fuel_cost") <= 0:
+            return {"error": f"Invalid fuel cost for road {rid}"}
+        pair = (min(a,b), max(a,b))
+        if pair in seen_pairs:
+            return {"error": f"Duplicate road between cities {a} and {b}"}
+        seen_pairs.add(pair)
+        road_map[rid] = r
+    # Build graph adjacency for connectivity check
+    parent = {}
+    def uf_find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    def uf_union(x,y):
+        rx, ry = uf_find(x), uf_find(y)
+        if rx != ry:
+            parent[ry] = rx
+    for cid in city_ids:
+        parent[cid] = cid
+    for r in roads:
+        a,b = r["city_a"], r["city_b"]
+        uf_union(a,b)
+    roots = set(uf_find(cid) for cid in city_ids)
+    if len(roots) != 1:
+        return {"error": "Graph is not connected"}
+    # Kruskal's MST
+    # reset uf for MST
+    parent = {cid: cid for cid in city_ids}
+    rank = {cid:0 for cid in city_ids}
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    def union(x,y):
+        rx, ry = find(x), find(y)
+        if rx == ry:
+            return False
+        if rank[rx] < rank[ry]:
+            parent[rx] = ry
+        else:
+            parent[ry] = rx
+            if rank[rx] == rank[ry]:
+                rank[rx] += 1
+        return True
+    sorted_roads = sorted(roads, key=lambda r: (r["fuel_cost"], r["road_id"]))
+    mst_edges = []
+    excluded = []
+    total_mst_cost = 0
+    adj = defaultdict(list)
+    for r in sorted_roads:
+        if union(r["city_a"], r["city_b"]):
+            mst_edges.append(r)
+            total_mst_cost += r["fuel_cost"]
+            adj[r["city_a"]].append((r["city_b"], r["fuel_cost"], r["road_id"]))
+            adj[r["city_b"]].append((r["city_a"], r["fuel_cost"], r["road_id"]))
+        else:
+            excluded.append(r["road_id"])
+    # Ensure MST has n-1 edges
+    n = len(city_ids)
+    if len(mst_edges) != n-1:
+        return {"error": "Graph is not connected"}
+    # Preprocess for LCA and max edge on path using binary lifting
+    LOG = max(1, math.ceil(math.log2(n+1)))
+    up = {cid: [ -1 ] * (LOG+1) for cid in city_ids}
+    max_up = {cid: [ 0 ] * (LOG+1) for cid in city_ids}
+    depth = {cid: -1 for cid in city_ids}
+    parent_edge_id = {}
+    # root at arbitrary city
+    root = next(iter(city_ids))
+    depth[root] = 0
+    parent_edge_id[root] = -1
+    q = deque([root])
+    while q:
+        u = q.popleft()
+        for v,w,rid in adj[u]:
+            if depth[v] == -1:
+                depth[v] = depth[u] + 1
+                up[v][0] = u
+                max_up[v][0] = w
+                parent_edge_id[v] = rid
+                q.append(v)
+    up[root][0] = -1
+    max_up[root][0] = 0
+    for j in range(1, LOG+1):
+        for v in city_ids:
+            if up[v][j-1] != -1:
+                up[v][j] = up[up[v][j-1]][j-1]
+                max_up[v][j] = max(max_up[v][j-1], max_up[up[v][j-1]][j-1])
+            else:
+                up[v][j] = -1
+                max_up[v][j] = max_up[v][j-1]
+    def max_on_path(u,v):
+        if u == v:
+            return 0, -1
+        max_edge = 0
+        max_edge_id = -1
+        if depth[u] < depth[v]:
+            u, v = v, u
+        diff = depth[u] - depth[v]
+        for j in range(LOG, -1, -1):
+            if diff & (1<<j):
+                if max_up[u][j] > max_edge:
+                    max_edge = max_up[u][j]
+                u = up[u][j]
+        if u == v:
+            return max_edge, None
+        for j in range(LOG, -1, -1):
+            if up[u][j] != -1 and up[u][j] != up[v][j]:
+                if max_up[u][j] > max_edge:
+                    max_edge = max_up[u][j]
+                if max_up[v][j] > max_edge:
+                    max_edge = max(max_edge, max_up[v][j])
+                u = up[u][j]
+                v = up[v][j]
+        # last step to parent
+        if up[u][0] != -1:
+            max_edge = max(max_edge, max_up[u][0], max_up[v][0])
+        return max_edge, None
+    # Build mapping from edge (u,v) to road_id and weight for MST edges
+    mst_edge_ids = set(e["road_id"] for e in mst_edges)
+    edge_info = {}
+    for e in mst_edges:
+        a,b = e["city_a"], e["city_b"]
+        key = (min(a,b), max(a,b))
+        edge_info[key] = (e["road_id"], e["fuel_cost"])
+    # Precompute replacement cost for each MST edge by considering non-MST edges
+    # For each non-MST edge, it creates cycle; the maximum edge on path in MST between endpoints is candidate to be replaced
+    replacement = {e["road_id"]: float('inf') for e in mst_edges}
+    # Map MST edges to their endpoints pair to identify which edge is maximum on path; but we only need replacement cost (i.e., the minimal alternative edge that can replace)
+    # For each non-mst edge:
+    # compute max edge cost on path; if new edge weight < that max, it can replace that max edge producing replacement cost = new edge weight
+    # But requirement: replacement_cost = maximum weight edge that would be added if this edge were removed. Interpreting: for each MST edge e, find minimal possible replacement cost among non-MST edges that connect the two components formed when removing e. Equivalent to for each non-MST edge, find which MST edge is the maximum on the path and candidate replacement for that MST edge with cost = non-mst edge weight.
+    # We'll for each non-mst edge, walk path nodes to find the max edge and identify which MST edge(s) have that weight along path; to map to road_id we use parent_edge_id by traversing.
+    # Simpler: For each pair, find max cost value; then find one MST edge along path with that cost and set replacement for that road_id = min(current, nonmst weight)
+    # To find which MST edge has that max cost, traverse from u to v moving up, checking edges.
+    # Precompute parent pointers with edge ids
+    up_id = {cid: [ -1 ] * (LOG+1) for cid in city_ids}
+    max_up_id = {cid: [ 0 ] * (LOG+1) for cid in city_ids}  # store weight
+    for v in city_ids:
+        up_id[v][0] = up[v][0] if up[v][0] != -1 else -1
+        max_up_id[v][0] = max_up[v][0]
+    for j in range(1, LOG+1):
+        for v in city_ids:
+            if up_id[v][j-1] != -1:
+                up_id[v][j] = up_id[up_id[v][j-1]][j-1]
+                max_up_id[v][j] = max(max_up_id[v][j-1], max_up_id[up_id[v][j-1]][j-1])
+            else:
+                up_id[v][j] = -1
+                max_up_id[v][j] = max_up_id[v][j-1]
+    def find_max_and_edge_on_path(u,v):
+        max_edge = 0
+        # store candidate edge id which has that weight (choose any)
+        candidate_edge_id = None
+        if depth[u] < depth[v]:
+            u, v = v, u
+        diff = depth[u] - depth[v]
+        for j in range(LOG, -1, -1):
+            if diff & (1<<j):
+                if max_up_id[u][j] > max_edge:
+                    max_edge = max_up_id[u][j]
+                u = up_id[u][j]
+        if u == v:
+            # need to find edge id along path where weight == max_edge by single traversal from original deeper node
+            return max_edge, None
+        for j in range(LOG, -1, -1):
+            if up_id[u][j] != -1 and up_id[u][j] != up_id[v][j]:
+                if max_up_id[u][j] > max_edge:
+                    max_edge = max(max_edge, max_up_id[u][j])
+                if max_up_id[v][j] > max_edge:
+                    max_edge = max(max_edge, max_up_id[v][j])
+                u = up_id[u][j]
+                v = up_id[v][j]
+        if up_id[u][0] != -1:
+            max_edge = max(max_edge, max_up_id[u][0], max_up_id[v][0])
+        return max_edge, None
+    # To actually find which MST edge has that max weight, we can traverse from endpoints towards LCA and check parent_edge_id
+    def find_edge_id_with_weight_on_path(u, v, weight):
+        if u == v:
+            return None
+        if depth[u] < depth[v]:
+            u, v = v, u
+        # move u up
+        diff = depth[u] - depth[v]
+        for _ in range(diff):
+            eid = parent_edge_id[u]
+            if eid is not None and eid != -1:
+                if road_map[eid]["fuel_cost"] == weight:
+                    return eid
+            u = up[u][0]
+        if u == v:
+            return None
+        for j in range(LOG, -1, -1):
+            if up[u][j] != -1 and up[u][j] != up[v][j]:
+                u = up[u][j]
+                v = up[v][j]
+        # check immediate edges to LCA
+        for node in (u, v):
+            eid = parent_edge_id[node]
+            if eid is not None and eid != -1 and road_map[eid]["fuel_cost"] == weight:
+                return eid
+        return None
+    # initialize replacement inf
+    replacement = {e["road_id"]: float('inf') for e in mst_edges}
+    for r in roads:
+        if r["road_id"] in mst_edge_ids:
+            continue
+        u, v, w = r["city_a"], r["city_b"], r["fuel_cost"]
+        max_w, _ = find_max_and_edge_on_path(u, v)
+        # find an MST edge with that weight on path
+        eid = find_edge_id_with_weight_on_path(u, v, max_w)
+        if eid is not None:
+            replacement[eid] = min(replacement[eid], w)
+    # For any MST edge with no replacement, set replacement cost = infinity; but for critical analysis we might set replacement_cost = original_cost (no alternative)
+    # Classify impact severity using thresholds
+    critical_thresh = cost_threshold.get("critical_impact_threshold", 1.5)
+    medium_thresh = cost_threshold.get("medium_impact_threshold", 1.2)
+    # cost classification Q3
+    all_weights = sorted([r["fuel_cost"] for r in roads])
+    def percentile75(arr):
+        if not arr:
+            return 0
+        k = 0.75 * (len(arr)-1)
+        f = math.floor(k)
+        c = math.ceil(k)
+        if f == c:
+            return arr[int(k)]
+        d0 = arr[f] * (c - k)
+        d1 = arr[c] * (k - f)
+        return d0 + d1
+    Q3 = percentile75(all_weights)
+    # prepare mst_analysis list sorted by road_id
+    mst_edges_sorted = sorted(mst_edges, key=lambda e: e["road_id"])
+    mst_analysis_edges = []
+    total_all_edge_weights = sum(all_weights) if all_weights else 1
+    for e in mst_edges_sorted:
+        classification = "high_cost_segment" if e["fuel_cost"] > Q3 else "standard_cost_segment"
+        mst_analysis_edges.append({
+            "road_id": e["road_id"],
+            "city_a": e["city_a"],
+            "city_b": e["city_b"],
+            "fuel_cost": e["fuel_cost"],
+            "cost_classification": classification
+        })
+    network_efficiency_score = round(total_mst_cost / total_all_edge_weights, 2) if total_all_edge_weights else 0.0
+    # Query processing
+    query_results = []
+    # Precompute for bottleneck: function to get max and its edge id along path
+    def bottleneck(u,v):
+        maxw = 0
+        edge_id = None
+        if u == v:
+            return 0, None
+        if depth[u] < depth[v]:
+            u, v = v, u
+        # move u up
+        diff = depth[u] - depth[v]
+        for _ in range(diff):
+            eid = parent_edge_id[u]
+            if eid is not None and eid != -1 and road_map[eid]["fuel_cost"] > maxw:
+                maxw = road_map[eid]["fuel_cost"]
+                edge_id = eid
+            u = up[u][0]
+        if u == v:
+            return maxw, edge_id
+        for j in range(LOG, -1, -1):
+            if up[u][j] != -1 and up[u][j] != up[v][j]:
+                # check levels from u jumping j
+                # need to collect max in that jump by inspecting nodes moved bit by bit (but j small). Simpler: step single while depth difference reduces - but acceptable performance as n moderate.
+                # We'll walk one step at a time for correctness
+                pass
+        # fallback: walk up both until meet
+        while u != v:
+            for node in (u, v):
+                eid = parent_edge_id[node]
+                if eid is not None and eid != -1 and road_map[eid]["fuel_cost"] > maxw:
+                    maxw = road_map[eid]["fuel_cost"]
+                    edge_id = eid
+            u = up[u][0]
+            v = up[v][0]
+        return maxw, edge_id
+    # vulnerability assessment requires ranking MST edges by impact = replacement_cost - original_cost (or large if no replacement)
+    impacts = {}
+    for e in mst_edges:
+        rid = e["road_id"]
+        repl = replacement.get(rid, float('inf'))
+        if math.isinf(repl):
+            impact = float('inf')
+        else:
+            impact = max(0, repl - e["fuel_cost"])
+        impacts[rid] = impact
+    # process queries in sorted order of query_id
+    for q in sorted(infrastructure_queries, key=lambda x: x.get("query_id", 0)):
+        qid = q.get("query_id")
+        qtype = q.get("query_type")
+        params = q.get("parameters", {})
+        if qtype not in {"critical_edge", "bottleneck_path", "edge_addition_impact", "vulnerability_assessment"}:
+            return {"error": f"Unsupported query type for query {qid}"}
+        result = {}
+        proc_cat = "instant" if qtype in ("critical_edge",

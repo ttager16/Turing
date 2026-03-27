@@ -1,0 +1,76 @@
+{
+  "id": "resp_01db80eaa84272ab0069c328c29fc481958afe9c9176ee3615",
+  "object": "response",
+  "created_at": 1774397634,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774397645,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_01db80eaa84272ab0069c328c32c78819588b883ced02a5a22",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_01db80eaa84272ab0069c328c35b98819581e15b9b310a30d6",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List\nimport math\n\ndef custom_sort_markets(data: Dict[str, List[float]]) -> Dict[str, List[float]]:\n    # Validation\n    if not isinstance(data, dict) or len(data) == 0:\n        return {}\n    for k, v in data.items():\n        if not isinstance(k, str) or k == \"\" or not all(('a' <= ch <= 'z') or ('A' <= ch <= 'Z') for ch in k):\n            return {}\n        if not isinstance(v, list):\n            return {}\n        for x in v:\n            if not isinstance(x, float):\n                return {}\n            if math.isinf(x) or math.isnan(x):\n                return {}\n    # Helper: stable iterative bottom-up merge sort for list of floats\n    def merge_two(left: List[float], right: List[float]) -> List[float]:\n        i = j = 0\n        n, m = len(left), len(right)\n        out = [0.0] * (n + m)\n        p = 0\n        while i < n and j < m:\n            if left[i] <= right[j]:\n                out[p] = left[i]\n                i += 1\n            else:\n                out[p] = right[j]\n                j += 1\n            p += 1\n        while i < n:\n            out[p] = left[i]; i += 1; p += 1\n        while j < m:\n            out[p] = right[j]; j += 1; p += 1\n        return out\n\n    def bottom_up_merge_sort(arr: List[float]) -> List[float]:\n        n = len(arr)\n        if n <= 1:\n            return arr[:]  # copy to avoid mutating input\n        # copy original with stability preserved by positions (values only; stability for equal floats preserved by left<=right tie)\n        src = arr[:]  # shallow copy of floats\n        dest = [0.0] * n\n        width = 1\n        while width < n:\n            i = 0\n            dest_index = 0\n            while i < n:\n                left = i\n                mid = i + width\n                right = min(i + 2 * width, n)\n                l = left\n                r = mid\n                while l < mid and r < right:\n                    if src[l] <= src[r]:\n                        dest[dest_index] = src[l]; l += 1\n                    else:\n                        dest[dest_index] = src[r]; r += 1\n                    dest_index += 1\n                while l < mid:\n                    dest[dest_index] = src[l]; l += 1; dest_index += 1\n                while r < right:\n                    dest[dest_index] = src[r]; r += 1; dest_index += 1\n                i += 2 * width\n            # copy any remaining tail if dest_index < n (shouldn't happen but ensure)\n            while dest_index < n:\n                dest[dest_index] = src[dest_index]; dest_index += 1\n            # swap src and dest buffers\n            src, dest = dest, src\n            width *= 2\n        return src\n\n    # Process markets in lexicographic order\n    keys = sorted(data.keys())\n    sorted_lists = {}\n    for k in keys:\n        sorted_lists[k] = bottom_up_merge_sort(data[k])\n\n    # Multi-round deterministic pairwise merge based on lexicographic order\n    # Start with list of lists in keys order\n    lists = [sorted_lists[k] for k in keys]\n    if len(lists) == 0:\n        return {}\n    # If only empty lists possible, proceed\n    while len(lists) > 1:\n        next_round = []\n        i = 0\n        while i < len(lists):\n            if i + 1 < len(lists):\n                merged = merge_two(lists[i], lists[i+1])\n                next_round.append(merged)\n                i += 2\n            else:\n                # carry forward odd one\n                next_round.append(lists[i])\n                i += 1\n        lists = next_round\n    combined = lists[0]\n    # Build result dict with markets in lexicographic order and combined last\n    result: Dict[str, List[float]] = {}\n    for k in keys:\n        # ensure copies so input not mutated\n        result[k] = sorted_lists[k][:]\n    result[\"combined\"] = combined[:]\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 975,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 969,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1944
+  },
+  "user": null,
+  "metadata": {}
+}

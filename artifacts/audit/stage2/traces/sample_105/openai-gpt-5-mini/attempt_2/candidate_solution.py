@@ -1,0 +1,167 @@
+def analyze_road_network(edges: List[List[int]]) -> List:
+    # Input validation
+    if not isinstance(edges, list):
+        return "analyze_road_network: edges must be a list of [u, v, layer_id] integer triples"
+    # detect if adjacency-like dict provided incorrectly
+    # if caller passed a dict disguised as list (e.g., list created from dict) we still accept list
+    # But requirement: if adjacency-like value encountered (caller provided a dict): detect dict input
+    if isinstance(edges, dict):
+        return "analyze_road_network: input must be an edge-list; convert adjacency dict to edge-list before calling"
+    for i, e in enumerate(edges):
+        if not isinstance(e, list):
+            return f"analyze_road_network: edge at index {i} must be a list of three integers [u, v, layer_id]"
+        if len(e) != 3:
+            return f"analyze_road_network: edge at index {i} has invalid length {len(e)}; expected 3"
+        u, v, layer_id = e
+        for comp in (u, v, layer_id):
+            if not isinstance(comp, int):
+                return f"analyze_road_network: edge at index {i} contains non-integer component {comp!r}"
+        if layer_id < 0:
+            return f"analyze_road_network: edge at index {i} has invalid layer_id {layer_id}; must be >= 0"
+
+    # Build per-layer graphs and set of nodes and physical roads
+    layers = defaultdict(lambda: defaultdict(set))  # layer -> node -> set(neigh)
+    nodes_set = set()
+    physical_roads = defaultdict(set)  # (u,v) -> set(layers)
+    for u, v, layer in edges:
+        nodes_set.add(u); nodes_set.add(v)
+        a, b = (u, v) if u <= v else (v, u)
+        physical_roads[(a, b)].add(layer)
+        # undirected
+        layers[layer][u].add(v)
+        layers[layer][v].add(u)
+
+    # Helper: find articulation points in an undirected graph (nodes may be isolated)
+    def articulation_points(adj):
+        # adj: node -> set(neighbors)
+        time = 0
+        disc = {}
+        low = {}
+        parent = {}
+        ap = set()
+        def dfs(u):
+            nonlocal time
+            disc[u] = time
+            low[u] = time
+            time += 1
+            children = 0
+            for v in adj.get(u, ()):
+                if v not in disc:
+                    parent[v] = u
+                    children += 1
+                    dfs(v)
+                    low[u] = min(low[u], low[v])
+                    if parent.get(u) is None and children > 1:
+                        ap.add(u)
+                    if parent.get(u) is not None and low[v] >= disc[u]:
+                        ap.add(u)
+                elif parent.get(u) != v:
+                    low[u] = min(low[u], disc[v])
+        for u in adj.keys():
+            if u not in disc:
+                dfs(u)
+        return ap
+
+    # Compute per-layer articulation pairs
+    per_layer_pairs = []
+    for layer in sorted(layers.keys()):
+        adj = layers[layer]
+        if not adj:
+            continue
+        aps = articulation_points(adj)
+        for node in sorted(aps):
+            per_layer_pairs.append([node, layer])
+    per_layer_pairs.sort(key=lambda x: (x[0], x[1]))
+
+    # Physical-layer articulation nodes: remove node across all layers increases component count in at least one layer
+    physical_articulation_nodes = set()
+    # For each layer, compute component counts baseline and for each node removal test
+    # Precompute baseline component counts per layer and component id map
+    def count_components(adj):
+        seen = set()
+        comps = 0
+        for u in adj.keys():
+            if u not in seen:
+                comps += 1
+                dq = [u]
+                seen.add(u)
+                while dq:
+                    x = dq.pop()
+                    for y in adj.get(x, ()):
+                        if y not in seen:
+                            seen.add(y)
+                            dq.append(y)
+        # also nodes that might be isolated but absent in adj keys? we ensure nodes present as keys
+        return comps
+
+    # Ensure every node appears in each layer's adj (possibly with empty neighbor set)
+    for layer in layers:
+        for n in nodes_set:
+            layers[layer].setdefault(n, set())
+
+    baseline_components = {}
+    for layer, adj in layers.items():
+        baseline_components[layer] = count_components(adj)
+
+    # For each node, for each layer remove node (and its incident edges) and count components
+    for node in sorted(nodes_set):
+        for layer, adj in layers.items():
+            # build adj without node
+            # perform BFS/DFS counting components excluding node
+            seen = set([node])
+            comps = 0
+            for u in adj.keys():
+                if u in seen:
+                    continue
+                comps += 1
+                dq = [u]
+                seen.add(u)
+                while dq:
+                    x = dq.pop()
+                    for y in adj.get(x, ()):
+                        if y == node or y in seen:
+                            continue
+                        seen.add(y)
+                        dq.append(y)
+            if comps > baseline_components[layer]:
+                physical_articulation_nodes.add(node)
+                break
+
+    physical_layered_articulation_nodes = sorted(physical_articulation_nodes)
+
+    # For layer_bridging_list: for each physical road r remove all its layer-instances (i.e., remove edges between u and v in every layer)
+    layer_bridging_list = []
+    # Precompute per-layer baseline component counts already done
+    for (u, v) in sorted(physical_roads.keys()):
+        affected = []
+        for layer in sorted(layers.keys()):
+            adj = layers[layer]
+            # If u or v not in nodes present in this layer, their absence of edge can't affect connectivity unless nodes absent entirely
+            # Build BFS counting components in layer after removing the physical road edges between u and v
+            # We'll treat adj without the edge u-v (both directions)
+            seen = set()
+            comps = 0
+            for start in adj.keys():
+                if start in seen:
+                    continue
+                # start new component
+                comps += 1
+                dq = [start]
+                seen.add(start)
+                while dq:
+                    x = dq.pop()
+                    for y in adj.get(x, ()):
+                        # skip the removed physical road edges
+                        if (x == u and y == v) or (x == v and y == u):
+                            continue
+                        if y not in seen:
+                            seen.add(y)
+                            dq.append(y)
+            if comps > baseline_components[layer]:
+                affected.append(layer)
+        layer_bridging_list.append([[u, v], affected])
+
+    # Sort outputs as required
+    per_layer_pairs.sort(key=lambda x: (x[0], x[1]))
+    layer_bridging_list.sort(key=lambda x: (x[0][0], x[0][1]))
+    return [physical_layered_articulation_nodes, per_layer_pairs, layer_bridging_list]

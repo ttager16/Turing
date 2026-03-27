@@ -1,0 +1,121 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+Urban transportation networks require sophisticated routing algorithms that can adapt to dynamic traffic conditions and infrastructure disruptions. City planners need a robust shortest path system that considers multiple congestion levels, road closures, peak hour variations, and resilience constraints to ensure optimal traffic flow and minimize travel disruptions. The algorithm must handle complex edge-based robustness constraints where roads have different reliability levels and can fail independently, requiring alternative routing strategies that maintain connectivity even under adverse conditions.
+
+The system must process a city graph where each edge represents a road segment with varying congestion multipliers, reliability scores, and peak hour adjustments. The algorithm should compute paths that not only minimize travel time but also maximize robustness against potential road closures and traffic spikes. This requires implementing advanced shortest path algorithms with edge-based robustness constraints, enabling city planners to enhance traffic flow and improve urban mobility resilience.
+
+
+### Objectives:
+1. Find the shortest path between two nodes while considering edge reliability and congestion factors.
+2. Apply congestion multipliers to edge weights based on current traffic conditions.
+3. Ensure selected paths maintain minimum reliability thresholds to handle potential road closures.
+4. Adjust path weights during peak hours to account for increased travel times and congestion.
+5. Select paths that meet minimum reliability requirements.
+6. Select the path with minimum travel time among all paths meeting reliability requirements.
+
+
+### Constraints:
+- graph: Dictionary where keys are node ID strings ("0" to "n-1") and values are lists of lists in the form [neighbor_node_id (string), base_weight (int), congestion_multiplier (float), reliability_score (float), peak_hour_adjustment (float)].
+- base_weight: Integer representing base travel time (1 to 1000 minutes).
+- congestion_multiplier: Float representing current congestion level (1.0 to 5.0, where 1.0 is no congestion).
+- reliability_score: Float representing road reliability (0.1 to 1.0, where 1.0 is fully reliable).
+- peak_hour_adjustment: Float representing additional time during peak hours (1.0 to 3.0 multiplier).
+- start_node: String representing the starting node ID ("0" to "n-1").
+- end_node: String representing the destination node ID ("0" to "n-1").
+- is_peak_hour: Boolean indicating if current time is peak hour.
+- min_reliability: Float representing minimum acceptable reliability threshold (0.1 to 1.0).
+- robustness_weight: Float representing weight given to robustness vs travel time (0.1 to 2.0).
+- Maximum number of nodes: 1000.
+- Maximum number of edges per node: 50.
+- All edge weights must be positive integers.
+- Path must exist between start and end nodes.
+- Algorithm must use Dijkstra's algorithm with robustness modifications.
+- Cannot use external graph libraries - implement from scratch.
+- Handle edge cases: single node graphs (return [start_node] if start_node == end_node) and disconnected components (return empty list).
+- Robustness score calculation: sum of (reliability_score * robustness_weight) for all edges in path.
+- Final path weight calculation: if is_peak_hour is True, sum of (base_weight * congestion_multiplier * peak_hour_adjustment) for all edges in path; if False, sum of (base_weight * congestion_multiplier) for all edges in path.
+- Path selection criteria: among all paths with robustness_score >= min_reliability, select the one with minimum final_weight.
+- If no path meets reliability threshold, return empty list.
+- All floating-point calculations must maintain precision up to 2 decimal places.
+
+
+### Error Handling:
+Return a dictionary with key `error` and one of the following exact strings (do not raise exceptions). The first error matching any input or runtime condition MUST be returned immediately without further processing.
+  - If graph is not a dictionary: "Graph must be a dictionary"
+  - If any edge list contains invalid types (neighbor must be string; weights must be numeric): "Edge list contains invalid types"
+  - If is_peak_hour is not a boolean: "is_peak_hour must be a boolean"
+  - If start_node is not in graph: "Start node not found in graph"
+  - If end_node is not in graph: "End node not found in graph"
+  - If any base_weight <= 0: "Base weight must be positive"
+  - If any base_weight > 1000: "Base weight must not exceed 1000"
+  - If congestion_multiplier < 1.0 or > 5.0: "Congestion multiplier must be between 1.0 and 5.0"
+  - If reliability_score < 0.1 or > 1.0: "Reliability score must be between 0.1 and 1.0"
+  - If peak_hour_adjustment < 1.0 or > 3.0: "Peak hour adjustment must be between 1.0 and 3.0"
+  - If min_reliability < 0.1 or > 1.0: "Minimum reliability must be between 0.1 and 1.0"
+  - If robustness_weight < 0.1 or > 2.0: "Robustness weight must be between 0.1 and 2.0"
+  - If graph has more than 1000 nodes: "Graph cannot have more than 1000 nodes"
+  - If any node has more than 50 edges: "Node cannot have more than 50 edges"
+  - If any neighbor_node is not a valid node ID in the graph: "Neighbor node not found in graph"
+
+
+### Function Signature
+```python
+def robust_shortest_path(
+    graph: Dict[str, List[List]], 
+    start_node: str, 
+    end_node: str, 
+    is_peak_hour: bool, 
+    min_reliability: float, 
+    robustness_weight: float
+) -> List[str]:
+    pass
+```
+
+
+### Sample Input
+```python
+graph = {
+    "0": [["1", 10, 1.2, 0.8, 1.5], ["2", 15, 1.0, 0.9, 1.2]],
+    "1": [["0", 10, 1.2, 0.8, 1.5], ["2", 8, 1.5, 0.7, 1.8], ["3", 12, 1.1, 0.85, 1.3]],
+    "2": [["0", 15, 1.0, 0.9, 1.2], ["1", 8, 1.5, 0.7, 1.8], ["3", 6, 1.3, 0.75, 1.6]],
+    "3": [["1", 12, 1.1, 0.85, 1.3], ["2", 6, 1.3, 0.75, 1.6]]
+}
+start_node = "0"
+end_node = "3"
+is_peak_hour = True
+min_reliability = 0.75
+robustness_weight = 1.2
+```
+
+
+### Sample Output
+```
+['0', '2', '3']
+```
+
+Starter Code:
+```python
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Dict, List
+import heapq
+
+
+def robust_shortest_path(
+        graph: Dict[str, List[List]],
+        start_node: str,
+        end_node: str,
+        is_peak_hour: bool,
+        min_reliability: float,
+        robustness_weight: float
+) -> List[str]:
+    
+    pass
+```

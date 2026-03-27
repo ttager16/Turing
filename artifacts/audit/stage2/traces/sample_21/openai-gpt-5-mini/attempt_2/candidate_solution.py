@@ -1,0 +1,165 @@
+def match_nutrition_plan(
+    user_profile: int,
+    available_plans: List[Dict[str, Any]],
+    profile_decoder: Dict[str, Any]
+) -> Dict[str, Any]:
+    # Masks and shifts
+    GEN_MASK = (1 << 16) - 1           # bits 0-15
+    DIET_MASK = ((1 << 8) - 1) << 16   # bits 16-23
+    ALLER_MASK = ((1 << 8) - 1) << 24  # bits 24-31
+
+    def extract_segments(profile: int) -> Tuple[int, int, int]:
+        gen = profile & GEN_MASK
+        diet = (profile & DIET_MASK) >> 16
+        aller = (profile & ALLER_MASK) >> 24
+        return gen, diet, aller
+
+    def bits_list_from_segment(seg_bits: int, offset: int, decoder_map: Dict[int, str]) -> List[str]:
+        res = []
+        for pos, name in (decoder_map or {}).items():
+            if pos >= offset and pos < offset + (16 if offset == 0 else 8):
+                bit_index = pos - offset
+                if seg_bits & (1 << bit_index):
+                    res.append(name)
+        return res
+
+    user_gen, user_diet, user_aller = extract_segments(user_profile)
+
+    # Precompute user active bits full mask aligned with plan bit positions (0-31)
+    user_full = user_profile & 0xFFFFFFFF
+
+    scored_plans: List[Tuple[float, Dict[str, Any], List[str]]] = []  # (score, plan, modifications)
+
+    for plan in available_plans:
+        # Plan expected fields: plan_name, required_bits, excluded_bits, base_nutrients, customizable
+        required = plan.get("required_bits", 0) & 0xFFFFFFFF
+        excluded = plan.get("excluded_bits", 0) & 0xFFFFFFFF
+        customizable = bool(plan.get("customizable", False))
+
+        # Check direct exclusion conflicts: bits that are both in user and in plan's excluded
+        conflict_bits = user_full & excluded
+
+        # If conflict and not customizable, skip plan
+        if conflict_bits and not customizable:
+            continue
+
+        # Compute per-segment scores
+        # Genetic: required bits within genetic segment (0-15)
+        plan_req_gen = required & GEN_MASK
+        gen_req_count = bin(plan_req_gen).count("1")
+        if gen_req_count == 0:
+            gen_score = 1.0
+        else:
+            matched_gen = bin(plan_req_gen & user_gen).count("1")
+            gen_score = matched_gen / gen_req_count
+
+        # Dietary: required bits within dietary segment (16-23)
+        plan_req_diet = (required & DIET_MASK) >> 16
+        diet_req_count = bin(plan_req_diet).count("1")
+        if diet_req_count == 0:
+            diet_score = 1.0
+        else:
+            matched_diet = bin(plan_req_diet & user_diet).count("1")
+            diet_score = matched_diet / diet_req_count
+
+        # Allergy avoidance: excluded bits within allergy segment (24-31)
+        plan_excl_aller = (excluded & ALLER_MASK) >> 24
+        # For allergy score we want 1.0 - fraction of excluded allergy bits present in user
+        excl_aller_count = bin(plan_excl_aller).count("1")
+        if excl_aller_count == 0:
+            aller_score = 1.0
+        else:
+            present_excl = bin(plan_excl_aller & user_aller).count("1")
+            # fraction present -> reduces score
+            aller_score = max(0.0, 1.0 - (present_excl / excl_aller_count))
+
+        # Weighted score
+        base_score = gen_score * 0.4 + diet_score * 0.3 + aller_score * 0.3
+
+        required_modifications: List[str] = []
+        if conflict_bits and customizable:
+            # generate modifications for conflicting bits across segments
+            # allergies (24-31)
+            conflict_aller = (conflict_bits & ALLER_MASK) >> 24
+            for i in range(8):
+                if conflict_aller & (1 << i):
+                    bit_pos = 24 + i
+                    allerg_name = profile_decoder.get("allergies", {}).get(bit_pos, f"Allergen_{bit_pos}")
+                    required_modifications.append(f"Remove {allerg_name} ingredients and substitute with safe alternatives")
+            # dietary conflicts (16-23): if plan excludes some dietary prefs (excluded bits in diet) that user has
+            conflict_diet = (conflict_bits & DIET_MASK) >> 16
+            for i in range(8):
+                if conflict_diet & (1 << i):
+                    bit_pos = 16 + i
+                    diet_name = profile_decoder.get("dietary_preferences", {}).get(bit_pos, f"Dietary_{bit_pos}")
+                    required_modifications.append(f"Adjust plan to accommodate {diet_name} restriction")
+            # genetic conflicts (0-15) - if plan excludes genetic features (rare) create note
+            conflict_gen = conflict_bits & GEN_MASK
+            for i in range(16):
+                if conflict_gen & (1 << i):
+                    bit_pos = i
+                    gen_name = profile_decoder.get("genetic_markers", {}).get(bit_pos, f"Genetic_{bit_pos}")
+                    required_modifications.append(f"Modify nutrients due to {gen_name}")
+            # penalty for needing modifications
+            base_score *= 0.9
+
+        # If there are required bits unmet that are nonzero and missing, consider partial compatibility but keep plan
+        # (we already account via gen_score/diet_score)
+        # Keep plan entry
+        scored_plans.append((base_score, plan, required_modifications))
+
+    # If no compatible plans found
+    if not scored_plans:
+        return {
+            "matched_plan": "",
+            "compatibility_score": 0.0,
+            "required_modifications": [],
+            "genetic_considerations": [],
+            "dietary_restrictions_applied": [],
+            "allergens_avoided": [],
+            "alternative_plans": []
+        }
+
+    # Sort by score descending
+    scored_plans.sort(key=lambda x: x[0], reverse=True)
+
+    best_score, best_plan, best_mods = scored_plans[0]
+    # If best_score is 0.0 treat as no compatible plans found
+    if best_score <= 0.0:
+        return {
+            "matched_plan": "",
+            "compatibility_score": 0.0,
+            "required_modifications": [],
+            "genetic_considerations": [],
+            "dietary_restrictions_applied": [],
+            "allergens_avoided": [],
+            "alternative_plans": []
+        }
+
+    # Build lists of considerations from user profile relative to chosen plan
+    # genetic markers active
+    genetic_considerations = bits_list_from_segment(user_gen, 0, profile_decoder.get("genetic_markers", {}))
+    dietary_restrictions_applied = bits_list_from_segment(user_diet, 16, profile_decoder.get("dietary_preferences", {}))
+    allergens_avoided = bits_list_from_segment(user_aller, 24, profile_decoder.get("allergies", {}))
+
+    # Build alternative plans up to 3 with lower scores
+    alternatives: List[Dict[str, Any]] = []
+    for score, plan, mods in scored_plans[1:4]:
+        if len(alternatives) >= 3:
+            break
+        alternatives.append({"plan_name": plan.get("plan_name", ""), "score": round(float(score), 4)})
+
+    # If fewer than 3 alternatives exist but at least one, still return them; requirement: Return empty list if fewer than 3 alternatives exist
+    if len(alternatives) < 3:
+        alternatives = []
+
+    result = {
+        "matched_plan": best_plan.get("plan_name", ""),
+        "compatibility_score": round(float(best_score), 4),
+        "required_modifications": best_mods,
+        "genetic_considerations": genetic_considerations,
+        "dietary_restrictions_applied": dietary_restrictions_applied,
+        "allergens_avoided": allergens_avoided,
+        "alternative_plans": alternatives
+    }
+    return result

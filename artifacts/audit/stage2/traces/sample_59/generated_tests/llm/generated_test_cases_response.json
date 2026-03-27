@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6DIniXZBxGV8whPiZC2DShPQV2m",
+  "object": "chat.completion",
+  "created": 1774397800,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[[7]]\"],\"focus\":\"1x1 matrix (minimal size) with non-zero value — tests trivial single-circulant extraction and handling of n=1.\"},{\"input_lines\":[\"[[0,3,0,2],[2,0,1,0],[0,1,0,3],[1,0,2,0]]\"],\"focus\":\"4x4 matrix with mixed values along the same cyclic shifts — forces greedy choice between conflicting values on the same shift.\"},{\"input_lines\":[\"[[5,1],[2,3]]\"],\"focus\":\"2x2 asymmetric matrix — small even-sized case where diagonal and off-diagonal shifts both non-zero and differ, testing minimal multi-circulant decomposition.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1425,
+    "completion_tokens": 1132,
+    "total_tokens": 2557,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 960,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

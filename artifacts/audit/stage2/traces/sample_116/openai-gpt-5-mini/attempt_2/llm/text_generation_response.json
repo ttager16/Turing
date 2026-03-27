@@ -1,0 +1,76 @@
+{
+  "id": "resp_024854b8f7a071500069c33993b55c819d9a69c6b10bdc19ba",
+  "object": "response",
+  "created_at": 1774401939,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774401959,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_024854b8f7a071500069c33993fd14819dacbda50b8cb81ccc",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_024854b8f7a071500069c339943c68819da65afa2ffc921c1e",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "def optimize_multicommodity_flow(\n    graph: dict[str, dict[str, list[int]]],\n    demands: dict[str, dict[str, list[int]]],\n    source: str,\n    sinks: list[str],\n    commodities: list[str]\n) -> dict[str, dict[str, int]] | dict[str, str]:\n    # Validation\n    if not isinstance(graph, dict) or not isinstance(demands, dict) or not isinstance(source, str) \\\n       or not isinstance(sinks, list) or not isinstance(commodities, list):\n        return {'error': 'Invalid input type'}\n    if not graph or not demands or not sinks or not commodities:\n        return {'error': 'Empty input data'}\n    # parse edges and build adjacency per commodity\n    adj = {}  # node -> list of (neighbor, commodity, capacity, cost)\n    nodes = set([source])\n    for ekey, cmap in graph.items():\n        if not isinstance(ekey, str) or ekey.count(',') != 1:\n            return {'error': 'Invalid edge format'}\n        u, v = ekey.split(',', 1)\n        if u == v:\n            return {'error': 'Constraint violation'}\n        nodes.add(u); nodes.add(v)\n        if not isinstance(cmap, dict):\n            return {'error': 'Invalid input type'}\n        for com, vals in cmap.items():\n            if not isinstance(com, str) or not isinstance(vals, list) or len(vals) != 2:\n                return {'error': 'Invalid input type'}\n            cap, cost = vals\n            if not (isinstance(cap, int) and isinstance(cost, int)):\n                return {'error': 'Invalid input type'}\n            if cap < 1 or cost < 1:\n                return {'error': 'Constraint violation'}\n            adj.setdefault(u, []).append((v, com, cap, cost))\n    # validate demands structure\n    for sink, cmap in demands.items():\n        if not isinstance(sink, str) or not isinstance(cmap, dict):\n            return {'error': 'Invalid input type'}\n        for com, vals in cmap.items():\n            if com not in commodities:\n                # allow extra but ignore later; still validate format\n                pass\n            if not isinstance(vals, list) or len(vals) != 2:\n                return {'error': 'Invalid input type'}\n            mn, mx = vals\n            if not (isinstance(mn, int) and isinstance(mx, int)):\n                return {'error': 'Invalid input type'}\n            if mn < 0 or mn > mx:\n                return {'error': 'Constraint violation'}\n    # For each commodity and each sink, try to find the minimum-cost max-flow from source to sink\n    # Since standard libraries only: implement successive shortest augmenting path with capacities per edge per commodity independent.\n    # For unreachable sinks for a commodity, deliver min demand.\n    result = {}\n    # Build per-commodity graph capacities and costs; edges are independent per commodity as given.\n    # For each commodity and each sink compute max-flow up to demand max, minimizing cost.\n    from collections import deque\n    for sink in sinks:\n        result[sink] = {}\n        for com in commodities:\n            # demand bounds\n            mn = demands.get(sink, {}).get(com, [0, 0])[0]\n            mx = demands.get(sink, {}).get(com, [0, 0])[1]\n            if mn is None or mx is None:\n                mn = 0; mx = 0\n            # Build residual graph nodes: adjacency with capacities and costs\n            # Represent edges as dict: u -> list of edges each as [v, cap, cost, rev_index]\n            G = {}\n            def add_edge(u, v, cap, cost):\n                G.setdefault(u, []).append([v, cap, cost, len(G.get(v, []))])\n                G.setdefault(v, []).append([u, 0, -cost, len(G[u]) - 1])\n            for u, lst in adj.items():\n                for (v, cc, cost) in [(t[0], t[2], t[3]) for t in lst if t[1] == com]:\n                    add_edge(u, v, cc, cost)\n            # If no path edges for commodity, return mn\n            if source not in G:\n                result[sink][com] = mn\n                continue\n            if sink not in G:\n                # sink may be isolated; check reachability via BFS ignoring capacities\n                # quick check: if sink not in nodes or no incoming edges for commodity, treat unreachable\n                reachable = False\n                # check if any u->sink exists in G keys\n                for u in G:\n                    for e in G.get(u, []):\n                        if e[0] == sink and (e[1] > 0 or e[2] <= 0):\n                            reachable = True; break\n                    if reachable: break\n                if not reachable:\n                    result[sink][com] = mn\n                    continue\n            flow = 0\n            cost = 0\n            max_needed = mx\n            # Successive shortest augmenting path with SPFA for potentials\n            while flow < max_needed:\n                # Bellman-Ford/SPFA for shortest path from source to sink in residual graph\n                dist = {node: float('inf') for node in G}\n                inq = {node: False for node in G}\n                prev = {}\n                dist[source] = 0\n                q = deque([source]); inq[source] = True\n                while q:\n                    u = q.popleft(); inq[u] = False\n                    for i, e in enumerate(G[u]):\n                        v, cap, ecost, rev = e\n                        if cap > 0 and dist[v] > dist[u] + ecost:\n                            dist[v] = dist[u] + ecost\n                            prev[v] = (u, i)\n                            if not inq[v]:\n                                inq[v] = True\n                                q.append(v)\n                if sink not in dist or dist[sink] == float('inf'):\n                    break\n                # find bottleneck\n                increment = max_needed - flow\n                v = sink\n                while v != source:\n                    u, i = prev[v]\n                    increment = min(increment, G[u][i][1])\n                    v = u\n                # apply\n                v = sink\n                while v != source:\n                    u, i = prev[v]\n                    e = G[u][i]\n                    e[1] -= increment\n                    rev = e[3]\n                    G[v][rev][1] += increment\n                    v = u\n                flow += increment\n                cost += increment * dist[sink]\n            if flow == 0:\n                # unreachable\n                result[sink][com] = mn\n            else:\n                # ensure at least mn; if flow < mn then fallback to mn per spec? Spec: maximize within demand range; if no path assign min as fallback.\n                if flow < mn:\n                    result[sink][com] = mn\n                else:\n                    result[sink][com] = flow\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1371,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1517,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2888
+  },
+  "user": null,
+  "metadata": {}
+}

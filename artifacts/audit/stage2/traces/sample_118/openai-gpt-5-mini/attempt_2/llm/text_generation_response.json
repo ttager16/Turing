@@ -1,0 +1,76 @@
+{
+  "id": "resp_0424bc56913a80660069c339ecd18481a0838f11c34f14b973",
+  "object": "response",
+  "created_at": 1774402028,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774402059,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0424bc56913a80660069c339ed19ec81a0a3e976961a22d7c4",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0424bc56913a80660069c339ed528881a09e0e5e218a8d0383",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List\nfrom collections import deque\n\ndef optimize_water_flow(\n    graph: Dict[str, List[List]],\n    source: str,\n    target: str,\n    capacity_changes: List[List]\n) -> int:\n    # Validation of top-level types\n    if not isinstance(graph, dict) or not isinstance(capacity_changes, list):\n        return 0\n    if graph == {} and capacity_changes == []:\n        return 0\n    # Validate source and target types\n    if not isinstance(source, str) or not isinstance(target, str) or source == \"\" or target == \"\":\n        return 0\n    # Build internal edge map: (u,v) -> capacity (int). Start from graph input.\n    edges = {}  # (u,v) -> capacity\n    nodes = set()\n    # Validate graph structure\n    for u, nbrs in graph.items():\n        if not isinstance(u, str) or u == \"\":\n            return 0\n        if not isinstance(nbrs, list):\n            return 0\n        nodes.add(u)\n        seen = set()\n        for entry in nbrs:\n            if not isinstance(entry, list) or len(entry) != 2:\n                return 0\n            v, cap = entry[0], entry[1]\n            if not isinstance(v, str) or v == \"\":\n                return 0\n            if not isinstance(cap, int) or cap < 0:\n                return 0\n            if v in seen:\n                return 0\n            seen.add(v)\n            nodes.add(v)\n            if cap == 0:\n                continue  # treat as absent\n            key = (u, v)\n            if key in edges:\n                return 0  # duplicate edges in input after considering non-zero edges\n            edges[key] = cap\n            # self-loop check\n            if u == v:\n                return 0\n    # Validate capacity_changes schema and apply sequentially\n    for upd in capacity_changes:\n        if not isinstance(upd, list) or len(upd) != 3:\n            return 0\n        u, v, delta = upd[0], upd[1], upd[2]\n        if not isinstance(u, str) or u == \"\" or not isinstance(v, str) or v == \"\":\n            return 0\n        if not isinstance(delta, int):\n            return 0\n        # self-loop update invalid\n        if u == v:\n            return 0\n        nodes.add(u); nodes.add(v)\n        key = (u, v)\n        if key in edges:\n            newcap = edges[key] + delta\n            if newcap < 0:\n                return 0\n            if newcap == 0:\n                # set to zero and will be dropped later; keep as zero for now\n                edges[key] = 0\n            else:\n                edges[key] = newcap\n        else:\n            # edge doesn't exist\n            if delta < 0:\n                return 0\n            if delta == 0:\n                # do nothing\n                pass\n            else:\n                edges[key] = delta\n    # After all updates, drop edges with capacity == 0\n    edges = {k: v for k, v in edges.items() if v != 0}\n    # After dropping zeros, check duplicates: our dict keys ensure uniqueness.\n    # Need to ensure no duplicate edges per (u,v) pair — satisfied.\n    # Validate source and target existence and reachability\n    if source not in nodes or target not in nodes:\n        return 0\n    # Build adjacency lists for the residual graph from edges\n    # We'll need deterministic neighbor ordering: when iterating neighbors, sort by string v.\n    # Quick reachability check from source to target using directed edges\n    adj = {}\n    for (u, v), cap in edges.items():\n        adj.setdefault(u, []).append(v)\n        adj.setdefault(v, [])  # ensure node present\n    # Include isolated nodes\n    for n in nodes:\n        adj.setdefault(n, [])\n    # Remove nodes with no outgoing entries if not in nodes already done\n    # BFS for reachability (deterministic order)\n    def reachable(src, tgt):\n        visited = set()\n        q = deque()\n        q.append(src)\n        visited.add(src)\n        while q:\n            cur = q.popleft()\n            if cur == tgt:\n                return True\n            neighs = sorted(adj.get(cur, []), key=lambda x: x)\n            for nb in neighs:\n                if nb not in visited:\n                    visited.add(nb)\n                    q.append(nb)\n        return False\n    if not reachable(source, target):\n        return 0\n    # Prepare residual capacities\n    # Residual graph represented as dict of dicts: res[u][v] = cap\n    def build_residual():\n        res = {}\n        for n in nodes:\n            res.setdefault(n, {})\n        for (u, v), cap in edges.items():\n            res[u][v] = cap\n            # reverse edges implicit with 0 if not present\n            if v not in res or u not in res[v]:\n                res.setdefault(v, {})\n                res[v].setdefault(u, 0)\n        return res\n    # Deterministic BFS to find augmenting path with lexicographic neighbor expansion and when equal bottleneck choose lexicographically smallest full path.\n    # We'll implement a layered BFS that tracks path and bottleneck. For deterministic tie-breaking among equal bottleneck, we collect all augmenting paths found by BFS (classic Edmonds-Karp finds shortest in edges; here we need lexicographic among equal bottleneck).\n    # But requirement: When multiple augmenting paths have equal bottleneck capacity, always select the lexicographically smallest full path.\n    # We'll implement repeated search: find all simple paths via BFS layering that reach target (with parents tracked deterministically), but to be efficient, perform BFS that records for each node the best (bottleneck, path) seen where better means larger bottleneck, tie-breaker lexicographically smaller path.\n    # However need deterministic expansion order.\n    def find_augmenting(res):\n        # For every search, fresh structures\n        # We'll do modified Dijkstra-like (maximin path) with deterministic neighbor ordering; since capacities are integers, we can use BFS-like with priority by (-bottleneck, path) but must be deterministic.\n        # Use a queue exploring nodes in order of decreasing bottleneck, and for equal bottleneck expand nodes in lexicographic path order.\n        # We'll maintain for each node the best bottleneck and corresponding path (list of nodes).\n        best = {}  # node -> (bottleneck, path)\n        # initialize\n        best[source] = (float('inf'), [source])\n        # frontier as list of nodes to expand; will pick next by highest bottleneck then lexicographic path\n        frontier = [source]\n        while frontier:\n            # select node to expand\n            frontier.sort(key=lambda n: (-best[n][0], best[n][1]))\n            cur = frontier.pop(0)\n            cur_bottle, cur_path = best[cur]\n            if cur == target:\n                return cur_bottle, cur_path\n            # expand neighbors in lexicographic string order\n            neighs = sorted(res.get(cur, {}).keys(), key=lambda x: x)\n            for nb in neighs:\n                cap = res[cur].get(nb, 0)\n                if cap <= 0:\n                    continue\n                new_bottle = min(cur_bottle, cap)\n                new_path = cur_path + [nb]\n                if nb not in best:\n                    best[nb] = (new_bottle, new_path)\n                    frontier.append(nb)\n                else:\n                    prev_bottle, prev_path = best[nb]\n                    if new_bottle > prev_bottle:\n                        best[nb] = (new_bottle, new_path)\n                        if nb not in frontier:\n                            frontier.append(nb)\n                    elif new_bottle == prev_bottle:\n                        # tie-breaker: choose lexicographically smaller full path (compare lists of strings)\n                        if new_path < prev_path:\n                            best[nb] = (new_bottle, new_path)\n                            if nb not in frontier:\n                                frontier.append(nb)\n        return None  # no augmenting path\n    total_flow = 0\n    # main loop\n    while True:\n        res = build_residual()\n        found = find_augmenting(res)\n        if not found:\n            break\n        bottle, path = found\n        if bottle <= 0:\n            break\n        # augment along path: adjust residual capacities\n        # Fresh residual modifications only based on current edges\n        # Build res again to mutate\n        res = build_residual()\n        for i in range(len(path)-1):\n            u, v = path[i], path[i+1]\n            # reduce forward\n            res[u][v] = res[u].get(v, 0) - bottle\n            # increase reverse\n            res[v][u] = res[v].get(u, 0) + bottle\n        # Commit changes back to edges structure: edges only store forward edges; reverse edges not stored\n        # Update edges dict accordingly: for any (u,v) forward original edge present or created, set to res[u][v] (if >0) or remove if <=0\n        new_edges = {}\n        # For all pairs in res where original direction might be considered forward if original edges had it OR if reverse has positive that's fine but we only store forward real edges.\n        # We'll reconstruct forward edges by checking res[u][v] and whether this corresponds to an original or possible forward edge.\n        # To be deterministic, consider all node pairs where res[u][v] > 0 and where original edges may exist or reverse positive should not create new forward edges arbitrarily.\n        # The forward edges are those with original in edges or those whose original was absent but had been created earlier; we track via current edges variable: use previous 'edges' keys to determine which directions are forward-capacity-bearing.\n        # We'll update edges by applying changes: For each original key in edges, compute new cap = res[u][v] if present else 0.\n        for (u,v) in list(edges.keys()):\n            newcap = res.get(u, {}).get(v, 0)\n            if newcap < 0:\n                return 0\n            if newcap > 0:\n                new_edges[(u,v)] = newcap\n        edges = new_edges\n        total_flow += bottle\n        # After augmentation, check if source and target still exist/reachable; if not reachable, break and return 0 per constraints? The constraint was to check initial reachability; during flow we continue until no augmenting path.\n        # Continue loop\n    return total_flow"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1689,
+    "input_tokens_details": {
+      "cached_tokens": 1664
+    },
+    "output_tokens": 2274,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3963
+  },
+  "user": null,
+  "metadata": {}
+}

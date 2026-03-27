@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: allocate_minimum_sessions\n\nProblem Statement:\n### Problem Statement\nA university administration needs to organize interdisciplinary colloquia where multiple departments present research. Each department has a capacity requirement and operates under several interdepartmental constraints: synergy groups requiring joint presentation, conflict constraints preventing simultaneous sessions, and resource sharing limitations for specialized equipment. The goal is to determine the minimum number of colloquium sessions needed while respecting all constraints.\n\nThe scheduling is complicated by synergy groups that must present together, departments with competing research that cannot share sessions, and specialized equipment that cannot be used simultaneously across multiple sessions. Each session has a maximum capacity that cannot be exceeded.\n\n---\n\n#### Objectives:\n1. Minimize Sessions: Find the minimum number of sessions required to accommodate all departments.\n2. Respect Synergy Constraints: Departments in the same synergy group must be scheduled together in the same session.\n3. Avoid Conflicts: Departments marked as conflicting cannot be in the same session.\n4. Handle Resource Conflicts: Departments requiring the same specialized resource cannot be scheduled in parallel sessions.\n5. Capacity Management: Total capacity of departments in any session cannot exceed session capacity.\n\n---\n\n#### Constraints:\n- departments: List of tuples (capacity, synergy_group, resource_id) where capacity is attendee count (1 to 1000), synergy_group is integer group ID (0 means no synergy, greater than 0 means must be with same group), and resource_id identifies shared equipment (0 means no special resource).\n- conflicts: List of tuples (dept_idx1, dept_idx2) indicating departments that cannot be in same session. Conflicts are bidirectional.\n- session_capacity: Integer representing maximum capacity per session (1 to 10,000).\n- The system must handle up to 100 departments and 500 conflict pairs.\n- If any synergy group's total capacity exceeds session_capacity, return -1.\n- If any single department exceeds session_capacity, return -1.\n- If synergy groups create internal conflicts, return -1.\n- Algorithm must use constraint satisfaction, graph-based conflict detection, and backtracking or constraint propagation.\n- Time complexity: O(n squared times 2 to the power k) where k is bounded small constant.\n\n---\n\n#### Function Signature\n```python\ndef allocate_minimum_sessions(\n    departments: List[List[int]],   # each item: [capacity, synergy_group, resource_id]\n    conflicts: List[List[int]],     # each item: [dept_idx1, dept_idx2]\n    session_capacity: int\n) -> int:\n    \"\"\"\n    Determines the minimum number of colloquium sessions needed to accommodate\n    all departments while respecting synergy groups, conflicts, and resource constraints.\n    \"\"\"\n    pass\n```\n\n---\n\n#### Sample Input/Output\n- Input: A list of department lists with capacity, synergy group, and resource ID. A list of conflict pairs between department indices. An integer for session capacity.\n- Output: An integer representing the minimum number of sessions needed, or -1 if scheduling is impossible due to synergy groups exceeding capacity, conflicting constraints within synergy groups, or unsatisfiable resource constraints.\n\n---\n\n#### Expected Output Format\nThe output should be a single integer value:\n1. Positive integer: The minimum number of sessions required to schedule all departments.\n2. Negative one: If scheduling is impossible due to capacity violations, conflicting constraints, or resource conflicts.\n\nThis format ensures the system can efficiently determine optimal scheduling while respecting complex interdepartmental relationships and resource limitations.\n\nStarter Code:\n```python \ndef allocate_minimum_sessions(\n    departments: List[List[int]],   # each item: [capacity, synergy_group, resource_id]\n    conflicts: List[List[int]],     # each item: [dept_idx1, dept_idx2]\n    session_capacity: int\n) -> int:\n    \"\"\"\n    Determines the minimum number of colloquium sessions needed to accommodate\n    all departments while respecting synergy groups, conflicts, and resource constraints.\n    \"\"\"\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[[100, 1, 0], [200, 1, 0], [300, 0, 0]]\\n[]\\n500\",\n    \"output\": \"2\"\n  },\n  {\n    \"input\": \"[[100, 0, 0], [200, 0, 0], [150, 0, 0]]\\n[[0, 1], [1, 2]]\\n400\",\n    \"output\": \"2\"\n  },\n  {\n    \"input\": \"[[50, 1, 0], [75, 1, 0], [100, 1, 0], [200, 0, 0]]\\n[]\\n400\",\n    \"output\": \"2\"\n  }\n]\n"
+    }
+  ]
+}

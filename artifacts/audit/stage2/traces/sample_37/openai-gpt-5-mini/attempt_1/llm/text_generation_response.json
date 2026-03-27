@@ -1,0 +1,76 @@
+{
+  "id": "resp_0d02e4253b7189900069c3220773ac8195a388e68903c22afe",
+  "object": "response",
+  "created_at": 1774395911,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774395955,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0d02e4253b7189900069c32207dbd88195b6d4d027fba39c3f",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0d02e4253b7189900069c3220854d88195ae519e5e1b314cfa",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import math\nfrom collections import defaultdict\nfrom typing import Any, Dict, List, Tuple\n\ndef simulate_correlated_trades(\n    initial_asset_prices: Dict[str, float],\n    correlation_graph: Dict[str, List[List]],\n    time_steps: int,\n    capital_limit: float,\n    transaction_cost_factor: float,\n    seed: int = 42\n) -> List[Dict[str, Any]]:\n    # Edge cases\n    if not initial_asset_prices:\n        return []\n    if any(v <= 0 for v in initial_asset_prices.values()):\n        raise ValueError(\"Initial asset prices must be > 0\")\n    if time_steps <= 0:\n        return [{\n            'path_id': 0,\n            'trades': [],\n            'flow_cost': round(0.0,2),\n            'final_portfolio_value': round(float(capital_limit),2),\n            'optimal_strategy_explanation': \"No time steps to simulate.\"\n        }]\n    if capital_limit <= 0:\n        return [{\n            'path_id': 0,\n            'trades': [[] for _ in range(time_steps)],\n            'flow_cost': 0.0,\n            'final_portfolio_value': 0.0,\n            'optimal_strategy_explanation': \"No capital available for trading.\"\n        }]\n    # Store seed in instance variable per requirement (module-level)\n    GLOBAL_SEED = seed\n\n    assets = sorted(initial_asset_prices.keys())\n    drift_base = 0.0001\n    vol = 0.02\n    dt = 1.0\n\n    # Precompute initial prices\n    init_prices = {a: float(initial_asset_prices[a]) for a in assets}\n\n    # Simulate prices deterministically per time step given starting prices\n    def simulate_prices(current_prices: Dict[str, float], t: int) -> Dict[str, float]:\n        new_prices = current_prices.copy()\n        for idx, a in enumerate(assets):\n            price_old = new_prices[a]\n            price_change_ratio = (price_old / init_prices[a] - 1.0)\n            # compute average correlation adjustment\n            corr_list = correlation_graph.get(a, [])\n            adj = 0.0\n            for pair in corr_list:\n                # pair = [asset_name, correlation_value]\n                corr_val = pair[1]\n                adj += corr_val * price_change_ratio * 0.1\n            drift = drift_base + adj\n            deterministic_value = math.sin(GLOBAL_SEED*0.1 + t*2.5 + idx*3.7) * math.cos(t*1.3 + idx*2.1)\n            z = deterministic_value * 1.5\n            price_new = price_old * math.exp((drift - 0.5*vol*vol)*dt + vol*math.sqrt(dt)*z)\n            price_new = max(price_new, 0.01)\n            new_prices[a] = price_new\n        return new_prices\n\n    # Transaction execution helpers\n    def execute_trades(prices: Dict[str, float], positions: Dict[str, float], capital: float, trades: List[List]) -> Tuple[Dict[str,float], float, float]:\n        flow_cost = 0.0\n        pos = positions.copy()\n        cap = capital\n        for tr in trades:\n            asset, qty = tr\n            qty = float(round(qty,2))\n            price = prices[asset]\n            if qty > 0:\n                cost = qty * price * (1.0 + transaction_cost_factor)\n                if cost <= cap + 1e-9:\n                    cap -= cost\n                    pos[asset] = pos.get(asset,0.0) + qty\n                    flow_cost += qty * price * transaction_cost_factor\n            elif qty < 0:\n                needed = abs(qty)\n                if pos.get(asset,0.0) + 1e-9 >= needed:\n                    proceeds = needed * price * (1.0 - transaction_cost_factor)\n                    cap += proceeds\n                    pos[asset] = pos.get(asset,0.0) - needed\n                    flow_cost += needed * price * transaction_cost_factor\n        return pos, cap, flow_cost\n\n    # Generate trade options per rules\n    def generate_trade_options(t: int, prices: Dict[str,float], positions: Dict[str,float], capital: float) -> List[List[List]]:\n        options: List[List[List]] = []\n        # empty option first\n        options.append([])\n        if t >= time_steps - 2:\n            return options\n        # Buy options per asset\n        for idx, a in enumerate(assets):\n            corr_list = correlation_graph.get(a, [])\n            if corr_list:\n                avg_corr = sum(x[1] for x in corr_list)/len(corr_list)\n            else:\n                avg_corr = 0.0\n            price = prices[a]\n            if avg_corr > 0.5:\n                max_buy = min(10.0, capital/(price*2)) if price>0 else 0.0\n                if max_buy > 0.1:\n                    qty = round(max_buy,2)\n                    options.append([[a, qty]])\n                    if len(options) >=5: break\n        # Rebalance logic\n        if len(options) <5 and t < time_steps//2 and any(positions.get(x,0.0)!=0.0 for x in assets):\n            reb = []\n            for a in assets[:2]:\n                target = 5.0\n                diff = target - positions.get(a,0.0)\n                if abs(diff) > 0.1:\n                    reb.append([a, round(diff,2)])\n            if reb:\n                options.append(reb)\n        # Pairs trading\n        if len(options) <5 and t < time_steps//3:\n            found = False\n            for a in assets:\n                for pair in correlation_graph.get(a,[]):\n                    b, corrv = pair[0], pair[1]\n                    if corrv > 0.7 and a in assets and b in assets:\n                        options.append([[a,5.0],[b,-5.0]])\n                        found = True\n                        break\n                if found: break\n        # Additional simple buys to fill up options deterministically\n        for a in assets:\n            if len(options) >=5: break\n            price = prices[a]\n            qty = round(min(5.0, capital/(price*3)) ,2) if price>0 else 0.0\n            if qty > 0.1:\n                options.append([[a, qty]])\n        # ensure unique and deterministic order\n        unique = []\n        seen = set()\n        for o in options:\n            key = tuple((it[0], float(round(it[1],2))) for it in o)\n            if key not in seen:\n                seen.add(key)\n                unique.append(o)\n        return unique[:5]\n\n    # Memoization dict\n    memo: Dict[Tuple[int, Tuple[Tuple[str,float],...], int], Dict] = {}\n\n    results: List[Dict[str,Any]] = []\n\n    # Recursive backtracking\n    def recurse(t: int, prices: Dict[str,float], positions: Dict[str,float], capital: float, trades_so_far: List[List[List]], flow_cost_acc: float):\n        # state key\n        pos_key = tuple(sorted([(a, round(positions.get(a,0.0),1)) for a in assets]))\n        cap_key = int(round(capital,0))\n        key = (t, pos_key, cap_key)\n        # If memoized and current best >= potential skip; we'll still compute to respect requirement to store only better\n        if key in memo:\n            # prune if existing final value already >= possible naive upper bound (skip pruning complex)\n            pass\n        if t == time_steps:\n            # final valuation\n            final_val = capital + sum(positions.get(a,0.0)*prices[a] for a in assets)\n            final_val_rounded = round(final_val,2)\n            flow_cost_rounded = round(flow_cost_acc,2)\n            trades_copy = [ [ [it[0], float(round(it[1],2))] for it in step ] for step in trades_so_far ]\n            # explanation\n            if not trades_copy or all(len(s)==0 for s in trades_copy):\n                explanation = \"Hold strategy: No trades executed. Market conditions did not favor active trading.\"\n            else:\n                total_trades = sum(len(s) for s in trades_copy)\n                active_steps = sum(1 for s in trades_copy if len(s)>0)\n                freq = defaultdict(int)\n                for s in trades_copy:\n                    for it in s:\n                        freq[it[0]] += 1\n                most = sorted(freq.items(), key=lambda x: (-x[1], x[0]))\n                expl = f\"Active trading strategy with {total_trades} total trades across {active_steps} time steps. \"\n                if most:\n                    expl += f\"Focused on {most[0][0]} \"\n                    if len(most)>1:\n                        expl += f\"and {most[1][0]} \"\n                    expl += \"based on correlation dynamics. \"\n                expl += f\"Strategy exploited correlation structure to maximize returns while respecting capital constraints and transaction costs. Final portfolio value: ${final_val_rounded:,.2f}.\"\n                explanation = expl\n            res = {\n                'path_key': key,\n                'trades': trades_copy,\n                'flow_cost': flow_cost_rounded,\n                'final_portfolio_value': final_val_rounded,\n                'optimal_strategy_explanation': explanation\n            }\n            # memoization logic: store if not exists or better\n            prev = memo.get(key)\n            if (prev is None) or (final_val > prev['final_portfolio_value']):\n                memo[key] = {'final_portfolio_value': final_val, 'record': res}\n            results.append(res)\n            return\n        # generate trade options\n        options = generate_trade_options(t, prices, positions, capital)\n        for opt in options:\n            # Validate and execute trades deterministically in asset order\n            # Ensure trades are ordered by assets list to be deterministic\n            opt_sorted = sorted(opt, key=lambda x: assets.index(x[0]) if x else 0)\n            pos_after, cap_after, flow_added = execute_trades(prices, positions, capital, opt_sorted)\n            new_flow = flow_cost_acc + flow_added\n            # simulate next prices\n            next_prices = simulate_prices(prices, t+1)\n            recurse(t+1, next_prices, pos_after, cap_after, trades_so_far + [opt_sorted], new_flow)\n\n    # initial state\n    start_positions = {a:0.0 for a in assets}\n    start_prices = {a:init_prices[a] for a in assets}\n    recurse(0, start_prices, start_positions, float(capital_limit), [], 0.0)\n\n    if not results:\n        return [{\n            'path_id': 0,\n            'trades': [[] for _ in range(time_steps)],\n            'flow_cost': round(0.0,2),\n            'final_portfolio_value': round(float(capital_limit),2),\n            'optimal_strategy_explanation': \"No profitable trading opportunities found.\"\n        }]\n\n    # dedupe by trades sequence and pick best per unique trades\n    unique_map = {}\n    for r in results:\n        key = tuple(tuple((it[0], float(it[1])) for it in step) for step in r['trades'])\n        cur = unique_map.get(key)\n        if (cur is None) or (r['final_portfolio_value'] > cur['final_portfolio_value']):\n            unique_map[key] = r\n\n    final_list = list(unique_map.values())\n    final_list.sort(key=lambda x: x['final_portfolio_value'], reverse=True)\n    final_list = final_list[:10]\n    # assign path_id and ensure fields match exact keys\n    out = []\n    for idx, r in enumerate(final_list):\n        out.append({\n            'path_id': idx,\n            'trades': [ [ [it[0], float(round(it[1],2))] for it in step ] for step in r['trades'] ] + ([] if len(r['trades'])==time_steps else [[]]*(time_steps - len(r['trades']))),\n            'flow_cost': round(float(r['flow_cost']),2),\n            'final_portfolio_value': round(float(r['final_portfolio_value']),2),\n            'optimal_strategy_explanation': r['optimal_strategy_explanation']\n        })\n    return out"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 3720,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2658,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 6378
+  },
+  "user": null,
+  "metadata": {}
+}

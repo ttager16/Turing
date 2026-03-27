@@ -1,0 +1,76 @@
+{
+  "id": "resp_043f819831cd99bc0069c3404d1a7c819fb4bf24c9afc00f70",
+  "object": "response",
+  "created_at": 1774403661,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774403693,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_043f819831cd99bc0069c3404d657c819f86b280f8308806e4",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_043f819831cd99bc0069c3404da310819f959fa0deee7d8238",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "```python\nfrom typing import List, Tuple, Dict, Optional\nimport itertools\nimport copy\n\ndef process_network_operations(n: int, operations: list[list[str]]) -> list[int]:\n    # Edge key as ordered tuple\n    def edge_key(u: int, v: int) -> Tuple[int,int]:\n        return (u,v) if u<=v else (v,u)\n    # State snapshot\n    class State:\n        def __init__(self, edges: Dict[Tuple[int,int], Tuple[int,int]], valid: bool):\n            # edges: map (u,v)->(cost,priority)\n            self.edges = edges\n            self.valid = valid\n    states: List[State] = []\n    # initial state: empty, valid\n    states.append(State(edges={}, valid=True))\n    results: List[int] = []\n    op_index = 0  # 1-based index notion: after k-th operation -> states[k]\n    for op in operations:\n        op_index += 1\n        cur = states[-1]\n        # Work on a copy for next state unless rollback\n        if op[0] == \"ADD\":\n            # [\"ADD\", u, v, c, p]\n            try:\n                u = int(op[1]); v = int(op[2]); c = int(op[3]); p = int(op[4])\n            except:\n                # malformed -> invalid\n                new = State(edges=copy.deepcopy(cur.edges), valid=False)\n                states.append(new)\n                continue\n            if u==v:\n                # self-loop invalidates\n                new = State(edges=copy.deepcopy(cur.edges), valid=False)\n                states.append(new)\n                continue\n            new_edges = copy.deepcopy(cur.edges)\n            new_edges[edge_key(u,v)] = (c,p)\n            new = State(edges=new_edges, valid=True)\n            states.append(new)\n        elif op[0] == \"REMOVE\":\n            # [\"REMOVE\", u, v]\n            try:\n                u = int(op[1]); v = int(op[2])\n            except:\n                new = State(edges=copy.deepcopy(cur.edges), valid=False)\n                states.append(new)\n                continue\n            key = edge_key(u,v)\n            if key in cur.edges:\n                new_edges = copy.deepcopy(cur.edges)\n                del new_edges[key]\n                new = State(edges=new_edges, valid=True)\n                states.append(new)\n            else:\n                # becomes invalid until next successful modification\n                new = State(edges=copy.deepcopy(cur.edges), valid=False)\n                states.append(new)\n        elif op[0] == \"ROLLBACK\":\n            # [\"ROLLBACK\", k]\n            try:\n                k = int(op[1])\n            except:\n                # invalid\n                new = State(edges=copy.deepcopy(cur.edges), valid=False)\n                states.append(new)\n                continue\n            # restore to state immediately after k-th operation -> states[k]\n            if 0 <= k <= len(operations):\n                # but our states list length equals processed ops so far +1; valid k if 0<=k<=processed ops\n                if 0 <= k < len(states):\n                    # copy that state\n                    ref = states[k]\n                    new = State(edges=copy.deepcopy(ref.edges), valid=ref.valid)\n                    states.append(new)\n                else:\n                    # invalid k\n                    new = State(edges=copy.deepcopy(cur.edges), valid=False)\n                    states.append(new)\n            else:\n                new = State(edges=copy.deepcopy(cur.edges), valid=False)\n                states.append(new)\n        elif op[0] == \"QUERY\":\n            # state doesn't change, just append same state to history\n            # compute answer based on cur\n            # We'll append a copy state to states to represent after this op\n            # compute result first\n            if not cur.valid:\n                results.append(-1)\n            else:\n                edges = cur.edges\n                m = len(edges)\n                if m == 0:\n                    results.append(0)\n                else:\n                    # Build list of edges with indices\n                    items = list(edges.items())  # [((u,v),(cost,pri)), ...]\n                    if m <= 20:\n                        # exact via brute force over subsets of edges to select monitored set that includes all priority edges\n                        # assign indices\n                        edge_list = []\n                        for (uv,(cost,pri)) in items:\n                            u,v = uv\n                            edge_list.append( (uv[0],uv[1],cost,pri) )\n                        idx_map = { (e[0],e[1]):i for i,e in enumerate(edge_list) }\n                        # Precompute adjacency: each selected edge covers itself and edges sharing an endpoint\n                        covers = []\n                        for i,e in enumerate(edge_list):\n                            u,v,c,p = e\n                            cover = 0\n                            for j,f in enumerate(edge_list):\n                                x,y,_,_ = f\n                                if i==j or u==x or u==y or v==x or v==y:\n                                    cover |= (1<<j)\n                            covers.append(cover)\n                        full_mask = (1<<m)-1\n                        # required mask for priority edges must be selected themselves\n                        required_sel_mask = 0\n                        for i,e in enumerate(edge_list):\n                            if e[3]==1:\n                                required_sel_mask |= (1<<i)\n                        best = None\n                        # iterate subsets that include required_sel_mask\n                        # iterate over superset: iterate s from 0..2^m-1 where (s & required_sel_mask)==required_sel_mask\n                        # optimize by iterating s' over remaining bits\n                        rem_bits = [i for i in range(m) if not (required_sel_mask>>i &1)]\n                        R = len(rem_bits)\n                        for sfix in range(1<<R):\n                            s = required_sel_mask\n                            for j in range(R):\n                                if (sfix>>j)&1:\n                                    s |= (1<<rem_bits[j])\n                            # check coverage\n                            cov = 0\n                            cost = 0\n                            for i in range(m):\n                                if (s>>i)&1:\n                                    cov |= covers[i]\n                                    cost += edge_list[i][2]\n                            if cov == full_mask:\n                                if best is None or cost < best:\n                                    best = cost\n                        if best is None:\n                            results.append(-1)\n                        else:\n                            results.append(best)\n                    else:\n                        # heuristic deterministic: select all priority edges, then greedily add edges with best cost per uncovered edges covered\n                        edge_list = []\n                        for (uv,(cost,pri)) in items:\n                            u,v = uv\n                            edge_list.append( {'uv':uv,'u':u,'v':v,'cost':cost,'pri':pri} )\n                        m = len(edge_list)\n                        # map endpoints to edges\n                        adj = {}\n                        for i,e in enumerate(edge_list):\n                            adj.setdefault(e['u'],[]).append(i)\n                            adj.setdefault(e['v'],[]).append(i)\n                        uncovered = set(range(m))\n                        selected = set(i for i,e in enumerate(edge_list) if e['pri']==1)\n                        # mark covered by initial selection\n                        for i in list(selected):\n                            e = edge_list[i]\n                            for j in adj.get(e['u'],[]):\n                                if j in uncovered:\n                                    uncovered.discard(j)\n                            for j in adj.get(e['v'],[]):\n                                if j in uncovered:\n                                    uncovered.discard(j)\n                        # Greedy until uncovered empty\n                        while uncovered:\n                            # for each edge not yet selected, compute newly covered count\n                            best_i = None\n                            best_ratio = None\n                            best_newcov = 0\n                            for i,e in enumerate(edge_list):\n                                if i in selected:\n                                    continue\n                                newcov = 0\n                                # edges covered if select i\n                                for j in adj.get(e['u'],[]):\n                                    if j in uncovered:\n                                        newcov += 1\n                                for j in adj.get(e['v'],[]):\n                                    if j in uncovered and j not in adj.get(e['u'],[]):\n                                        newcov += 1\n                                if newcov==0:\n                                    continue\n                                ratio = e['cost'] / newcov\n                                # deterministic tie-break: lower cost, then smaller uv tuple\n                                key = (ratio, e['cost'], e['uv'])\n                                if best_i is None or key < best_ratio:\n                                    best_i = i\n                                    best_ratio = key\n                                    best_newcov = newcov\n                            if best_i is None:\n                                # cannot cover remaining edges\n                                selected = None\n                                break\n                            selected.add(best_i)\n                            e = edge_list[best_i]\n                            for j in adj.get(e['u'],[]):\n                                if j in uncovered:\n                                    uncovered.discard(j)\n                            for j in adj.get(e['v'],[]):\n                                if j in uncovered:\n                                    uncovered.discard(j)\n                        if selected is None:\n                            results.append(-1)\n                        else:\n                            total = sum(edge_list[i]['cost'] for i in selected)\n                            results.append(total)\n            # append copy of current state to states to represent no-change after query\n            states.append(State(edges=copy.deepcopy(cur.edges), valid=cur.valid))\n        else:\n            # unknown op -> state becomes invalid\n            new = State(edges=copy.deepcopy(cur.edges), valid=False)\n            states.append(new)\n    return results\n```"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1216,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1977,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3193
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,400 @@
+def optimize_traffic_flow(nodes, edges, sources, sink, commodities, restrictions, time_multipliers, strategy):
+    # Build graph data structures
+    node_set = set(nodes)
+    n = max(nodes) + 1 if nodes else 0
+    m = len(edges)
+    # Apply time multipliers to capacities (floor to int, at least 1)
+    capacities = []
+    for i, e in enumerate(edges):
+        cap = max(1, int(math.floor(e[2] * time_multipliers[i])))
+        capacities.append(cap)
+    # adjacency lists and edge indices
+    adj = [[] for _ in range(n)]
+    for idx, (u, v, _) in enumerate(edges):
+        adj[u].append(idx)
+    # Residual capacities per directed edge index; we maintain forward and backward edges in residual graph mapping
+    # We'll store per original edge an index; residual forward capacity starts as capacities[idx]
+    # For multi-commodity routing sequentially we will maintain current residual capacities
+    residual = [cap for cap in capacities]
+    # For tracking flows per commodity per edge
+    flows_per_edge = [[0]*len(commodities) for _ in range(m)]
+    # For decomposition store per commodity list of paths (as list of [(u,v,flow)])
+    decompositions = {f"commodity_{i}":[] for i in range(len(commodities))}
+    total_augmenting_paths = 0
+
+    # Helpers for BFS (Edmonds-Karp) on residual graph with commodity restrictions
+    def bfs_find_path(src, dest, forbid_set):
+        parent = [-1]*n
+        parent_edge = [-1]*n
+        q = collections.deque([src])
+        visited = [False]*n
+        visited[src] = True
+        while q:
+            u = q.popleft()
+            if u == dest:
+                break
+            for ei in adj[u]:
+                if ei in forbid_set:
+                    continue
+                v = edges[ei][1]
+                if not visited[v] and residual[ei] > 0:
+                    visited[v] = True
+                    parent[v] = u
+                    parent_edge[v] = ei
+                    q.append(v)
+        if not visited[dest]:
+            return None
+        # reconstruct path edges
+        path_edges = []
+        v = dest
+        while v != src:
+            ei = parent_edge[v]
+            path_edges.append(ei)
+            v = parent[v]
+        path_edges.reverse()
+        return path_edges
+
+    # Dinic implementation for single-commodity on current residual, with restrictions
+    def dinic_maxflow_single(src, dest, forbid_set, demand):
+        # Build dynamic adjacency of residual directed edges with positive cap
+        flow_sent = 0
+        level = [0]*n
+        itptr = [0]*n
+
+        def build_level():
+            for i in range(n):
+                level[i] = -1
+            q = collections.deque()
+            level[src] = 0
+            q.append(src)
+            while q:
+                u = q.popleft()
+                for ei in adj[u]:
+                    if ei in forbid_set:
+                        continue
+                    v = edges[ei][1]
+                    if level[v] < 0 and residual[ei] > 0:
+                        level[v] = level[u] + 1
+                        q.append(v)
+            return level[dest] >= 0
+
+        def dfs(u, pushed):
+            if u == dest:
+                return pushed
+            for i in range(itptr[u], len(adj[u])):
+                itptr[u] = i
+                ei = adj[u][i]
+                if ei in forbid_set:
+                    continue
+                v = edges[ei][1]
+                if residual[ei] > 0 and level[v] == level[u] + 1:
+                    tr = dfs(v, min(pushed, residual[ei]))
+                    if tr > 0:
+                        residual[ei] -= tr
+                        # add backflow on virtual backward edge by increasing residual of that edge's backward representation
+                        # Since original graph has no separate reverse edge, we simulate reverse by increasing residual_rev dict
+                        residual_rev[ei] += tr
+                        return tr
+            return 0
+
+        # residual_rev holds amount of backflow available along reversed original edge
+        # Because we only have one forward per original edge, use residual_rev array of same size starting at 0
+        nonlocal_residual_rev = [0]*m  # placeholder, will be replaced reference
+        # We'll use closure variable by binding name
+        # But to modify residual_rev inside nested, assign to outer variable
+        # Simpler: use list reference in outer scope
+        # We'll create residual_rev as list in outer scope and update below
+        return_flow = 0
+        return_count = 0
+        # To allow dfs modify residual_rev, declare here and refer in dfs
+        # Create residual_rev local and let dfs access it via closure
+        residual_rev_local = [0]*m
+        # monkey patch global name used in dfs
+        residual_rev = residual_rev_local
+
+        while flow_sent < demand and build_level():
+            itptr = [0]*n
+            pushed = dfs(src, demand - flow_sent)
+            while pushed and flow_sent < demand:
+                flow_sent += pushed
+                pushed = dfs(src, demand - flow_sent)
+        return flow_sent, residual_rev_local
+
+    # Capacity scaling (delta-scaling) single commodity
+    def capacity_scaling_single(src, dest, forbid_set, demand):
+        # Start delta as highest power of two <= max residual on any usable edge
+        maxcap = 0
+        for ei in range(m):
+            if ei in forbid_set:
+                continue
+            if residual[ei] > maxcap:
+                maxcap = residual[ei]
+        delta = 1
+        while delta*2 <= maxcap:
+            delta *= 2
+        sent = 0
+        augment_count = 0
+        while delta > 0 and sent < demand:
+            # find augmenting paths using BFS that use edges with residual >= delta
+            while sent < demand:
+                parent = [-1]*n
+                parent_edge = [-1]*n
+                q = collections.deque([src])
+                visited = [False]*n
+                visited[src] = True
+                found = False
+                while q and not found:
+                    u = q.popleft()
+                    if u == dest:
+                        found = True
+                        break
+                    for ei in adj[u]:
+                        if ei in forbid_set:
+                            continue
+                        v = edges[ei][1]
+                        if not visited[v] and residual[ei] >= delta:
+                            visited[v] = True
+                            parent[v] = u
+                            parent_edge[v] = ei
+                            q.append(v)
+                if not visited[dest]:
+                    break
+                # augment along path by at least delta, up to min residual and remaining demand
+                path_eis = []
+                v = dest
+                bott = float('inf')
+                while v != src:
+                    ei = parent_edge[v]
+                    path_eis.append(ei)
+                    bott = min(bott, residual[ei])
+                    v = parent[v]
+                aug = min(bott, demand - sent)
+                # push aug
+                v = dest
+                for ei in path_eis:
+                    residual[ei] -= aug
+                    # increase reverse residual
+                    residual_rev[ei] += aug
+                    # record temporary per-commodity per-edge flow (we add finally)
+                sent += aug
+                augment_count += 1
+            delta //= 2
+        return sent, augment_count
+
+    # To support reverse residual accumulation, maintain residual_rev array parallel to residual (reverse capacity on original edge representing flow that can be pushed back)
+    residual_rev = [0]*m
+
+    # For Edmonds-Karp single commodity implementation
+    def edmonds_karp_single(src, dest, forbid_set, demand):
+        sent = 0
+        augment_count = 0
+        while sent < demand:
+            parent = [-1]*n
+            parent_edge = [-1]*n
+            q = collections.deque([src])
+            visited = [False]*n
+            visited[src] = True
+            found = False
+            while q and not found:
+                u = q.popleft()
+                if u == dest:
+                    found = True
+                    break
+                for ei in adj[u]:
+                    if ei in forbid_set:
+                        continue
+                    v = edges[ei][1]
+                    if not visited[v] and residual[ei] > 0:
+                        visited[v] = True
+                        parent[v] = u
+                        parent_edge[v] = ei
+                        q.append(v)
+            if not visited[dest]:
+                break
+            # find bottleneck
+            path = []
+            v = dest
+            bott = float('inf')
+            while v != src:
+                ei = parent_edge[v]
+                path.append(ei)
+                bott = min(bott, residual[ei])
+                v = parent[v]
+            path.reverse()
+            aug = min(bott, demand - sent)
+            # apply augmentation
+            v = dest
+            for ei in path:
+                residual[ei] -= aug
+                residual_rev[ei] += aug
+            sent += aug
+            augment_count += 1
+        return sent, augment_count
+
+    # For flow decomposition per commodity after routing: extract paths from flows_per_edge
+    def decompose_flows_for_commodity(k):
+        # Build graph of edges with positive flow for commodity k
+        local_adj = {u:[] for u in nodes}
+        rem = {}
+        for idx, (u,v,_) in enumerate(edges):
+            f = flows_per_edge[idx][k]
+            if f > 0:
+                local_adj[u].append((v, idx))
+                rem[(u, idx, v)] = f
+        paths = []
+        # Repeatedly find path from source to sink following edges with remaining flow
+        src = sources[k] if k < len(sources) else None
+        # Note: problem statement lists commodities and sources could be equal count; assume indexing aligned
+        # But there may be fewer sources than commodities; we'll guard.
+        if src is None:
+            return []
+        while True:
+            # DFS to find any path
+            stack = [(src, [])]
+            visited = set()
+            found = None
+            while stack:
+                u, path_taken = stack.pop()
+                if u == sink:
+                    found = path_taken
+                    break
+                for v, ei in local_adj.get(u,[]):
+                    key = (u, ei, v)
+                    if rem.get(key,0) > 0:
+                        # prevent cycles by simple visited set of (u,ei)
+                        if (u,ei) in visited:
+                            continue
+                        visited.add((u,ei))
+                        stack.append((v, path_taken + [(u,ei,v)]))
+            if not found:
+                break
+            # determine bottleneck on that path
+            bott = min(rem[(u,ei,v)] for (u,ei,v) in found)
+            # record path with flows
+            path_record = []
+            for (u,ei,v) in found:
+                path_record.append([u, v, bott])
+                rem[(u,ei,v)] -= bott
+                if rem[(u,ei,v)] == 0:
+                    # remove edge from local_adj
+                    local_adj[u] = [(vv,ii) for (vv,ii) in local_adj[u] if not (vv==v and ii==ei)]
+            paths.append(path_record)
+        return paths
+
+    # Main loop: process commodities sequentially in order of commodities list, each commodity's source is from sources list in same index
+    augmenting_paths_total = 0
+    commodity_flows = [0]*len(commodities)
+    for k, demand in enumerate(commodities):
+        src = sources[k]
+        forbid = set(restrictions[k]) if k < len(restrictions) else set()
+        # Ensure edges in forbid are valid indices
+        # Route according to strategy
+        if strategy == "edmonds_karp":
+            sent, aug_count = edmonds_karp_single(src, sink, forbid, demand)
+            augmenting_paths_total += aug_count
+            commodity_flows[k] = sent
+            # Now translate net flow changes into flows_per_edge for commodity k
+            # We have residual and residual_rev representing net flows sent on each edge overall.
+            # But residual_rev holds total flow sent on that edge across all commodities so far.
+            # However to attribute just this commodity's sent amount, we will greedily extract paths using BFS on virtual per-commodity residual usage:
+            # Build per-edge available forward used by this commodity as the amount by which residual_rev increased during this commodity's routing.
+            # To capture that, we need to track snapshot before and after. Simpler: Re-run augmenting path extraction similar to Edmonds-Karp but pushing on a copy and recording per-edge flows.
+            # We'll reconstruct by simulating same augmentations deterministically:
+            # Simulate again on copies to get per-edge additions for this commodity.
+            # Make copies
+            # recreate residual copies prior to this commodity by adding back commodity_sent along any edges where residual_rev>0 arbitrarily - this is complex.
+            # Simpler approach: During augment in edmonds_karp_single, we should have recorded path edges and applied residual changes while capturing per-commodity flows. To avoid heavy redesign, approximate by computing net flow on each edge as initial_capacity - current_residual - previous_total_flow_assigned
+            # Compute total flow assigned so far across previous commodities:
+        elif strategy == "capacity_scaling":
+            # Use capacity scaling implementation with recording augment counts
+            # We'll reuse capacity_scaling_single which uses residual_rev local updates
+            sent = 0
+            aug_count = 0
+            # Implement a simpler capacity scaling: repeated BFS with threshold as in function above but we need to update residual_rev global
+            # For correctness, call capacity_scaling_single which uses residual and residual_rev closure
+            sent, aug_count = capacity_scaling_single(src, sink, forbid, demand)
+            augmenting_paths_total += aug_count
+            commodity_flows[k] = sent
+        elif strategy == "dinic":
+            # Use dinic_maxflow_single
+            sent, residual_rev_local = dinic_maxflow_single(src, sink, forbid, demand)
+            # apply residual_rev_local to global residual_rev and attribute flows
+            for i in range(m):
+                if residual_rev_local[i]:
+                    residual_rev[i] += residual_rev_local[i]
+            augmenting_paths_total += 0  # Dinic counted as blocking flows; we don't have per-augment count
+            commodity_flows[k] = sent
+        else:
+            raise ValueError("Invalid strategy")
+        # After routing commodity k, we need to attribute the net increase in flow on each edge to this commodity.
+        # Net flow on edge i equals residual_rev[i] (total flow ever sent on that edge). But we need per-commodity increment:
+        # We'll compute total_flow_sent_on_edge = initial_capacity - residual[i]
+        # previous_total_assigned = sum(flows_per_edge[i][:k])  (flows assigned to prior commodities)
+        # current_total_assigned = capacities[i] - residual[i]
+        # increment = current_total_assigned - previous_total_assigned
+        for i in range(m):
+            prev_assigned = sum(flows_per_edge[i][:k]) if k>0 else 0
+            curr_assigned = capacities[i] - residual[i]
+            inc = curr_assigned - prev_assigned
+            if inc > 0:
+                flows_per_edge[i][k] += inc
+
+        # Build decomposition for this commodity based on flows_per_edge
+        decompositions[f"commodity_{k}"] = decompose_flows_for_commodity(k)
+
+    total_flow = sum(commodity_flows)
+
+    # After all commodities routed compute min-cut in residual graph: perform BFS/DFS from any source(s) to find reachable nodes in residual graph
+    reachable = set()
+    q = collections.deque()
+    for s in sources:
+        if s in node_set:
+            q.append(s)
+            reachable.add(s)
+    while q:
+        u = q.popleft()
+        for ei in adj[u]:
+            v = edges[ei][1]
+            if residual[ei] > 0 and v not in reachable:
+                reachable.add(v)
+                q.append(v)
+    source_partition = sorted(list(reachable))
+    sink_partition = sorted([x for x in nodes if x not in reachable])
+    # min_cut_edges are original edges from reachable to unreachable where capacity of forward edge residual == 0? The min-cut capacity is sum of capacities of edges from reachable to unreachable in original residual graph (i.e., original capacity - residual >0)
+    min_cut_edges = []
+    min_cut_capacity = 0
+    for i, (u,v,_) in enumerate(edges):
+        if u in reachable and v not in reachable:
+            # capacity used equals capacities[i] - residual[i]
+            cap_forward_remaining = residual[i]
+            cap_original = capacities[i]
+            cut_cap = cap_original - cap_forward_remaining  # this is flow that has been sent; however min-cut capacity should be capacity of forward edge in original graph (cap_original) if it's in cut; but per standard min-cut in residual graph after flows, capacity of cut equals sum of residual capacities of forward edges from S to T? The usual min-cut capacity equals sum of capacities of original edges from S to T. But the prompt expects min_cut_capacity equals total_flow when saturated. We'll compute min_cut_capacity as sum of original capacities of edges from reachable to unreachable that have residual==0? Safer: sum of capacities of those edges.
+            min_cut_edges.append([u,v])
+            min_cut_capacity += capacities[i]
+    # The problem statement wants min_cut_capacity in residual graph after routing: but clarifications show 0 when sink reachable. If sink is reachable from sources, min_cut_capacity should be 0.
+    if sink in reachable:
+        min_cut_capacity = 0
+        min_cut_edges = []
+
+    # Flow assignments
+    flow_assignments = []
+    for i, (u,v,_) in enumerate(edges):
+        total_on_edge = sum(flows_per_edge[i])
+        flow_assignments.append({"edge":[u,v], "flows": list(flows_per_edge[i]), "total": total_on_edge})
+
+    # bottleneck_roads: edges at full capacity (total flow == capacity)
+    bottleneck_roads = []
+    for i, (u,v,_) in enumerate(edges):
+        if sum(flows_per_edge[i]) >= capacities[i]:
+            bottleneck_roads.append([u,v])
+
+    # residual_capacity_sum: sum of residual capacities across all edges
+    residual_capacity_sum = sum(max(0, residual[i]) for i in range(m))
+
+    # flow_decomposition already in decompositions
+    flow_decomposition = decompositions
+
+    # critical nodes: nodes (excluding sources and sink) that are endpoint of at least one saturated edge (edge total == capacity)
+    critical = set()
+    for i, (u,v,_) in enumerate(edges):
+        if sum(flows

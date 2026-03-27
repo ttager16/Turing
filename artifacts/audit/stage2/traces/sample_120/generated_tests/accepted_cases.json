@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[\"A\", \"B\", \"C\"]\n[{\"start\": \"A\", \"end\": \"B\", \"cost\": -100, \"bandwidth\": 200, \"latency\": 1, \"reliability\": 0.95}, {\"start\": \"A\", \"end\": \"B\", \"cost\": -50, \"bandwidth\": 200, \"latency\": 1, \"reliability\": 0.949999998}, {\"start\": \"B\", \"end\": \"C\", \"cost\": 10, \"bandwidth\": 150, \"latency\": 2, \"reliability\": 0.95}, {\"start\": \"A\", \"end\": \"A\", \"cost\": 0, \"bandwidth\": 100, \"latency\": 1, \"reliability\": 0.99}]\n100\n10\n0.95",
+    "output_text": "[{\"start\": \"A\", \"end\": \"B\"}, {\"start\": \"B\", \"end\": \"C\"}]"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[\"X\", \"Y\", \"Z\", \"W\"]\n[{\"start\": \"X\", \"end\": \"Y\", \"cost\": 10, \"bandwidth\": 100, \"latency\": 5, \"reliability\": 0.95}, {\"start\": \"Y\", \"end\": \"Z\", \"cost\": 5, \"bandwidth\": 10, \"latency\": 5, \"reliability\": 0.99}, {\"start\": \"Z\", \"end\": \"W\", \"cost\": 1, \"bandwidth\": 100, \"latency\": 1000000000, \"reliability\": 0.99}, {\"start\": \"Y\", \"end\": \"W\", \"cost\": 2, \"bandwidth\": 100, \"latency\": 10, \"reliability\": 0.899999998}, {\"start\": \"X\", \"end\": \"Z\", \"cost\": 50, \"bandwidth\": 0, \"latency\": 1, \"reliability\": 0.99}]\n50\n1000\n0.9",
+    "output_text": "[]"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[\"a\", \"A\", \"b\", \"B\"]\n[{\"start\": \"a\", \"end\": \"b\", \"cost\": 10, \"bandwidth\": 10, \"latency\": 5, \"reliability\": 0.99}, {\"start\": \"A\", \"end\": \"B\", \"cost\": 10, \"bandwidth\": 10, \"latency\": 5, \"reliability\": 0.99}, {\"start\": \"a\", \"end\": \"A\", \"cost\": 10, \"bandwidth\": 0, \"latency\": 5, \"reliability\": 0.99}, {\"start\": \"a\", \"end\": \"A\", \"cost\": 10, \"bandwidth\": 10, \"latency\": 5, \"reliability\": 0.99}, {\"start\": \"b\", \"end\": \"B\", \"cost\": 10, \"bandwidth\": 10, \"latency\": 5, \"reliability\": 0.99}, {\"start\": \"a\", \"end\": \"B\", \"cost\": 10, \"bandwidth\": 10, \"latency\": 5, \"reliability\": 0.99}, {\"start\": \"A\", \"end\": \"b\", \"cost\": 10, \"bandwidth\": 10, \"latency\": 5, \"reliability\": 0.99}, {\"start\": \"b\", \"end\": \"b\", \"cost\": 1, \"bandwidth\": 10, \"latency\": 1, \"reliability\": 0.99}]\n1\n100\n0.5",
+    "output_text": "[{\"start\": \"A\", \"end\": \"B\"}, {\"start\": \"a\", \"end\": \"A\"}, {\"start\": \"A\", \"end\": \"b\"}]"
+  }
+]

@@ -1,0 +1,314 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "N1": [
+          [
+            "N2",
+            10,
+            "road"
+          ],
+          [
+            "N1_skyway",
+            0,
+            "road"
+          ]
+        ],
+        "N2": [
+          [
+            "N3",
+            5,
+            "road"
+          ],
+          [
+            "N4",
+            7,
+            "road"
+          ]
+        ],
+        "N3": [
+          [
+            "N4",
+            5,
+            "road"
+          ]
+        ],
+        "N4": [],
+        "N1_skyway": [
+          [
+            "N3_skyway",
+            12,
+            "skyway"
+          ]
+        ],
+        "N3_skyway": [
+          [
+            "N3",
+            0,
+            "skyway"
+          ]
+        ]
+      },
+      [
+        {
+          "id": "V1",
+          "start_node": "N1",
+          "end_node": "N4",
+          "capacity": 1,
+          "time_window": [
+            0,
+            50
+          ],
+          "deliveries": [
+            "N3",
+            "N2"
+          ]
+        },
+        {
+          "id": "V2",
+          "start_node": "N1",
+          "end_node": "N4",
+          "capacity": 2,
+          "time_window": [
+            0,
+            30
+          ],
+          "deliveries": [
+            "N3"
+          ]
+        }
+      ],
+      [
+        [
+          "N2",
+          "N3",
+          15
+        ]
+      ]
+    ],
+    "input_lines": [
+      "{\"N1\": [[\"N2\", 10, \"road\"], [\"N1_skyway\", 0, \"road\"]], \"N2\": [[\"N3\", 5, \"road\"], [\"N4\", 7, \"road\"]], \"N3\": [[\"N4\", 5, \"road\"]], \"N4\": [], \"N1_skyway\": [[\"N3_skyway\", 12, \"skyway\"]], \"N3_skyway\": [[\"N3\", 0, \"skyway\"]]}",
+      "[{\"id\": \"V1\", \"start_node\": \"N1\", \"end_node\": \"N4\", \"capacity\": 1, \"time_window\": [0, 50], \"deliveries\": [\"N3\", \"N2\"]}, {\"id\": \"V2\", \"start_node\": \"N1\", \"end_node\": \"N4\", \"capacity\": 2, \"time_window\": [0, 30], \"deliveries\": [\"N3\"]}]",
+      "[[\"N2\", \"N3\", 15]]"
+    ],
+    "focus": "Edge-case: closure at an exact arrival time (inclusive blocking) and a vehicle with deliveries > capacity; ensures algorithm handles closure time inclusivity and skips infeasible vehicles while routing others (layer transition costs matter)."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "N1": [
+          [
+            "N2",
+            8,
+            "road"
+          ],
+          [
+            "N1_skyway",
+            0,
+            "road"
+          ]
+        ],
+        "N2": [
+          [
+            "N3",
+            6,
+            "road"
+          ],
+          [
+            "N4",
+            10,
+            "road"
+          ]
+        ],
+        "N3": [
+          [
+            "N4",
+            4,
+            "road"
+          ]
+        ],
+        "N4": [
+          [
+            "N5",
+            5,
+            "road"
+          ]
+        ],
+        "N5": [],
+        "N1_skyway": [
+          [
+            "N3_skyway",
+            5,
+            "skyway"
+          ]
+        ],
+        "N3_skyway": [
+          [
+            "N3",
+            0,
+            "skyway"
+          ]
+        ],
+        "N10": [
+          [
+            "N5",
+            50,
+            "road"
+          ]
+        ]
+      },
+      [
+        {
+          "id": "V1",
+          "start_node": "N1",
+          "end_node": "N5",
+          "capacity": 2,
+          "time_window": [
+            0,
+            25
+          ],
+          "deliveries": [
+            "N2",
+            "N4"
+          ]
+        }
+      ],
+      []
+    ],
+    "input_lines": [
+      "{\"N1\": [[\"N2\", 8, \"road\"], [\"N1_skyway\", 0, \"road\"]], \"N2\": [[\"N3\", 6, \"road\"], [\"N4\", 10, \"road\"]], \"N3\": [[\"N4\", 4, \"road\"]], \"N4\": [[\"N5\", 5, \"road\"]], \"N5\": [], \"N1_skyway\": [[\"N3_skyway\", 5, \"skyway\"]], \"N3_skyway\": [[\"N3\", 0, \"skyway\"]], \"N10\": [[\"N5\", 50, \"road\"]]}",
+      "[{\"id\": \"V1\", \"start_node\": \"N1\", \"end_node\": \"N5\", \"capacity\": 2, \"time_window\": [0, 25], \"deliveries\": [\"N2\", \"N4\"]}]",
+      "[]"
+    ],
+    "focus": "Format- and ordering-sensitive case: multiple deliveries where visiting order matters; includes confusing node name N10 to catch string-matching mistakes and ensure true cost-based ordering and transition counting."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "N1": [
+          [
+            "N2",
+            8,
+            "road"
+          ],
+          [
+            "N1_skyway",
+            0,
+            "road"
+          ]
+        ],
+        "N2": [
+          [
+            "N3",
+            8,
+            "road"
+          ],
+          [
+            "N2_tunnel",
+            0,
+            "road"
+          ]
+        ],
+        "N3": [
+          [
+            "N4",
+            6,
+            "road"
+          ]
+        ],
+        "N4": [
+          [
+            "N5",
+            6,
+            "road"
+          ],
+          [
+            "N3",
+            3,
+            "road"
+          ]
+        ],
+        "N5": [
+          [
+            "N6",
+            4,
+            "road"
+          ]
+        ],
+        "N1_skyway": [
+          [
+            "N4_skyway",
+            8,
+            "skyway"
+          ]
+        ],
+        "N4_skyway": [
+          [
+            "N4",
+            0,
+            "skyway"
+          ]
+        ],
+        "N2_tunnel": [
+          [
+            "N5_tunnel",
+            6,
+            "tunnel"
+          ]
+        ],
+        "N5_tunnel": [
+          [
+            "N5",
+            0,
+            "tunnel"
+          ]
+        ]
+      },
+      [
+        {
+          "id": "V1",
+          "start_node": "N1",
+          "end_node": "N6",
+          "capacity": 3,
+          "time_window": [
+            0,
+            40
+          ],
+          "deliveries": [
+            "N3",
+            "N5"
+          ]
+        },
+        {
+          "id": "V2",
+          "start_node": "N2",
+          "end_node": "N5",
+          "capacity": 1,
+          "time_window": [
+            0,
+            20
+          ],
+          "deliveries": [
+            "N3"
+          ]
+        }
+      ],
+      [
+        [
+          "N2",
+          "N3",
+          0
+        ]
+      ]
+    ],
+    "input_lines": [
+      "{\"N1\": [[\"N2\", 8, \"road\"], [\"N1_skyway\", 0, \"road\"]], \"N2\": [[\"N3\", 8, \"road\"], [\"N2_tunnel\", 0, \"road\"]], \"N3\": [[\"N4\", 6, \"road\"]], \"N4\": [[\"N5\", 6, \"road\"], [\"N3\", 3, \"road\"]], \"N5\": [[\"N6\", 4, \"road\"]], \"N1_skyway\": [[\"N4_skyway\", 8, \"skyway\"]], \"N4_skyway\": [[\"N4\", 0, \"skyway\"]], \"N2_tunnel\": [[\"N5_tunnel\", 6, \"tunnel\"]], \"N5_tunnel\": [[\"N5\", 0, \"tunnel\"]]}",
+      "[{\"id\": \"V1\", \"start_node\": \"N1\", \"end_node\": \"N6\", \"capacity\": 3, \"time_window\": [0, 40], \"deliveries\": [\"N3\", \"N5\"]}, {\"id\": \"V2\", \"start_node\": \"N2\", \"end_node\": \"N5\", \"capacity\": 1, \"time_window\": [0, 20], \"deliveries\": [\"N3\"]}]",
+      "[[\"N2\", \"N3\", 0]]"
+    ],
+    "focus": "Multi-vehicle independence and alternate-layer routing: one vehicle must use layer transitions/alternate paths to satisfy deliveries; the other becomes unreachable due to an immediate closure. Tests independent processing, transition cost accounting, and closure handling."
+  }
+]

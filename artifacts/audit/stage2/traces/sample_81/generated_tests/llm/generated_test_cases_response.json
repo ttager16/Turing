@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6VR4gnfszlUtuF6nUL75tCqxP8e",
+  "object": "chat.completion",
+  "created": 1774398925,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[[\\\"insert\\\", {\\\"id\\\": 1001, \\\"ward\\\": \\\"ICU\\\", \\\"priority\\\": 3, \\\"emergency\\\": false, \\\"duration\\\": 120, \\\"resources\\\": [\\\"Ventilator\\\"]}], [\\\"insert\\\", {\\\"id\\\": 1002, \\\"ward\\\": \\\"Ward-A\\\", \\\"priority\\\": 4, \\\"emergency\\\": false, \\\"duration\\\": 240}], [\\\"insert\\\", {\\\"id\\\": 1003, \\\"ward\\\": \\\"ER\\\", \\\"priority\\\": 1, \\\"emergency\\\": true, \\\"duration\\\": 45}], [\\\"insert\\\", {\\\"id\\\": 1004, \\\"ward\\\": \\\"ER\\\", \\\"priority\\\": 2, \\\"emergency\\\": false, \\\"duration\\\": 30}], [\\\"insert\\\", {\\\"id\\\": 1005, \\\"ward\\\": \\\"Ward-A\\\", \\\"priority\\\": 5, \\\"emergency\\\": false, \\\"duration\\\": 300}], [\\\"reorder\\\", {\\\"id\\\": 1003, \\\"new_priority\\\": 0, \\\"simulate_mass_update\\\": true}], [\\\"transfer\\\", {\\\"id\\\": 1004, \\\"new_ward\\\": \\\"Ward-A\\\"}], [\\\"transfer\\\", {\\\"id\\\": 1002, \\\"new_ward\\\": \\\"ICU\\\"}], [\\\"reorder\\\", {\\\"id\\\": 1001, \\\"new_priority\\\": 1}], [\\\"ward_status\\\", {\\\"ward\\\": \\\"ICU\\\"}]]\"\n      ],\n      \"focus\": \"Mass reprioritize with simulate_mass_update and multiple inter-ward transfers, including resource tag\"\n    },\n    {\n      \"input_lines\": [\n        \"[[\\\"insert\\\", {\\\"id\\\": 5000000, \\\"ward\\\": \\\"ER-Outpost\\\", \\\"priority\\\": 5, \\\"emergency\\\": false, \\\"duration\\\": 30}], [\\\"delete\\\", {\\\"id\\\": 5000000}], [\\\"transfer\\\", {\\\"id\\\": 5000000, \\\"new_ward\\\": \\\"ICU\\\"}], [\\\"delete\\\", {\\\"id\\\": 5000000}], [\\\"patient_info\\\", {\\\"id\\\": 5000000}], [\\\"insert\\\", {\\\"id\\\": 5000001, \\\"ward\\\": \\\"ICU\\\", \\\"priority\\\": 999999, \\\"emergency\\\": true, \\\"duration\\\": 100000}], [\\\"patient_info\\\", {\\\"id\\\": 5000001}]]\"\n      ],\n      \"focus\": \"Delete-then-transfer of same patient (nonexistent transfer), repeated deletes, and querying removed vs existing patient; extreme priority/duration boundary values\"\n    },\n    {\n      \"input_lines\": [\n        \"[[\\\"insert\\\", {\\\"id\\\": 99999999, \\\"ward\\\": \\\"Cardiology - East Wing\\\", \\\"priority\\\": 0, \\\"emergency\\\": false, \\\"duration\\\": 0}], [\\\"insert\\\", {\\\"id\\\": 1000000000, \\\"ward\\\": \\\"Neuro/ICU 🧠\\\", \\\"priority\\\": 10, \\\"emergency\\\": true, \\\"duration\\\": 1000000}], [\\\"reorder\\\", {\\\"id\\\": 99999999, \\\"new_priority\\\": 500000, \\\"simulate_mass_update\\\": false}], [\\\"reorder\\\", {\\\"id\\\": 99999999, \\\"new_priority\\\": 1}], [\\\"transfer\\\", {\\\"id\\\": 1000000000, \\\"new_ward\\\": \\\"Cardiology - East Wing\\\"}], [\\\"ward_status\\\", {\\\"ward\\\": \\\"Cardiology - East Wing\\\"}], [\\\"ward_status\\\", {\\\"ward\\\": \\\"Neuro/ICU 🧠\\\"}]]\"\n      ],\n      \"focus\": \"Format-sensitive ward names (spaces, punctuation, emoji) and extreme numeric boundaries for ids, priority and duration with multiple successive reorders and cross-ward transfer\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1475,
+    "completion_tokens": 3445,
+    "total_tokens": 4920,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2624,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

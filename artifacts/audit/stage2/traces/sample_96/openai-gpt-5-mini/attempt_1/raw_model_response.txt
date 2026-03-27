@@ -1,0 +1,136 @@
+from collections import defaultdict, deque
+
+def get_shortest_paths(graph: dict, source: str, updates: list[list[str]]) -> dict:
+    # Validation helpers
+    def is_valid_id(x):
+        return isinstance(x, str) and x.isdigit()
+    if not isinstance(graph, dict) or not is_valid_id(source) or not isinstance(updates, list):
+        return {}
+    for k, v in graph.items():
+        if not is_valid_id(k): return {}
+        if not isinstance(v, list): return {}
+        for nb in v:
+            if not is_valid_id(nb): return {}
+    for op in updates:
+        if not isinstance(op, list) or len(op) != 3: return {}
+        if op[0] not in ("activate", "deactivate"): return {}
+        if not is_valid_id(op[1]) or not is_valid_id(op[2]): return {}
+    if graph == {} and updates == []:
+        return {}
+    # Build symmetric adjacency
+    adj = defaultdict(set)
+    for u, nbs in graph.items():
+        for v in nbs:
+            if u == v: continue
+            adj[u].add(v)
+            adj[v].add(u)
+    # Apply updates atomically to adj (record nodes)
+    nodes = set(adj.keys())
+    for op, u, v in updates:
+        nodes.add(u); nodes.add(v)
+        if u == v:
+            continue
+        if op == "activate":
+            adj[u].add(v); adj[v].add(u)
+        else:  # deactivate
+            adj[u].discard(v); adj[v].discard(u)
+    # Ensure neighbor lists deterministic
+    for n in list(nodes):
+        if n not in adj:
+            adj[n] = set()
+    # Deterministic BFS initial from source
+    dist = {n: -1 for n in adj.keys()}
+    parent = {}  # child -> parent (lexicographically smallest parent achieving dist)
+    if source not in adj:
+        adj[source] = set()
+        dist[source] = 0
+    queue = []
+    if source in adj:
+        dist[source] = 0
+        queue = [source]
+    level = 0
+    while queue:
+        queue.sort()
+        nextq = []
+        for u in queue:
+            for v in sorted(adj[u]):
+                if v == u: continue
+                if dist[v] == -1:
+                    dist[v] = level + 1
+                    parent[v] = u
+                    nextq.append(v)
+                else:
+                    # if equal distance, ensure parent is lexicographically smallest
+                    if dist[v] == level + 1:
+                        if parent.get(v, None) is None or u < parent[v]:
+                            parent[v] = u
+        level += 1
+        queue = nextq
+    # After atomic updates we must repair incrementally:
+    # According to requirements, we've already applied updates before BFS propagation.
+    # However need to follow activation/deactivation incremental semantics.
+    # We'll simulate targeted invalidation+repair based on updates list:
+    # Build set of deactivations and activations from updates to determine parents broken.
+    # First, process deactivations: find those that removed a parent edge.
+    # Recompute parent edges from current adj: if parent[child] edge missing -> invalidate subtree.
+    broken_children = []
+    for child, par in list(parent.items()):
+        if par not in adj[child] or child not in adj[par]:
+            broken_children.append(child)
+    # Invalidate broken children and their descendants (by parent pointers)
+    invalid = set()
+    stack = list(broken_children)
+    for c in stack:
+        if c in invalid: continue
+        # BFS down parent-child tree: children are nodes whose parent == node
+        to_visit = [c]
+        while to_visit:
+            x = to_visit.pop()
+            if x in invalid: continue
+            invalid.add(x)
+            # collect nodes whose parent is x
+            for node, p in list(parent.items()):
+                if p == x and node not in invalid:
+                    to_visit.append(node)
+    for x in invalid:
+        dist[x] = -1
+        parent.pop(x, None)
+    # Boundary repair: multi-source BFS from neighbors that have non-negative distances
+    # Collect sources: nodes with dist >=0
+    repair_sources = sorted([n for n, d in dist.items() if d >= 0])
+    # We'll BFS outward but only visit nodes currently unreachable (dist==-1) or can be improved
+    # Use level-synchronous with deterministic order
+    # Initialize frontier with repair_sources
+    frontier = repair_sources[:]
+    visited_level = {n: dist[n] for n in frontier}
+    level = 0
+    # But we must process by increasing distance value; so build buckets by current dist
+    buckets = defaultdict(list)
+    for n in frontier:
+        buckets[dist[n]].append(n)
+    current = min(buckets.keys()) if buckets else None
+    processed = set()
+    while buckets:
+        current = min(k for k in buckets.keys())
+        queue = sorted(buckets.pop(current))
+        next_bucket_nodes = defaultdict(list)
+        for u in queue:
+            if u in processed: continue
+            processed.add(u)
+            for v in sorted(adj[u]):
+                if v == u: continue
+                # candidate distance
+                cand = dist[u] + 1
+                if dist.get(v, -1) == -1 or cand < dist.get(v, float('inf')) or (cand == dist.get(v) and u < parent.get(v, "")):
+                    # update
+                    dist[v] = cand
+                    parent[v] = u
+                    next_bucket_nodes[cand].append(v)
+        for k, lst in next_bucket_nodes.items():
+            buckets[k].extend(lst)
+    # Ensure every node present
+    for n in adj.keys():
+        if n not in dist:
+            dist[n] = -1
+    # Return sorted dict by lexicographic node id
+    return {n: dist[n] for n in sorted(dist.keys())}

@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: greedy_portfolio_allocate\n\nProblem Statement:\n* Context\n  A financial technology firm is deploying a real-time portfolio allocator that must keep running during volatile market bursts and occasional data glitches. The engine consumes synchronous arrays of prices and expected returns and allocates a single budget across assets using a deterministic greedy rule. Inputs may contain anomalies such as missing values, non numeric strings, or nonpositive prices. The allocator must sanitize inputs without crashing, record issues for auditability, and still compute a best effort allocation using only in memory operations. No file or network I O is allowed; results must be reproducible across runs and Python versions.\n\n* Objective\n  Implement a single Python function that greedily allocates a budget across N assets to maximize a linear utility based on expected_return - risk_penalty per unit currency, subject to per asset maximum weight caps and a total budget. The function must be deterministic, handle bad data via exception safe sanitation, and return a JSON compatible result object with weights, spent, score, and a deterministic list of error messages. Use a single pass greedy allocation over a stable sorted order; do not use dynamic programming or global optimization.\n\n* Constraints\n\n  1. Deterministic ranking: sort assets by descending key k[i] = expected_returns[i] - risk_penalty, then by ascending price[i], then by ascending index i.\n  2. Greedy only: allocate in one forward pass over the sorted order without backtracking or reoptimization.\n  3. Inputs must be three lists of equal length N for prices, expected_returns, and max_weights; on mismatch, return an empty allocation and include \"length mismatch\".\n  4. If N == 0, return weights=[], spent=0.0, score=0.0, errors=[\"no assets\"].\n  5. budget must be a real number strictly greater than 0; otherwise return empty allocation with \"invalid budget\".\n  6. risk_penalty must be a real number; if not, treat as 0 and append \"risk_penalty coerced to 0\".\n  7. prices[i] must be a real number > 0 and finite; otherwise exclude asset i and append a specific error message.\n  8. expected_returns[i] must be a real number and finite; if not, exclude asset i and log it.\n  9. max_weights[i] must be numeric; values outside 0 to 1 are clipped into 0 to 1 and logged as \"max_weights[i] clipped to X\".\n  10. Excluded assets keep weight 0 but still occupy their index in the output weights list when list lengths matched initially.\n  11. Per asset allocation is limited by max_weights[i] * budget.\n  12. Allocation uses continuous currency (no share integrality constraints).\n  13. After allocation, round each weight, \"spent\", and \"score\" to round_decimals places using Python round for reproducibility.\n  14. round_decimals must be an int in 0 to 12; if invalid, default to 6 and append \"round_decimals coerced to 6\".\n  15. Sum of allocations must not exceed budget by more than 1e-9 before rounding; after rounding, ensure spent <= budget with a corrective downward adjustment of the most recently changed asset if needed.\n  16. Never produce a negative remaining budget; guard against rounding creating negative leftovers by adjusting the last allocated asset downward.\n  17. Score equals sum over i of (rounded_weight_i * budget / price[i]) * (expected_returns[i] - risk_penalty). Compute using the rounded weights, then round the final score to round_decimals.\n  18. Negative keys are allowed; such assets simply rank lower and may still receive allocation if budget remains and caps permit.\n  19. Sorting keys are computed once after sanitation and reused unchanged during allocation.\n  20. Stable error ordering: accumulate per index errors in ascending index order; append any global messages afterward. If an asset is excluded due to nonnumeric or nonpositive fields, still log any max_weights[i] clipping for that index.\n  21. Input immutability: do not mutate input lists; copy or read only.\n  22. No randomness, no time based logic, and no reliance on dict iteration order affecting results.\n  23. Complexity target O(N log N) time due to sorting and O(N) extra memory; no recursion.\n  24. All outputs must be finite numbers after rounding; convert negative zeros to 0.0 by adding 0.0.\n  25. Include \"all caps zero\" in errors whenever all sanitized max_weights are exactly 0 and no global early exit from constraints 3, 4, 5, or 28 was triggered.\n  26. If every asset is excluded during sanitation, return weights of length N with all zeros, spent=0.0, score=0.0, and the collected errors.\n  27. Do not perform I O of any kind; no prints, logging, files, or network.\n  28. Abort and return empty allocation with \"numerical failure\" if any intermediate becomes NaN or infinite during computation.\n  29. Tie handling is strictly by (key desc, price asc, index asc); do not introduce secondary floating comparisons beyond this rule.\n  30. The function must always return a dict with exactly the keys \"weights\", \"spent\", \"score\", \"errors\".\n  31. The function may assume N up to 100000 and must avoid quadratic behavior.\n  32. Do not use Decimal, Fraction, numpy, or third party libraries.\n  33. Ensure that spent equals sum(weights[i] * budget) within rounding; recompute \"spent\" from the rounded weights to maintain consistency.\n  34. Stop early when the remaining budget after rounding would be 0.0.\n  35. All validation happens before allocation; on the first global invalid condition in constraints 3, 4, or 5, return immediately with the mandated errors.\n\n* Function Signature\n\n```python\ndef greedy_portfolio_allocate(\n    prices: list[float],\n    expected_returns: list[float],\n    max_weights: list[float],\n    budget: float,\n    risk_penalty: float,\n    round_decimals: int = 6\n) -> dict:\n```\n\n* Input\n  prices is a list of positive floats.\n  expected_returns is a list of floats (can be negative).\n  max_weights is a list of floats in 0 to 1 inclusive (out of range values are clipped with logs).\n  budget is a positive float.\n  risk_penalty is a float.\n  round_decimals is an int in 0 to 12.\n\nExample Input\n\n```python\nprices = [10.0, 25.0, 5.0, 20.0, 8.0]\nexpected_returns = [0.12, 0.18, 0.05, 0.22, 0.12]\nmax_weights = [0.6, 0.3, 0.5, 0.4, 0.2]\nbudget = 1000.0\nrisk_penalty = 0.08\nround_decimals = 4\n```\n\n* Expected Output\n  The result must match the deterministic greedy rule and tie breaking in the constraints:\n\n```python\n{\n  \"weights\": [0.1, 0.3, 0.0, 0.4, 0.2],\n  \"spent\": 1000.0,\n  \"score\": 5.4,\n  \"errors\": []\n}\n```\n\nStarter Code:\n```python\nimport math\nimport json\n\ndef greedy_portfolio_allocate(\n    prices: list[float],\n    expected_returns: list[float],\n    max_weights: list[float],\n    budget: float,\n    risk_penalty: float,\n    round_decimals: int = 6\n) -> dict:\n    pass \n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[10.0, 20.0]\\n[0.1]\\n[0.5, 0.5]\\n100.0\\n0.0\\n4\",\n    \"output\": \"{\\\"weights\\\": [], \\\"spent\\\": 0.0, \\\"score\\\": 0.0, \\\"errors\\\": [\\\"length mismatch\\\"]}\"\n  },\n  {\n    \"input\": \"[]\\n[]\\n[]\\n100.0\\n0.0\\n4\",\n    \"output\": \"{\\\"weights\\\": [], \\\"spent\\\": 0.0, \\\"score\\\": 0.0, \\\"errors\\\": [\\\"no assets\\\"]}\"\n  },\n  {\n    \"input\": \"[10.0]\\n[0.1]\\n[1.0]\\n0.0\\n0.0\\n4\",\n    \"output\": \"{\\\"weights\\\": [], \\\"spent\\\": 0.0, \\\"score\\\": 0.0, \\\"errors\\\": [\\\"invalid budget\\\"]}\"\n  }\n]\n"
+    }
+  ]
+}

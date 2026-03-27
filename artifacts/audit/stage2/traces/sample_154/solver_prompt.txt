@@ -1,0 +1,119 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+A financial data analysis company monitors large datasets of transaction descriptions to detect potential fraudulent activities.
+Fraudsters often hide their manipulations by embedding mirrored or palindromic patterns within transaction notes — for example, `"AB1221BA"` or `"REVEREVER"`.
+
+To strengthen their fraud detection system, the company wants to develop a Python function that can:
+
+1. Identify the **longest palindromic substring** in a given transaction description.
+2. Support **range-based Least Common Multiple (LCM)** queries over the lengths of all detected palindromic substrings using a segment tree.
+
+This enables the system to efficiently identify suspicious mirrored patterns in text data that could indicate fraud or manipulation.
+
+
+
+## Input
+
+* `notes` — a string representing the transaction description.
+* `queries` — a list of list `(L :`int`, R: `int`)` where `L` and `R` representing index ranges in the palindrome length list. Each element in list is unique
+  For each query, compute the **LCM** of all palindrome lengths between indices `L` and `R` inclusive.
+
+
+
+## Output
+
+Return a dictionary with the following keys:
+
+* `"longest_palindrome"` -> the longest palindromic substring found in the transaction description.
+* `"lengths"` -> a list of lengths of all palindromic substrings detected.
+* `"lcm_results"` -> a list containing the LCM results for each `(L, R)` query.
+
+
+
+## Example
+
+### Input
+
+```python
+notes = "AB1221BA987789"
+queries = [[0, 3], [2, 4]]
+```
+
+### Processing
+
+* Detected palindromes include substrings such as `2`,`”22"`, `"1221"`, `"AB1221BA"`, `"987789”`, etc
+* Longest palindrome: `"AB1221BA"`
+* Palindrome lengths: `[1, 2, 4, 6, 8]`
+* Queries:
+
+  * `[0, 3]` -> LCM(1, 2, 4, 6) = 12
+  * `[2, 4]` -> LCM(4, 6, 8) = 24
+
+### Output
+
+```python
+{
+  "longest_palindrome": "AB1221BA",
+  "lengths": [1, 2, 4, 6, 8],
+  "lcm_results": [12, 24]
+}
+```
+
+
+
+## Constraints
+
+* `1 <= len(notes) <= 100`
+* `notes` may contain alphanumeric and special characters.
+* `1 <= len(queries) <= 100`
+* Each query `(L, R)` must satisfy `0 <= L <= R < len(lengths)`
+* All computed LCM values must be modulo `10^3 + 7`.
+
+
+
+## Function Definition
+
+```python
+def analyze_transaction_patterns(notes: str, queries: list[list[int, int]]) -> dict:
+    """
+    Analyzes transaction descriptions to detect the longest palindromic substring
+    and compute range-based LCM queries using a segment tree.
+
+    Args:
+        notes (str): Transaction description string.
+        queries (list[list[int, int]]): List of index ranges (L, R) for LCM queries.
+
+    Returns:
+        dict: A dictionary with keys:
+            "longest_palindrome" (str)
+            "lengths" (list[int])
+            "lcm_results" (list[int])
+            or an error dictionary if invalid input is provided.
+    """
+```
+
+
+
+## Error Handling
+
+The function must **return an error dictionary** instead of raising exceptions.
+
+* `{'error': 'Invalid input type'}` — if `notes` is not a string or `queries` is not a list.
+* `{'error': 'Empty transaction note'}` — if `notes` is an empty string.
+* `{'error': 'Invalid query format'}` — if any query is not a list of two integers.
+* `{'error': 'Query index out of range'}` — if any `(L, R)` exceeds the bounds of the palindrome lengths list.
+* `{'error': 'Constraint violation'}` — if any constraint on input length or query count is violated.
+
+Starter Code:
+```python
+from math import gcd
+
+def analyze_transaction_patterns(notes: str, queries: list[list[int, int]]) -> dict:
+```

@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[]",
+    "output_text": "[]"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[[\"insert\", \"\"], [\"insert\", \"a\"], [\"insert\", \"a\"], [\"search\", \"a\"], [\"delete\", \"a\"], [\"search\", \"a\"], [\"delete\", \"a\"], [\"search\", \"a\"], [\"insert\", \"ab\"], [\"delete\", \"a\"], [\"search\", \"ab\"], [\"delete\", \"ab\"], [\"search\", \"ab\"]]",
+    "output_text": "[\"a\", \"a\", \"\", \"ab\", \"\"]"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[[\"insert\", \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"], [\"insert\", \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"], [\"delete\", \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"], [\"search\", \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"], [\"delete\", \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"], [\"search\", \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"]]",
+    "output_text": "[\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"\"]"
+  }
+]

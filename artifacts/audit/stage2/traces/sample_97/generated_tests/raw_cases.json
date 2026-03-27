@@ -1,0 +1,140 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        {
+          "user_id": "u1",
+          "operation": "insert",
+          "data": "segment_1:alpha"
+        },
+        {
+          "user_id": "u2",
+          "operation": "insert",
+          "data": "segment_1:alphabet"
+        },
+        {
+          "user_id": "u3",
+          "operation": "delete",
+          "data": "segment_1:beta"
+        },
+        {
+          "user_id": "u4",
+          "operation": "merge_offline",
+          "data": "segment_1:alpha_offline"
+        },
+        {
+          "user_id": "u5",
+          "operation": "insert",
+          "data": "segment_2:beta"
+        },
+        {
+          "user_id": "u6",
+          "operation": "merge_offline",
+          "data": "segment_1:alphabet"
+        },
+        {
+          "user_id": "u7",
+          "operation": "search",
+          "data": "segment_1:al"
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"user_id\": \"u1\", \"operation\": \"insert\", \"data\": \"segment_1:alpha\"}, {\"user_id\": \"u2\", \"operation\": \"insert\", \"data\": \"segment_1:alphabet\"}, {\"user_id\": \"u3\", \"operation\": \"delete\", \"data\": \"segment_1:beta\"}, {\"user_id\": \"u4\", \"operation\": \"merge_offline\", \"data\": \"segment_1:alpha_offline\"}, {\"user_id\": \"u5\", \"operation\": \"insert\", \"data\": \"segment_2:beta\"}, {\"user_id\": \"u6\", \"operation\": \"merge_offline\", \"data\": \"segment_1:alphabet\"}, {\"user_id\": \"u7\", \"operation\": \"search\", \"data\": \"segment_1:al\"}]"
+    ],
+    "focus": "merge_offline with duplicate and non-existent delete; preserves all versions and determinism for segment_1"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        {
+          "user_id": "a",
+          "operation": "insert",
+          "data": "segment_4:one"
+        },
+        {
+          "user_id": "b",
+          "operation": "insert",
+          "data": "segment_4:two"
+        },
+        {
+          "user_id": "c",
+          "operation": "insert",
+          "data": "segment_4:three"
+        },
+        {
+          "user_id": "d",
+          "operation": "delete",
+          "data": "segment_4:two"
+        },
+        {
+          "user_id": "e",
+          "operation": "insert",
+          "data": "segment_4:"
+        },
+        {
+          "user_id": "f",
+          "operation": "search",
+          "data": "segment_4:"
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"user_id\": \"a\", \"operation\": \"insert\", \"data\": \"segment_4:one\"}, {\"user_id\": \"b\", \"operation\": \"insert\", \"data\": \"segment_4:two\"}, {\"user_id\": \"c\", \"operation\": \"insert\", \"data\": \"segment_4:three\"}, {\"user_id\": \"d\", \"operation\": \"delete\", \"data\": \"segment_4:two\"}, {\"user_id\": \"e\", \"operation\": \"insert\", \"data\": \"segment_4:\"}, {\"user_id\": \"f\", \"operation\": \"search\", \"data\": \"segment_4:\"}]"
+    ],
+    "focus": "empty-content insert and empty-prefix search returning all remaining entries in the segment"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        {
+          "user_id": "x1",
+          "operation": "insert",
+          "data": "segment_1:prelude"
+        },
+        {
+          "user_id": "x2",
+          "operation": "insert",
+          "data": "segment_10:prelude"
+        },
+        {
+          "user_id": "x3",
+          "operation": "insert",
+          "data": "segment_10:prevent"
+        },
+        {
+          "user_id": "x4",
+          "operation": "insert",
+          "data": "segment_100:preemption"
+        },
+        {
+          "user_id": "x5",
+          "operation": "merge_offline",
+          "data": "segment_10:preventive"
+        },
+        {
+          "user_id": "x6",
+          "operation": "delete",
+          "data": "segment_1:prelude"
+        },
+        {
+          "user_id": "x7",
+          "operation": "insert",
+          "data": "segment_10:http:example.com"
+        },
+        {
+          "user_id": "x8",
+          "operation": "search",
+          "data": "segment_10:pre"
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"user_id\": \"x1\", \"operation\": \"insert\", \"data\": \"segment_1:prelude\"}, {\"user_id\": \"x2\", \"operation\": \"insert\", \"data\": \"segment_10:prelude\"}, {\"user_id\": \"x3\", \"operation\": \"insert\", \"data\": \"segment_10:prevent\"}, {\"user_id\": \"x4\", \"operation\": \"insert\", \"data\": \"segment_100:preemption\"}, {\"user_id\": \"x5\", \"operation\": \"merge_offline\", \"data\": \"segment_10:preventive\"}, {\"user_id\": \"x6\", \"operation\": \"delete\", \"data\": \"segment_1:prelude\"}, {\"user_id\": \"x7\", \"operation\": \"insert\", \"data\": \"segment_10:http:example.com\"}, {\"user_id\": \"x8\", \"operation\": \"search\", \"data\": \"segment_10:pre\"}]"
+    ],
+    "focus": "segment id edge cases (segment_1 vs segment_10 vs segment_100) and content containing colons to test robust parsing and isolation"
+  }
+]

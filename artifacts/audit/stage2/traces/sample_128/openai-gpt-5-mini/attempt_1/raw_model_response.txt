@@ -1,0 +1,255 @@
+from typing import Any, Dict, List, Tuple
+from collections import defaultdict, deque
+
+def determine_tree_centers(trees: List[Dict[str, Any]]) -> List[int]:
+    # Union-Find for districts
+    n_d = len(trees)
+    parent_d = list(range(n_d))
+    alive_d = [True]*n_d  # whether district remains (not merged into another)
+    def find_d(x):
+        while parent_d[x]!=x:
+            parent_d[x]=parent_d[parent_d[x]]
+            x=parent_d[x]
+        return x
+    def union_d(a,b):
+        ra,rb=find_d(a),find_d(b)
+        if ra==rb: return ra
+        parent_d[rb]=ra
+        alive_d[rb]=False
+        return ra
+
+    # Global graph structures per surviving district root: nodes set, adjacency dict, node_weights, capacities, active flags
+    # We'll maintain mapping from original district index to its current root structure id
+    # Initialize structures
+    struct_nodes = {}
+    struct_adj = {}
+    struct_node_w = {}
+    struct_cap = {}
+    struct_active = {}
+    struct_orig_idx = {}  # for mapping final outputs: which original district is representative
+
+    # For node id uniqueness across districts, nodes are given as raw IDs but could overlap between districts.
+    # To avoid collisions, prefix ids with district index.
+    def mkid(didx, nid):
+        return (didx, nid)
+
+    for idx, tr in enumerate(trees):
+        nodes = tr.get("nodes", [])[:]
+        adj = defaultdict(dict)
+        for u,v,w in tr.get("edges",[]):
+            au, av = mkid(idx,u), mkid(idx,v)
+            adj[au][av]=w
+            adj[av][au]=w
+        node_w = {}
+        cap = {}
+        active = {}
+        nw = tr.get("node_weights",{})
+        cp = tr.get("capacity",{})
+        for u in nodes:
+            key = str(u)
+            node_w[mkid(idx,u)] = int(nw.get(key,1))
+            cap[mkid(idx,u)] = int(cp.get(key,1))
+            active[mkid(idx,u)] = True
+        struct_nodes[idx] = set(mkid(idx,u) for u in nodes)
+        struct_adj[idx] = adj
+        struct_node_w[idx] = node_w
+        struct_cap[idx] = cap
+        struct_active[idx] = active
+        struct_orig_idx[idx] = idx
+
+    # Process events offline. Events are per-district; merges may refer to other districts.
+    # We'll process events in order per district as given; merges cause union of structures.
+    # For simplicity, when merging, we'll move all nodes/edges into the target root struct and relabel their keys to new root id prefix.
+    # To maintain unique ids we will use tuple (root_idx, orig_node_id) where root_idx is current root district index.
+    # Define helper to rekey nodes from one struct to another
+    def rekey_move(src_root, dst_root, via_edge):
+        # via_edge: (dst_node, src_node, weight) where nodes are already in their respective current id tuples
+        # Move nodes, adj, weights, cap, active from src_root into dst_root
+        s_nodes = struct_nodes.pop(src_root, set())
+        s_adj = struct_adj.pop(src_root, {})
+        s_node_w = struct_node_w.pop(src_root, {})
+        s_cap = struct_cap.pop(src_root, {})
+        s_active = struct_active.pop(src_root, {})
+        # insert into dst
+        d_adj = struct_adj[dst_root]
+        d_nodes = struct_nodes[dst_root]
+        d_node_w = struct_node_w[dst_root]
+        d_cap = struct_cap[dst_root]
+        d_active = struct_active[dst_root]
+        # Add connecting edge
+        dst_node, src_node, w = via_edge
+        # src_node currently is in s_nodes set; dst_node is in d_nodes
+        # Merge adjacency
+        for u, nbrs in s_adj.items():
+            for v,wt in nbrs.items():
+                # add edge between u and v
+                d_adj.setdefault(u,{})
+                d_adj.setdefault(v,{})
+                d_adj[u][v]=wt
+                d_adj[v][u]=wt
+        # add node attributes
+        for u in s_nodes:
+            d_nodes.add(u)
+            d_node_w[u]=s_node_w[u]
+            d_cap[u]=s_cap[u]
+            d_active[u]=s_active[u]
+        # add connecting edge
+        d_adj.setdefault(dst_node,{})
+        d_adj.setdefault(src_node,{})
+        d_adj[dst_node][src_node]=w
+        d_adj[src_node][dst_node]=w
+
+    # For handling edge updates: need to find which struct contains the edge endpoints (find their current root)
+    # We'll maintain mapping from node tuple to its current root by checking membership in struct_nodes sets
+    # For faster lookup, maintain node_to_root dict
+    node_to_root = {}
+    for rid in list(struct_nodes.keys()):
+        for n in struct_nodes[rid]:
+            node_to_root[n]=rid
+
+    # Process events
+    for idx, tr in enumerate(trees):
+        events = tr.get("events",[])
+        for ev in events:
+            if not ev: continue
+            typ = ev[0]
+            if typ=="deactivate_node":
+                _, node_id = ev
+                nid = mkid(idx,node_id)
+                # find root
+                root = node_to_root.get(nid)
+                if root is None: continue
+                struct_active[root][nid]=False
+            elif typ=="activate_node":
+                _, node_id = ev
+                nid = mkid(idx,node_id)
+                root = node_to_root.get(nid)
+                if root is None: continue
+                struct_active[root][nid]=True
+            elif typ=="update_road":
+                _, u,v,neww = ev
+                nu, nv = mkid(idx,u), mkid(idx,v)
+                ru = node_to_root.get(nu); rv = node_to_root.get(nv)
+                if ru is None or rv is None or ru!=rv: continue
+                adj = struct_adj[ru]
+                if nu in adj and nv in adj[nu]:
+                    adj[nu][nv]=neww
+                    adj[nv][nu]=neww
+            elif typ=="merge":
+                # ["merge", district_index_to_merge, merge_node_in_this_district, merge_node_in_other_district, connecting_edge_weight]
+                _, other_idx, mynode, othernode, w = ev
+                other_idx = int(other_idx)
+                # find current roots
+                r1 = find_d(idx)
+                r2 = find_d(other_idx)
+                # get the struct roots in node_to_root mapping
+                # nodes to connect
+                n1 = mkid(idx,mynode)
+                n2 = mkid(other_idx,othernode)
+                root1 = node_to_root.get(n1)
+                root2 = node_to_root.get(n2)
+                if root1 is None or root2 is None: continue
+                if root1==root2:
+                    # already same structure; possibly add/update edge if not present
+                    adj = struct_adj[root1]
+                    adj.setdefault(n1,{})
+                    adj.setdefault(n2,{})
+                    adj[n1][n2]=w
+                    adj[n2][n1]=w
+                    continue
+                # choose dst as root1
+                dst=root1
+                src=root2
+                # perform union in district UF
+                union_d(idx, other_idx)
+                # move src structure into dst
+                # Ensure both struct_adj exist
+                struct_adj.setdefault(dst, struct_adj.get(dst,{}))
+                rekey_move(src, dst, (n1, n2, w))
+                # update node_to_root for moved nodes
+                for n in list(node_to_root.keys()):
+                    if node_to_root[n]==src:
+                        node_to_root[n]=dst
+                # mark parent_d mapping done earlier
+            else:
+                continue
+
+    # After processing all events, compute optimal hub per surviving struct
+    # For each original district index i, if its current district root is not itself (merged), answer -1; else compute hub in its struct
+    results = [-1]*n_d
+
+    # Build mapping root -> list of original indices that map to it. Use find_d on each original index.
+    root_to_orig = defaultdict(list)
+    for i in range(n_d):
+        r=find_d(i)
+        root_to_orig[r].append(i)
+
+    # For each root with existing struct (some roots may have been merged and struct moved)
+    for root, orig_list in root_to_orig.items():
+        if not alive_d[root] and root not in struct_nodes:
+            # merged away and no struct present
+            for oi in orig_list:
+                results[oi]=-1
+            continue
+        # compute best hub in struct root
+        nodes = list(struct_nodes[root])
+        if not nodes:
+            for oi in orig_list:
+                results[oi]=-1
+            continue
+        adj = struct_adj[root]
+        node_w = struct_node_w[root]
+        cap = struct_cap[root]
+        active = struct_active[root]
+        # Build list of active nodes
+        active_nodes = [n for n in nodes if active.get(n,False)]
+        if not active_nodes:
+            # If no active nodes, choose smallest node id among all nodes (by original id) as tie-breaker? Problem implies active set used; pick smallest node id present.
+            best = min(nodes, key=lambda x: (x[1], x[0]))
+            for oi in orig_list:
+                results[oi]=best[1]
+            continue
+        # We need to compute for each candidate hub h: F(h)=sum_{i active} T_i * d(h,i) / C_h
+        # For efficiency on trees, we can compute all-pairs distances from each hub naive BFS per hub could be O(n^2) worst. But constraints up to 10k nodes; events up to 1k; acceptable to run Dijkstra (tree so BFS with weights) from each hub if necessary.
+        # Since edge weights small, but we'll implement single-source Dijkstra using heap for each candidate hub. To limit cost, only consider candidate hubs among nodes (active or inactive? hub can be any node in V; capacity defined for all nodes. The objective sums over active nodes. So hub can be inactive? Problem says placing a hub at a node must ensure... After deactivations, V_active used; hub likely must be active to serve. We'll assume hub must be active. )
+        import heapq
+        best_val = None
+        best_node = None
+        for h in nodes:
+            if not active.get(h,False):
+                continue
+            # Dijkstra from h
+            dist = {h:0}
+            heap = [(0,h)]
+            while heap:
+                d,u = heapq.heappop(heap)
+                if d!=dist[u]: continue
+                for v,w in adj.get(u,{}).items():
+                    # skip if v removed node entirely? v may be present but if inactive it still has distances but doesn't contribute to sum
+                    nd = d + w
+                    if v not in dist or nd < dist[v]:
+                        dist[v]=nd
+                        heapq.heappush(heap,(nd,v))
+            total = 0.0
+            for i in active_nodes:
+                di = dist.get(i)
+                if di is None:
+                    # disconnected (shouldn't happen in tree), skip
+                    continue
+                total += node_w.get(i,1) * di
+            C = cap.get(h,1)
+            Fh = total / C
+            if best_val is None or Fh < best_val - 1e-12 or (abs(Fh-best_val)<=1e-12 and h[1] < best_node[1]):
+                best_val = Fh
+                best_node = h
+        if best_node is None:
+            # no active hubs, pick smallest node id
+            best_node = min(nodes, key=lambda x:(x[1], x[0]))
+        # assign result for all original districts that map to this root: the surviving district is the smallest original index among them? Problem says surviving district's entry holds hub, merged-into district's entry -1. We used union_d to set parent; root corresponds to surviving district index. So for each original oi: if oi==root set hub id, else -1.
+        for oi in orig_list:
+            if find_d(oi)==root:
+                results[oi]=best_node[1]
+            else:
+                results[oi]=-1
+
+    return results

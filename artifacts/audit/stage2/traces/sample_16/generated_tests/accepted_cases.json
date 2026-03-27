@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[1, 1, 2, 2, 3, 3]\n3\n0",
+    "output_text": "8"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[0, 10, 20]\n3\n100",
+    "output_text": "1"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[-5, -3, 0, 4]\n1\n3",
+    "output_text": "0"
+  }
+]

@@ -1,0 +1,78 @@
+{
+  "id": "resp_0d6b524f828802d40069c346062a0881a1b8a2761e71a195e7",
+  "object": "response",
+  "created_at": 1774405126,
+  "status": "incomplete",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": null,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": {
+    "reason": "max_output_tokens"
+  },
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0d6b524f828802d40069c34606786c81a1a4654c68a7dbf681",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0d6b524f828802d40069c3460698e481a18985b9d1a68290b6",
+      "type": "message",
+      "status": "incomplete",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "```python\ndef compute_jacobi_polynomials(alpha: float, beta: float, n: int, x: float) -> dict:\n    # Input validation\n    if not isinstance(n, int) or n < 0:\n        return {\"error\": f\"Degree n must be a non-negative integer, got {n}.\"}\n    if not (isinstance(alpha, (int, float))):\n        return {\"error\": \"Alpha and Beta must be real numbers.\"}\n    if not (isinstance(x, (int, float))):\n        return {\"error\": \"Evaluation point x must be a real number.\"}\n    if alpha <= -1:\n        return {\"error\": f\"Alpha must be greater than -1, got {alpha}.\"}\n    if not (isinstance(beta, (int, float))):\n        return {\"error\": \"Alpha and Beta must be real numbers.\"}\n    if beta <= -1:\n        return {\"error\": f\"Beta must be greater than -1, got {beta}.\"}\n\n    # Constants with specified precision\n    LN2 = 0.6931471805599453  # 16 decimal places\n    E = 2.7182818284590452    # 16 decimal places\n\n    # Safe log implementation per requirements\n    def safe_log(val: float) -> float:\n        if val <= 0.0:\n            return -1e10\n        # range reduction to m in [1,2): represent val = m * 2^e\n        import math as _m\n        e = 0\n        m = val\n        # adjust m into [1,2)\n        while m >= 2.0:\n            m *= 0.5\n            e += 1\n        while m < 1.0:\n            m *= 2.0\n            e -= 1\n        z = (m - 1.0) / (m + 1.0)\n        # compute log((1+z)/(1-z)) via Taylor series with 50 terms\n        zz = z\n        s = 0.0\n        for k in range(1, 100):  # using more safety but will break at 50 for odd terms\n            # term = (2/ (2k-1)) * z^(2k-1)\n            if k > 50:\n                break\n            term = (2.0 / (2 * k - 1)) * (z ** (2 * k - 1))\n            s += term\n        # log(m) = s\n        return s + e * LN2\n\n    # Safe exp implementation per requirements\n    def safe_exp(val: float) -> float:\n        if val > 700:\n            return 1e308\n        if val < -700:\n            return 0.0\n        # split val = n + r where n = int(val)\n        n_int = int(val)\n        r = val - n_int\n        # compute exp(r) via Taylor up to 100 terms with early stopping\n        term = 1.0\n        s = 1.0\n        for k in range(1, 101):\n            term *= r / k\n            s += term\n            if abs(term) < 1e-15:\n                break\n        # multiply by exp(n_int) using repeated squaring of E\n        # compute E^n_int\n        if n_int == 0:\n            return s\n        if n_int > 0:\n            res_pow = 1.0\n            base = E\n            exp_n = n_int\n            while exp_n > 0:\n                if exp_n & 1:\n                    res_pow *= base\n                base *= base\n                exp_n >>= 1\n            return res_pow * s\n        # negative n_int\n        res_pow = 1.0\n        base = E\n        exp_n = -n_int\n        while exp_n > 0:\n            if exp_n & 1:\n                res_pow *= base\n            base *= base\n            exp_n >>= 1\n        return s / res_pow\n\n    # Log-gamma per requirements\n    def log_gamma(xg: float) -> float:\n        if xg <= 0.0:\n            return float('inf')\n        # for integer xg <=20 compute factorial\n        if abs(xg - round(xg)) < 1e-12 and xg <= 20:\n            xi = int(round(xg))\n            # (x-1)!\n            prod = 1.0\n            for k in range(1, xi):\n                prod *= k\n            return safe_log(prod) if prod > 0 else -1e10\n        # Stirling's approximation with correction for x>1\n        # lgamma ~ (x-0.5)ln x - x + 0.5 ln(2pi) + series\n        if xg > 1.0:\n            x = xg\n            ln2pi = 1.8378770664093453  # ln(2pi) with 16 decimals\n            term1 = (x - 0.5) * safe_log(x) - x + 0.5 * ln2pi\n            # correction series: 1/(12x) - 1/(360 x^3) + 1/(1260 x^5) - 1/(1680 x^7)\n            x2 = x * x\n            corr = 1.0 / (12.0 * x) - 1.0 / (360.0 * x2 * x) + 1.0 / (1260.0 * x2 * x2 * x) - 1.0 / (1680.0 * x2 * x2 * x2 * x)\n            return term1 + corr\n        # for 0<x<=1 use reflection? but spec covers x<=0 only. For 0<x<=1 use Stirling on x+ some shifts\n        # Use recurrence up to >1\n        y = xg\n        acc = 0.0\n        while y < 2.0:\n            acc -= safe_log(y)\n            y += 1.0\n        return acc + log_gamma(y)\n\n    # Leading coefficient via binomial in log-space\n    def leading_coefficient(alpha, beta, nn):\n        if nn == 0:\n            return 1.0\n        # leading coef = 2^(-n) * binom(2n+alpha+beta, n)\n        # compute log binomial: lgamma(2n+alpha+beta+1) - lgamma(n+1) - lgamma(n+alpha+beta+1)\n        a = 2 * nn + alpha + beta\n        lg_num = log_gamma(a + 1.0)\n        lg_d1 = log_gamma(nn + 1.0)\n        lg_d2 = log_gamma(nn + alpha + beta + 1.0)\n        lg_binom = lg_num - lg_d1 - lg_d2\n        lg_two_term = -nn * safe_log(2.0)\n        val = safe_exp(lg_binom + lg_two_term)\n        return val\n\n    # Normalization constant h_n using gamma ratios in log-space\n    def normalization_constant(alpha, beta, nn):\n        if nn == 0:\n            denom = alpha + beta + 1.0\n            if denom > 0.0:\n                return safe_exp((alpha + beta + 1.0) * safe_log(2.0) - safe_log(denom))\n            else:\n                return 1.0\n        # h_n = 2^{alpha+beta+1} * Gamma(n+alpha+1)*Gamma(n+beta+1) / ((2n+alpha+beta+1) * n! * Gamma(n+alpha+beta+1))\n        lg_num = (alpha + beta + 1.0) * safe_log(2.0)\n        lg_num += log_gamma(nn + alpha + 1.0)\n        lg_num += log_gamma(nn + beta + 1.0)\n        lg_den = safe_log(2 * nn + alpha + beta + 1.0)\n        lg_den += log_gamma(nn + 1.0)\n        lg_den += log_gamma(nn + alpha + beta + 1.0)\n        lg = lg_num - lg_den\n        val = safe_exp(lg)\n        return val\n\n    # Compute Jacobi polynomials via three-term recurrence\n    intermediate_values = []\n    # base cases\n    P0 = 1.0\n    intermediate_values.append(P0)\n    if n == 0:\n        final_value = P0\n        # coefficient_sum = P_n(1)\n        coef_sum = 1.0\n        lead_coef = leading_coefficient(alpha, beta, 0)\n        norm_const = normalization_constant(alpha, beta, 0)\n        normalized_value = final_value / (norm_const ** 0.5) if norm_const > 0.0 else 0.0\n        derivative_estimate = 0.0\n        # symmetry measure\n        # compute P_n(alpha,beta,-x) and P_n(beta,alpha,x)\n        # For n=0, P0=1\n        expected = ((-1) ** 0) * 1.0\n        sym = abs(1.0 - expected) if abs(expected) <= 1e-10 else abs(1.0 - expected) / abs(expected)\n        conv_ratio = 0.0\n        max_abs = max(abs(v) for v in intermediate_values)\n        stability_index = max_abs / abs(final_value) if abs(final_value) > 1e-10 else (max_abs if max_abs > 1e-10 else 1.0)\n        return {\n            \"polynomial_value\": round(final_value, 6),\n            \"normalized_value\": round(normalized_value, 6),\n            \"degree\": n,\n            \"alpha\": alpha,\n            \"beta\": beta,\n            \"x\": x,\n            \"leading_coefficient\": round(lead_coef, 5),\n            \"normalization_constant\": round(norm_const, 5),\n            \"recursion_depth\": n,\n            \"intermediate_values\": [round(v, 5) for v in intermediate_values],\n            \"coefficient_sum\": round(coef_sum, 4),\n            \"derivative_estimate\": round(derivative_estimate, 4),\n            \"symmetry_measure\": round(sym, 5),\n            \"convergence_ratio\": round(conv_ratio, 5),\n            \"stability_index\": round(stability_index, 5)\n        }\n\n    P1 = 0.5 * ((alpha + beta + 2.0) * x + (alpha - beta))\n    intermediate_values.append(P1)\n    if n == 1:\n        final_value = P1\n        coef_sum = P1  # P1 at x=1\n        lead_coef = leading_coefficient(alpha, beta, 1)\n        norm_const = normalization_constant(alpha, beta, 1)\n        normalized_value = final_value / (norm_const ** 0.5) if norm_const > 0.0 else 0.0\n        # derivative using formula involving P_{n-1}^{alpha+1,beta+1}\n        derivative_estimate = 1.0 * ( (alpha+beta+2.0)/2.0 )  # derivative of P1 at generic x is (alpha+beta+2)/2\n        # symmetry measure\n        # compute P1(alpha,beta,-x)\n        P1_negx = 0.5 * ((alpha + beta + 2.0) * (-x) + (alpha - beta))\n        # P1(beta,alpha,x)\n        P1_ba = 0.5 * ((beta + alpha + 2.0) * x + (beta - alpha))\n        expected = (-1) ** 1 * P1_ba\n        if abs(expected) > 1e-10:\n            sym = abs(P1_negx - expected) / abs(expected)\n        else:\n            sym = abs(P1_negx - expected)\n        conv_ratio = abs(P1 / P0) if abs(P0) > 1e-10 else 0.0\n        max_abs = max(abs(v) for v in intermediate_values)\n        stability_index = max_abs / abs(final_value) if abs(final_value) > 1e-10 else (max_abs if max_abs > 1e-10 else 1.0)\n        return {\n            \"polynomial_value\": round(final_value, 6),\n            \"normalized_value\": round(normalized_value, 6),\n            \"degree\": n,\n            \"alpha\": alpha,\n            \"beta\": beta,\n            \"x\": x,\n            \"leading_coefficient\": round(lead_coef, 5),\n            \"normalization_constant\": round(norm_const, 5),\n            \"recursion_depth\": n,\n            \"intermediate_values\": [round(v, 5) for v in intermediate_values],\n            \"coefficient_sum\": round(coef_sum, 4),\n            \"derivative_estimate\": round(derivative_estimate, 4),\n            \"symmetry_measure\": round(sym, 5),\n            \"convergence_ratio\": round(conv_ratio, 5),\n            \"stability_index\": round(stability_index, 5)\n        }\n\n    Pkm2 = P0\n    Pkm1 = P1\n    final_value = P1\n    # recurrence k from 2 to n\n    for k in range(2, n + 1):\n        kf = float(k)\n        a1 = 2.0 * kf * (kf + alpha + beta) * (2.0 * kf + alpha + beta - 2.0)\n        if abs(a1) < 1e-15:\n            a1 = 1e-15\n        a2 = (2.0 * kf + alpha + beta - 1.0) * ( (2.0 * kf + alpha + beta) * (2.0 * kf + alpha + beta - 2.0) * x + (alpha**2 - beta**2) )\n        a3 = 2.0 * (kf + alpha - 1.0) * (kf + beta - 1.0) * (2.0 * kf + alpha + beta)\n        Pk = (a2 * Pkm1 - a3 * Pkm2) / a1\n        intermediate_values.append(Pk)\n        Pkm2, Pkm1 = Pkm1, Pk\n        final_value = Pk\n\n    # coefficient sum: evaluate at x=1\n    # compute P_n(alpha,beta,1) via recurrence with x=1\n    P0_1 = 1.0\n    if n == 0:\n        coef_sum = 1.0\n    else:\n        P1_1 = 0.5 * ((alpha + beta + 2.0) * 1.0 + (alpha - beta))\n        if n == 1:\n            coef_sum = P1_1\n        else:\n            Qkm2 = P0_1\n            Qkm1 = P1_1\n            for k in range(2, n + 1):\n                kf = float(k)\n                a1 = 2.0 * kf * (kf + alpha + beta) * (2.0 * kf + alpha + beta - 2.0)\n                if abs(a1) < 1e-15:\n                    a1 = 1e-15\n                a2 = (2.0 * kf + alpha + beta - 1.0) * ( (2.0 * kf + alpha + beta) * (2.0 * kf + alpha + beta - 2.0) * 1.0 + (alpha**2 - beta**2) )\n                a3 = 2.0 * (kf + alpha - 1.0) * (kf + beta - 1.0) * (2.0 * kf + alpha + beta)\n                Qk = (a2 * Qkm1 - a3 * Qkm2) / a1\n                Qkm2, Qkm1 = Qkm1, Qk\n            coef_sum = Qk\n\n    # leading coefficient and normalization constant\n    lead_coef = leading_coefficient(alpha, beta, n)\n    norm_const = normalization_constant(alpha, beta, n)\n    normalized_value = final_value / (norm_const ** 0.5) if norm_const > 0.0 else 0.0\n\n    # derivative using relation: d/dx P_n^{a,b}(x) = 0.5*(n+alpha+beta+1) * P_{n-1}^{a+1,b+1}(x)\n    if n == 0:\n        derivative_estimate = 0.0\n    else:\n        # compute P_{n-1}^{alpha+1,beta+1}(x)\n        an = alpha + 1.0\n        bn = beta + 1.0\n        if n - 1 == 0:\n            Pn1 = 1.0\n        elif n - 1 == 1:\n            Pn1 = 0.5 * ((an + bn + 2.0) * x + (an - bn))\n        else:\n            Rkm2 = 1.0\n            Rkm1 = 0.5 * ((an + bn + 2.0) * x + (an - bn))\n            for kk in range(2, n):\n                kf = float(kk)\n                a1 = 2.0 * kf * (kf + an + bn) * (2.0 * kf + an + bn - 2.0)\n                if abs(a1) < 1e-15:\n                    a1 = 1e-15\n                a2 = (2.0 * kf + an + bn - 1.0) * ( (2.0 * kf + an + bn) * (2.0 * kf + an + bn - 2.0) * x + (an**2 - bn**2) )\n                a3 = 2.0 * (kf + an - 1.0) * (kf + bn - 1.0) * (2.0 * kf + an + bn)\n                Rk = (a2 * Rkm1 - a3 * Rkm2) / a1\n                Rkm2, Rkm1 = Rkm1, Rk\n            Pn1 = Rk\n        derivative_estimate = 0.5 * (n + alpha + beta + 1.0) * Pn1\n\n    # symmetry measure\n    # compute P_n(alpha,beta,-x)\n    # reuse recurrence but with -x\n    Px_neg = None\n    if n == 0:\n        Px_neg = 1.0\n    elif n == 1:\n       "
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1945,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 4096,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 6041
+  },
+  "user": null,
+  "metadata": {}
+}

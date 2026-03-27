@@ -1,0 +1,211 @@
+def optimize_route_planning(
+    graph_data: List[List[Union[int, float]]],
+    queries: List[List[Union[str, int, float, None]]]
+) -> List[Union[float, bool]]:
+    # Validation helpers
+    def is_valid_node(x):
+        return isinstance(x, int) and x >= 1
+
+    def is_valid_weight(w):
+        return (isinstance(w, (int, float)) and not (isinstance(w, bool)) and
+                not math.isinf(w) and not math.isnan(w) and w >= 0)
+
+    def is_valid_arg_for_query(qtype, arg):
+        if qtype == "shortest_path":
+            if arg is None:
+                return True
+            return is_valid_weight(arg)
+        if qtype in ("add_edge", "update_weight", "update_capacity"):
+            return is_valid_weight(arg)
+        if qtype in ("connectivity_check", "remove_edge"):
+            return True
+        return False
+
+    # Basic structure checks
+    if not isinstance(graph_data, list) or not isinstance(queries, list):
+        return []
+    if graph_data == [] and queries == []:
+        return []
+
+    # Allowed query types
+    allowed_q = {"shortest_path", "connectivity_check", "add_edge", "remove_edge", "update_weight", "update_capacity"}
+
+    # Graph storage: canonical undirected edges keyed by (u,v) with u<v
+    edges = {}  # (u,v) -> {'w': float, 'cap': float}
+    adj = defaultdict(dict)  # u -> {v: weight} (weight refers to canonical weight)
+
+    # Validate and load initial graph_data
+    for item in graph_data:
+        if (not isinstance(item, list)) or len(item) != 3:
+            return []
+        u, v, w = item
+        if not is_valid_node(u) or not is_valid_node(v):
+            return []
+        if u == v:
+            return []
+        if not is_valid_weight(w):
+            return []
+        a, b = (u, v) if u < v else (v, u)
+        key = (a, b)
+        if key in edges:
+            # take min weight per canonical rule, capacity remains default 0.0
+            if w < edges[key]['w']:
+                edges[key]['w'] = float(w)
+                adj[a][b] = float(w)
+                adj[b][a] = float(w)
+        else:
+            edges[key] = {'w': float(w), 'cap': 0.0}
+            adj[a][b] = float(w)
+            adj[b][a] = float(w)
+
+    results = []
+
+    # helper to ensure edge exists
+    def edge_key(u, v):
+        return (u, v) if u < v else (v, u)
+
+    # validate queries structure first pass
+    for q in queries:
+        if (not isinstance(q, list)) or len(q) != 4:
+            return []
+        qtype, u, v, arg = q
+        if qtype not in allowed_q:
+            return []
+        if not is_valid_node(u) or not is_valid_node(v):
+            return []
+        if qtype in ("add_edge", "update_weight", "update_capacity"):
+            if not is_valid_arg_for_query(qtype, arg):
+                return []
+        else:
+            if not is_valid_arg_for_query(qtype, arg):
+                return []
+        if qtype in ("add_edge",) and u == v:
+            return []
+        if qtype in ("update_weight", "update_capacity") and u == v:
+            return []
+
+    # Process queries sequentially
+    for q in queries:
+        qtype, u, v, arg = q
+        if qtype == "add_edge":
+            # arg = weight
+            if not is_valid_weight(arg):
+                return []
+            if u == v:
+                return []
+            a, b = edge_key(u, v)
+            w = float(arg)
+            if (a, b) in edges:
+                # merge: weight = min(existing, new), capacity unchanged
+                if w < edges[(a, b)]['w']:
+                    edges[(a, b)]['w'] = w
+                    adj[a][b] = w
+                    adj[b][a] = w
+            else:
+                edges[(a, b)] = {'w': w, 'cap': 0.0}
+                adj[a][b] = w
+                adj[b][a] = w
+
+        elif qtype == "remove_edge":
+            a, b = edge_key(u, v)
+            if (a, b) in edges:
+                del edges[(a, b)]
+                # remove from adj if present
+                if b in adj[a]:
+                    del adj[a][b]
+                if a in adj[b]:
+                    del adj[b][a]
+            # else no-op
+
+        elif qtype == "update_weight":
+            if not is_valid_weight(arg):
+                return []
+            if u == v:
+                return []
+            a, b = edge_key(u, v)
+            if (a, b) not in edges:
+                return []
+            w = float(arg)
+            edges[(a, b)]['w'] = w
+            adj[a][b] = w
+            adj[b][a] = w
+
+        elif qtype == "update_capacity":
+            if not is_valid_weight(arg):
+                return []
+            if u == v:
+                return []
+            a, b = edge_key(u, v)
+            if (a, b) not in edges:
+                return []
+            edges[(a, b)]['cap'] = float(arg)
+
+        elif qtype == "connectivity_check":
+            # special-case u==v
+            if u == v:
+                results.append(True)
+                continue
+            # BFS ignoring capacities (capacity irrelevant here)
+            start, target = u, v
+            visited = set()
+            stack = [start]
+            found = False
+            while stack:
+                node = stack.pop()
+                if node == target:
+                    found = True
+                    break
+                if node in visited:
+                    continue
+                visited.add(node)
+                # deterministic order: neighbors sorted by node id ascending
+                neighbors = sorted(adj[node].keys())
+                for nei in neighbors:
+                    if nei not in visited:
+                        stack.append(nei)
+            results.append(found)
+
+        elif qtype == "shortest_path":
+            # arg is demand
+            demand = 0.0 if arg is None else float(arg)
+            if arg is not None and not (isinstance(arg, (int, float)) and not isinstance(arg, bool) and not math.isinf(arg) and not math.isnan(arg) and arg >= 0):
+                return []
+            if u == v:
+                results.append(0.0)
+                continue
+            start, target = u, v
+            # Dijkstra with deterministic tie-breaking: when popping equal dist, nodes with smaller id first.
+            # Use heap entries (dist, node, path_next?) but deterministic neighbor exploration order suffices.
+            dist = {}
+            prev = {}
+            heap = []
+            heapq.heappush(heap, (0.0, start))
+            dist[start] = 0.0
+            while heap:
+                d, node = heapq.heappop(heap)
+                if d > dist.get(node, float('inf')):
+                    continue
+                if node == target:
+                    break
+                # neighbors filtered by capacity >= demand, iterate in ascending node id
+                neighbors = sorted(adj[node].items(), key=lambda x: x[0])
+                for nei, w in neighbors:
+                    a, b = edge_key(node, nei)
+                    edge = edges.get((a, b))
+                    if edge is None:
+                        continue
+                    if edge['cap'] < demand:
+                        continue
+                    nd = d + edge['w']
+                    if nd < dist.get(nei, float('inf')) or (abs(nd - dist.get(nei, float('inf'))) < 1e-12 and node < prev.get(nei, float('inf'))):
+                        dist[nei] = nd
+                        prev[nei] = node
+                        heapq.heappush(heap, (nd, nei))
+            if target in dist:
+                results.append(float(dist[target]))
+            else:
+                results.append(-1.0)
+        else:
+            return []
+
+    return results

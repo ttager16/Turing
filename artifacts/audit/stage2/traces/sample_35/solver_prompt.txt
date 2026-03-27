@@ -1,0 +1,96 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+Design a Python-based system to orchestrate multi-stage distribution paths across a directed graph of depots, cross-docks, and destinations. The system should prioritize destinations by total demand, apply traffic updates to edge costs using a segment tree, detect and avoid impassable edges, and route vehicles while respecting aggregate vehicle capacity and simple cross-dock capacity heuristics.
+
+#### Objectives:
+
+1. **Implement a Multi-Phase Routing Procedure:** Build a graph with traffic updates via a segment tree, identify blocked edges, prioritize destinations by total demand, compute per-destination min-cost candidate paths (with direct and 1–2 cross-dock fallbacks), and greedily assign destinations to vehicles.
+
+2. **State Tracking and Pruning:** Track vehicle fuel, time, capacity, and location; apply upper-bound pruning when evaluating candidate paths; block impassable edges.
+
+3. **Cross-Dock Synchronization (Heuristic):** Use simple aggregate cross-dock capacities as a feasibility check during path selection; allow fallback via cross-docks when direct paths are blocked or costly. Capacity check counts forward-leg entries into a cross-dock; return legs do not consume cross-dock capacity.
+
+4. **Integrated Cost Minimization (Simplified):** Minimize the sum of forward-leg edge costs (from current vehicle location to the destination) plus a one-time depot handling cost on first departure and per-visit cross-dock throughput costs. Costs are independent of load beyond capacity feasibility.
+
+#### Constraints:
+
+- The system targets up to 200 nodes and up to 15 vehicles in a single run.
+- Traffic updates are provided as a list of edge cost changes per invocation; edges with cost ≥ 500 are treated as impassable.
+- All vehicles start at node 0 and must return to node 0 by the end of their route.
+- Vehicle capacity is enforced as a single aggregate limit across all assigned demand; per-item capacities and incompatibilities are not modeled.
+- Cross-dock capacities are simple integer limits used heuristically for inbound usage during routing; there are no separate inbound/outbound quotas or operating hours.
+- Routes may include multiple cross-docks as needed. Destinations are not delayed just because they require using a different cross-dock within the same vehicle route.
+- Destination priority is approximated by total demand (higher total demand is served earlier).
+- The algorithm does not reoptimize during execution; to reflect new traffic or data, rerun the function with updated inputs.
+- For destination tie-breaking, when total demand is equal, prefer higher node ids.
+- For path tie-breaking, if multiple paths have the same total cost, choose one deterministically. The specific order does not need to be specified.
+- If more than one vehicle can take a destination, always assign it to the vehicle with the smallest index.
+- Any vehicle that is not used must have its route represented as [0, 0].
+  Reverse edges are not assumed. All routing, including returning to the depot, uses only the explicitly provided directed edges after applying traffic updates.
+- Each time a route enters a cross-dock during the forward leg, a throughput cost is applied: use `1` if the cross-dock's capacity is at least 3, and `2` if the capacity is less.
+- A one-time depot handling cost of `1` is charged only when a vehicle first departs from node `0`; no depot cost is charged on the return to node `0` or any subsequent legs.
+- Default vehicle capacity: each vehicle has a default aggregate capacity limit of `100` units; if a single destination's total demand exceeds this limit, that destination is skipped.
+- When considering a vehicle's forward path to a destination, ensure the total forward distance does not exceed its remaining fuel budget (default is 1000; refueling is not available). If no vehicle can reach a destination within its current fuel, skip that destination. The fuel limit does not apply to the return route back to the depot.
+- Traffic updates that refer to edges not present in the graph are simply ignored and do not affect the system.
+- When multiple forward paths to a destination have the same total augmented cost (including distance, one-time depot handling, and cross-dock throughput costs), choose the path with fewer forward cross-dock entries—favor direct routes over those using one or two cross-docks. If still tied, select deterministically.
+
+#### Function Signature and Scaffolding
+
+```python
+# Main Function
+def optimize_multi_stage_routes(
+    nodes: List[List[int]],
+    vehicles: int,
+    edges: List[List[int]],
+    traffic_updates: List[List[int]],
+    cross_dock_capacities: Dict[str, int],
+    item_demands: Dict[str, List[int]]
+) -> List[List[int]]:
+    """Optimize multi-stage routes for vehicle distribution."""
+    pass
+```
+
+#### Sample Input/Output:
+
+**Input:**
+
+- nodes = [[0, 0], [2, 1], [4, 5], [5, 6], [10, 10]]
+- vehicles = 2
+- edges = [[0, 1, 2], [1, 2, 5], [1, 3, 3], [2, 4, 2], [3, 4, 4]]
+- traffic_updates = [[0, 1, 5], [1, 3, 10]] # Updating cost on edges
+- cross_dock_capacities = {"1": 2, "3": 3} # Node 1 and Node 3 are cross-docks
+- item_demands = {"2": [60, 30], "4": [20, 30]}
+
+**Output:**
+
+- [[0, 1, 2, 0], [0, 1, 2, 4, 0]]
+
+#### Expected Output Format:
+
+The function should return a list of lists, where each inner list represents the sequence of node visits for a given vehicle. Each route must include the depot `0` at both the start and end. The solution combines edge costs (with traffic updates), a one-time depot handling cost, and cross-dock throughput costs with aggregate capacity constraints and destination prioritization.
+
+Starter Code:
+```python
+import heapq
+from collections import defaultdict
+from typing import Dict, List, Tuple, Optional, Set
+
+def optimize_multi_stage_routes(
+    nodes: List[List[int]],
+    vehicles: int,
+    edges: List[List[int]],
+    traffic_updates: List[List[int]],
+    cross_dock_capacities: Dict[str, int],
+    item_demands: Dict[str, List[int]]
+) -> List[List[int]]:
+    pass
+```

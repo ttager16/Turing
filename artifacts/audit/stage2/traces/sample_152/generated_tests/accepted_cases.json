@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "1e-16\n0.0\n5\n0.0",
+    "output_text": "{\"polynomial_value\": 0.0, \"normalized_value\": 0.0, \"degree\": 5, \"alpha\": 1e-16, \"beta\": 0.0, \"x\": 0.0, \"leading_coefficient\": 7.875, \"normalization_constant\": 0.18182, \"recursion_depth\": 5, \"intermediate_values\": [1.0, 0.0, -0.5, -0.0, 0.375, 0.0], \"coefficient_sum\": 1.0, \"derivative_estimate\": 1.875, \"symmetry_measure\": 0.0, \"convergence_ratio\": 0.0, \"stability_index\": 1.0}"
+  },
+  {
+    "case_index": 1,
+    "input_text": "10.0\n0.5\n30\n1.0",
+    "output_text": "{\"polynomial_value\": 847660528.0, \"normalized_value\": 142896497.751953, \"degree\": 30, \"alpha\": 10.0, \"beta\": 0.5, \"x\": 1.0, \"leading_coefficient\": 67919848383.20956, \"normalization_constant\": 35.1885, \"recursion_depth\": 30, \"intermediate_values\": [1.0, 11.0, 66.0, 286.0, 1001.0, 3003.0, 8008.0, 19448.0, 43758.0, 92378.0, 184756.0, 352716.0, 646646.0, 1144066.0, 1961256.0, 3268760.0, 5311735.0, 8436285.0, 13123110.0, 20030010.0, 30045015.0, 44352165.0, 64512240.0, 92561040.0, 131128140.0, 183579396.0, 254186856.0, 348330136.0, 472733756.0, 635745396.0, 847660528.0], \"coefficient_sum\": 847660528.0, \"derivative_estimate\": 47969879880.0, \"symmetry_measure\": 0.0, \"convergence_ratio\": 1.33333, \"stability_index\": 1.0}"
+  },
+  {
+    "case_index": 2,
+    "input_text": "-0.999999\n0.123456789\n3\n-1.0",
+    "output_text": "{\"polynomial_value\": -1.241893, \"normalized_value\": -2.885646, \"degree\": 3, \"alpha\": -0.999999, \"beta\": 0.123456789, \"x\": -1.0, \"leading_coefficient\": 1.37474, \"normalization_constant\": 0.18522, \"recursion_depth\": 3, \"intermediate_values\": [1.0, -1.12346, 1.19281, -1.24189], \"coefficient_sum\": 0.0, \"derivative_estimate\": 5.1791, \"symmetry_measure\": 0.0, \"convergence_ratio\": 1.04115, \"stability_index\": 1.0}"
+  }
+]

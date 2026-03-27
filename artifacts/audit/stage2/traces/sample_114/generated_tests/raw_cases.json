@@ -1,0 +1,102 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "graph": {
+          "1": [
+            [
+              2,
+              5,
+              1
+            ],
+            [
+              3,
+              2,
+              4
+            ]
+          ],
+          "2": [
+            [
+              3,
+              3,
+              1
+            ]
+          ],
+          "3": [
+            [
+              1,
+              1,
+              0
+            ]
+          ]
+        },
+        "analyze_all_paths": false
+      }
+    ],
+    "input_lines": [
+      "{\"graph\": {\"1\": [[2, 5, 1], [3, 2, 4]], \"2\": [[3, 3, 1]], \"3\": [[1, 1, 0]]}, \"analyze_all_paths\": false}"
+    ],
+    "focus": "missing_default_source_triggers_error"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "graph": {
+          "0": []
+        },
+        "source": 0,
+        "sink": 0,
+        "analyze_all_paths": false
+      }
+    ],
+    "input_lines": [
+      "{\"graph\": {\"0\": []}, \"source\": 0, \"sink\": 0, \"analyze_all_paths\": false}"
+    ],
+    "focus": "source_equals_sink_single_node"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "graph": {
+          "0": [
+            [
+              1,
+              5,
+              1
+            ],
+            [
+              2,
+              5,
+              3
+            ]
+          ],
+          "1": [
+            [
+              3,
+              5,
+              2
+            ]
+          ],
+          "2": [
+            [
+              3,
+              5,
+              1
+            ]
+          ],
+          "3": []
+        },
+        "source": 0,
+        "sink": 3,
+        "analyze_all_paths": true
+      }
+    ],
+    "input_lines": [
+      "{\"graph\": {\"0\": [[1, 5, 1], [2, 5, 3]], \"1\": [[3, 5, 2]], \"2\": [[3, 5, 1]], \"3\": []}, \"source\": 0, \"sink\": 3, \"analyze_all_paths\": true}"
+    ],
+    "focus": "tie_on_flow_choose_lower_cost_alternative_paths"
+  }
+]

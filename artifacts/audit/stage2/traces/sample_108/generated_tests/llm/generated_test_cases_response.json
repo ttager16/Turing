@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN76scy9e2TJbaoqV2U4COAHqmknz",
+  "object": "chat.completion",
+  "created": 1774401246,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[0, 50, 50, 0]\",\"[{\\\"name\\\": \\\"Usine A\\\", \\\"cost_per_kwh\\\": 5, \\\"p_min\\\": 10, \\\"ramping_curve\\\": [[1, 20], [2, 50]], \\\"t_on\\\": 1, \\\"t_off\\\": 2}, {\\\"name\\\": \\\"Usine B\\\", \\\"cost_per_kwh\\\": 10, \\\"p_min\\\": 0, \\\"ramping_curve\\\": [[1, 60]], \\\"t_on\\\": 2, \\\"t_off\\\": 1}]\",\"[[false, false], [true, true], [true, false], [false, false]]\"],\"focus\":\"t_on_violation_and_zero_demand_step\"},{\"input_lines\":[\"[60, 130, 130, 80]\",\"[{\\\"name\\\": \\\"Slow\\\", \\\"cost_per_kwh\\\": 5, \\\"p_min\\\": 20, \\\"ramping_curve\\\": [[1, 40], [2, 80], [3, 120], [4, 140]], \\\"t_on\\\": 3, \\\"t_off\\\": 1}, {\\\"name\\\": \\\"Fast\\\", \\\"cost_per_kwh\\\": 8, \\\"p_min\\\": 0, \\\"ramping_curve\\\": [[1, 100]], \\\"t_on\\\": 1, \\\"t_off\\\": 1}, {\\\"name\\\": \\\"Expensive\\\", \\\"cost_per_kwh\\\": 20, \\\"p_min\\\": 0, \\\"ramping_curve\\\": [[1, 200]], \\\"t_on\\\": 1, \\\"t_off\\\": 1}]\",\"[[true, true, false], [true, true, true], [true, true, false], [false, true, false]]\"],\"focus\":\"slow_ramp_progression_with_auxiliary_dispatch_and_t_on_boundary\"},{\"input_lines\":[\"[75.5]\",\"[{\\\"name\\\": \\\"Plant A\\\", \\\"cost_per_kwh\\\": 10, \\\"p_min\\\": 75.5, \\\"ramping_curve\\\": [[1, 75.5]], \\\"t_on\\\": 1, \\\"t_off\\\": 1}, {\\\"name\\\": \\\"Plant B\\\", \\\"cost_per_kwh\\\": 10, \\\"p_min\\\": 0, \\\"ramping_curve\\\": [[1, 100]], \\\"t_on\\\": 1, \\\"t_off\\\": 1}]\",\"[[true, false]]\"],\"focus\":\"floating_point_demand_exact_match_pmin_equals_pmax_and_cost_tie\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2051,
+    "completion_tokens": 3229,
+    "total_tokens": 5280,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2688,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

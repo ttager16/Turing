@@ -1,0 +1,169 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+You will implement a deterministic, single-threaded, rule-based tokenizer and tagger for financial text that returns exactly reproducible results from a fixed set of rules. The output must match the specified categories using the rules and lexicons defined below, without relying on concurrency, dynamic rule updates, sentiment analysis, or external libraries. Those advanced features (concurrency-aware tries, on-the-fly rule injection, multi-step sentiment) are considered future design targets and are out of scope for this coding task. Your deliverable is the reference implementation of the tokenizer and tagger as a pure function that operates on a single input string using the explicit rules and precedence provided.
+
+### Objectives:
+1. Deterministic tag set and scope
+   - Supported tags: ENTITY, VERB, NOUN, PREP, DET, ADJ, VALUE, TIME, OTHER.
+   - Language: English only. The input and output must always be in English.
+   - Determinism: The same input must always produce the same output strictly by these rules.
+
+2. Tokenization rules (exact)
+   - General
+     - Do not lowercase or otherwise normalize letter case.
+     - Strip leading and trailing whitespace.
+     - Drop standalone punctuation tokens unless explicitly retained by a rule below.
+   - Latin-script tokenization
+     - Split on whitespace.
+     - Retain the following inside a token when part of a recognized pattern:
+       - Abbreviation period in organization suffixes (e.g., "Inc.").
+       - Slash in currency pairs (e.g., "USD/EUR").
+       - Percent sign attached to a number (e.g., "30%").
+       - Currency symbol [$€£¥] attached to a number and optional magnitude (e.g., "$5 million").
+     - Trailing commas:
+       - Preserve a single trailing comma only if the base word (without the comma) is in the discourse marker lexicon (see below). Otherwise, strip trailing commas and treat them as dropped punctuation.
+     - Semicolons, colons, standalone periods, parentheses, and other punctuation are dropped unless covered by a retention rule above.
+   - Multi-token merges (performed during scanning, left to right)
+     - Company names: Capitalized word followed immediately by an organization suffix (from the org suffix lexicon) are merged into one token and tagged ENTITY (e.g., "Tesla Inc.").
+     - Currency values: Merge a currency symbol + number (with optional thousands separators/decimals) + optional magnitude word (thousand, million, billion, trillion; case-insensitive). Whitespace between parts is allowed. Tag as VALUE (e.g., "$5 million", "$5", "€1.25 billion").
+     - Percentages: A number immediately followed by "%" is a single token and tagged VALUE (e.g., "30%").
+     - Currency pairs: Exactly three uppercase letters, "/", and three uppercase letters (e.g., "USD/EUR") form a single token tagged ENTITY.
+
+3. Tagging rules (exact) with precedence
+   - Precedence (higher overrides lower when overlaps apply):
+     1) Multi-token merges (company names, currency values, percentages, currency pairs)
+     2) Pattern rules (ENTITY patterns, VALUE patterns)
+     3) Word lexicons (exact matches)
+     4) Heuristics (only those listed below)
+     5) Fallback (OTHER)
+   - ENTITY
+     - Currency pairs pattern: [A-Z]{3}/[A-Z]{3}
+     - Company name merge: Capitalized word + org suffix (see lexicon)
+     - Capitalized single-token proper nouns: Exact-match lexicon entries (e.g., "NetSky")
+   - VALUE
+     - Currency value merge (symbol + number [+ magnitude])
+     - Percentage merge (number + "%")
+     - Plain numeric ranges or numbers alone are not tagged VALUE unless they match the above forms.
+   - TIME
+     - English time lexicon (e.g., hour, day, week, month, year)
+   - VERB / NOUN / PREP / DET / ADJ
+     - Exact-match lexicons for English words.
+   - OTHER
+     - Discourse markers (with optional preserved trailing comma per tokenization rule)
+     - Tokens not matched by any of the above rules
+   - Heuristics (apply only if not matched by higher-precedence rules)
+     - Capitalized mixed-case single Latin word not in any lexicon and not sentence-initial: tag ENTITY.
+     - Sentence-initial capitalized words are not auto-ENTITY unless they match a lexicon or merge rule. Exception: exact-match ENTITY lexicon entries remain ENTITY regardless of position.
+
+4. Lexicons (closed and exhaustive for this task)
+   - Organization suffixes (retain period where shown): {"Inc.", "Corp.", "Corporation", "Ltd.", "PLC", "AG", "SA", "NV", "LLC", "LP", "Co.", "Company"}
+   - Discourse markers (case-sensitive for preservation rule; tagging is case-insensitive): {"Meanwhile"}
+   - English PREP: {"with", "in", "on", "at", "by", "for", "to", "of", "from", "over", "under", "between"}
+   - English DET: {"the", "a", "an", "this", "that", "these", "those"}
+   - English ADJ: {"strong", "first"}
+   - English VERB: {"surprises", "surging", "climbs"}
+   - English NOUN: {"investors", "profits", "demand"}
+   - English TIME: {"hour", "day", "week", "month", "year"}
+   - English ENTITY (single-token proper nouns): {"NetSky"}
+   - Magnitude words (case-insensitive for VALUE merge): {"thousand", "million", "billion", "trillion"}
+   - Currency symbols for VALUE merge: {"$", "€", "£", "¥"}
+
+5. Pattern details (must be implemented exactly)
+   - Number: one or more digits, optionally with commas as thousands separators and an optional decimal part (e.g., "5", "5.0", "1,000", "1,000.25").
+   - Currency value: currency symbol + optional space + number + optional space + optional magnitude word (case-insensitive). Entire merged span is a single VALUE token.
+   - Percentage: number followed immediately by "%".
+   - Currency pair: exactly three uppercase letters, "/", and three uppercase letters.
+   - Abbreviation period retention: retain the period in organization suffixes listed above; do not retain periods elsewhere unless dropped.
+
+6. Order of operations (must be followed)
+   - Scan left-to-right.
+   - At each position, attempt the following in order:
+     1) Multi-token merges (company name, currency value, percentage, currency pair)
+     2) If no merge applies, extract the next token per tokenization rules (Latin splitting)
+     3) Strip or preserve punctuation per tokenization rules
+     4) Assign tag using precedence: merge > patterns > lexicons > heuristics > OTHER
+   - Do not backtrack once a token is emitted.
+
+7. Implementation requirements
+   - Pure function with no I/O, network, randomness, or global mutable state.
+   - Lexicons must be defined as module-level constants or inside the function; no runtime updates.
+   - Complexity: O(n) over the number of characters in input_text.
+   - Use only Python standard library modules.
+
+8. Future design notes (non-mandatory, do not implement)
+   - Concurrency-friendly tries, hot rule updates, partial parse state sharing, and sentiment layers are future extensions. You may mark clear extension points in comments but must not include concurrency or dynamic updates in the solution.
+
+### Constraints:
+- Mandatory
+  - Deterministic behavior strictly following the rules, precedence, and lexicons defined above.
+  - Single-threaded, standard-library-only implementation.
+  - Must handle arbitrary Unicode input; English behavior must follow the rules stated.
+  - Standalone punctuation is dropped unless preserved by an explicit rule.
+  - Performance target: process 100,000 characters within 1 second on a typical laptop CPU; linear-time implementation without pathological backtracking.
+- Non-mandatory design targets (not evaluated; for documentation only)
+  - Envision extension to streaming, concurrency, and on-the-fly rule injection.
+  - Prior narrative targets such as 1,000,000 characters per second and 30 ms cycle times are out of scope for this task.
+
+### Function Signature
+```python
+def custom_tokenizer(input_text: str) -> List[List[str]]:
+    pass
+```
+
+### Sample Input/Output
+#### Input:
+```python
+input_text = (
+    "Tesla Inc. surprises investors with profits of $5 million; "
+    "NetSky surging 30% in the first hour. "
+    "Meanwhile, USD/EUR climbs on strong demand."
+)
+```
+
+#### Expected Output:
+```python
+[
+    ["Tesla Inc.", "ENTITY"],
+    ["surprises", "VERB"],
+    ["investors", "NOUN"],
+    ["with", "PREP"],
+    ["profits", "NOUN"],
+    ["of", "PREP"],
+    ["$5 million", "VALUE"],
+    ["NetSky", "ENTITY"],
+    ["surging", "VERB"],
+    ["30%", "VALUE"],
+    ["in", "PREP"],
+    ["the", "DET"],
+    ["first", "ADJ"],
+    ["hour", "TIME"],
+    ["Meanwhile,", "OTHER"],
+    ["USD/EUR", "ENTITY"],
+    ["climbs", "VERB"],
+    ["on", "PREP"],
+    ["strong", "ADJ"],
+    ["demand", "NOUN"]
+]
+```
+
+### Expected Output Format
+- Return a list of [token, tag] lists.
+- Tokens and tags must reflect the deterministic rules above. Multi-token merges, punctuation retention/stripping, and lexicon-based tagging must exactly follow the specification.
+- No hidden state, randomness, or runtime rule updates are allowed.
+- The input and output must always be in English.
+
+Starter Code:
+```python
+from typing import List, Tuple, Optional
+
+def custom_tokenizer(input_text: str) -> List[List[str]]:
+    pass
+```

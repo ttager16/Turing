@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: optimize_resource_allocation\n\nProblem Statement:\n### Problem Context\nA city’s infrastructure management team needs to optimize resource allocation across multiple utility layers such as electricity, water, and telecommunications.  \nThese connections are represented as a **layered multi-graph**, where each node represents a station or hub, and each edge carries information about capacity and time-based cost.\n\nSome sub-structures—called **forbidden motifs**—represent unsafe or environmentally harmful configurations that must be strictly avoided.  \nYour task is to find a **minimum-cost valid node matching** while respecting all constraints and excluding forbidden motifs.\n\n---\n\n### Objectives\n1. **Multi-Graph Handling:**  \n   Process a layered multi-graph where edges may carry multiple attributes like capacity, time cost, and pollution factor.\n\n2. **Forbidden Motif Avoidance (Strict Priority):**  \n   - A forbidden motif is considered **matched** if **any** of its `node_constraints` or `edge_constraints` apply to a given node or edge.  \n   - Such nodes/edges must be **excluded from matching**.\n\n3. **Min-Cost Matching (After Filtering):**  \n   - After filtering forbidden motifs, find a **maximal matching** (largest possible number of disjoint node pairs).  \n   - Among possible maximal matchings, choose the one with the **minimum total cost**.  \n   - Cost for an edge is defined as the **average of its `time_cost.day` and `time_cost.night` values** (if both exist), or the available one if only one is provided.\n\n4. **Dynamic Update Handling:**  \n   If a node or edge is removed (due to forbidden constraints or maintenance), ensure remaining matches stay valid.  \n   No concurrency handling or live updates are required.\n\n---\n\n### Constraints\n- Number of nodes ≤ 20,000  \n- Number of edges ≤ 100,000  \n- Node IDs are integers ≥ 1  \n- All costs and capacities are positive/negative\n- Forbidden motifs contain only **attribute-based conditions**  \n- No external libraries allowed  \n\n---\n\n### Input Format\n- **graph:** A dictionary mapping each node ID to its adjacency list.  \n  Each adjacency entry is `[neighbor_id, attributes]`, where `attributes` include any of:  \n  - `\"capacity_peak\"`, `\"capacity_offpeak\"`, `\"time_cost\"`, `\"pollution_factor\"`, `\"layer\"`, `\"maintenance_mode\"`\n\n- **forbidden_patterns:** A list of dictionaries.  \n  Each pattern may include:\n  ```json\n  {\n    \"substructure_id\": \"env_breach_cycle\",\n    \"node_constraints\": [{\"maintenance_mode\": true}],\n    \"edge_constraints\": [{\"pollution_factor\": {\"min\": 1.0, \"max\": 2.0}}]\n  }\n````\n\n---\n\n### Output Format\n\nReturn a list of node pairs (2-element lists), representing valid, non-conflicting matches that:\n\n* Avoid forbidden motifs,\n* Respect all node/edge attribute filters,\n* Minimize total cost based on time attributes.\n\nExample:\n\n```json\n[[1, 2], [3, 4]]\n```\n\n---\n\n### Cost Evaluation\n\n```text\nedge_cost = (time_cost[\"day\"] + time_cost[\"night\"]) / 2\n```\n\nIf only one exists, use that value.\n\n---\n\n### Edge Case Rules\n\n1. Empty graph → return `[]`\n2. All edges forbidden → return `[]`\n3. Ties in cost → break by lexicographic order of node IDs\n4. Forbidden motif has higher priority than cost optimization.\n\n---\n\n### Function Signature\n\n```python\ndef optimize_resource_allocation(graph: dict, forbidden_patterns: list) -> list:\n    pass\n```\n\n---\n\n**Input:**\n\n```json\n{\n  \"graph\": {\n    \"1\": [[2, {\"capacity_peak\": 50, \"capacity_offpeak\": 60, \"time_cost\": {\"day\": 5, \"night\": 3}, \"layer\": 0}]],\n    \"2\": [[1, {\"capacity_peak\": 50, \"capacity_offpeak\": 60, \"time_cost\": {\"day\": 5, \"night\": 3}, \"layer\": 0}]],\n    \"3\": [[4, {\"capacity_peak\": 100, \"capacity_offpeak\": 120, \"time_cost\": {\"day\": 6, \"night\": 4}, \"layer\": 1, \"pollution_factor\": 1.8}]],\n    \"4\": [[3, {\"capacity_peak\": 100, \"capacity_offpeak\": 120, \"time_cost\": {\"day\": 6, \"night\": 4}, \"layer\": 1, \"pollution_factor\": 1.8}]],\n    \"5\": [[6, {\"capacity_peak\": 40, \"capacity_offpeak\": 60, \"time_cost\": {\"day\": 2, \"night\": 1}, \"layer\": 2, \"pollution_factor\": 0.7}]],\n    \"6\": [[5, {\"capacity_peak\": 40, \"capacity_offpeak\": 60, \"time_cost\": {\"day\": 2, \"night\": 1}, \"layer\": 2, \"pollution_factor\": 0.7}]]\n  },\n  \"forbidden_patterns\": [\n    {\n      \"substructure_id\": \"env_filter\",\n      \"edge_constraints\": [{\"pollution_factor\": {\"min\": 1.0, \"max\": 2.0}}]\n    }\n  ]\n}\n```\n\n**Expected Output:**\n\n```json\n[[1, 2], [5, 6]]\n```\n\n**Explanation:**\n\n* Edge `[3, 4]` is excluded since its `pollution_factor = 1.8` violates the forbidden motif range `[1.0, 2.0]`.\n* The valid, non-conflicting edges are `[1, 2]` (avg cost = 4) and `[5, 6]` (avg cost = 1.5).\n* Result is a **maximal matching with minimal cost** → `[[1, 2], [5, 6]]`.\n\n---\n\n### Scaffolding Code\n\n```python\ndef main():\n    graph = {}\n    forbidden_patterns = []\n    result = optimize_resource_allocation(graph, forbidden_patterns)\n    print(result)\n```\n\nStarter Code:\n```python\ndef optimize_resource_allocation(graph: dict, forbidden_patterns: list) -> list:\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"{\\\"1\\\": [[2, {\\\"time_cost\\\": {\\\"day\\\": 5, \\\"night\\\": 3}}]], \\\"2\\\": [[1, {\\\"time_cost\\\": {\\\"day\\\": 5, \\\"night\\\": 3}}]]}\\n[]\",\n    \"output\": \"[[1, 2]]\"\n  },\n  {\n    \"input\": \"{}\\n[]\",\n    \"output\": \"[]\"\n  },\n  {\n    \"input\": \"{\\\"1\\\": [[2, {\\\"time_cost\\\": {\\\"day\\\": 10, \\\"night\\\": 8}}], [3, {\\\"time_cost\\\": {\\\"day\\\": 5, \\\"night\\\": 2}}]], \\\"2\\\": [[1, {\\\"time_cost\\\": {\\\"day\\\": 10, \\\"night\\\": 8}}]], \\\"3\\\": [[1, {\\\"time_cost\\\": {\\\"day\\\": 5, \\\"night\\\": 2}}]]}\\n[]\",\n    \"output\": \"[[1, 3]]\"\n  }\n]\n"
+    }
+  ]
+}

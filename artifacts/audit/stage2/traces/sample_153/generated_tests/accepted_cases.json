@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "5\n[[0, 1, 0.0], [1, 2, 1e-12], [2, 3, 0.5], [3, 4, 1e-11], [5, 0, 2.0]]\n[1.234567, 1.234567, 1.234567, 1.234567, 1.234567]",
+    "output_text": "{\"optimized_flow_metric\": 0.02098, \"total_energy\": 0.011, \"network_efficiency\": 0.2963, \"average_smoothness\": 5.76, \"flow_variance\": 0.00412, \"max_potential_gradient\": 0.2963, \"approximation_error\": 0.0592592, \"total_flow\": 0.14815, \"spectral_entropy\": -1.0, \"convergence_rate\": 0.0, \"max_node_imbalance\": 0.14815, \"avg_node_imbalance\": 0.059259, \"average_curvature\": 7.46668, \"max_curvature\": 15.99997, \"resilience_score\": 0.97852, \"edge_flows\": [0.0, -0.0, 0.148, -0.0], \"node_potentials\": [1.30864, 1.30864, 1.60494, 1.30864, 1.30864], \"raw_potentials\": [1.23457, 1.23457, 1.60494, 1.23457, 1.23457], \"chebyshev_coefficients\": [-0.6, -0.0, -0.8, -0.0, 0.8], \"num_nodes\": 5, \"num_edges\": 4, \"chebyshev_degree\": 4}"
+  },
+  {
+    "case_index": 1,
+    "input_text": "1\n[]\n[2.5]",
+    "output_text": "{\"optimized_flow_metric\": 0.0, \"total_energy\": 0.0, \"network_efficiency\": 0.0, \"average_smoothness\": 0.0, \"flow_variance\": 0.0, \"max_potential_gradient\": 0.0, \"approximation_error\": 0.0, \"total_flow\": 0, \"spectral_entropy\": 0.0, \"convergence_rate\": 0.0, \"max_node_imbalance\": 0.0, \"avg_node_imbalance\": 0.0, \"average_curvature\": 0.0, \"max_curvature\": 0.0, \"resilience_score\": 0.0, \"edge_flows\": [], \"node_potentials\": [2.5], \"raw_potentials\": [2.5], \"chebyshev_coefficients\": [0.0, 0.0, 0.0, 0.0, 0.0], \"num_nodes\": 1, \"num_edges\": 0, \"chebyshev_degree\": 4}"
+  },
+  {
+    "case_index": 2,
+    "input_text": "2\n[[0, 1, 10.0], [1, 0, 5e-11]]\n[1000.0, -1000.0]",
+    "output_text": "{\"optimized_flow_metric\": 1156003399.9, \"total_energy\": 2890000000.0, \"network_efficiency\": 1700.0, \"average_smoothness\": 1.0, \"flow_variance\": 72250000.00072, \"max_potential_gradient\": 1700.0, \"approximation_error\": 0.0, \"total_flow\": 17000.0, \"spectral_entropy\": -1.0, \"convergence_rate\": 0.0, \"max_node_imbalance\": 17000.0, \"avg_node_imbalance\": 17000.0, \"average_curvature\": 0.0, \"max_curvature\": 0.0, \"resilience_score\": 1.0, \"edge_flows\": [17000.0, -0.0], \"node_potentials\": [700.0, -1000.0], \"raw_potentials\": [700.0, -1000.0], \"chebyshev_coefficients\": [-0.0, -1.0, -0.0, 0.0, -0.0], \"num_nodes\": 2, \"num_edges\": 2, \"chebyshev_degree\": 4}"
+  }
+]

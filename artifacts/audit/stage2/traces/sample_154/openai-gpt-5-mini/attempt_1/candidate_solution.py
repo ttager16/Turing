@@ -1,0 +1,96 @@
+def analyze_transaction_patterns(notes: str, queries: list[list[int, int]]) -> dict:
+    # Input validation
+    if not isinstance(notes, str) or not isinstance(queries, list):
+        return {'error': 'Invalid input type'}
+    if len(notes) == 0:
+        return {'error': 'Empty transaction note'}
+    if not (1 <= len(notes) <= 100) or not (1 <= len(queries) <= 100):
+        return {'error': 'Constraint violation'}
+    for q in queries:
+        if not (isinstance(q, list) and len(q) == 2 and all(isinstance(x, int) for x in q)):
+            return {'error': 'Invalid query format'}
+
+    n = len(notes)
+
+    # Find all unique palindromic substrings and their lengths.
+    pal_lengths_set = []
+    pal_set = set()
+    longest_pal = ""
+    # Expand around centers
+    for center in range(n):
+        # odd length
+        l = r = center
+        while l >= 0 and r < n and notes[l] == notes[r]:
+            substr = notes[l:r+1]
+            if substr not in pal_set:
+                pal_set.add(substr)
+                pal_lengths_set.append(len(substr))
+                if len(substr) > len(longest_pal):
+                    longest_pal = substr
+            l -= 1
+            r += 1
+        # even length
+        l = center
+        r = center + 1
+        while l >= 0 and r < n and notes[l] == notes[r]:
+            substr = notes[l:r+1]
+            if substr not in pal_set:
+                pal_set.add(substr)
+                pal_lengths_set.append(len(substr))
+                if len(substr) > len(longest_pal):
+                    longest_pal = substr
+            l -= 1
+            r += 1
+
+    # Sort lengths ascending as implied by example
+    lengths = sorted(pal_lengths_set)
+
+    # Validate queries indices
+    m = len(lengths)
+    for L, R in queries:
+        if not (0 <= L <= R < m):
+            return {'error': 'Query index out of range'}
+
+    # Segment tree for LCM (mod MOD)
+    # LCM of a and b modulo MOD: lcm = (a // gcd(a,b)) * b % MOD
+    size = 1
+    while size < m:
+        size <<= 1
+    seg = [1] * (2 * size)
+
+    def lcm_mod(a, b):
+        if a == 0 or b == 0:
+            return 0
+        g = gcd(a, b)
+        # compute (a/g)*b % MOD safely
+        return ((a // g) * b) % MOD
+
+    # build leaves
+    for i in range(m):
+        seg[size + i] = lengths[i] % MOD
+    for i in range(size - 1, 0, -1):
+        seg[i] = lcm_mod(seg[2*i], seg[2*i+1])
+
+    def range_lcm(l, r):
+        l += size
+        r += size
+        res_left = 1
+        res_right = 1
+        while l <= r:
+            if (l & 1) == 1:
+                res_left = lcm_mod(res_left, seg[l])
+                l += 1
+            if (r & 1) == 0:
+                res_right = lcm_mod(seg[r], res_right)
+                r -= 1
+            l >>= 1
+            r >>= 1
+        return lcm_mod(res_left, res_right) % MOD
+
+    lcm_results = [range_lcm(L, R) for L, R in queries]
+
+    return {
+        "longest_palindrome": longest_pal,
+        "lengths": lengths,
+        "lcm_results": lcm_results
+    }

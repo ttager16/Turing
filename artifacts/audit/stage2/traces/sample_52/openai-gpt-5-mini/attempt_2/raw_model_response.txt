@@ -1,0 +1,72 @@
+from collections import deque
+from typing import Dict, List, Union
+
+def compute_dcei(temperature_readings, power_readings, window_size) -> Dict[str, Union[List[float], str]]:
+    # Validation order:
+    # a. Check for empty lists
+    if not isinstance(temperature_readings, list) or not isinstance(power_readings, list):
+        return {'error': 'Unprocessable readings'}
+    if len(temperature_readings) == 0 and len(power_readings) == 0:
+        return {'error': 'No data provided'}
+    # b. Check for equal lengths
+    if len(temperature_readings) != len(power_readings):
+        return {'error': 'Mismatched input lengths'}
+    # c. Check for valid window size
+    if not isinstance(window_size, int) or window_size <= 0 or window_size > len(temperature_readings):
+        return {'error': 'Invalid window size'}
+    # d. Check for valid data types and value ranges
+    for x in temperature_readings:
+        if not isinstance(x, int) or x < -1000 or x > 1000:
+            return {'error': 'Unprocessable readings'}
+    for x in power_readings:
+        if not isinstance(x, int) or x < -1000 or x > 1000:
+            return {'error': 'Unprocessable readings'}
+    n = len(temperature_readings)
+    temp_max = deque()
+    temp_min = deque()
+    power_max = deque()
+    power_min = deque()
+    results: List[float] = []
+    for i in range(n):
+        # Remove expired indices from fronts (must be within current window)
+        while temp_max and temp_max[0] <= i - window_size:
+            temp_max.popleft()
+        while temp_min and temp_min[0] <= i - window_size:
+            temp_min.popleft()
+        while power_max and power_max[0] <= i - window_size:
+            power_max.popleft()
+        while power_min and power_min[0] <= i - window_size:
+            power_min.popleft()
+        # Maintain monotonic deques by removing from back
+        # temp_max: decreasing temperatures
+        while temp_max and temperature_readings[temp_max[-1]] <= temperature_readings[i]:
+            temp_max.pop()
+        temp_max.append(i)
+        # temp_min: increasing temperatures
+        while temp_min and temperature_readings[temp_min[-1]] >= temperature_readings[i]:
+            temp_min.pop()
+        temp_min.append(i)
+        # power_max: decreasing powers
+        while power_max and power_readings[power_max[-1]] <= power_readings[i]:
+            power_max.pop()
+        power_max.append(i)
+        # power_min: increasing powers
+        while power_min and power_readings[power_min[-1]] >= power_readings[i]:
+            power_min.pop()
+        power_min.append(i)
+        # When a full window is formed, compute DCEI
+        if i >= window_size - 1:
+            # Ensure deque heads are within window (already maintained)
+            max_temp = temperature_readings[temp_max[0]]
+            min_temp = temperature_readings[temp_min[0]]
+            max_power = power_readings[power_max[0]]
+            min_power = power_readings[power_min[0]]
+            temp_fluct = int(max_temp - min_temp)
+            power_delta = int(max_power - min_power)
+            if power_delta == 0:
+                return {'error': 'Division by zero detected'}
+            if temp_fluct == 0:
+                return {'error': 'Undefined fluctuation'}
+            dcei = round(temp_fluct / power_delta, 2)
+            results.append(dcei)
+    return {'result': results}

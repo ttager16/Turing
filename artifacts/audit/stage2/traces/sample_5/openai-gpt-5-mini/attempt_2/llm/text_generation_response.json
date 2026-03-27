@@ -1,0 +1,76 @@
+{
+  "id": "resp_0bc14acc88420ab00069c3182a05948197be9a78cb24ff63b1",
+  "object": "response",
+  "created_at": 1774393386,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774393414,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0bc14acc88420ab00069c3182aa6048197b4d6bd1b33d3ef61",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0bc14acc88420ab00069c3182afcc48197bf87370b4f9ee84c",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import copy\nfrom collections import defaultdict, deque\nfrom decimal import Decimal, getcontext\n\ngetcontext().prec = 12\n\ndef optimize_order_flow_graph(\n    nodes: int,\n    edges: list,\n    trades: list\n) -> dict:\n    # Build adjacency with edge objects; use decimals for precision\n    class Edge:\n        __slots__ = ('u','v','cap','cost','rev')\n        def __init__(self,u,v,cap,cost,rev=None):\n            self.u=u; self.v=v; self.cap=Decimal(cap); self.cost=Decimal(cost); self.rev=rev\n\n    def build_graph(edges_list):\n        g = [[] for _ in range(nodes)]\n        edge_map = {}  # key (u,v,idx)->edge reference for reporting (sum flows)\n        for idx, e in enumerate(edges_list):\n            u, v, cap, cost = e\n            if cap < 0 or cost < 0:\n                # guard: treat negative as zero to avoid invalid\n                cap = max(0.0, cap)\n                cost = max(0.0, cost)\n            # create forward and backward edges\n            fwd = Edge(u,v,cap,cost,None)\n            bwd = Edge(v,u,Decimal('0'), -Decimal(cost), None)\n            fwd.rev = bwd\n            bwd.rev = fwd\n            g[u].append(fwd)\n            g[v].append(bwd)\n            edge_map[(u,v,idx)] = fwd\n        return g, edge_map\n\n    # Deep copy original edges for baseline\n    original_edges = copy.deepcopy(edges)\n    graph, edge_map = build_graph(original_edges)\n    # Keep copies after each trade\n    intermediate_graphs = []\n    total_flow = Decimal('0')\n    total_cost = Decimal('0')\n    flow_distribution = defaultdict(Decimal)\n    partial_fills = []\n\n    # Helper: min-cost augment using successive shortest path (Bellman-Ford for potentials)\n    def min_cost_flow(g, s, t, demand):\n        flow = Decimal('0')\n        cost = Decimal('0')\n        n = len(g)\n        # initialize potentials with Bellman-Ford to handle negative costs from residuals safely\n        potential = [Decimal('0')] * n\n        # Bellman-Ford from source to set potentials (handles negative edge costs)\n        dist = [Decimal('Infinity')] * n\n        dist[s] = Decimal('0')\n        for _ in range(n-1):\n            updated = False\n            for u in range(n):\n                if dist[u] == Decimal('Infinity'):\n                    continue\n                for e in g[u]:\n                    if e.cap > 0 and dist[e.v] > dist[u] + e.cost:\n                        dist[e.v] = dist[u] + e.cost\n                        updated = True\n            if not updated:\n                break\n        for i in range(n):\n            if dist[i] != Decimal('Infinity'):\n                potential[i] = dist[i]\n\n        while demand > Decimal('0'):\n            # Dijkstra-like with costs adjusted by potentials (use simple Dijkstra via lists since n small)\n            dist = [Decimal('Infinity')] * n\n            inqueue = [False]*n\n            prev = [None]*n\n            prev_edge = [None]*n\n            dist[s] = Decimal('0')\n            # Use deque as simple priority queue by exploring smallest dist each time (inefficient but okay)\n            # Implement simple loop scanning for min dist (deterministic)\n            visited = [False]*n\n            while True:\n                u = None\n                mind = Decimal('Infinity')\n                for i in range(n):\n                    if not visited[i] and dist[i] < mind:\n                        mind = dist[i]; u = i\n                if u is None:\n                    break\n                visited[u] = True\n                for e in g[u]:\n                    if e.cap <= 0:\n                        continue\n                    # reduced cost\n                    rcost = e.cost + potential[u] - potential[e.v]\n                    nd = dist[u] + rcost\n                    if dist[e.v] > nd:\n                        dist[e.v] = nd\n                        prev[e.v] = u\n                        prev_edge[e.v] = e\n            if dist[t] == Decimal('Infinity'):\n                break  # no more augmenting path\n            # update potentials\n            for i in range(n):\n                if dist[i] < Decimal('Infinity'):\n                    potential[i] += dist[i]\n            # find bottleneck\n            addf = demand\n            v = t\n            while v != s:\n                e = prev_edge[v]\n                if e is None:\n                    addf = Decimal('0'); break\n                if e.cap < addf:\n                    addf = e.cap\n                v = prev[v]\n            if addf == Decimal('0'):\n                break\n            # apply flow\n            v = t\n            path_cost = Decimal('0')\n            while v != s:\n                e = prev_edge[v]\n                e.cap -= addf\n                e.rev.cap += addf\n                path_cost += e.cost\n                v = prev[v]\n            flow += addf\n            cost += addf * path_cost\n            demand -= addf\n        return flow, cost\n\n    # Process each trade sequentially, updating graph between trades; use copies for integrity\n    for trade in trades:\n        # validate trade\n        vol = trade.get(\"volume\")\n        src = trade.get(\"source\")\n        tgt = trade.get(\"target\")\n        try:\n            vol = Decimal(vol)\n        except Exception:\n            # invalid, skip\n            continue\n        if vol <= 0 or not (0 <= src < nodes) or not (0 <= tgt < nodes):\n            # report as fully unfilled for invalid volumes per safety\n            partial_fills.append({\"volume_unfilled\": float(vol if vol>0 else 0.0), \"source\": src, \"target\": tgt})\n            continue\n        # copy current graph for isolation\n        g_copy = copy.deepcopy(graph)\n        # attempt to fulfill volume\n        f, c = min_cost_flow(g_copy, src, tgt, vol)\n        # update main graph to residuals from g_copy (apply differences)\n        # Approach: for each node u, for each edge in original graph[u], find corresponding edge in g_copy by matching u->v and cost\n        # Because we used deep copies of Edge objects, but graph and g_copy edges align by positions; create mapping by u,v,cost\n        # Build helper map from (u,v,cost) -> list edges in g_copy\n        gc_map = defaultdict(list)\n        for u in range(len(g_copy)):\n            for e in g_copy[u]:\n                # store forward edges that were originally forward or created as residuals; use cost and endpoints\n                gc_map[(e.u,e.v,float(e.cost))].append(e)\n        # For each original forward edge in graph, find matching edge in g_copy and set graph edge cap to that cap\n        for u in range(len(graph)):\n            for idx_e, e in enumerate(graph[u]):\n                # Only update forward edges that were part of initial construction: those may have positive initial cap OR were reverses created; we update all by matching u,v,cost\n                key = (e.u, e.v, float(e.cost))\n                lst = gc_map.get(key)\n                if lst:\n                    # pop one to align\n                    matched = lst.pop(0)\n                    e.cap = Decimal(matched.cap)\n                    # update reverse cap as well to keep consistency\n                    # find reverse in graph[u].rev exists\n                    if e.rev is not None:\n                        # Find corresponding rev in g_copy\n                        rev_key = (e.rev.u, e.rev.v, float(e.rev.cost))\n                        rev_list = gc_map.get(rev_key)\n                        if rev_list:\n                            rev_matched = rev_list.pop(0)\n                            e.rev.cap = Decimal(rev_matched.cap)\n        # swap graph to updated state\n        graph = copy.deepcopy(graph)\n        # record intermediate state\n        intermediate_graphs.append(copy.deepcopy(graph))\n        # record flows and totals: compute difference between original edge capacities and current capacities to get used flow\n        # We'll compute per original edges list to ensure keys match requirement \"[u,v]\"\n        used_this_round = defaultdict(Decimal)\n        for idx, e in enumerate(original_edges):\n            u,v,init_cap,_ = e\n            # find in current graph an edge from u to v with original cost to compute residual\n            found = None\n            for eg in graph[u]:\n                if eg.v == v:\n                    # match approximately by init cap + reverse cap possibly; use presence\n                    found = eg\n                    break\n            if found is not None:\n                used = Decimal(init_cap) - found.cap\n                if used > 0:\n                    used_this_round[(u,v)] += used\n        # accumulate into global flow distribution\n        for (u,v), val in used_this_round.items():\n            flow_distribution[f\"[{u},{v}]\"] += val\n        total_flow += f\n        total_cost += c\n        # if partial\n        if f < Decimal(trade.get(\"volume\")):\n            unfilled = Decimal(trade.get(\"volume\")) - f\n            partial_fills.append({\"volume_unfilled\": float(unfilled), \"source\": src, \"target\": tgt})\n\n    # Final formatting: convert Decimals to floats\n    fd_out = {}\n    # Remove zero flows\n    for k, v in flow_distribution.items():\n        fv = float(v)\n        if fv > 0:\n            fd_out[k] = fv\n\n    result = {\n        \"total_flow\": float(total_flow),\n        \"total_cost\": float(total_cost),\n        \"flow_distribution\": fd_out,\n        \"partial_fills\": partial_fills\n    }\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1806,
+    "input_tokens_details": {
+      "cached_tokens": 1792
+    },
+    "output_tokens": 2079,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3885
+  },
+  "user": null,
+  "metadata": {}
+}

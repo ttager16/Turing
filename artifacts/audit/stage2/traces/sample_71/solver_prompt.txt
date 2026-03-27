@@ -1,0 +1,99 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+A multinational logistics consortium is developing a City-Scale Dynamic Traffic Governance using only Python’s built-in data structures. The city is modeled as a directed, weighted adjacency map. The system must apply a batch of traffic updates (congestion changes and closures) and then compute an optimal route between two intersections. To ensure robust and deterministic routing, the system enforces a set of governance rules that affect feasibility, effective costs, and tie-breaking.
+
+
+### Objectives
+
+1. **Graph Initialization**
+   Construct a directed weighted graph as an adjacency dictionary:
+   * "city_map[u][v] = time" where "time" is a non-negative integer.
+
+2. **Dynamic Traffic Updates (Ordered, Last-Write-Wins)**
+   * If "w == 0", edge (u, v) is closed (kept but unusable).
+   * If "w > 0", edge (u, v) is open with travel time w.
+   * Multiple updates on the same edge use last-write-wins.
+   * Nodes mentioned anywhere in updates must exist afterward (even if isolated).
+   * Updates to (u, v) never imply anything about (v, u).
+
+3. **Real-time Pathfinding (Offline, Deterministic)**
+   After applying all updates, compute the least-cost route from start to end using Dijkstra (non-negative costs).
+
+
+### Constraints
+
+- Must be implemented in pure Python (no external libraries allowed).
+- If city_map is missing, immediately return []. If city_map is empty and updates is non-empty, construct nodes/edges from updates and proceed. If both are empty, return [].
+- updates must be provided (can be empty). If empty, perform route computation on the original graph without applying any modifications and updates must be a list of lists. otherwise immediately return []
+- If a self-loop or direct cycle (u, u) is found in either the initial city_map or the applied updates, the function must immediately return [] without performing any further processing
+- If start or end does not exist after updates, return [].
+- Return [] if no feasible route exists under the following rules:
+  * "Zero-time = Closed" Any edge with "time == 0" is closed and must be skipped.
+  * A node v is a sink if it has no open outgoing edges. Entering a sink that is not end adds "SINK_PENALTY = 10**6" to the cost of the incoming edge (keeps Dijkstra valid but discourages dead ends).
+  * If multiple routes have identical total cost, prefer (1) fewer hops, if still tied, prefer the lexicographically smallest full node sequence.
+
+
+### Function Signature
+
+```python
+def manage_traffic_graph(
+    city_map: Dict[str, Dict[str, int]],
+    updates: List[List], # list of lists [str, str, int]
+    start: str,
+    end: str
+) -> List[str]:
+```
+
+
+### Sample Input/Output
+
+* **Input**:
+```python
+city_map = {
+  "A": {"B": 5, "C": 2},
+  "B": {"D": 3, "E": 1},
+  "C": {"B": 8, "F": 2},
+  "D": {"G": 4},
+  "E": {"F": 6},
+  "F": {"G": 5},
+  "G": {"A": 10}
+}
+updates = [
+  ["B", "E", 10],
+  ["E", "F", 0],
+  ["C", "B", 12]
+]
+start = "A"
+end =  "G"
+```
+
+* **Expected Output**:
+```
+["A", "C", "F", "G"]
+```
+
+
+### Expected Output Format
+Return a list of strings representing the sequence of intersections in the computed path from start to end, after applying updates and enforcing all rules. Return [] if no feasible path exists.
+
+Starter Code:
+```python
+from typing import Dict, List
+import heapq
+
+def manage_traffic_graph(
+    city_map: Dict[str, Dict[str, int]],
+    updates: List[List],
+    start: str,
+    end: str
+) -> List[str]:
+```

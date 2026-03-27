@@ -1,0 +1,316 @@
+from collections import defaultdict, deque
+
+def main(num_variables, clauses, clause_weights, forced_assignments, optimization_mode, cardinality_constraints):
+    # Validation step 1: num_variables
+    if not isinstance(num_variables, int) or not (1 <= num_variables <= 5000):
+        return {"error": "num_variables must be integer between 1 and 5000"}
+    # Validation step 2: clauses
+    if not isinstance(clauses, list) or not (0 <= len(clauses) <= 50000):
+        return {"error": "clauses must be list with length 0 to 50000"}
+    # Validate clauses and literals
+    for cl in clauses:
+        if not isinstance(cl, list) or len(cl) != 2:
+            return {"error": "each clause must contain exactly 2 literals"}
+        seen_vars = set()
+        for lit in cl:
+            if not (isinstance(lit, list) and len(lit) == 2):
+                return {"error": "each literal must be list [variable_index, is_negated]"}
+            var_idx, is_neg = lit
+            if not isinstance(var_idx, int) or not (0 <= var_idx <= num_variables - 1):
+                return {"error": "variable_index must be integer in range [0, num_variables-1]"}
+            if not isinstance(is_neg, bool):
+                return {"error": "is_negated must be boolean True or False"}
+            if var_idx in seen_vars:
+                return {"error": "clause cannot contain same variable twice"}
+            seen_vars.add(var_idx)
+    # clause_weights validation
+    if not isinstance(clause_weights, list) or len(clause_weights) != len(clauses):
+        return {"error": "clause_weights length must equal clauses length"}
+    for w in clause_weights:
+        if not isinstance(w, int) or not (1 <= w <= 1000):
+            return {"error": "each weight must be integer between 1 and 1000"}
+    # forced_assignments validation
+    if not isinstance(forced_assignments, dict):
+        return {"error": "forced_assignments must be dictionary"}
+    forced_assignments_int = {}
+    for k, v in forced_assignments.items():
+        if not isinstance(k, str):
+            return {"error": "forced_assignments keys must represent integers in range [0, num_variables-1]"}
+        try:
+            ki = int(k)
+        except:
+            return {"error": "forced_assignments keys must represent integers in range [0, num_variables-1]"}
+        if not (0 <= ki <= num_variables - 1):
+            return {"error": "forced_assignments keys must represent integers in range [0, num_variables-1]"}
+        if not isinstance(v, bool):
+            return {"error": "forced_assignments values must be boolean"}
+        forced_assignments_int[ki] = v
+    forced_assignments = forced_assignments_int
+    # optimization_mode
+    if optimization_mode not in ("satisfiability", "weighted"):
+        return {"error": "optimization_mode must be 'satisfiability' or 'weighted'"}
+    # cardinality_constraints validation
+    if not isinstance(cardinality_constraints, list):
+        return {"error": "cardinality_constraints must be list"}
+    for c in cardinality_constraints:
+        if not isinstance(c, dict) or 'variables' not in c or 'count' not in c:
+            return {"error": "each cardinality constraint must have 'variables' and 'count' keys"}
+        vars_list = c['variables']
+        cnt = c['count']
+        if not isinstance(vars_list, list):
+            return {"error": "cardinality constraint 'variables' must be list"}
+        if not isinstance(cnt, int):
+            return {"error": "cardinality constraint 'count' must be integer"}
+        if len(vars_list) == 0:
+            return {"error": "cardinality constraint 'variables' cannot be empty"}
+        if len(set(vars_list)) != len(vars_list):
+            return {"error": "cardinality constraint 'variables' cannot have duplicates"}
+        if cnt < 0:
+            return {"error": "cardinality constraint 'count' cannot be negative"}
+        if cnt > len(vars_list):
+            return {"error": "cardinality constraint 'count' cannot exceed variable count"}
+        for vi in vars_list:
+            if not isinstance(vi, int) or not (0 <= vi <= num_variables - 1):
+                return {"error": "cardinality constraint variable indices must be in range [0, num_variables-1]"}
+    # Pre-solve cardinality check with forced_assignments
+    for c in cardinality_constraints:
+        vars_list = c['variables']
+        cnt = c['count']
+        forced_true = sum(1 for v in vars_list if forced_assignments.get(v) is True)
+        forced_false = sum(1 for v in vars_list if forced_assignments.get(v) is False)
+        unforced = len(vars_list) - forced_true - forced_false
+        if forced_true > cnt:
+            return {"error": "cardinality constraints conflict with forced_assignments"}
+        if forced_true + unforced < cnt:
+            return {"error": "cardinality constraints conflict with forced_assignments"}
+    # Build implication graph
+    N = num_variables
+    V = 2 * N
+    def var_pos(i): return 2 * i
+    def var_neg(i): return 2 * i + 1
+    g = [[] for _ in range(V)]
+    grev = [[] for _ in range(V)]
+    edge_count = 0
+    for idx, cl in enumerate(clauses):
+        (a_idx, a_neg), (b_idx, b_neg) = cl[0], cl[1]
+        # a OR b => (¬a -> b) and (¬b -> a)
+        a_lit = var_neg(a_idx) if not a_neg else var_pos(a_idx)
+        a_target = var_pos(a_idx) if not a_neg else var_neg(a_idx)
+        b_lit = var_neg(b_idx) if not b_neg else var_pos(b_idx)
+        b_target = var_pos(b_idx) if not b_neg else var_neg(b_idx)
+        # add ¬a -> b
+        g[a_lit].append(b_target); grev[b_target].append(a_lit); edge_count += 1
+        # add ¬b -> a
+        g[b_lit].append(a_target); grev[a_target].append(b_lit); edge_count += 1
+    # For each forced assignment, add edge from opposite literal to same literal to enforce?
+    # Spec: "add edges making opposite literal unreachable." We'll add edge (opp -> forced) so opp implies forced.
+    for i, val in forced_assignments.items():
+        if val:
+            f_from = var_neg(i)
+            f_to = var_pos(i)
+        else:
+            f_from = var_pos(i)
+            f_to = var_neg(i)
+        g[f_from].append(f_to); grev[f_to].append(f_from); edge_count += 1
+    # Kosaraju
+    visited = [False] * V
+    order = []
+    def dfs1(u):
+        visited[u] = True
+        for w in g[u]:
+            if not visited[w]:
+                dfs1(w)
+        order.append(u)
+    for u in range(V):
+        if not visited[u]:
+            dfs1(u)
+    comp = [-1] * V
+    cid = 0
+    def dfs2(u, c):
+        comp[u] = c
+        for w in grev[u]:
+            if comp[w] == -1:
+                dfs2(w, c)
+    for u in reversed(order):
+        if comp[u] == -1:
+            dfs2(u, cid)
+            cid += 1
+    scc_count = cid
+    # Check 2-SAT satisfiability
+    for i in range(N):
+        if comp[var_pos(i)] == comp[var_neg(i)]:
+            # unsatisfiable
+            return {
+                "satisfiable": False,
+                "assignment": [],
+                "satisfied_clauses": 0,
+                "total_weight": 0,
+                "unsatisfied_clauses": list(range(len(clauses))),
+                "strongly_connected_components": scc_count,
+                "implication_graph_edges": edge_count,
+                "cardinality_satisfied": False,
+                "cardinality_details": [
+                    {"constraint_index": idx, "satisfied": False, "assigned_count": 0, "required_count": c['count']}
+                    for idx, c in enumerate(cardinality_constraints)
+                ],
+                "conflict_clusters": [[cl[0][0], cl[1][0]] for cl in clauses],
+                "forced_assignments_applied": len(forced_assignments)
+            }
+    # Base assignment
+    assign = [False] * N
+    for i in range(N):
+        assign[i] = comp[var_pos(i)] > comp[var_neg(i)]
+    # Apply forced assignments
+    for i, v in forced_assignments.items():
+        assign[i] = v
+    # Check cardinality satisfaction
+    card_details = []
+    card_ok = True
+    for idx, c in enumerate(cardinality_constraints):
+        cnt_req = c['count']
+        assigned_true = sum(1 for v in c['variables'] if assign[v])
+        sat = (assigned_true == cnt_req)
+        card_details.append({"constraint_index": idx, "satisfied": sat, "assigned_count": assigned_true, "required_count": cnt_req})
+        if not sat:
+            card_ok = False
+    if not card_ok:
+        return {
+            "satisfiable": False,
+            "assignment": [],
+            "satisfied_clauses": 0,
+            "total_weight": 0,
+            "unsatisfied_clauses": list(range(len(clauses))),
+            "strongly_connected_components": scc_count,
+            "implication_graph_edges": edge_count,
+            "cardinality_satisfied": False,
+            "cardinality_details": card_details,
+            "conflict_clusters": [[cl[0][0], cl[1][0]] for cl in clauses],
+            "forced_assignments_applied": len(forced_assignments)
+        }
+    # Evaluate clauses
+    satisfied = []
+    unsatisfied = []
+    total_w = 0
+    for idx, cl in enumerate(clauses):
+        (a_idx, a_neg), (b_idx, b_neg) = cl[0], cl[1]
+        aval = (not a_neg) and assign[a_idx] or (a_neg and not assign[a_idx])
+        bval = (not b_neg) and assign[b_idx] or (b_neg and not assign[b_idx])
+        if aval or bval:
+            satisfied.append(idx)
+            total_w += clause_weights[idx]
+        else:
+            unsatisfied.append(idx)
+    # Conflict clusters from unsatisfied clauses: unordered unique pairs
+    clusters_set = set()
+    conflict_clusters = []
+    for idx in unsatisfied:
+        a_idx = clauses[idx][0][0]
+        b_idx = clauses[idx][1][0]
+        pair = tuple(sorted((a_idx, b_idx)))
+        if pair not in clusters_set:
+            clusters_set.add(pair)
+            conflict_clusters.append([pair[0], pair[1]])
+    # Local search for weighted mode
+    if optimization_mode == "weighted":
+        # helper to check cardinality constraints with a potential flip
+        def flip_valid(i):
+            # flipping will toggle assign[i]
+            for c in cardinality_constraints:
+                if i in c['variables']:
+                    assigned_true = sum(1 for v in c['variables'] if assign[v])
+                    if assign[i]:
+                        assigned_true -= 1
+                    else:
+                        assigned_true += 1
+                    if assigned_true != c['count']:
+                        return False
+            return True
+        improved = True
+        iters = 0
+        while improved and iters < 100:
+            improved = False
+            iters += 1
+            for i in range(N):
+                if i in forced_assignments:
+                    continue
+                if not flip_valid(i):
+                    continue
+                # compute weight delta
+                delta = 0
+                for idx, cl in enumerate(clauses):
+                    (a_idx, a_neg), (b_idx, b_neg) = cl[0], cl[1]
+                    def lit_val(var_idx, is_neg, assign_local):
+                        return (not is_neg) and assign_local[var_idx] or (is_neg and not assign_local[var_idx])
+                    before = (lit_val(a_idx, a_neg, assign) or lit_val(b_idx, b_neg, assign))
+                    assign[i] = not assign[i]
+                    after = (lit_val(a_idx, a_neg, assign) or lit_val(b_idx, b_neg, assign))
+                    assign[i] = not assign[i]
+                    if before and not after:
+                        delta -= clause_weights[idx]
+                    elif not before and after:
+                        delta += clause_weights[idx]
+                if delta > 0:
+                    assign[i] = not assign[i]
+                    # restart scanning
+                    improved = True
+                    break
+    # Final evaluation after possible optimization
+    satisfied = []
+    unsatisfied = []
+    total_w = 0
+    for idx, cl in enumerate(clauses):
+        (a_idx, a_neg), (b_idx, b_neg) = cl[0], cl[1]
+        aval = (not a_neg) and assign[a_idx] or (a_neg and not assign[a_idx])
+        bval = (not b_neg) and assign[b_idx] or (b_neg and not assign[b_idx])
+        if aval or bval:
+            satisfied.append(idx)
+            total_w += clause_weights[idx]
+        else:
+            unsatisfied.append(idx)
+    clusters_set = set()
+    conflict_clusters = []
+    for idx in unsatisfied:
+        a_idx = clauses[idx][0][0]
+        b_idx = clauses[idx][1][0]
+        pair = tuple(sorted((a_idx, b_idx)))
+        if pair not in clusters_set:
+            clusters_set.add(pair)
+            conflict_clusters.append([pair[0], pair[1]])
+    # Recompute cardinality details
+    card_details = []
+    card_ok = True
+    for idx, c in enumerate(cardinality_constraints):
+        cnt_req = c['count']
+        assigned_true = sum(1 for v in c['variables'] if assign[v])
+        sat = (assigned_true == cnt_req)
+        card_details.append({"constraint_index": idx, "satisfied": sat, "assigned_count": assigned_true, "required_count": cnt_req})
+        if not sat:
+            card_ok = False
+    # If cardinality violated now, treat unsat per spec
+    if not card_ok:
+        return {
+            "satisfiable": False,
+            "assignment": [],
+            "satisfied_clauses": 0,
+            "total_weight": 0,
+            "unsatisfied_clauses": list(range(len(clauses))),
+            "strongly_connected_components": scc_count,
+            "implication_graph_edges": edge_count,
+            "cardinality_satisfied": False,
+            "cardinality_details": card_details,
+            "conflict_clusters": conflict_clusters,
+            "forced_assignments_applied": len(forced_assignments)
+        }
+    return {
+        "satisfiable": True,
+        "assignment": assign,
+        "satisfied_clauses": len(satisfied),
+        "total_weight": total_w,
+        "unsatisfied_clauses": unsatisfied,
+        "strongly_connected_components": scc_count,
+        "implication_graph_edges": edge_count,
+        "cardinality_satisfied": True,
+        "cardinality_details": card_details,
+        "conflict_clusters": conflict_clusters,
+        "forced_assignments_applied": len(forced_assignments)
+    }

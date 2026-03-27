@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[[\"union\", 99, 199, null], [\"union\", 299, 399, null], [\"union\", 99, 299, null], [\"find\", 99, 399, null], [\"union\", 99, 499, null], [\"find\", 99, 499, null], [\"union\", 99, 123, null], [\"find\", 123, 199, null], [\"find_versioned\", 99, 499, 4], [\"find_versioned\", 99, 499, 5]]",
+    "output_text": "[\"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"False\", \"False\", \"False\", \"True\"]"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[[\"split\", 5, 5, null], [\"split\", 6, 7, null], [\"union\", 6, 7, null], [\"split\", 6, 7, null], [\"find\", 6, 7, null], [\"union\", 6, 8, null], [\"union\", 6, 7, null], [\"split\", 6, 7, null], [\"find_versioned\", 6, 7, 4], [\"find_versioned\", 6, 7, 5], [\"find_versioned\", 6, 7, 6]]",
+    "output_text": "[\"False\", \"False\", \"True\", \"True\", \"False\", \"True\", \"True\", \"True\", \"False\", \"False\", \"False\"]"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[[\"union\", 0, 200, null], [\"union\", 100, 300, null], [\"union\", 0, 100, null], [\"find\", 0, 300, null], [\"split\", 0, 300, null], [\"find\", 0, 300, null], [\"union\", 0, 0, null], [\"split\", 0, 0, null], [\"find_versioned\", 0, 300, 3], [\"find_versioned\", 0, 300, 4], [\"union\", 1999, 1899, null], [\"union\", 1799, 1699, null], [\"union\", 1999, 1799, null], [\"union\", 1999, 1599, null], [\"union\", 1999, 1499, null], [\"find\", 1999, 1499, null], [\"find_versioned\", 1999, 1599, 8], [\"find_versioned\", 1999, 1499, 9], [\"find_versioned\", 1999, 1499, 8]]",
+    "output_text": "[\"True\", \"True\", \"True\", \"True\", \"True\", \"False\", \"True\", \"False\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"False\", \"False\", \"False\", \"False\", \"False\"]"
+  }
+]

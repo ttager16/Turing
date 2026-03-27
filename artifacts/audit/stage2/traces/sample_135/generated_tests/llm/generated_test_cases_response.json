@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN7cj4iUNeNtqxsI6yTkAsqv0VfLM",
+  "object": "chat.completion",
+  "created": 1774403221,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[]\",\n        \"[]\",\n        \"1\",\n        \"2\"\n      ],\n      \"focus\": \"Empty graph_nodes triggers 'Empty graph provided' validation\"\n    },\n    {\n      \"input_lines\": [\n        \"[1, 2, 3]\",\n        \"[{\\\"from_node\\\": 1, \\\"to_node\\\": 2, \\\"scenarios\\\": [{\\\"travel_time\\\": 5.0, \\\"probability\\\": 0.5}, {\\\"travel_time\\\": 10.0, \\\"probability\\\": 0.49}], \\\"edge_id\\\": 201}, {\\\"from_node\\\": 2, \\\"to_node\\\": 3, \\\"scenarios\\\": [{\\\"travel_time\\\": 2.0, \\\"probability\\\": 1.0}], \\\"edge_id\\\": 202}]\",\n        \"1\",\n        \"3\"\n      ],\n      \"focus\": \"Edge scenario probabilities slightly off (0.99) to test probability-sum tolerance and floating precision handling\"\n    },\n    {\n      \"input_lines\": [\n        \"[1, 2, 3, 4]\",\n        \"[{\\\"from_node\\\": 1, \\\"to_node\\\": 2, \\\"scenarios\\\": [{\\\"travel_time\\\": 2.0, \\\"probability\\\": 0.5}, {\\\"travel_time\\\": 4.0, \\\"probability\\\": 0.5}], \\\"edge_id\\\": 401}, {\\\"from_node\\\": 2, \\\"to_node\\\": 4, \\\"scenarios\\\": [{\\\"travel_time\\\": 2.0, \\\"probability\\\": 0.5}, {\\\"travel_time\\\": 4.0, \\\"probability\\\": 0.5}], \\\"edge_id\\\": 402}, {\\\"from_node\\\": 1, \\\"to_node\\\": 3, \\\"scenarios\\\": [{\\\"travel_time\\\": 1.0, \\\"probability\\\": 0.5}, {\\\"travel_time\\\": 5.0, \\\"probability\\\": 0.5}], \\\"edge_id\\\": 403}, {\\\"from_node\\\": 3, \\\"to_node\\\": 4, \\\"scenarios\\\": [{\\\"travel_time\\\": 2.0, \\\"probability\\\": 0.5}, {\\\"travel_time\\\": 4.0, \\\"probability\\\": 0.5}], \\\"edge_id\\\": 404}]\",\n        \"1\",\n        \"4\"\n      ],\n      \"focus\": \"Two distinct paths with identical expected score to test deterministic lexicographic tie-breaking and scenario-consistency checks\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3474,
+    "completion_tokens": 2599,
+    "total_tokens": 6073,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2048,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

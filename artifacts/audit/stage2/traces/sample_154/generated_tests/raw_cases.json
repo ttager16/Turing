@@ -1,0 +1,77 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      "AAAAAAAA",
+      [
+        [
+          0,
+          7
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          7,
+          7
+        ]
+      ]
+    ],
+    "input_lines": [
+      "\"AAAAAAAA\"",
+      "[[0, 7], [2, 4], [7, 7]]"
+    ],
+    "focus": "Repetitive single-character string producing all palindrome lengths 1..8; tests full-range, sub-range, and single-index queries."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      "ab1!1baXYZZZYXabcba",
+      [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          1,
+          1
+        ]
+      ]
+    ],
+    "input_lines": [
+      "\"ab1!1baXYZZZYXabcba\"",
+      "[[0, 3], [2, 3], [1, 1]]"
+    ],
+    "focus": "Mixed alphanumeric and special characters with overlapping palindromes (e.g., '1!1', 'ab1!1ba', 'XYZZZYX', 'abcba'); checks detection of varied palindrome lengths and small-range queries."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJKLMNOPQRSZSRQPONMLKJIHGFEDCBAJIHGFEDCBAJIHGFEDCBAJIHGFEDCBA",
+      [
+        [
+          0,
+          49
+        ],
+        [
+          10,
+          20
+        ],
+        [
+          49,
+          49
+        ]
+      ]
+    ],
+    "input_lines": [
+      "\"ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJKLMNOPQRSZSRQPONMLKJIHGFEDCBAJIHGFEDCBAJIHGFEDCBAJIHGFEDCBA\"",
+      "[[0, 49], [10, 20], [49, 49]]"
+    ],
+    "focus": "Large odd-length full-string palindrome (length 99) constructed by mirroring a 49-char base with a center char; stresses performance and wide-range LCM queries across many unique odd palindrome lengths."
+  }
+]

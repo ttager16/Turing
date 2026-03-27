@@ -1,0 +1,150 @@
+from typing import Dict, List, Union, Set, Tuple
+import ast
+
+def dynamic_mst(
+    graph: Dict[str, int],
+    updates: List[List[Union[List[int], Union[int, str]]]]
+) -> List[List[int]]:
+    # Parse initial graph into mapping from tuple to cost and maintain status
+    # key: (layer, a, b) with a<=b
+    def norm(edge):
+        l, u, v = edge
+        if u <= v:
+            return (l, u, v)
+        return (l, v, u)
+    edges_cost: Dict[Tuple[int,int,int], int] = {}
+    mandatory: Set[Tuple[int,int,int]] = set()
+    prohibited: Set[Tuple[int,int,int]] = set()
+    nodes: Set[int] = set()
+    for k, cost in graph.items():
+        e = tuple(ast.literal_eval(k))
+        ne = norm(e)
+        edges_cost[ne] = cost
+        nodes.add(ne[1]); nodes.add(ne[2])
+    # Apply updates sequentially, updating edges_cost and status
+    for upd in updates:
+        e_raw, val = upd
+        e = tuple(e_raw)
+        ne = norm(e)
+        if isinstance(val, int):
+            # cost update or new conduit
+            edges_cost[ne] = val
+            nodes.add(ne[1]); nodes.add(ne[2])
+        elif isinstance(val, str):
+            if val == "MANDATORY":
+                mandatory.add(ne)
+                # ensure it's present in edges_cost (if missing, add with cost 0)
+                if ne not in edges_cost:
+                    edges_cost[ne] = 0
+                    nodes.add(ne[1]); nodes.add(ne[2])
+                # remove from prohibited if existed
+                prohibited.discard(ne)
+            elif val == "PROHIBITED":
+                prohibited.add(ne)
+                # remove from mandatory if existed
+                mandatory.discard(ne)
+            else:
+                # ignore unknown directive
+                pass
+    # Constraint: if two conduits connect same intersections in different layers, only one active at a time.
+    # We'll treat nodes by their node ids only (layers separate edges). For that constraint,
+    # when building MST, ensure at most one edge between same node-pair chosen.
+    # Build list of candidate edges excluding prohibited
+    candidates = []
+    for e, c in edges_cost.items():
+        if e in prohibited:
+            continue
+        candidates.append((c, e))
+    # Kruskal-like with mandatory edges forced first
+    parent = {}
+    rank = {}
+    def find(x):
+        parent.setdefault(x, x)
+        if parent[x] != x:
+            parent[x] = find(parent[x])
+        return parent[x]
+    def union(x, y):
+        rx, ry = find(x), find(y)
+        if rx == ry:
+            return False
+        if rank.get(rx,0) < rank.get(ry,0):
+            parent[rx] = ry
+        else:
+            parent[ry] = rx
+            if rank.get(rx,0) == rank.get(ry,0):
+                rank[rx] = rank.get(rx,0) + 1
+        return True
+    # initialize parent for all nodes
+    for n in nodes:
+        parent[n] = n
+        rank[n] = 0
+    result_set: Set[Tuple[int,int,int]] = set()
+    used_nodepairs: Set[Tuple[int,int]] = set()  # to enforce only one edge per node-pair across layers
+    # First include mandatory edges if they don't violate node-pair uniqueness; if conflict, pick the mandatory and remove others
+    for me in list(mandatory):
+        if me in prohibited:
+            # prohibited overrides mandatory: cannot include; but constraints said mandatory cannot be removed.
+            # We'll ignore prohibited in presence of mandatory by removing prohibition.
+            prohibited.discard(me)
+        a,b = me[1], me[2]
+        nodepair = (min(a,b), max(a,b))
+        # If another mandatory exists for same pair in different layer, keep the cheaper one
+        conflicts = [m for m in mandatory if (min(m[1],m[2]),max(m[1],m[2]))==nodepair]
+        if len(conflicts) > 1:
+            # choose the mandatory with smallest cost
+            best = min(conflicts, key=lambda x: edges_cost.get(x, 0))
+            # remove other mandatories
+            for oc in conflicts:
+                if oc != best:
+                    mandatory.discard(oc)
+        # Now include if it doesn't form cycle; but mandatory must be included even if creates cycle -> but constraints say mandatory cannot be removed.
+        # To keep graph spanning and valid, we include mandatory even if cycle; however spanning tree needs no cycles.
+        # We'll include mandatory edges but ensure final set connects all nodes; if cycles due to mandates exist, they stay.
+        result_set.add(me)
+        used_nodepairs.add(nodepair)
+        union(a,b)
+    # Now process remaining edges sorted by cost
+    candidates.sort()
+    for cost, e in candidates:
+        if e in mandatory:
+            continue  # already added
+        nodepair = (min(e[1],e[2]), max(e[1],e[2]))
+        if nodepair in used_nodepairs:
+            continue  # cannot add another edge for same node-pair
+        # skip if prohibited (already filtered)
+        # try to add if connects components
+        if union(e[1], e[2]):
+            result_set.add(e)
+            used_nodepairs.add(nodepair)
+    # After building, ensure connectivity: all nodes connected? If not, try to add edges even if they create cycles or from mandatory leftover, respecting prohibition and nodepair rule.
+    # Attempt to connect components by adding cheapest remaining edges that respect nodepair uniqueness and not prohibited.
+    # Recompute components
+    comps = {}
+    for n in nodes:
+        comps.setdefault(find(n), []).append(n)
+    if len(comps) > 1:
+        # list remaining edges (including those that would create cycles but between different components)
+        remaining = []
+        for e, c in edges_cost.items():
+            if e in prohibited:
+                continue
+            if e in result_set:
+                continue
+            nodepair = (min(e[1],e[2]), max(e[1],e[2]))
+            if nodepair in used_nodepairs:
+                continue
+            remaining.append((c, e))
+        remaining.sort()
+        for cost, e in remaining:
+            if union(e[1], e[2]):
+                result_set.add(e)
+                used_nodepairs.add((min(e[1],e[2]), max(e[1],e[2])))
+            # stop if connected
+            roots = set(find(n) for n in nodes)
+            if len(roots) == 1:
+                break
+    # Final check: if still not connected, include mandatory/prohibited conflicts resolution: try to add prohibited edges only if needed? But prohibited cannot be used.
+    # If cannot connect due to prohibitions, we return the best we can (as per constraints, inputs should allow connectivity).
+    # Return result as list of lists
+    out = [ [e[0], e[1], e[2]] for e in result_set ]
+    return out

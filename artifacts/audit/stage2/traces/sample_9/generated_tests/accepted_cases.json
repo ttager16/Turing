@@ -1,0 +1,12 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "{\"performance_history\": [70, 70, 70], \"engagement_over_time\": [\"low\", \"low\"], \"preferences\": {\"format\": [\"video\"], \"topic_focus\": [\"history\"]}}\n[{\"id\": 201, \"type\": \"video\", \"subject\": \"history\"}, {\"id\": 202, \"type\": \"video\", \"subject\": \"geography\", \"difficulty\": 2}, {\"id\": 203, \"type\": \"text\", \"subject\": \"history\", \"difficulty\": 4}]\n{}",
+    "output_text": "{\"learning_path\": [{\"module_id\": 201, \"allocated_flow_cost\": 45.54, \"updated_difficulty\": 2.86}, {\"module_id\": 202, \"allocated_flow_cost\": 27.18, \"updated_difficulty\": 1.86}, {\"module_id\": 203, \"allocated_flow_cost\": 27.28, \"updated_difficulty\": 3.86}]}"
+  },
+  {
+    "case_index": 2,
+    "input_text": "{\"id\": \"user-αβ\", \"performance_history\": [60], \"engagement_over_time\": [\"medium\"], \"preferences\": {\"format\": [\"interactive\"], \"topic_focus\": [\"physics\"]}, \"current_path_tree\": {\"node\": 1, \"children\": [{\"node\": 5, \"children\": [{\"node\": 7, \"children\": []}]}, {\"node\": 6, \"children\": []}]}}\n[{\"id\": 401, \"type\": \"interactive\", \"subject\": \"physics\", \"difficulty\": 5}, {\"id\": 402, \"type\": \"interactive\", \"subject\": \"chemistry\", \"difficulty\": 6}, {\"id\": 403, \"type\": \"lecture\", \"subject\": \"physics\"}]\n{\"max_flow_cost\": 75.5, \"priority_subjects\": [\"physics\"], \"max_difficulty_spread\": 1}",
+    "output_text": "{\"learning_path\": [{\"module_id\": 401, \"allocated_flow_cost\": 32.83, \"updated_difficulty\": 5.08}, {\"module_id\": 402, \"allocated_flow_cost\": 20.03, \"updated_difficulty\": 5.24}, {\"module_id\": 403, \"allocated_flow_cost\": 22.64, \"updated_difficulty\": 4.24}]}"
+  }
+]

@@ -1,0 +1,195 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        [
+          1600,
+          "B1|txX",
+          50.0
+        ],
+        [
+          1600,
+          "B2|txX",
+          50.0
+        ],
+        [
+          1500,
+          "B3|txY",
+          25.0
+        ],
+        [
+          1600,
+          "B4|txZ",
+          75.0
+        ],
+        [
+          1600,
+          "B4|txZ",
+          75.0
+        ],
+        [
+          1700,
+          "B_nomark",
+          30.0
+        ],
+        [
+          1600,
+          "txPlain",
+          15.0
+        ]
+      ],
+      [
+        [
+          1400,
+          1499
+        ],
+        [
+          1500,
+          1600
+        ],
+        [
+          1600,
+          1600
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[1600, \"B1|txX\", 50.0], [1600, \"B2|txX\", 50.0], [1500, \"B3|txY\", 25.0], [1600, \"B4|txZ\", 75.0], [1600, \"B4|txZ\", 75.0], [1700, \"B_nomark\", 30.0], [1600, \"txPlain\", 15.0]]",
+      "[[1400, 1499], [1500, 1600], [1600, 1600]]"
+    ],
+    "focus": "Branch-prefixed IDs vs plain IDs, cross-branch duplicate canonicalization, same-timestamp node merging, out-of-order arrival, and exact/empty query ranges."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        [
+          1000000,
+          "tx1",
+          100.0
+        ],
+        [
+          1000000,
+          "tx2",
+          200.0
+        ],
+        [
+          1000000,
+          "B1|tx3",
+          300.0
+        ],
+        [
+          1000000,
+          "tx1",
+          150.0
+        ],
+        [
+          1000000,
+          "B1|tx3",
+          300.0
+        ],
+        [
+          1000000,
+          "TxCase",
+          400.0
+        ],
+        [
+          999999,
+          "earlier",
+          50.0
+        ]
+      ],
+      [
+        [
+          1000000,
+          1000000
+        ],
+        [
+          1000001,
+          1000002
+        ],
+        [
+          2000000,
+          1000000
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[1000000, \"tx1\", 100.0], [1000000, \"tx2\", 200.0], [1000000, \"B1|tx3\", 300.0], [1000000, \"tx1\", 150.0], [1000000, \"B1|tx3\", 300.0], [1000000, \"TxCase\", 400.0], [999999, \"earlier\", 50.0]]",
+      "[[1000000, 1000000], [1000001, 1000002], [2000000, 1000000]]"
+    ],
+    "focus": "All transactions share identical timestamps (single AVL node), duplicates among them, case-sensitivity, out-of-order earlier timestamp, and invalid (start>end) query handling."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        [
+          50,
+          "a1",
+          10.5
+        ],
+        [
+          40,
+          "b1",
+          20.25
+        ],
+        [
+          45,
+          "c1",
+          30.75
+        ],
+        [
+          45,
+          "c2",
+          5.125
+        ],
+        [
+          60,
+          "d1",
+          1000.0
+        ],
+        [
+          70,
+          "e1",
+          2000.0
+        ],
+        [
+          -100,
+          "B9|neg",
+          0.0
+        ],
+        [
+          80,
+          "dup",
+          1.0
+        ],
+        [
+          90,
+          "dup",
+          1.0
+        ]
+      ],
+      [
+        [
+          30,
+          60
+        ],
+        [
+          -200,
+          1000
+        ],
+        [
+          100,
+          200
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[50, \"a1\", 10.5], [40, \"b1\", 20.25], [45, \"c1\", 30.75], [45, \"c2\", 5.125], [60, \"d1\", 1000.0], [70, \"e1\", 2000.0], [-100, \"B9|neg\", 0.0], [80, \"dup\", 1.0], [90, \"dup\", 1.0]]",
+      "[[30, 60], [-200, 1000], [100, 200]]"
+    ],
+    "focus": "Timestamps arranged to trigger AVL rotation patterns (LR/RR/LL/RL if implemented), negative timestamp and branch with 'B', high-precision amounts, and duplicate detection."
+  }
+]

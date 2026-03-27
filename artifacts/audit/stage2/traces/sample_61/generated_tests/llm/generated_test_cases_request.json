@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: handle_orders\n\nProblem Statement:\n### Problem Statement\n\nA financial technology company is developing a high-frequency trading platform that requires efficient real-time data processing and analysis.\nThey need to implement an order matching engine capable of handling thousands of buy and sell orders per second while ensuring that the system remains balanced and performant under heavy load.\n\nTo achieve this, the company has decided to use an AVL tree, a self-balancing binary search tree structure, to store and retrieve orders based on price levels.\nThis design enables the system to insert, delete, and search orders in logarithmic time complexity, which is crucial for real-time performance in high-frequency trading environments.\n\nYour task is to implement a simplified version of this AVL-based order management system.\nThe system maintains a collection of integer price levels and supports the following operations:\n\n1. Insertion - add a new price level to the AVL tree.\n2. Deletion - remove an existing price level from the AVL tree.\n3. Search - check whether a specific price level exists and return it if present.\n\nAll operations must be processed sequentially.\nAfter each insertion or deletion, the AVL tree must remain height-balanced, with balance factors limited to {–1, 0, 1}.\n\n\n### Objectives\n\n1. Implement an AVL tree supporting deterministic insert, delete, and search operations in O(log n) time.\n2. Maintain height balance after every update using correct rotations (LL, RR, LR, RL).\n3. Accept operation names in any case form ('insert', 'INSERT', 'InSeRt', etc.) and handle them equivalently.\n4. Guarantee idempotence - duplicate inserts or deletes must produce consistent results.\n5. Ensure state isolation - every call starts with a new, empty tree.\n6. Preserve operation order integrity - produce one output per operation, in order.\n\n\n### Constraints\n\n* Use only the Python standard library, no external libraries are allowed.\n* Input Structure:\n  * The input is a list of lists, where each inner list represents one operation: [operation_type, value].\n  * Each inner list must contain exactly two elements, other return [].\n* operation_type must be a string, matching 'insert', 'delete', or 'search' (case-insensitive), on violation function must immediately return []\n* value must be an integer only (negative intergers are valid), if float or anyother type appears function must immediately return []\n* Behavioral Rules:\n  * 'insert': add the key if not already present; return None.\n  * 'delete': remove the key if present; return None.\n  * 'search': return the key if found, else None.\n  * Duplicate inserts must not create multiple copies.\n  * Deleting a missing key must not raise an error.\n  * After every insertion/deletion, the AVL tree must remain height-balanced using the appropriate rotations.\n  * Each function call must begin with a fresh AVL tree.\n* Complexity:\n  * All valid operations must run in O(log n) time.\n\n\n### Function Signature\n\n\n```python\ndef handle_orders(operations: List[List]) -> List:\n```\n\n\n### Sample Input/Output\n\nInput:\n```python\noperations = [\n  ['insert', 300],\n  ['insert', 450],\n  ['delete', 300],\n  ['search', 450]\n]\n```\n\nOutput:\n```\n[None, None, None, 450]\n```\n\n\n### Description of Expected Output\n\n* \"insert\" (in any case) adds the price level and returns None.\n* \"delete\" (in any case) removes the price level if present and returns None.\n* \"search\" (in any case) returns the integer if found, otherwise None\n\nStarter Code:\n```python\nfrom typing import List\n\ndef handle_orders(operations: List[List]) -> List:\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[[\\\"insert\\\", 300], [\\\"insert\\\", 450], [\\\"delete\\\", 300], [\\\"search\\\", 450]]\",\n    \"output\": \"[null, null, null, 450]\"\n  },\n  {\n    \"input\": \"[[\\\"InSeRt\\\", 10], [\\\"inserT\\\", 20], [\\\"SeArCh\\\", 10], [\\\"DElete\\\", 20], [\\\"SEARCH\\\", 20]]\",\n    \"output\": \"[null, null, 10, null, null]\"\n  },\n  {\n    \"input\": \"[[\\\"insert\\\", 5], [\\\"insert\\\", 5], [\\\"search\\\", 5], [\\\"delete\\\", 5], [\\\"search\\\", 5], [\\\"delete\\\", 5]]\",\n    \"output\": \"[null, null, 5, null, null, null]\"\n  }\n]\n"
+    }
+  ]
+}

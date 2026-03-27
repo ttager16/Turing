@@ -1,0 +1,76 @@
+{
+  "id": "resp_081a69d7836504bf0069c32d4b63fc819dafec2115f4c171fb",
+  "object": "response",
+  "created_at": 1774398795,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398812,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_081a69d7836504bf0069c32d4bb894819daaff31ad53fdc151",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_081a69d7836504bf0069c32d4bef54819dbc204106f9991934",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Tuple\n\ndef adaptive_heap_update(data_streams: List[List[List]]) -> List[str]:\n    # Validation\n    if not isinstance(data_streams, list) or len(data_streams) < 3:\n        return []\n    for ex in data_streams:\n        if not isinstance(ex, list):\n            return []\n        for item in ex:\n            if (not isinstance(item, list)) or len(item) != 3:\n                return []\n            sym, vol, volm = item\n            if not isinstance(sym, str) or not sym.isupper() or not sym.isalpha():\n                return []\n            if not (isinstance(vol, float) or isinstance(vol, int)):\n                return []\n            vol = float(vol)\n            if not (0.0 <= vol <= 1.0):\n                return []\n            if not isinstance(volm, int) or volm <= 0:\n                return []\n    # Helper: compute priority tuple for comparison (max-heap)\n    def make_priority(sym: str, volatility: float, volume: int) -> Tuple[float, float, str]:\n        p = volatility * (volume ** 0.25)\n        # Return tuple so that larger is better: (priority, volatility, negative lexicographic)\n        # For deterministic tie-break: higher volatility, then lexicographically smaller symbol.\n        # Since we want max-heap, we keep symbol as negative by using normal comparison: smaller symbol should be considered larger => we invert by using tuple with negative ords impossible; instead,\n        # We'll use (p, volatility, inverse symbol) where inverse symbol is negative by using \"-\" not possible. So to get lexicographically smaller preferred, we use symbol with negative ordering by using a tuple that compares symbol with reversed sign: use tuple (p, volatility, lexicographically_negated)\n        # Simpler: we'll return (p, volatility, inverse_rank) where inverse_rank is a string that sorts reversed: we use chr(255 - ord(c)) mapping to produce reversed order.\n        def inv(s):\n            return ''.join(chr(255 - ord(c)) for c in s)\n        return (p, volatility, inv(sym))\n    # Implement array-backed binary max-heap with manual sift-up/sift-down\n    class MaxHeap:\n        def __init__(self):\n            self.a = []\n        def push(self, key, value):\n            self.a.append((key, value))\n            self._sift_up(len(self.a)-1)\n        def pop(self):\n            if not self.a:\n                return None\n            top = self.a[0]\n            last = self.a.pop()\n            if self.a:\n                self.a[0] = last\n                self._sift_down(0)\n            return top\n        def peek(self):\n            return self.a[0] if self.a else None\n        def _sift_up(self, i):\n            while i>0:\n                p=(i-1)//2\n                if self.a[i][0] > self.a[p][0]:\n                    self.a[i], self.a[p] = self.a[p], self.a[i]\n                    i=p\n                else:\n                    break\n        def _sift_down(self, i):\n            n=len(self.a)\n            while True:\n                l=2*i+1; r=2*i+2; largest=i\n                if l<n and self.a[l][0] > self.a[largest][0]:\n                    largest=l\n                if r<n and self.a[r][0] > self.a[largest][0]:\n                    largest=r\n                if largest==i:\n                    break\n                self.a[i], self.a[largest] = self.a[largest], self.a[i]\n                i=largest\n        def __len__(self):\n            return len(self.a)\n    # Build per-exchange heaps\n    exch_heaps = []\n    for ex in data_streams:\n        h = MaxHeap()\n        for sym, volatility, volume in ex:\n            volatility = float(volatility)\n            key = make_priority(sym, volatility, volume)\n            h.push(key, (sym, volatility, volume))\n        exch_heaps.append(h)\n    # Global coordinator heap holds entries from exchanges: key includes priority and exchange index\n    # We'll store entries: key = (priority_tuple, exchange_index), value = (symbol, volatility, volume, version)\n    global_heap = MaxHeap()\n    # versioning per symbol: map symbol -> latest version id (incrementing int)\n    version = {}\n    ver_counter = 1\n    # Initialize by pushing top of each exchange heap\n    for idx, h in enumerate(exch_heaps):\n        top = h.pop()\n        if top:\n            key, (sym, volatility, volume) = top\n            vid = ver_counter; ver_counter += 1\n            version[sym] = vid\n            # Compose global key: priority tuple extended with exchange index negative to break ties deterministically\n            # We want deterministic cross-exchange tie-break: use exchange index smaller preferred? Not specified; keep by priority then volatility then symbol already encoded.\n            global_key = key + ( -idx, )\n            global_heap.push(global_key, (sym, volatility, volume, vid, idx))\n    result = []\n    seen_output = set()\n    # Extract until global heap empty\n    while len(global_heap) > 0:\n        top = global_heap.pop()\n        if top is None:\n            break\n        key, (sym, volatility, volume, vid, ex_idx) = top\n        # Check version staleness\n        if version.get(sym, None) != vid:\n            # stale, skip\n            # But we still need to advance from the exchange that provided this entry: pop next from that exchange and push\n            h = exch_heaps[ex_idx]\n            nxt = h.pop()\n            if nxt:\n                nkey, (nsym, nvolatility, nvolume) = nxt\n                nvid = ver_counter; ver_counter += 1\n                version[nsym] = nvid\n                global_key = nkey + ( -ex_idx, )\n                global_heap.push(global_key, (nsym, nvolatility, nvolume, nvid, ex_idx))\n            continue\n        # fresh entry: output symbol if not already output (deduplicate outputs)\n        if sym not in seen_output:\n            result.append(sym)\n            seen_output.add(sym)\n        # Advance from that exchange\n        h = exch_heaps[ex_idx]\n        nxt = h.pop()\n        if nxt:\n            nkey, (nsym, nvolatility, nvolume) = nxt\n            nvid = ver_counter; ver_counter += 1\n            version[nsym] = nvid\n            global_key = nkey + ( -ex_idx, )\n            global_heap.push(global_key, (nsym, nvolatility, nvolume, nvid, ex_idx))\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 847,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1460,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2307
+  },
+  "user": null,
+  "metadata": {}
+}

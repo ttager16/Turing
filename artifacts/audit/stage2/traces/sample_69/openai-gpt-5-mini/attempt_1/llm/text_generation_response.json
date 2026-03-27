@@ -1,0 +1,76 @@
+{
+  "id": "resp_0bac267010b9ea640069c32b835ee081a3961ed2e5206c2aa0",
+  "object": "response",
+  "created_at": 1774398339,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398357,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0bac267010b9ea640069c32b839c1c81a39fd46e387646a56d",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0bac267010b9ea640069c32b83c44481a3bd53c1a9b2f7fc92",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from decimal import Decimal, ROUND_HALF_UP\nfrom typing import Dict, List, Any\nimport math\n\ndef _round_half_up(n: float) -> int:\n    return int(Decimal(n).quantize(0, rounding=ROUND_HALF_UP))\n\ndef optimize_traffic_signals(\n    graph: Dict[str, List[str]],\n    traffic_data: List[Dict[str, Any]]\n) -> Dict[str, Any]:\n    # Validation\n    if not isinstance(graph, dict) or len(graph) == 0:\n        return {}\n    for k, v in graph.items():\n        if not isinstance(k, str) or k == \"\":\n            return {}\n        if not isinstance(v, list) or not all(isinstance(x, str) for x in v):\n            return {}\n    if not isinstance(traffic_data, list):\n        return {}\n    for rec in traffic_data:\n        if not isinstance(rec, dict) or \"intersection\" not in rec:\n            return {}\n\n    # Prepare combined node set\n    nodes = dict(graph)  # copy\n    # ensure outgoing lists are copies\n    for k in list(nodes.keys()):\n        nodes[k] = list(nodes[k])\n\n    # Parse traffic_data, validate records, group by intersection keeping preliminary rules\n    # For each record compute preliminary duration per rule, but we need neighbor-average fallback for missing data.\n    # First, separate records: valid records with fields (but traffic_density optional)\n    records_by_node = {}\n    for rec in traffic_data:\n        if not isinstance(rec, dict):\n            continue\n        inter = rec.get(\"intersection\")\n        if not isinstance(inter, str) or inter == \"\":\n            continue\n        # normalize fields\n        td = rec.get(\"traffic_density\", None)\n        if td is not None:\n            try:\n                td = float(td)\n            except Exception:\n                td = None\n        acc = rec.get(\"accidents\", [])\n        pr = rec.get(\"priority_requests\", [])\n        if acc is None:\n            acc = []\n        if pr is None:\n            pr = []\n        if not isinstance(acc, list) or not all(isinstance(x, str) for x in acc):\n            acc = None  # mark malformed\n        if not isinstance(pr, list) or not all(isinstance(x, str) for x in pr):\n            pr = None\n        # validate traffic_density range\n        if td is not None and not (0.0 <= td <= 1.0):\n            td = None  # treat as missing per instructions (malformed record ignored? spec: malformed records ignored, but here we can ignore only this record if any field wrong)\n        # If accidents/pr wrong types, treat record as malformed => skip record\n        if acc is None or pr is None:\n            continue\n        # Record considered valid (with possibly missing traffic_density)\n        records_by_node.setdefault(inter, []).append({\n            \"traffic_density\": td,\n            \"accidents\": list(acc),\n            \"priority_requests\": list(pr),\n            \"raw\": rec\n        })\n        if inter not in nodes:\n            nodes[inter] = []\n\n    # We'll compute preliminary durations for nodes that have at least one record with traffic_density present.\n    prelim = {}  # node -> chosen preliminary duration (float)\n    # For nodes with multiple records: compute each record's preliminary timing and keep lowest; tie-break EMERGENCY present; then last record.\n    for node, recs in records_by_node.items():\n        # If any rec has traffic_density is None, that rec is treated as \"no traffic data\" and should not produce preliminary duration; spec says missing traffic_density -> no traffic data (neighbor-average rule)\n        rec_prelims = []\n        for rec in recs:\n            td = rec[\"traffic_density\"]\n            if td is None:\n                rec_prelims.append(None)\n                continue\n            total = 20.0\n            total += 70.0 * td\n            if any(r == \"EMERGENCY\" for r in rec[\"priority_requests\"]):\n                total += 10.0\n            # If traffic_density > 0.7 and LANE_OUTAGE reported, halve total using floor division after emergency bonus\n            if td > 0.7 and any(a == \"LANE_OUTAGE\" for a in rec[\"accidents\"]):\n                # halve using floor division (integer division). It says halve the total (after emergency bonus) using floor division.\n                total = math.floor(total / 2)\n            rec_prelims.append(total)\n        # Choose per rules: keep record with lowest value among those that produced a value; if tied, prefer one containing EMERGENCY; if still tied, use last record.\n        candidates = []\n        for idx, val in enumerate(rec_prelims):\n            if val is not None:\n                candidates.append((val, idx, recs[idx]))\n        if candidates:\n            # find min value\n            minval = min(c[0] for c in candidates)\n            tied = [c for c in candidates if c[0] == minval]\n            if len(tied) == 1:\n                chosen = tied[0]\n            else:\n                # prefer one containing EMERGENCY\n                with_em = [t for t in tied if any(r == \"EMERGENCY\" for r in t[2][\"priority_requests\"])]\n                if with_em:\n                    # if multiple, choose last among them\n                    chosen = with_em[-1]\n                else:\n                    chosen = tied[-1]\n            prelim[node] = float(chosen[0])\n\n    # For nodes that exist but have no traffic data or whose records lacked traffic_density, use neighbor-average rule.\n    # We may need iterative computation because neighbor averages depend on outgoing neighbors' preliminary durations.\n    # Approach: initialize known set = prelim keys. For others that have at least one record but no td -> they count as \"without traffic data\". For nodes with no records also are without data.\n    all_nodes = set(nodes.keys())\n    known = set(prelim.keys())\n    unknown = all_nodes - known\n\n    # For unknown nodes, we need average of already-computed outgoing neighbors (half-up). If none known or no outgoing edges, use 45s.\n    # Since neighbor dependencies could chain, iterate until no change by computing those with any outgoing neighbor known.\n    prelim_values = dict(prelim)\n    changed = True\n    while changed:\n        changed = False\n        for node in list(unknown):\n            outs = nodes.get(node, [])\n            # compute average of already-computed outgoing neighbors\n            vals = [prelim_values[nbr] for nbr in outs if nbr in prelim_values]\n            if vals:\n                avg = sum(vals) / len(vals)\n                val = float(_round_half_up(avg))\n                prelim_values[node] = float(val)\n                known.add(node)\n                unknown.remove(node)\n                changed = True\n        # stop if no progress\n    # Any remaining unknown nodes -> set to 45\n    for node in list(unknown):\n        prelim_values[node] = 45.0\n\n    # Now union of graph keys and traffic-data intersections already accounted in nodes/all_nodes\n    final_nodes = sorted(all_nodes)\n\n    # Normalization: scale all durations so their mean (before rounding) equals 45 s.\n    durations = [prelim_values[n] for n in final_nodes]\n    if len(durations) == 0:\n        return {}\n    current_mean = sum(durations) / len(durations)\n    if current_mean == 0:\n        scale = 1.0\n    else:\n        scale = 45.0 / current_mean\n    scaled = [d * scale for d in durations]\n\n    # Round half-up and clamp 20-90\n    final_vals = {}\n    for node, val in zip(final_nodes, scaled):\n        r = _round_half_up(val)\n        if r < 20:\n            r = 20\n        if r > 90:\n            r = 90\n        final_vals[node] = r\n\n    # Determine overflow indicator per node:\n    result = {}\n    # We need traffic_density presence per node and whether EMERGENCY present\n    # For nodes with multiple records, traffic_density may be missing in some; spec: \"Intersections lacking traffic data consider only the first condition.\" I interpret lacking traffic data means no record with traffic_density.\n    td_info = {}\n    emergency_info = {}\n    for node in final_nodes:\n        recs = records_by_node.get(node, [])\n        has_td = False\n        max_td = None\n        has_em = False\n        for rec in recs:\n            td = rec[\"traffic_density\"]\n            if td is not None:\n                has_td = True\n                max_td = td  # last seen with td; but spec doesn't prescribe aggregation; we just need whether >0.75\n            if any(r == \"EMERGENCY\" for r in rec[\"priority_requests\"]):\n                has_em = True\n        td_info[node] = max_td if has_td else None\n        emergency_info[node] = has_em\n\n    for node in final_nodes:\n        timing = final_vals[node]\n        overflow = False\n        if timing < 30:\n            overflow = True\n        td = td_info.get(node)\n        if td is not None:\n            if td > 0.75 and not emergency_info.get(node, False):\n                overflow = True\n        result[node] = {\"signal_timing\": timing, \"overflow_indicator\": bool(overflow)}\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1276,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1987,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3263
+  },
+  "user": null,
+  "metadata": {}
+}

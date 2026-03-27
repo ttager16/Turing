@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: persistent_disjoint_set\n\nProblem Statement:\n### Problem Overview\n\nA multinational logistics alliance manages a **continuously evolving transportation network** spanning thousands of distribution hubs.\nEach operational change — creating a new route, adjusting capacity, disconnecting an overloaded path, or merging two strategic timelines — must be tracked in a **fully versioned history**.\n\nBecause different divisions experiment with alternative configurations, the system must support **branching** from any prior version, **merging** compatible versions, **splitting** routes, and **querying** both connectivity and route attributes (such as minimum and maximum capacities) — all while preserving full immutability of past states.\n\nYour task is to implement a **multi-version, attribute-aware disjoint-set (persistent union–find)** that supports branching timelines, merges under constraints, and attribute aggregation queries across many historical versions.\n\n---\n\n### Objectives\n\n1. **Persistent Multi-Version DSU**\n\n   * Maintain parent/rank information and route capacities across all versions using **structural sharing**.\n   * Every update (`union`, `split`, `branch`, `merge_versions`) must produce a **new immutable version** without copying the entire structure.\n\n2. **Branching and Merging Timelines**\n\n   * `branch(from_version)` creates a new independent version that inherits state from `from_version`.\n   * `merge_versions(vX, vY)` attempts to unify two versions into a new one if all overlapping routes satisfy the merge constraint (e.g., route capacity ≥ 0).\n\n3. **Attribute Propagation and Queries**\n\n   * Each added route carries an integer `capacity`.\n   * `attributes(a, b, version)` must return `[min_capacity, max_capacity]` along the connection path between hubs `a` and `b` in that version.\n   * If hubs are disconnected, return `[]`.\n   * If `a == b`, return `[0, 0]`.\n\n4. **Splits and Partial Reversions**\n\n   * `split(a, b, version)` removes the **direct** route between `a` and `b`, creating a new version with updated connectivity and attributes.\n\n5. **Deterministic Versioning**\n\n   * Versions are numbered sequentially starting from `0`.\n   * Each mutating operation (`union`, `split`, `branch`, `merge_versions`) produces the next version ID deterministically (`max_version + 1`).\n   * Queries (`find`, `attributes`) do not create new versions.\n\n---\n\n### Constraints (realistic and aligned with implementation)\n\n* Up to `10^5` hubs and `5×10^5` total operations.\n* Each version is a **forest** (no cycles per version). Unions add exactly one tree edge; merges do not create cycles.\n* Connectivity and attribute queries operate over a **unique tree path** using persistent binary lifting.\n* No path compression (to preserve immutability and LCA tables).\n* Approximate time bounds in pure Python:\n\n  * `union` / `find`: **near-logarithmic**, bounded by tree height.\n  * `branch`, `split`, `merge_versions`: **near-logarithmic** (structural sharing overlaid maps).\n* No full O(N) copies per version. Use structural sharing (copy-on-write overlays).\n* Only **built-in Python** is allowed (no external libraries).\n* Deterministic version IDs: each mutating operation creates exactly one new version.\n\n---\n\n### Function Signature\n\n```python\nfrom typing import List, Tuple, Optional, Any, Union\n\ndef persistent_disjoint_set(\n    operations: List[Tuple[str, Optional[int], Optional[int], Optional[int], Optional[Any]]]\n) -> List[Union[bool, List[int]]]:\n    \"\"\"\n    operations:\n        (\"union\", a, b, version, capacity)\n        (\"find\", a, b, version, None)\n        (\"attributes\", a, b, version, None)\n        (\"split\", a, b, version, None)\n        (\"branch\", None, None, from_version, None)\n        (\"merge_versions\", None, None, vX, vY)\n\n    Returns:\n        - list of booleans (for find and merge success)\n        - list of [min_capacity, max_capacity] for attributes queries\n    \"\"\"\n```\n\n---\n\n### Sample Input\n\n```python\noperations = [\n    (\"union\", 1, 2, 0, 8),                 # v1: add route 1–2 (cap=8)\n    (\"union\", 2, 3, 1, 5),                 # v2: add route 2–3 (cap=5)\n    (\"attributes\", 1, 3, 2, None),         # query 1–3 in v2 → [5, 8]\n    (\"branch\", None, None, 1, None),       # v3: clone of v1 (only 1–2)\n    (\"union\", 3, 4, 3, 12),                # v4: add route 3–4 (cap=12)\n    (\"merge_versions\", None, None, 2, 4),  # v5: merge v2 & v4 if compatible\n    (\"find\", 1, 4, 5, None),               # query 1–4 in v5 → True\n    (\"split\", 2, 3, 5, None),              # v6: remove route 2–3\n    (\"find\", 1, 3, 6, None),               # query 1–3 after split → False\n]\n```\n\n---\n\n### Expected Output\n\n```python\n[[5, 8], True, True, False]\n```\n\n---\n\n### Output Explanation\n\n1. **`attributes(1,3,v2)` → `[5,8]`**\n   Path 1–2–3 capacities are [8,5] → min=5, max=8.\n\n2. **`merge_versions(2,4)` → `True`**\n   Versions v2 (1–2–3) and v4 (3–4) merge successfully without conflicts.\n\n3. **`find(1,4,v5)` → `True`**\n   After merge, hubs 1–4 are connected via 1–2–3–4.\n\n4. **`split(2,3,v5)` followed by `find(1,3,v6)` → `False`**\n   Removing direct edge 2–3 disconnects hub 3 (and thus 4) from 1–2.\n\n---\n\n### Additional Notes\n\n* Each version is immutable once created.\n* Branching, merging, and splitting produce new version IDs in sequence.\n* Merges replay only valid (non-negative capacity) edges; conflicts or negative capacities make merges fail.\n* `attributes(a,b,v)` uses persistent binary lifting; no recomputation from scratch is needed.\n* `attributes(a,a,v)` returns `[0,0]` by convention.\n* The data structure internally maintains a **forest**, ensuring unique paths for attribute aggregation.\n\nStarter Code:\n```python\n\nfrom typing import Dict, Optional, Any, List, Tuple, Union\n\ndef persistent_disjoint_set(\n    operations: List[Tuple[str, Optional[int], Optional[int], Optional[int], Optional[Any]]]\n) -> List[Union[bool, List[int]]]:\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[[\\\"union\\\", 1, 2, 0, 8], [\\\"union\\\", 2, 3, 1, 5], [\\\"attributes\\\", 1, 3, 2, null], [\\\"branch\\\", null, null, 1, null], [\\\"union\\\", 3, 4, 3, 12], [\\\"merge_versions\\\", null, null, 2, 4], [\\\"find\\\", 1, 4, 5, null], [\\\"split\\\", 2, 3, 5, null], [\\\"find\\\", 1, 3, 6, null]]\",\n    \"output\": \"[[5, 8], true, true, false]\"\n  },\n  {\n    \"input\": \"[[\\\"union\\\", 10, 11, 0, 7], [\\\"branch\\\", null, null, 1, null], [\\\"union\\\", 11, 12, 2, 3], [\\\"attributes\\\", 10, 12, 3, null], [\\\"find\\\", 10, 12, 1, null], [\\\"merge_versions\\\", null, null, 1, 3], [\\\"find\\\", 10, 12, 4, null]]\",\n    \"output\": \"[[3, 7], false, true, true]\"\n  },\n  {\n    \"input\": \"[[\\\"union\\\", 1, 2, 0, 9], [\\\"union\\\", 2, 5, 1, 4], [\\\"attributes\\\", 1, 5, 2, null], [\\\"split\\\", 2, 5, 2, null], [\\\"find\\\", 1, 5, 3, null]]\",\n    \"output\": \"[[4, 9], false]\"\n  }\n]\n"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5rl2VnCg0sVIt3hFaMwi9bWBZqC",
+  "object": "chat.completion",
+  "created": 1774396465,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[]\",\"[{\\\"id\\\": \\\"dest1\\\", \\\"priority\\\": 1, \\\"time_window\\\": [9, 11], \\\"penalty\\\": 100}, {\\\"id\\\": \\\"dest2\\\", \\\"priority\\\": 2, \\\"time_window\\\": [12, 14], \\\"penalty\\\": 50}]\",\"{\\\"current\\\": {\\\"wind_speed\\\": 5, \\\"wind_direction\\\": \\\"N\\\", \\\"restricted_zones\\\": []}, \\\"forecast\\\": []}\",\"{\\\"air_lanes\\\": [{\\\"lane_id\\\": \\\"L1\\\", \\\"congestion_level\\\": \\\"low\\\"}], \\\"hub_connectivity\\\": {\\\"hub1\\\": [\\\"hub2\\\"]}}\"],\"focus\":\"no_drones_returns_empty_mapping\"},{\"input_lines\":[\"[{\\\"id\\\": \\\"g1\\\", \\\"fuel_level\\\": 80, \\\"max_fuel\\\": 100, \\\"wind_tolerance\\\": 2}, {\\\"id\\\": \\\"g2\\\", \\\"fuel_level\\\": 30, \\\"max_fuel\\\": 50, \\\"wind_tolerance\\\": 4}]\",\"[{\\\"id\\\": \\\"dA\\\", \\\"priority\\\": 1, \\\"time_window\\\": [8, 10], \\\"penalty\\\": 10}, {\\\"id\\\": \\\"dB\\\", \\\"priority\\\": 2, \\\"time_window\\\": [10, 12], \\\"penalty\\\": 5}]\",\"{\\\"current\\\": {\\\"wind_speed\\\": 10, \\\"wind_direction\\\": \\\"W\\\", \\\"restricted_zones\\\": []}, \\\"forecast\\\": []}\",\"{\\\"air_lanes\\\": [{\\\"lane_id\\\": \\\"L1\\\", \\\"congestion_level\\\": \\\"low\\\"}], \\\"hub_connectivity\\\": {\\\"hubX\\\": [\\\"hubY\\\"], \\\"hubY\\\": [\\\"hubX\\\"]}}\"],\"focus\":\"all_drones_grounded_current_wind\"},{\"input_lines\":[\"[{\\\"id\\\": \\\"D50\\\", \\\"fuel_level\\\": 50, \\\"max_fuel\\\": 100, \\\"wind_tolerance\\\": 10}, {\\\"id\\\": \\\"D40\\\", \\\"fuel_level\\\": 40, \\\"max_fuel\\\": 80, \\\"wind_tolerance\\\": 5}, {\\\"id\\\": \\\"D10\\\", \\\"fuel_level\\\": 10, \\\"max_fuel\\\": 100, \\\"wind_tolerance\\\": 8}]\",\"[{\\\"id\\\": \\\"P1\\\", \\\"priority\\\": 1, \\\"time_window\\\": [9, 10], \\\"penalty\\\": 100}, {\\\"id\\\": \\\"P2\\\", \\\"priority\\\": 2, \\\"time_window\\\": [11, 12], \\\"penalty\\\": 50}, {\\\"id\\\": \\\"P3\\\", \\\"priority\\\": 1, \\\"time_window\\\": [13, 14], \\\"penalty\\\": 80}]\",\"{\\\"current\\\": {\\\"wind_speed\\\": 5, \\\"wind_direction\\\": \\\"NE\\\", \\\"restricted_zones\\\": []}, \\\"forecast\\\": [{\\\"time\\\": 12, \\\"wind_speed\\\": 20, \\\"wind_direction\\\": \\\"N\\\", \\\"restricted_zones\\\": []}]}\",\"{\\\"air_lanes\\\": [{\\\"lane_id\\\": \\\"L1\\\", \\\"congestion_level\\\": \\\"medium\\\"}], \\\"hub_connectivity\\\": {\\\"hubA\\\": [\\\"hubB\\\",\\\"hubC\\\"], \\\"hubB\\\": [\\\"hubA\\\",\\\"hubC\\\"], \\\"hubC\\\": [\\\"hubA\\\"]}}\"],\"focus\":\"exception_case_refuel_logic_ties_and_percentiles\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3211,
+    "completion_tokens": 3087,
+    "total_tokens": 6298,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2368,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

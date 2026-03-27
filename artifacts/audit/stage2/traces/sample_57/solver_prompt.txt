@@ -1,0 +1,252 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+Build a **stateful, incremental QR decomposition** for a covariance matrix that evolves over time. The system should remember its previous state, notice what changed, and refresh only the parts that need it, while staying numerically stable. It must behave deterministically and handle tough cases like near-singular data, insertions or deletions in the middle, and sudden large correlations.
+
+---
+
+## Objectives
+
+1. Keep prior state across a scripted sequence of steps and update only what changed.
+2. Clearly report what changed each step: the changed column ranges, where changes start, how much prefix was reused, and whether a full rebuild occurred with a short reason.
+3. Support adding or removing a variable anywhere, reindex cleanly, and restore a valid decomposition for the new shape.
+4. Enforce a stable, deterministic sign rule on the diagonal of the upper factor and ensure repeated identical steps produce identical rounded results.
+5. Surface per-step numerical quality: closeness of the “orthogonal” factor to truly orthonormal, closeness of the product back to the input, and how close the upper factor is to strictly upper-triangular. Re-orthogonalize and refresh when the orthogonality check isn’t good enough, and say that you did.
+6. Remain robust for singular, nearly singular, or poorly scaled inputs; the reported metrics must still meet the limits.
+7. Keep a checkpoint of the last good state; on invalid input or failed updates, roll back and say so, then continue from a stable point next step.
+8. Provide a reset that clears state; the next nonempty step behaves like a fresh run with deterministic rounding.
+9. When two paths in the same run end on the same block-diagonal matrix, the rounded results must match exactly; summarize this comparison.
+10. Return a single JSON-style dictionary with a per-step transcript: rounded factors (four decimals), metrics, flags, reuse details, and reasons—so everything above can be validated by equality against an expected transcript.
+
+---
+
+## Constraints
+
+* Do not use any external libraries.
+* Use a **single driver call** that executes a list of steps and returns one deterministic transcript suitable for exact JSON equality checks.
+* Each step’s record must include: operation type, shape, detected change ranges, earliest change position, reused prefix count, whether a full rebuild happened (and why), flags (such as re-orthogonalized, checkpoint used, rollback, reset), numerical metrics, a boolean that the sign rule holds, and the rounded factors.
+* All matrix entries in the transcript are **rounded to four decimals**.
+* The reset step’s factors are empty.
+* If the orthogonality check isn’t good enough, the step must indicate that re-orthogonalization and refresh took place.
+* When comparing two alternative paths to the same final block-diagonal matrix, include a short summary that states whether they match exactly after rounding.
+
+---
+
+## Function Signature
+
+```python
+from typing import Any, Dict, List, Optional
+
+def qr_incremental_driver(steps: List[Dict[str, Any]],
+                          options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]]:
+    """
+    One-shot driver that simulates many incremental QR updates.
+    Executes steps in order, maintaining state, checkpoints, dirty-range
+    detection, sign convention, and numerical safeguards.
+    Returns a deterministic JSON transcript with all matrix entries rounded
+    to four decimals inside each step.
+    """
+```
+
+---
+
+## Expected Behavior
+
+* The first “set matrix” step performs a fresh factorization and enforces the nonnegative-diagonal rule.
+* Later steps detect what changed and recompute only from the earliest changed column through the changed region, reusing earlier work when valid and reporting exactly what was reused and why.
+* On shape changes, rebuild only what’s necessary and mark the reason as a shape change or a fresh build.
+* If stability is inadequate, re-orthogonalize, refresh the upper factor, and flag that this occurred.
+* Invalid steps trigger rollback to the last checkpoint; the next valid step proceeds from there.
+* A reset clears state; the next nonempty step behaves like a fresh start with deterministic rounding.
+* The transcript makes all of this directly checkable through JSON equality.
+
+---
+
+## Input Example
+
+```python
+# ---- Sample input as a dict; pass with **params ----
+params = {
+    "steps": [
+        {
+            "op": "set_matrix",
+            "matrix": [
+                [1.0, 0.0],
+                [0.0, 1.0]
+            ],
+            "note": "initial I2"
+        },
+        {
+            "op": "set_matrix",
+            "matrix": [
+                [1.0, 0.0],
+                [0.0, 1.0]
+            ],
+            "note": "idempotence check (same matrix)"
+        },
+        { "op": "reset" },
+        {
+            "op": "set_matrix",
+            "matrix": [
+                [1.0, 0.0],
+                [0.0, 1.0]
+            ],
+            "note": "fresh after reset"
+        }
+    ],
+    "options": {
+        "round_dp": 4,
+        "diag_sign": "nonnegative",
+        "reorth_epsilon": 5e-4,
+        "lower_tol": 1e-6,
+        "rank_tol": 1e-10,
+        "max_full_refactor": True
+    }
+}
+
+# Example call in your tests:
+out = qr_incremental_driver(**params)
+```
+
+---
+
+## Output Example
+
+```python
+expected = {
+    "meta": {
+        "version": "qr.v1",
+        "round_dp": 4,
+        "diag_sign": "nonnegative",
+        "policy": "householder|rollback_on_invalid|reorth_on_fail"
+    },
+    "steps": [
+        {
+            "op": "set_matrix",
+            "shape": [2, 2],
+            "dirty_ranges_in": [[0, 2]],
+            "recompute_from": 0,
+            "reused_prefix_cols": 0,
+            "full_refactor": True,
+            "reason": "fresh",
+            "flags": {
+                "reorthogonalized": False,
+                "checkpoint_used": False,
+                "rollback": False,
+                "reset": False
+            },
+            "metrics": {
+                "orth_error_2": 0.0,
+                "recon_rel_fro": 0.0,
+                "lower_triangle_max": 0.0,
+                "rank_estimate": 2
+            },
+            "sign_convention_ok": True,
+            "Q": [[1.0, 0.0],
+                  [0.0, 1.0]],
+            "R": [[1.0, 0.0],
+                  [0.0, 1.0]]
+        },
+        {
+            "op": "set_matrix",
+            "shape": [2, 2],
+            "dirty_ranges_in": [],
+            "recompute_from": None,
+            "reused_prefix_cols": 2,
+            "full_refactor": False,
+            "reason": "normal",
+            "flags": {
+                "reorthogonalized": False,
+                "checkpoint_used": False,
+                "rollback": False,
+                "reset": False
+            },
+            "metrics": {
+                "orth_error_2": 0.0,
+                "recon_rel_fro": 0.0,
+                "lower_triangle_max": 0.0,
+                "rank_estimate": 2
+            },
+            "sign_convention_ok": True,
+            "Q": [[1.0, 0.0],
+                  [0.0, 1.0]],
+            "R": [[1.0, 0.0],
+                  [0.0, 1.0]]
+        },
+        {
+            "op": "reset",
+            "shape": [0, 0],
+            "dirty_ranges_in": [],
+            "recompute_from": None,
+            "reused_prefix_cols": 0,
+            "full_refactor": False,
+            "reason": "reset",
+            "flags": {
+                "reorthogonalized": False,
+                "checkpoint_used": False,
+                "rollback": False,
+                "reset": True
+            },
+            "metrics": {
+                "orth_error_2": 0.0,
+                "recon_rel_fro": 0.0,
+                "lower_triangle_max": 0.0,
+                "rank_estimate": 0
+            },
+            "sign_convention_ok": True,
+            "Q": [],
+            "R": []
+        },
+        {
+            "op": "set_matrix",
+            "shape": [2, 2],
+            "dirty_ranges_in": [[0, 2]],
+            "recompute_from": 0,
+            "reused_prefix_cols": 0,
+            "full_refactor": True,
+            "reason": "fresh",
+            "flags": {
+                "reorthogonalized": False,
+                "checkpoint_used": False,
+                "rollback": False,
+                "reset": False
+            },
+            "metrics": {
+                "orth_error_2": 0.0,
+                "recon_rel_fro": 0.0,
+                "lower_triangle_max": 0.0,
+                "rank_estimate": 2
+            },
+            "sign_convention_ok": True,
+            "Q": [[1.0, 0.0],
+                  [0.0, 1.0]],
+            "R": [[1.0, 0.0],
+                  [0.0, 1.0]]
+        }
+    ],
+    "equivalence": [],
+    "final": {
+        "shape": [2, 2],
+        "Q": [[1.0, 0.0],
+              [0.0, 1.0]],
+        "R": [[1.0, 0.0],
+              [0.0, 1.0]]
+    }
+}
+```
+
+Starter Code:
+```python
+from typing import Any, Dict, List, Optional, Tuple
+
+def qr_incremental_driver(steps: List[Dict[str, Any]],
+                          options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+```

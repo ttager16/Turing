@@ -1,0 +1,76 @@
+{
+  "id": "resp_0794ee647b34f2ea0069c32710694c81928a58c3c6523c1ddc",
+  "object": "response",
+  "created_at": 1774397200,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774397228,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0794ee647b34f2ea0069c32710b25c81929621d31fe6c6d31d",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0794ee647b34f2ea0069c32710f9fc8192a6b4349eba49f4c4",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Tuple\nimport heapq\n\nLATE_PENALTY_PER_MIN = 0.5\nSTALE_PENALTY = 1.0\n\ndef optimize_routes(\n    vehicle_data: List[Dict],\n    traffic_data: List[Dict],\n    road_closures: List[Dict],\n    priority_changes: List[Dict]\n) -> List[Dict]:\n\n    # Build latest traffic data per (u,v) - last entry wins\n    traffic_map = {}\n    for t in traffic_data:\n        traffic_map[(t['u'], t['v'])] = {\n            'time': float(t['time']),\n            'congestion': float(t['congestion']),\n            'fuel': float(t['fuel']),\n            'age_min': int(t['age_min']),\n            'max_age_min': int(t['max_age_min'])\n        }\n\n    # Build closures map last entry wins\n    closure_map = {}\n    for c in road_closures:\n        closure_map[(c['u'], c['v'])] = bool(c['closed'])\n\n    # Build priority map last entry wins; default 1 if absent\n    priority_map = {}\n    for p in priority_changes:\n        priority_map[p['vehicle_id']] = int(p['priority'])\n\n    # Build adjacency from traffic_map excluding closed edges\n    adj = {}\n    for (u, v), info in traffic_map.items():\n        if closure_map.get((u, v), False):\n            continue\n        adj.setdefault(u, []).append((v, info))\n\n    results = []\n\n    # Helper: perform Dijkstra-style search from src to any of targets set,\n    # using greedy cumulative score metric; returns best path and accumulated time/fuel and arrival_time before service\n    def search_to_targets(src: str, targets: set, start_time: float, priority: int):\n        # state: (cum_score, total_time, total_fuel, current_node, path)\n        # deterministic tie-break: tuple as described; path_length is len(path)\n        heap = []\n        # initial state: at src, no added score/time/fuel, path contains src\n        heapq.heappush(heap, (0.0, start_time, 0.0, src, [src]))\n        # visited best by (node, total_time, total_fuel)? To keep deterministic but allow different times, use best cumulative_score seen per node with time rounding\n        best_seen = {}\n        while heap:\n            cum_score, total_time, total_fuel, node, path = heapq.heappop(heap)\n            key = (node, round(total_time, 6))\n            if key in best_seen and best_seen[key] <= cum_score:\n                continue\n            best_seen[key] = cum_score\n            if node in targets:\n                return {\n                    'path': path,\n                    'arrival_time': total_time,\n                    'total_time': total_time,\n                    'total_fuel': total_fuel,\n                    'cum_score': cum_score\n                }\n            # expand neighbors\n            for v, info in adj.get(node, []):\n                travel_time = info['time']\n                congestion = info['congestion']\n                fuel = info['fuel']\n                age_min = info['age_min']\n                max_age_min = info['max_age_min']\n                stale = STALE_PENALTY if age_min > max_age_min else 0.0\n                base_score = (0.6 * travel_time) + (0.3 * congestion) + (0.1 * fuel)\n                edge_score = (base_score + stale) / (priority if priority > 0 else 1)\n                new_cum_score = cum_score + edge_score\n                new_total_time = total_time + travel_time\n                new_total_fuel = total_fuel + fuel\n                new_path = path + [v]\n                heapq.heappush(heap, (new_cum_score, new_total_time, new_total_fuel, v, new_path))\n        return None\n\n    for vehicle in vehicle_data:\n        vid = vehicle['vehicle_id']\n        cp_list = vehicle.get('checkpoints', [])\n        # partition by group lexicographic ascending\n        groups = {}\n        for cp in cp_list:\n            groups.setdefault(cp['group'], []).append(cp)\n        ordered_group_keys = sorted(groups.keys())\n        priority = priority_map.get(vid, 1)\n        # start at first checkpoint node as starting node\n        if not cp_list:\n            results.append({'vehicle_id': vid, 'optimized_route': [], 'estimated_time': 0, 'fuel_consumption': 0})\n            continue\n        # starting node is first checkpoint's node\n        start_node = cp_list[0]['node']\n        current_node = start_node\n        optimized_route = [current_node]\n        current_time = 0.0  # minutes since batch start\n        total_fuel = 0.0\n        feasible = True\n\n        for gkey in ordered_group_keys:\n            group = groups[gkey]\n            # set of remaining target nodes for this group\n            remaining = {cp['node'] for cp in group}\n            # Need mapping node->checkpoint for window/service\n            node_to_cp = {cp['node']: cp for cp in group}\n            # If current_node is itself a checkpoint in remaining and not yet served, prefer to \"visit\" it immediately (0 travel)\n            while remaining:\n                # targets are remaining nodes\n                search_result = search_to_targets(current_node, remaining, current_time, priority)\n                if search_result is None:\n                    feasible = False\n                    break\n                path = search_result['path']\n                arrival_time = search_result['arrival_time']\n                # path starts with current_node; next nodes are path[1:]\n                # Choose the target node reached (last node in path that's in remaining)\n                reached = None\n                for node in reversed(path):\n                    if node in remaining:\n                        reached = node\n                        break\n                if reached is None:\n                    feasible = False\n                    break\n                # compute time to reach reached from current_node by summing edges along path\n                # accumulate fuel by summing edges\n                # We'll walk the path edges to compute exact travel times/fuel and edge score contributions\n                ttime = current_time\n                tfuel = total_fuel\n                # iterate edges\n                for i in range(len(path)-1):\n                    u = path[i]\n                    v = path[i+1]\n                    info = traffic_map.get((u, v))\n                    if info is None or closure_map.get((u, v), False):\n                        # missing edge due to closure or absent\n                        feasible = False\n                        break\n                    ttime += info['time']\n                    tfuel += info['fuel']\n                if not feasible:\n                    break\n                arrival = ttime\n                cp = node_to_cp[reached]\n                window = cp['window']\n                service = cp['service']\n                earliest, latest = window[0], window[1]\n                # If arrival > latest -> lateness; allowed but penalized in score. However failure rule: \"If any required subroute is impossible (respecting closures and windows), the vehicle yields an empty route\"\n                # Interpret as arrival later than latest is considered infeasible per constraints -> fail\n                if arrival > latest:\n                    feasible = False\n                    break\n                # If arrival < earliest, wait until earliest\n                wait = 0.0\n                if arrival < earliest:\n                    wait = earliest - arrival\n                    arrival = earliest\n                    ttime += wait\n                # add service time\n                ttime += service\n                # update optimized route: append intermediate nodes excluding duplicate current_node\n                for node in path[1:]:\n                    optimized_route.append(node)\n                # update states\n                current_node = reached\n                current_time = ttime\n                total_fuel = tfuel\n                # mark served\n                remaining.remove(reached)\n            if not feasible:\n                break\n\n        if not feasible:\n            results.append({'vehicle_id': vid, 'optimized_route': [], 'estimated_time': 0, 'fuel_consumption': 0})\n        else:\n            results.append({\n                'vehicle_id': vid,\n                'optimized_route': optimized_route,\n                'estimated_time': int(round(current_time)),\n                'fuel_consumption': int(round(total_fuel))\n            })\n\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2347,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1760,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4107
+  },
+  "user": null,
+  "metadata": {}
+}

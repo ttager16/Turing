@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5Ewy7zUDJLvZNoVNuGGIKBRACSF",
+  "object": "chat.completion",
+  "created": 1774394058,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[9000, 9000, 2500]\",\"[50, 45, 10]\",\"162\"],\"focus\":\"adjacent_priority_regions_no_sharing_priority_can_share_with_non_priority_but_no_discount\"}, {\"input_lines\":[\"[1500, 3000, 1500]\",\"[10, 30, 10]\",\"59\"],\"focus\":\"chain_constraint_blocks_overlapping_shares_dynamic_discount_edge_case\"}, {\"input_lines\":[\"[20000]\",\"[100]\",\"170\"],\"focus\":\"single_region_exact_budget_priority_boundary_values\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1535,
+    "completion_tokens": 3530,
+    "total_tokens": 5065,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3392,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

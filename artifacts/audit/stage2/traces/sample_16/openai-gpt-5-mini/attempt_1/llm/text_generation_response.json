@@ -1,0 +1,76 @@
+{
+  "id": "resp_07db3f772de7db5d0069c31bcac56481978f4dcbf3d5674f7f",
+  "object": "response",
+  "created_at": 1774394314,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774394323,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_07db3f772de7db5d0069c31bcb3c088197807069f81c1eca62",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_07db3f772de7db5d0069c31bcb64308197b87fe408b9217f81",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\nfrom functools import lru_cache\n\ndef maxProductKIncreasing(nums: List[int], K: int, D: int) -> int:\n    n = len(nums)\n    if K > n: \n        return 0\n\n    # Precompute for each index i the list of next indices j>i with nums[j]-nums[i]>=D and nums[j]>nums[i]\n    nxt = [[] for _ in range(n)]\n    for i in range(n):\n        for j in range(i+1, n):\n            if nums[j] - nums[i] >= D and nums[j] > nums[i]:\n                nxt[i].append(j)\n\n    # We will DP over positions and a tuple of \"last indices\" for each subsequence.\n    # But state space huge. Alternative approach: build K sequences greedily via DP counting lengths combinations:\n    # Transform to: we must partition sequence order into K increasing-with-gap subsequences.\n    # Use DP by masks is impossible. Instead use dynamic programming computing maximum product of lengths via\n    # dynamic programming where we sequentially assign each element to one of K groups tracking last value and length.\n    # Represent last by index (-1 means empty). Use memoization over pos and tuple of lasts.\n    from functools import lru_cache\n\n    # For comparison of last values, we store last index for each channel; -1 means empty.\n    @lru_cache(None)\n    def dp(i, lasts):\n        if i == n:\n            # check all channels non-empty\n            for idx in lasts:\n                if idx == -1:\n                    return 0\n            # compute product of lengths by counting occurrences of each last via reconstructing lengths:\n            # We need lengths; but we didn't track them. Instead store lengths in state too.\n            return 0  # placeholder; unreachable because we always track lengths below\n\n    # Revised: include lengths in state.\n    @lru_cache(None)\n    def dp2(i, lasts, lens):\n        if i == n:\n            # all channels must be non-empty\n            for L in lens:\n                if L == 0:\n                    return 0\n            prod = 1\n            for L in lens:\n                prod *= L\n            return prod\n        best = 0\n        a = nums[i]\n        lasts_list = list(lasts)\n        lens_list = list(lens)\n        # try assign to any channel\n        for c in range(K):\n            last_idx = lasts_list[c]\n            if last_idx == -1:\n                # can always start new subsequence with current element\n                lasts_list[c] = i\n                lens_list[c] += 1\n                val = dp2(i+1, tuple(lasts_list), tuple(lens_list))\n                if val > best:\n                    best = val\n                lasts_list[c] = last_idx\n                lens_list[c] -= 1\n            else:\n                # need nums[i] > nums[last_idx] and diff >= D and i > last_idx (true)\n                if nums[i] > nums[last_idx] and nums[i] - nums[last_idx] >= D:\n                    lasts_list[c] = i\n                    lens_list[c] += 1\n                    val = dp2(i+1, tuple(lasts_list), tuple(lens_list))\n                    if val > best:\n                        best = val\n                    lasts_list[c] = last_idx\n                    lens_list[c] -= 1\n        return best\n\n    # initial lasts all -1, lens all 0\n    init_lasts = tuple([-1]*K)\n    init_lens = tuple([0]*K)\n    return dp2(0, init_lasts, init_lens)"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 703,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 786,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1489
+  },
+  "user": null,
+  "metadata": {}
+}

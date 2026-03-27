@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: fft_multiply_large_integers\n\nProblem Statement:\n## Problem Statement\n\nA mobile application development company is building a real-time augmented reality gaming platform that requires ultra-fast multiplication of large integers for complex signal processing calculations. The application must perform thousands of large integer multiplications per second while maintaining optimal battery efficiency and memory usage on mobile devices with varying computational capabilities.\n\nYou are tasked with implementing an advanced FFT-based integer multiplication algorithm that leverages mathematical optimizations specifically designed for mobile architectures. The system must handle large integer operations efficiently while providing deterministic results for consistent gameplay mechanics across different devices.\n\n## Core Requirements\n\nYour solution must implement a **pure Python** FFT-based multiplication algorithm (no external libraries) that processes large integers and returns precise multiplication results. The algorithm should utilize Number Theoretic Transform (NTT) principles with carefully selected modular arithmetic to ensure both speed and accuracy.\n\n### Key Operational Constraints\n\n1. **Input Size Constraints**: Each integer input must be between 50 and 200 digits in length\n2. **Precision Requirements**: All calculations must maintain exact integer precision with zero rounding errors\n3. **Memory Efficiency**: Algorithm must use O(n log n) space complexity where n is the maximum digit count\n4. **Modular Arithmetic**: Use prime modulus 998244353 for NTT operations with primitive root 3\n5. **Deterministic Output**: Algorithm must produce identical results for identical inputs across all executions\n\n### Advanced Algorithmic Requirements\n\nThe FFT implementation must incorporate a multi-stage optimization approach:\n\n**Stage 1: Integer Preprocessing**\n- Convert input integers to base-10000 representation for optimal digit grouping\n- Pad shorter numbers with leading zeros to match the longer number's length\n- Ensure total length is a power of 2 for efficient FFT processing\n\n**Stage 2: Number Theoretic Transform**\n- Apply forward NTT using modulus 998244353 and primitive root 3\n- Perform pointwise multiplication in the frequency domain\n- Apply inverse NTT to obtain the convolution result\n\n**Stage 3: Carry Propagation**\n- Process carries from the least significant to the most significant digits\n- Handle overflow using the formula: `new_digit = (current_digit + carry) % 10000`\n- Propagate carry: `carry = (current_digit + carry) // 10000`\n\nThe algorithm must also implement modular exponentiation for computing NTT roots:\n**Modular Power Formula**: `pow(base, exponent, modulus)` where exponent follows the pattern `(modulus - 1) // (2^k)` for appropriate k values.\n\n## Function Signature\n\n```python\ndef fft_multiply_large_integers(num1_str, num2_str, optimization_level):\n    \"\"\"\n    Multiplies two large integers using optimized FFT-based algorithm.\n    \n    Returns: String representation of the multiplication result\n    \"\"\"\n    pass\n```\n\n## Input Specifications\n\n**num1_str**: String representation of the first large integer (50-200 digits, no leading zeros except for \"0\")\n**num2_str**: String representation of the second large integer (50-200 digits, no leading zeros except for \"0\")  \n**optimization_level**: Integer specifying algorithm optimization mode (1=basic, 2=intermediate, 3=advanced)\n\n## Output Specification\n\nReturn a string containing the exact multiplication result with no leading zeros (except for result \"0\").\n\nExample return: \"12345678901234567890123456789012345678901234567890\"\n\n## Constraint Requirements\n\n**Input Validation**: Return {\"error\" : \"Invalid integer string format\"} if either input string contains non-digit characters or has leading zeros (except \"0\")\n**Length Validation**: Return {\"error\" : \"Integer length out of range\"} if either input has fewer than 50 or more than 200 digits (except single digit \"0\", which is exempt from minimum length)\n**Optimization Level**: Return {\"error\" : \"Invalid optimization level\"} if optimization_level is not 1, 2, or 3\n**Empty Input**: Return {\"error\" : \"Empty string provided\"} if either input string is empty or None\n**Zero Handling**: Single digit \"0\" is exempt from the 50-digit minimum requirement and treated as valid input\n**Modulus Validation**: Return {\"error\" : \"NTT modulus calculation failed\"} if any modular arithmetic operation produces invalid results\nFor any other input parameter violation, return {\"error\": \"Input is not valid\"}\n\n## Sample Input/Output\n\n**Input:**\n```python\nnum1_str = \"12345678901234567890123456789012345678901234567890123456789012345678901234567890\"\nnum2_str = \"98765432109876543210987654321098765432109876543210987654321098765432109876543210\"\noptimization_level = 2\n```\n\n**Expected Output:**\n```python\n\"1219326311370217952261850327338667885945115073915636335923676116445578859929878986434993786160646167367779295611949397448712086533622923332237463801111263526900\"\n```\n\n## Implementation Guidelines\n\n**NTT Root Calculation**: Use primitive root 3 with modulus 998244353, where nth roots are computed as `pow(3, (998244353-1)//n, 998244353)`\n**Base Conversion**: Convert decimal strings to base-10000 arrays using: `digits = [int(num_str[i:i+4]) for i in range(len(num_str)-4, -1, -4)]`\n**Padding Strategy**: Extend both number arrays to the next power of 2 length using zero-padding\n**Pointwise Multiplication**: In frequency domain, multiply corresponding elements: `result[i] = (a_fft[i] * b_fft[i]) % 998244353`\n**Carry Propagation**: Process from least to most significant: `carry, digits[i] = divmod(digits[i] + carry, 10000)`\n**Optimization Levels**: \n  - Level 1: Basic NTT without optimizations\n  - Level 2: Include bit-reversal optimization for FFT\n  - Level 3: Add cache-friendly memory access patterns and reduce modular operations\n\n**Result Formatting**: Convert final digit array back to decimal string, removing any leading zeros except when result is \"0\"\n\n## Algorithm Flow\n\n1. **Base Conversion**: Transform decimal strings to base-10000 integer arrays\n2. **Length Normalization**: Pad arrays to the next power of 2 and ensure equal length\n3. **Forward NTT**: Apply Number Theoretic Transform to both arrays using modulus 998244353\n4. **Frequency Domain Multiplication**: Perform pointwise multiplication of transformed arrays\n5. **Inverse NTT**: Transform result back to time domain\n6. **Carry Processing**: Handle digit carries from least to most significant positions\n7. **Result Construction**: Convert processed array back to decimal string format\n8. **Final Validation**: Ensure no leading zeros in the result string\n\nThe algorithm must handle edge cases, including multiplication by zero, equal-length inputs, and maximum-length inputs, while maintaining O(n log n) time complexity where n represents the digit count of the larger input number.\n\nStarter Code:\n```python\ndef fft_multiply_large_integers(num1_str, num2_str, optimization_level):\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"\\\"12345678901234567890123456789012345678901234567890\\\"\\n\\\"98765432109876543210987654321098765432109876543210\\\"\\n1\",\n    \"output\": \"\\\"8590542024102945740630758163153582426179158073089691856615045279134838597600929021296209143248622873214059620713326775831319062018016\\\"\"\n  },\n  {\n    \"input\": \"\\\"12345678901234567890123456789012345678901234567890123456789012345678901234567890\\\"\\n\\\"98765432109876543210987654321098765432109876543210987654321098765432109876543210\\\"\\n2\",\n    \"output\": \"\\\"1219326311370217952261850327338667885945115073915636335923676116445578859929878986434993786160646167367779295611949397448712086533622923332237463801111263526900\\\"\"\n  },\n  {\n    \"input\": \"\\\"11111111111111111111111111111111111111111111111111\\\"\\n\\\"22222222222222222222222222222222222222222222222222\\\"\\n3\",\n    \"output\": \"\\\"24691358024691358024691358024691358024691358024641975308641975308641975308641975308641975308642\\\"\"\n  }\n]\n"
+    }
+  ]
+}

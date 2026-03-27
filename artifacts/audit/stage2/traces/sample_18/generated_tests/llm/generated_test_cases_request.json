@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: allocate_minimum_companies\n\nProblem Statement:\n### Problem Statement\nIn the context of a logistics firm seeking to optimize its multi-layer distribution network, you are tasked with assigning service responsibility for a hierarchy of interconnected regions (organized as an implicit binary tree) to a minimal set of delivery companies. Each region i in the tree has a required demand stored in the array demand[i], and each available company j can handle up to capacities[j] deliveries in a single connected subtree segment.\n\nUnlike a simple one-dimensional or region-by-region allocation, each company’s coverage must form a valid subtree path (from any node down to one of its descendants) such that:\n1. No company’s allocated path sum of demands exceeds that company’s capacity.\n2. All regions must be covered without overlap gaps (every region’s demand is fulfilled by at least one company covering that region’s node).\n3. The tree is implicitly defined by the parent-child relationships (e.g., for region i, its children are 2i+1 and 2i+2, if they exist).\n\nThe challenge is that the global distribution structure, combined with each company’s subtree coverage constraint, demands an advanced tree decomposition or dynamic programming on trees, ensuring no greedy or brute-force approach can feasibly handle the worst-case scenario of up to 10^5 regions. Corner cases include regions with zero demand (still requiring formal assignment), regions whose demand alone exceeds any single company’s capacity (forcing multi-company splits), and partial coverage edges that must be combined consistently in ancestor-descendant paths.\n\nYour goal is to develop an optimal assignment strategy that minimizes the total number of companies utilized while strictly adhering to the connectivity and capacity constraints. This involves multi-step reasoning wherein subtrees are subdivided or merged in ways that respect capacity limits, ensuring no region’s demand remains uncovered.\n\n#### Objectives\n1. Implement a Python function  \n   allocate_minimum_companies(demand: List[int], capacities: List[int]) -> int  \n   that returns the minimum number of delivery companies needed to cover all regions’ demands in the implicit tree structure.  \n2. Devise a strategy (e.g., using advanced methods like heavy-light decomposition, segment trees, or bottom-up dynamic programming on the implicit binary tree) to handle large-scale inputs and complex subtree allocations.  \n3. Guarantee that the solution remains scalable for up to 10^5 regions, accounting for peak-season surges and potential corner cases where demands or capacities lead to overlapping subtree segments.\n\n#### Constraints\n- The length of demand is at most 10^5. demand[i] ≥ 0 indicates the number of deliveries required by region i.  \n- The length of capacities is at most 10^5. capacities[j] > 0 indicates the maximum deliveries a single company j can handle across one valid subtree path.  \n- Each company can serve exactly one connected path in the implicit binary tree (ancestors through their descendants), with the sum of that path’s demands not exceeding the company’s capacity.  \n- All nodes (regions) in the tree must be assigned coverage by at least one company. Multiple companies can partially overlap on a region if needed, but no region can be left uncovered.  \n- A direct or naive assignment that tries all subsets of paths is infeasible given the potential size (up to 10^5 regions). A tree-based dynamic programming or decomposition method should be employed without reliance on external Python libraries.\n\n#### Function Signature\ndef allocate_minimum_companies(demand: List[int], capacities: List[int]) -> int:\n\n#### Sample Input/Output\nSample Input:\n```python\nallocate_minimum_companies(demand=[20, 30, 25, 15, 10], capacities=[50, 45, 40])\n```\n\nSample Output:\n```python\n3\n```\n\n#### Expected Output Format\nThe function should output a single integer representing the minimum number of companies required to cover all the regions’ delivery demands within their implied subtree constraints. This numeric value alone should be printed or returned by the function.\n\nStarter Code:\n```python\nfrom typing import List\n\ndef allocate_minimum_companies(demand: List[int], capacities: List[int]) -> int:\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[30]\\n[50]\",\n    \"output\": \"1\"\n  },\n  {\n    \"input\": \"[25, 25]\\n[50]\",\n    \"output\": \"1\"\n  },\n  {\n    \"input\": \"[10, 15, 0, 20]\\n[50]\",\n    \"output\": \"2\"\n  }\n]\n"
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "id": "resp_026596efe01412e20069c32d7ad984819689353a09cdedd761",
+  "object": "response",
+  "created_at": 1774398842,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398858,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_026596efe01412e20069c32d7b28f88196afe38c631a1309d3",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_026596efe01412e20069c32d7b546c8196b20539fa254cff06",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Tuple, Optional\n\nclass PairingHeapNode:\n    __slots__ = ('key', 'value', 'child', 'sibling')\n    def __init__(self, key, value):\n        self.key = key\n        self.value = value\n        self.child = None\n        self.sibling = None\n\nclass PairingHeap:\n    def __init__(self):\n        self.root: Optional[PairingHeapNode] = None\n        self.size = 0\n\n    def meld_nodes(self, a: Optional[PairingHeapNode], b: Optional[PairingHeapNode]) -> Optional[PairingHeapNode]:\n        if a is None: return b\n        if b is None: return a\n        if a.key <= b.key:\n            b.sibling = a.child\n            a.child = b\n            return a\n        else:\n            a.sibling = b.child\n            b.child = a\n            return b\n\n    def meld(self, other: 'PairingHeap'):\n        if other is None or other.root is None:\n            return\n        if self.root is None:\n            self.root = other.root\n            self.size = other.size\n            return\n        self.root = self.meld_nodes(self.root, other.root)\n        self.size += other.size\n\n    def insert(self, key, value):\n        node = PairingHeapNode(key, value)\n        self.root = self.meld_nodes(self.root, node)\n        self.size += 1\n\n    def peek_min(self):\n        if self.root is None: return None\n        return self.root.key, self.root.value\n\n    def pop_min(self):\n        if self.root is None: return None\n        min_key, min_value = self.root.key, self.root.value\n        if self.root.child is None:\n            self.root = None\n            self.size = 0\n            return (min_key, min_value)\n        # two-pass melding\n        children = []\n        cur = self.root.child\n        while cur:\n            nxt = cur.sibling\n            cur.sibling = None\n            children.append(cur)\n            cur = nxt\n        # first pass: meld pairs left to right\n        paired = []\n        i = 0\n        n = len(children)\n        while i+1 < n:\n            paired.append(self.meld_nodes(children[i], children[i+1]))\n            i += 2\n        if i < n:\n            paired.append(children[i])\n        # second pass: meld from right to left\n        res = None\n        for node in reversed(paired):\n            res = self.meld_nodes(res, node)\n        self.root = res\n        self.size -= 1\n        return (min_key, min_value)\n\ndef _validate_order(o):\n    if not isinstance(o, list) or len(o) != 3:\n        return False\n    pr, side, price = o\n    if not isinstance(pr, int):\n        return False\n    if side not in ('buy','sell'):\n        return False\n    if not (isinstance(price, int) or isinstance(price, float)):\n        return False\n    if price < 0:\n        return False\n    return True\n\ndef meldable_priority_queue(order_streams: List[List]) -> List:\n    if not isinstance(order_streams, list):\n        return []\n    # ingest per-stream heaps\n    arrival = 0\n    per_stream_buy_heaps: List[PairingHeap] = []\n    per_stream_sell_heaps: List[PairingHeap] = []\n    any_orders = False\n    for stream in order_streams:\n        if not isinstance(stream, list):\n            return []\n        buy_heap = PairingHeap()\n        sell_heap = PairingHeap()\n        for order in stream:\n            if not _validate_order(order):\n                return []\n            any_orders = True\n            pr, side, price = order\n            # arrival_index assigned in stream-major order\n            # For buy heap we store key as ( -price, priority, arrival )\n            # For sell heap key as ( price, priority, arrival )\n            if side == 'buy':\n                key = (-price, pr, arrival)\n                buy_heap.insert(key, (pr, side, price, arrival))\n            else:\n                key = (price, pr, arrival)\n                sell_heap.insert(key, (pr, side, price, arrival))\n            arrival += 1\n        per_stream_buy_heaps.append(buy_heap)\n        per_stream_sell_heaps.append(sell_heap)\n    if not any_orders:\n        return []\n    # meld all per-stream heaps into global heaps\n    global_buy = PairingHeap()\n    global_sell = PairingHeap()\n    for h in per_stream_buy_heaps:\n        global_buy.meld(h)\n    for h in per_stream_sell_heaps:\n        global_sell.meld(h)\n    # matching loop\n    while global_buy.size > 0 and global_sell.size > 0:\n        bpeek = global_buy.peek_min()\n        speek = global_sell.peek_min()\n        if bpeek is None or speek is None:\n            break\n        bkey, bval = bpeek\n        skey, sval = speek\n        # extract original prices: buy stored -price\n        bprice = -bkey[0]\n        sprice = skey[0]\n        if bprice >= sprice:\n            global_buy.pop_min()\n            global_sell.pop_min()\n        else:\n            break\n    # collect remaining orders\n    remaining = []\n    while global_buy.size > 0:\n        _, v = global_buy.pop_min()\n        remaining.append(v)\n    while global_sell.size > 0:\n        _, v = global_sell.pop_min()\n        remaining.append(v)\n    # build final sort key: (priority ASC, side ('buy'<'sell'), price_aggressiveness, arrival_index)\n    def final_key(entry: Tuple[int,str,float,int]):\n        pr, side, price, arr = entry\n        side_rank = 0 if side == 'buy' else 1\n        # price aggressiveness: buys more aggressive at higher prices -> -price\n        # sells more aggressive at lower prices -> +price\n        price_aggr = -price if side == 'buy' else price\n        return (pr, side_rank, price_aggr, arr)\n    remaining.sort(key=final_key)\n    # return in required format [priority, side, price]\n    return [[pr, side, price] for (pr, side, price, arr) in remaining]"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1481,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1375,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2856
+  },
+  "user": null,
+  "metadata": {}
+}

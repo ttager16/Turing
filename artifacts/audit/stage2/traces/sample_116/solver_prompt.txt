@@ -1,0 +1,200 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+A logistics company needs to distribute multiple types of goods (for example, electronics and furniture) from a central warehouse to various retail outlets through a network of connected hubs.
+
+Each route:
+
+* Has a maximum capacity per commodity.
+* Has a transportation cost per unit.
+
+
+## **Goal**
+
+* Maximize the total quantity delivered to each outlet within its demand range.
+* Ensure no route exceeds its capacity.
+* Among all maximum-delivery solutions, minimize total transportation cost.
+
+
+## **Input**
+
+* **`graph`** (`dict[str, dict[str, list[int]]]`):
+
+  * Represents the logistics network.
+  * Each key is a string `"u,v"` representing a directed edge from node `u` to node `v`.
+  * Each value is a dictionary:
+
+    * Key → commodity name (`str`)
+    * Value → list `[capacity, cost]`
+
+      * `capacity` (`int`): maximum capacity allowed on this route.
+      * `cost` (`int`): cost per unit for that commodity.
+
+* **`demands`** (`dict[str, dict[str, list[int]]]`):
+
+  * Represents outlet demands.
+  * Each key is a retail outlet node ID as a string.
+  * Each value is a dictionary:
+
+    * Key → commodity name (`str`)
+    * Value → list `[min_demand, max_demand]`
+
+      * `min_demand` (`int`): minimum required units.
+      * `max_demand` (`int`): maximum allowed units.
+
+* **`source`** (`str`):
+
+  * The central warehouse node ID.
+
+* **`sinks`** (`list[str]`):
+
+  * A list of outlet node IDs representing retail destinations.
+
+* **`commodities`** (`list[str]`):
+
+  * A list of commodity names to distribute.
+
+
+
+## **Constraints**
+
+* There must be at least 2 nodes.
+* Cost must be >= 1.
+* Capacity must be >= 1.
+* Minimum demand must be >= 0 and <= maximum demand.
+* Graph, demands, sinks, and commodities must not be empty.
+* The graph must be directed (edges are one-way).
+* No edge can be a self-loop (for example `"1,1"` is invalid).
+* Each edge key must follow the `"u,v"` format (exactly one comma).
+* No external libraries can be used.
+
+
+
+## **Output**
+
+* Return a dictionary of the form `{sink: {commodity: delivered_amount}}`.
+* Each key `sink` is a string representing the outlet node.
+* Each `delivered_amount` is an integer.
+* If a valid path exists: deliver the **maximum feasible amount** within the demand range that minimizes cost.
+* If no path exists for a commodity: assign its **minimum demand** as a fallback.
+
+
+
+## **Error Handling**
+
+* Return `{'error': 'Invalid input type'}` if any input type is incorrect.
+* Return `{'error': 'Empty input data'}` if any of `graph`, `demands`, `sinks`, or `commodities` is empty.
+* Return `{'error': 'Invalid edge format'}` if any edge key does not follow `"u,v"` format.
+* Return `{'error': 'Constraint violation'}` if any other constraint is broken (such as self-loops, negative cost, or capacity).
+
+
+
+## **Function Signature**
+
+```python
+def optimize_multicommodity_flow(
+    graph: dict[str, dict[str, list[int]]],
+    demands: dict[str, dict[str, list[int]]],
+    source: str,
+    sinks: list[str],
+    commodities: list[str]
+) -> dict[str, dict[str, int]] | dict[str, str]:
+    ...
+```
+
+
+
+## **Example 1 — Feasible Paths Exist**
+
+**Input:**
+
+```python
+graph = {
+    "0,1": {"electronics": [10, 5], "furniture": [6, 3]},
+    "1,2": {"electronics": [8, 2], "furniture": [5, 4]},
+    "0,3": {"electronics": [7, 4], "furniture": [10, 1]},
+    "3,2": {"electronics": [6, 3], "furniture": [8, 2]}
+}
+
+demands = {
+    "2": {"electronics": [5, 10], "furniture": [4, 8]}
+}
+
+source = "0"
+sinks = ["2"]
+commodities = ["electronics", "furniture"]
+```
+
+**Output:**
+
+```python
+{
+    "2": {
+        "electronics": 10,
+        "furniture": 8
+    }
+}
+```
+
+**Explanation:**
+
+* The warehouse `"0"` can deliver goods to outlet `"2"` through two possible paths:
+
+  * Path A: `0 → 1 → 2`
+  * Path B: `0 → 3 → 2`
+* Both commodities are delivered within their demand ranges, maximizing delivery and minimizing cost.
+
+
+
+## **Example 2 — No Path Exists**
+
+**Input:**
+
+```python
+graph = {
+    "0,1": {"electronics": [10, 5]},
+    "1,3": {"electronics": [4, 3]},
+    "0,2": {"furniture": [6, 2]}
+}
+
+demands = {
+    "4": {"electronics": [5, 10], "furniture": [3, 6]}
+}
+
+source = "0"
+sinks = ["4"]
+commodities = ["electronics", "furniture"]
+```
+
+**Output:**
+
+```python
+{
+    "4": {
+        "electronics": 5,
+        "furniture": 3
+    }
+}
+```
+
+**Explanation:**
+
+* Outlet `"4"` is unreachable from the warehouse `"0"`.
+* Each commodity is assigned its minimum demand as a fallback.
+
+Starter Code:
+```python
+def optimize_multicommodity_flow(
+    graph: dict[str, dict[str, list[int]]],
+    demands: dict[str, dict[str, list[int]]],
+    source: str,
+    sinks: list[str],
+    commodities: list[str]
+) -> dict[str, dict[str, int]] | dict[str, str]:
+```

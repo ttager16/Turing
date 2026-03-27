@@ -1,0 +1,222 @@
+def custom_sort(products: List[Dict[str, Any]], user_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    # Build product map
+    prod_map = {p['id']: dict(p) for p in products}
+    ids = sorted(prod_map.keys())
+    # Build graph: nodes are product ids and category names as prefixed strings
+    graph_neighbors = defaultdict(dict)  # node -> neighbor -> weight
+    # Add product-product edges from related_products
+    for p in products:
+        pid = p['id']
+        for rid in p.get('related_products', []):
+            if rid in prod_map:
+                # deterministic weight based on ids
+                w = 1.0 / (1 + abs(pid - rid))
+                graph_neighbors[pid][rid] = max(w, graph_neighbors[pid].get(rid, 0.0))
+                graph_neighbors[rid][pid] = max(w, graph_neighbors[rid].get(pid, 0.0))
+        # connect product to its category node
+        cat_node = f"CAT::{p.get('category','')}"
+        graph_neighbors[pid][cat_node] = graph_neighbors[pid].get(cat_node, 0.0) + 1.0
+        graph_neighbors[cat_node][pid] = graph_neighbors[cat_node].get(pid, 0.0) + 1.0
+
+    # Allow dynamic updates: define functions to add/remove/reweight edges (used deterministically below)
+    def add_edge(a, b, weight):
+        graph_neighbors[a][b] = graph_neighbors[a].get(b, 0.0) + weight
+        graph_neighbors[b][a] = graph_neighbors[b].get(a, 0.0) + weight
+
+    def remove_node(n):
+        for nb in list(graph_neighbors.get(n, {})):
+            graph_neighbors[nb].pop(n, None)
+        graph_neighbors.pop(n, None)
+
+    def reweight_edge(a, b, weight):
+        if b in graph_neighbors.get(a, {}):
+            graph_neighbors[a][b] = weight
+            graph_neighbors[b][a] = weight
+
+    # Simulate concurrent updates sequentially: process "transactions" from user sessions deterministically
+    sessions = user_data.get('sessions', [])
+    # For each session, if purchase_history contains new ids not in graph, add them with minimal links
+    for sess in sorted(sessions, key=lambda s: (len(s.get('purchase_history', [])), sum(s.get('time_spent', {}).values() if isinstance(s.get('time_spent', {}), dict) else []))):
+        for pid in sess.get('purchase_history', []):
+            if pid not in prod_map:
+                # add placeholder product
+                prod_map[pid] = {'id': pid, 'name': f'Product {pid}', 'category': 'Uncategorized', 'related_products': [], 'popularity': 1}
+                ids.append(pid)
+                cat_node = f"CAT::Uncategorized"
+                add_edge(pid, cat_node, 0.5)
+        # emulate reweighting based on browsing patterns
+        browse = sess.get('browse_history', [])
+        for i in range(len(browse)-1):
+            a, b = browse[i], browse[i+1]
+            if a in prod_map and b in prod_map:
+                # increase weight deterministically
+                add_edge(a, b, 0.2)
+
+    # Compute community (connected component) stats for each product
+    visited = set()
+    community_of = {}
+    communities = {}
+    for node in list(graph_neighbors.keys()):
+        if node in visited:
+            continue
+        # BFS
+        q = deque([node])
+        comp = []
+        visited.add(node)
+        while q:
+            x = q.popleft()
+            comp.append(x)
+            for nb in graph_neighbors.get(x, {}):
+                if nb not in visited:
+                    visited.add(nb)
+                    q.append(nb)
+        # compute stats considering only product nodes (ints)
+        prod_nodes = [n for n in comp if isinstance(n, int)]
+        total_weight = 0.0
+        edges = 0
+        for n in prod_nodes:
+            for nb, w in graph_neighbors.get(n, {}).items():
+                if isinstance(nb, int):
+                    total_weight += w
+                    edges += 1
+        # edges counted twice in undirected -> divide by 2
+        total_weight = total_weight / 2.0
+        density = (edges / 2.0) / max(1, len(prod_nodes)*(len(prod_nodes)-1)/2.0) if len(prod_nodes) > 1 else 0.0
+        comp_id = min([n for n in comp if isinstance(n, int)] + [10**9]) if prod_nodes else hash(tuple(sorted(comp)))
+        communities[comp_id] = {
+            'members': prod_nodes,
+            'size': len(prod_nodes),
+            'total_weight': total_weight,
+            'density': density
+        }
+        for n in comp:
+            community_of[n] = comp_id
+
+    # Segment tree over categories for category boosts and range updates
+    # Build list of categories deterministically sorted
+    categories = sorted({p.get('category','') for p in prod_map.values()})
+    cat_index = {c:i for i,c in enumerate(categories)}
+    n_cat = len(categories)
+    size = 1
+    while size < n_cat:
+        size *= 2
+    seg = [0.0] * (2*size)
+    # range add
+    def seg_add(l, r, val):
+        # add val to interval [l, r)
+        l += size
+        r += size
+        while l < r:
+            if l & 1:
+                seg[l] += val
+                l += 1
+            if r & 1:
+                r -= 1
+                seg[r] += val
+            l //= 2; r //= 2
+
+    def seg_query(i):
+        i += size
+        res = 0.0
+        while i >= 1:
+            res += seg[i]
+            i //= 2
+        return res
+
+    # Initialize popularity and interaction metrics
+    max_pop = max((p.get('popularity',0) for p in prod_map.values()), default=0)
+    # raw interaction weight: from user sessions counts
+    raw_interaction = defaultdict(float)
+    raw_flow = defaultdict(float)
+    # deterministic contributions: browsing gives 1, purchase gives 3, time_spent proportional
+    for sess in sessions:
+        for b in sess.get('browse_history', []):
+            if b in prod_map:
+                raw_interaction[b] += 1.0
+        for pur in sess.get('purchase_history', []):
+            if pur in prod_map:
+                raw_interaction[pur] += 3.0
+        for cat, t in sorted(sess.get('time_spent', {}).items(), key=lambda x: x[0]):
+            # distribute time to products in that category proportionally by id order
+            if cat in cat_index and t > 0:
+                members = [p['id'] for p in products if p.get('category')==cat]
+                if not members:
+                    continue
+                per = t / len(members)
+                for m in sorted(members):
+                    raw_interaction[m] += per * 0.01
+                    raw_flow[m] += per * 0.001
+
+    max_weight = max(raw_interaction.values(), default=0.0)
+    max_flow = max(raw_flow.values(), default=0.0)
+
+    # Category affinity: based on user preferences and time spent
+    pref_cats = user_data.get('preferences', {}).get('categories', [])
+    time_spent_agg = defaultdict(float)
+    for sess in sessions:
+        for cat, t in sess.get('time_spent', {}).items():
+            time_spent_agg[cat] += t
+    max_time = max(time_spent_agg.values(), default=0.0)
+
+    # Deterministic segment updates: boost preferred categories by fixed amounts
+    for i, cat in enumerate(categories):
+        boost = 0.0
+        if cat in pref_cats:
+            boost += 1.5
+        boost += (time_spent_agg.get(cat,0.0) / (max_time + 1.0)) * 1.0
+        if boost != 0.0:
+            seg_add(i, i+1, boost)
+
+    # Also support range boosts: e.g., boost first half categories slightly
+    if n_cat > 0:
+        seg_add(0, (n_cat+1)//2, 0.2)
+
+    # Compute final scores
+    results = []
+    for pid in sorted(prod_map.keys()):
+        p = prod_map[pid]
+        popularity = p.get('popularity', 0)
+        raw_w = raw_interaction.get(pid, 0.0)
+        normalized_weight = raw_w / (max_weight + 0.1)
+        interaction_score = 10.0 * (normalized_weight / (1.0 + normalized_weight))
+        normalized_pop = popularity / (max_pop + 1.0)
+        popularity_score = 2.0 * (normalized_pop ** 0.6) if normalized_pop >= 0 else 0.0
+        category = p.get('category','')
+        # category_affinity from preferences and time spent
+        cat_aff = 0.0
+        if category in pref_cats:
+            cat_aff += 1.0
+        if max_time > 0:
+            cat_aff += (time_spent_agg.get(category,0.0) / (max_time + 0.1))
+        category_score = cat_aff * 30.0
+        # community stats
+        comm_id = community_of.get(pid)
+        comm = communities.get(comm_id, {'size':0,'density':0.0,'total_weight':0.0})
+        size_score = min(comm['size'] / 5.0, 3.0)
+        density_score = comm['density'] * 2.0
+        weight_score = min(comm['total_weight'] / 10.0, 2.0)
+        community_score = size_score + density_score + weight_score
+        raw_f = raw_flow.get(pid, 0.0)
+        normalized_flow = raw_f / (max_flow + 0.1) if max_flow >= 0 else 0.0
+        flow_score = normalized_flow * 5.0
+        category_boost = cat_aff * 5.0
+        # include graph-based community influence: sum of neighbor weights normalized
+        neigh_sum = sum(graph_neighbors.get(pid, {}).values())
+        community_extra = min(neigh_sum / (1.0 + neigh_sum), 1.0) * 2.0
+        # Segment tree value for this category
+        seg_val = 0.0
+        if category in cat_index:
+            seg_val = seg_query(cat_index[category])
+        # Final priority
+        priority = (interaction_score + popularity_score + category_score +
+                    community_score + flow_score + category_boost + community_extra + seg_val)
+        # Deterministic tie-breaker: lower id higher priority when equal
+        results.append(( -priority, pid, {
+            'id': pid,
+            'name': p.get('name'),
+            'category': category
+        }))
+
+    # Sort deterministically by priority desc, then id asc
+    results.sort()
+    return [r[2] for r in results]

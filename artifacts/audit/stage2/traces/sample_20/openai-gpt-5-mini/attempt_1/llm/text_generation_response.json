@@ -1,0 +1,76 @@
+{
+  "id": "resp_01a94828db403e170069c31c9d440881a396339ed534431492",
+  "object": "response",
+  "created_at": 1774394525,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774394549,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_01a94828db403e170069c31c9d86e481a3ae30a5d618192838",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_01a94828db403e170069c31c9db2cc81a3b0d8597b400aabe7",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any\n\ndef analyze_retinal_patterns(pixel_matrix: List[List[int]], feature_templates: List[Dict], \n                             diagnostic_masks: List[Dict], risk_factors: Dict) -> Dict[str, Any]:\n    # Validation helpers\n    def error(msg): \n        return {\"error\": msg}\n    if not pixel_matrix or not any(pixel_matrix):\n        return error(\"Empty pixel matrix provided\")\n    # matrix rectangularity\n    rows = len(pixel_matrix)\n    if rows < 1:\n        return error(\"Empty pixel matrix provided\")\n    cols = None\n    for r in pixel_matrix:\n        if not isinstance(r, list):\n            return error(\"Invalid pixel matrix dimensions\")\n        if cols is None:\n            cols = len(r)\n        elif len(r) != cols:\n            return error(\"Invalid pixel matrix dimensions\")\n    if cols is None:\n        return error(\"Empty pixel matrix provided\")\n    if rows < 8 or rows > 16 or cols < 8 or cols > 16:\n        return error(\"Invalid pixel matrix dimensions\")\n    # validate pixels are ints 0-255\n    for i in range(rows):\n        for j in range(cols):\n            v = pixel_matrix[i][j]\n            if not isinstance(v, int) or v < 0 or v > 255:\n                return error(\"Input is not valid\")\n    # validate templates\n    for t in feature_templates:\n        if 'template_id' not in t or 'pattern_mask' not in t or 'feature_weight' not in t or 'correlation_threshold' not in t:\n            return error(\"Input is not valid\")\n        tid = t['template_id']\n        pm = t['pattern_mask']\n        fw = t['feature_weight']\n        ct = t['correlation_threshold']\n        if not isinstance(pm, int) or pm < 0 or pm > 255:\n            return error(f\"Invalid pattern mask value for template {tid}\")\n        if not (isinstance(fw, (int,float)) and 0.1 <= fw <= 2.0):\n            return error(f\"Feature weight out of range for template {tid}\")\n        if not (isinstance(ct, (int,float)) and 0.3 <= ct <= 0.9):\n            return error(f\"Correlation threshold invalid for template {tid}\")\n    # validate diagnostic_masks\n    for m in diagnostic_masks:\n        if 'mask_id' not in m or 'region_coordinates' not in m or 'severity_modifier' not in m or 'analysis_priority' not in m:\n            return error(\"Input is not valid\")\n        mid = m['mask_id']\n        coords = m['region_coordinates']\n        if not isinstance(coords, list) or not coords:\n            return error(\"Input is not valid\")\n        for c in coords:\n            if (not isinstance(c, list)) or len(c) != 2:\n                return error(\"Input is not valid\")\n            r,c0 = c\n            if not (isinstance(r,int) and isinstance(c0,int)):\n                return error(\"Input is not valid\")\n            if r < 0 or r >= rows or c0 < 0 or c0 >= cols:\n                return error(f\"Region coordinates exceed matrix bounds for mask {mid}\")\n        sm = m['severity_modifier']\n        if not isinstance(sm,(int,float)):\n            return error(\"Input is not valid\")\n    # validate risk_factors\n    rf = risk_factors\n    required_rf = ['patient_age_group','genetic_predisposition','environmental_exposure','previous_diagnosis_history']\n    for k in required_rf:\n        if k not in rf:\n            return error(\"Invalid risk factor values detected\")\n    pag = rf['patient_age_group']\n    gp = rf['genetic_predisposition']\n    ee = rf['environmental_exposure']\n    pdh = rf['previous_diagnosis_history']\n    if not (isinstance(pag,int) and 1 <= pag <= 5):\n        return error(\"Invalid risk factor values detected\")\n    if not (isinstance(gp,(int,float)) and 0.0 <= gp <= 1.0):\n        return error(\"Invalid risk factor values detected\")\n    if not (isinstance(ee,(int,float)) and 0.0 <= ee <= 1.0):\n        return error(\"Invalid risk factor values detected\")\n    if not (isinstance(pdh,(int,float)) and 0.0 <= pdh <= 1.0):\n        return error(\"Invalid risk factor values detected\")\n    # deterministic ordering\n    templates = sorted(feature_templates, key=lambda x: x['template_id'])\n    masks = sorted(diagnostic_masks, key=lambda x: x['mask_id'])\n    # precompute region stats for max_possible_score\n    max_region_pixel_count = 0\n    max_adjacent_pairs_in_any_region = 0\n    for m in masks:\n        coords = m['region_coordinates']\n        n = len(coords)\n        if n > max_region_pixel_count:\n            max_region_pixel_count = n\n        # build set for adjacency\n        coord_set = set((r,c) for r,c in coords)\n        pairs = 0\n        for (r,c) in coord_set:\n            for dr,dc in ((1,0),(0,1),(-1,0),(0,-1)):\n                nr,nc = r+dr, c+dc\n                if (nr,nc) in coord_set:\n                    pairs += 1\n        # each adjacent pair counted twice\n        pairs = pairs // 2\n        if pairs > max_adjacent_pairs_in_any_region:\n            max_adjacent_pairs_in_any_region = pairs\n    max_feature_weight = max((t['feature_weight'] for t in templates), default=1.0)\n    max_severity_modifier = max((m['severity_modifier'] for m in masks), default=1.0)\n    max_possible_score = (max_region_pixel_count * max_feature_weight) + (max_adjacent_pairs_in_any_region * max_severity_modifier)\n    base_threshold = 0.6 * max_possible_score if max_possible_score > 0 else 1.0\n    # risk weight\n    risk_weight = (pag * 0.3) + (gp * 0.4) + (ee * 0.2) + (pdh * 0.1)\n    # helpers: popcount\n    def popcount(x: int) -> int:\n        # builtin bit_count if available\n        try:\n            return x.bit_count()\n        except AttributeError:\n            c = 0\n            while x:\n                x &= x-1\n                c += 1\n            return c\n    diagnostic_results = []\n    processed_regions = 0\n    total_pattern_matches = 0\n    sum_correlation = 0.0\n    successful_operations = 0\n    total_operations = len(templates) * len(masks)\n    total_diagnostic_score = 0.0\n    highest_severity_detected = 0\n    for t in templates:\n        tid = t['template_id']\n        tmask = t['pattern_mask']\n        fweight = float(t['feature_weight'])\n        cthreshold = float(t['correlation_threshold'])\n        for m in masks:\n            mid = m['mask_id']\n            coords = m['region_coordinates']\n            severity_mod = float(m['severity_modifier'])\n            # extract pixels\n            pixels = []\n            for (r,c0) in coords:\n                pixels.append(pixel_matrix[r][c0])\n            total_pixels = len(pixels)\n            processed_regions += 1\n            # pattern matches: pixel & tmask == tmask\n            matches = 0\n            for p in pixels:\n                if (p & tmask) == tmask:\n                    matches += 1\n            correlation = (matches / total_pixels) if total_pixels > 0 else 0.0\n            # edge discontinuities: for each adjacent pair within region (4-way), compute popcount(pixel1 ^ pixel2)\n            coord_set = set((r,c0) for r,c0 in coords)\n            seen_pairs = set()\n            edge_discont = 0\n            for (r,c0) in coord_set:\n                for dr,dc in ((1,0),(0,1)):\n                    nr,nc = r+dr, c0+dc\n                    if (nr,nc) in coord_set:\n                        p1 = pixel_matrix[r][c0]\n                        p2 = pixel_matrix[nr][nc]\n                        pair_key = ((r,c0),(nr,nc))\n                        if pair_key not in seen_pairs:\n                            edge_discont += popcount(p1 ^ p2)\n                            seen_pairs.add(pair_key)\n            # diagnostic score\n            diagnostic_score = (matches * fweight) + (edge_discont * severity_mod)\n            # final severity score and classification\n            final_severity_score = diagnostic_score * risk_weight\n            if base_threshold <= 0:\n                classification_level = 0\n            else:\n                classification_level = min(4, int(final_severity_score / base_threshold))\n            # feature density: popcount(OR of all pixels) / (total_pixels * 8)\n            agg = 0\n            for p in pixels:\n                agg |= p\n            feature_density = (popcount(agg) / (total_pixels * 8)) if total_pixels > 0 else 0.0\n            result = {\n                \"template_id\": tid,\n                \"mask_id\": mid,\n                \"pattern_matches\": matches,\n                \"correlation_score\": round(correlation, 6),\n                \"edge_discontinuities\": edge_discont,\n                \"diagnostic_score\": round(diagnostic_score, 6),\n                \"severity_level\": classification_level,\n                \"feature_density\": round(feature_density, 6)\n            }\n            diagnostic_results.append(result)\n            total_pattern_matches += matches\n            sum_correlation += correlation\n            total_diagnostic_score += diagnostic_score\n            if classification_level > highest_severity_detected:\n                highest_severity_detected = classification_level\n            if correlation >= cthreshold:\n                successful_operations += 1\n    average_correlation = (sum_correlation / total_operations) if total_operations > 0 else 0.0\n    processing_efficiency = (successful_operations / total_operations) if total_operations > 0 else 0.0\n    risk_adjusted_score = total_diagnostic_score * risk_weight\n    # recommended followup based on highest severity\n    if highest_severity_detected <= 1:\n        recommended = \"routine_monitoring\"\n    elif highest_severity_detected == 2:\n        recommended = \"increased_monitoring\"\n    elif highest_severity_detected == 3:\n        recommended = \"immediate_consultation\"\n    else:\n        recommended = \"urgent_intervention\"\n    analysis_metadata = {\n        \"processed_regions\": len(masks),\n        \"total_pattern_matches\": total_pattern_matches,\n        \"average_correlation\": round(average_correlation, 6),\n        \"processing_efficiency\": round(processing_efficiency, 6)\n    }\n    overall_assessment = {\n        \"total_diagnostic_score\": round(total_diagnostic_score, 6),\n        \"highest_severity_detected\": highest_severity_detected,\n        \"risk_adjusted_score\": round(risk_adjusted_score, 6),\n        \"recommended_followup\": recommended\n    }\n    return {\n        \"diagnostic_results\": diagnostic_results,\n        \"overall_assessment\": overall_assessment,\n        \"analysis_metadata\": analysis_metadata\n    }"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 3268,
+    "input_tokens_details": {
+      "cached_tokens": 3200
+    },
+    "output_tokens": 2430,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 5698
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,76 @@
+{
+  "id": "resp_0009e0f53d62e6850069c31d9ec73881908052a57bdf512883",
+  "object": "response",
+  "created_at": 1774394782,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774394810,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0009e0f53d62e6850069c31d9f11a48190bc19abb5d513bf78",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0009e0f53d62e6850069c31d9f39a48190aeff855770c8066d",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\nfrom collections import deque\n\n# Layer bit positions\nLAY_SOURCE = 120\nLAY_CONSUMER = 121\nLAY_FAULT = 122\nLAY_REACTIVE = 123\nLAY_BALANCED = 124\nLAY_FAILOVER = 125\nHEARTBEAT_OK = 126\nHEARTBEAT_FAIL = 127\n\nB = 128  # number of bits considered\n\ndef _bit(x: int) -> int:\n    return 1 << x\n\ndef _count_bits_mask(mask: int, upto: int) -> int:\n    # count bits in mask for positions [0..upto)\n    if upto <= 0:\n        return 0\n    m = mask & ((1 << upto) - 1)\n    return m.bit_count()\n\ndef _set_flag(val: int, pos: int, on: bool) -> int:\n    if on:\n        return val | _bit(pos)\n    else:\n        return val & ~_bit(pos)\n\ndef _get_flag(val: int, pos: int) -> bool:\n    return bool(val & _bit(pos))\n\n# Simple DSU for connectivity among healthy nodes (per requirements)\nclass DSU:\n    def __init__(self, n):\n        self.p = list(range(n))\n        self.r = [0]*n\n    def find(self, a):\n        while self.p[a]!=a:\n            self.p[a]=self.p[self.p[a]]\n            a=self.p[a]\n        return a\n    def union(self,a,b):\n        ra,rb=self.find(a),self.find(b)\n        if ra==rb: return\n        if self.r[ra]<self.r[rb]:\n            self.p[ra]=rb\n        else:\n            self.p[rb]=ra\n            if self.r[ra]==self.r[rb]:\n                self.r[ra]+=1\n\ndef optimize_energy_distribution(\n    nodes: List[int],\n    energy_sources: List[int],\n    energy_consumers: List[int],\n) -> List[int]:\n    # Do not mutate inputs\n    n = len(nodes)\n    # Edge case: if all inputs empty -> return []\n    if not nodes and not energy_sources and not energy_consumers:\n        return []\n    # If both sources and consumers empty: output == nodes (copy)\n    if not energy_sources and not energy_consumers:\n        return list(nodes)\n\n    # Compute per-bit supply and demand counts across [0..B)\n    supply_counts = [0]*B\n    demand_counts = [0]*B\n    for s in energy_sources:\n        for i in range(B):\n            if s & (1<<i):\n                supply_counts[i] += 1\n    for c in energy_consumers:\n        for i in range(B):\n            if c & (1<<i):\n                demand_counts[i] += 1\n\n    # Heartbeat detection per node\n    heartbeat_failed_nodes = []\n    healthy_nodes = []\n    for idx, v in enumerate(nodes):\n        hb_ok = _get_flag(v, HEARTBEAT_OK)\n        hb_fail = _get_flag(v, HEARTBEAT_FAIL)\n        failed = (hb_fail and not hb_ok)\n        if failed:\n            heartbeat_failed_nodes.append(idx)\n        else:\n            healthy_nodes.append(idx)\n\n    # Reduce available supply proportionally to number of failed nodes (uniform reduction)\n    failed_count = len(heartbeat_failed_nodes)\n    total_source_nodes = max(1, len(energy_sources))\n    if failed_count > 0:\n        reduction_ratio = min(1.0, failed_count / total_source_nodes)\n    else:\n        reduction_ratio = 0.0\n    # Apply uniform reduction: subtract floor(reduction_ratio * count) from each supply bit\n    for i in range(B):\n        if supply_counts[i] > 0 and reduction_ratio > 0:\n            dec = int(supply_counts[i] * reduction_ratio)\n            supply_counts[i] = max(0, supply_counts[i] - dec)\n\n    # Build bipartite flow graph: left bits i (supply), right bits j (demand)\n    # Capacities: supply_counts[i] -> edge from source to i; demand_counts[j] -> edge j->sink\n    # Edges i->j capacity large with cost = |i-j|\n    # We'll implement a simple min-cost max-flow using successive shortest augmenting path (SPFA/Dijkstra with potentials)\n    # Node indexing: 0 = source, 1..B = supply bits, B+1 .. B+B = demand bits, 2B+1 = sink\n    N = 2*B + 2\n    SRC = 0\n    S_OFFSET = 1\n    D_OFFSET = 1 + B\n    SNK = 2*B + 1\n\n    class Edge:\n        __slots__ = ('v','cap','cost','rev')\n        def __init__(self,v,cap,cost,rev):\n            self.v=v; self.cap=cap; self.cost=cost; self.rev=rev\n\n    g = [[] for _ in range(N)]\n    def add_edge(u,v,cap,cost):\n        g[u].append(Edge(v,cap,cost,len(g[v])))\n        g[v].append(Edge(u,0,-cost,len(g[u])-1))\n\n    # source to supply bits\n    total_supply = 0\n    for i in range(B):\n        c = supply_counts[i]\n        if c>0:\n            add_edge(SRC, S_OFFSET + i, c, 0)\n            total_supply += c\n    total_demand = 0\n    for j in range(B):\n        d = demand_counts[j]\n        if d>0:\n            add_edge(D_OFFSET + j, SNK, d, 0)\n            total_demand += d\n    # cross edges\n    # To control complexity we only connect bits that have supply and demand\n    supply_indices = [i for i in range(B) if supply_counts[i]>0]\n    demand_indices = [j for j in range(B) if demand_counts[j]>0]\n    for i in supply_indices:\n        for j in demand_indices:\n            # capacity large (min of supply/demand counts used)\n            add_edge(S_OFFSET + i, D_OFFSET + j, min(supply_counts[i], demand_counts[j]), abs(i-j))\n\n    # Min-cost max-flow (successive shortest augmenting path with potentials)\n    INF = 10**18\n    def min_cost_flow(s,t, maxf = INF):\n        nN = N\n        prevv = [0]*nN\n        preve = [0]*nN\n        res = 0\n        flow = 0\n        potential = [0]*nN\n        dist = [0]*nN\n        while flow < maxf:\n            # Dijkstra\n            for i in range(nN): dist[i]=INF\n            dist[s]=0\n            inq = [False]*nN\n            from heapq import heappush, heappop\n            h=[]\n            heappush(h,(0,s))\n            while h:\n                d,u = heappop(h)\n                if d>dist[u]: continue\n                for ei, e in enumerate(g[u]):\n                    if e.cap>0:\n                        nd = dist[u] + e.cost + potential[u] - potential[e.v]\n                        if dist[e.v] > nd:\n                            dist[e.v] = nd\n                            prevv[e.v]=u\n                            preve[e.v]=ei\n                            heappush(h,(nd,e.v))\n            if dist[t] == INF:\n                break\n            for v in range(nN):\n                if dist[v]<INF:\n                    potential[v] += dist[v]\n            # add as much as possible\n            d = maxf - flow\n            v = t\n            while v!=s:\n                e = g[prevv[v]][preve[v]]\n                d = min(d, e.cap)\n                v = prevv[v]\n            v = t\n            while v!=s:\n                e = g[prevv[v]][preve[v]]\n                e.cap -= d\n                g[v][e.rev].cap += d\n                v = prevv[v]\n            flow += d\n            res += d * potential[t]\n        return flow, res\n\n    flow, cost = min_cost_flow(SRC, SNK)\n\n    # Balanced when failover flow meets or exceeds total demand\n    balanced = (flow >= total_demand and total_demand>0) or (total_demand==0)\n\n    # Mark global flags based on detection\n    global_fail_flag = failed_count > 0\n    global_failover = flow > 0 and failed_count>0\n\n    # Connectivity groups among healthy nodes using DSU (simple linear union by adjacency index)\n    dsu = DSU(n)\n    # We'll consider nodes adjacent if both healthy and index difference ==1 (simple structure for deterministic grouping)\n    for i in range(n-1):\n        if i in healthy_nodes and (i+1) in healthy_nodes:\n            dsu.union(i, i+1)\n    # per-bit count aggregates (recomputed deterministically)\n    per_bit_aggregate = [0]*B\n    for v in nodes:\n        for i in range(B):\n            if v & (1<<i):\n                per_bit_aggregate[i]+=1\n\n    # Prepare output nodes (do not mutate inputs)\n    out = list(nodes[:])\n\n    # Deterministic projection rules to set layered flags for source, consumer, balanced, reactive, fault, failover\n    # For each node:\n    # - If node had any source bits among lower bits (count of bits in [0..B-8) > 0), set LAY_SOURCE\n    # - If node had any consumer bits among lower bits, set LAY_CONSUMER\n    # - If node had heartbeat fail -> set LAY_FAULT and clear LAY_BALANCED\n    # - If global_fail_flag -> set LAY_FAILOVER on nodes with HEARTBEAT_OK\n    # - If balanced -> set LAY_BALANCED on healthy nodes\n    # - Set LAY_REACTIVE if per-node reactive condition: node has more set bits in lower half than upper half (deterministic)\n    lower_range = B - 8  # reserve top 8 bits for layered statuses per spec\n    for idx, orig in enumerate(nodes):\n        v = orig\n        # source/consumer heuristics from counts in original mask\n        src_count = _count_bits_mask(orig, lower_range)\n        # treat presence in energy_sources/consumers by checking exact mask equality not allowed; instead check overlap with aggregated supplies/demands\n        overlap_source = False\n        for s in energy_sources:\n            if (s & orig) != 0:\n                overlap_source = True\n                break\n        overlap_consumer = False\n        for c in energy_consumers:\n            if (c & orig) != 0:\n                overlap_consumer = True\n                break\n        v = _set_flag(v, LAY_SOURCE, overlap_source or src_count>0)\n        v = _set_flag(v, LAY_CONSUMER, overlap_consumer or src_count>0)\n        # Fault handling\n        hb_ok = _get_flag(orig, HEARTBEAT_OK)\n        hb_fail = _get_flag(orig, HEARTBEAT_FAIL)\n        node_failed = (hb_fail and not hb_ok)\n        if node_failed:\n            v = _set_flag(v, LAY_FAULT, True)\n            v = _set_flag(v, LAY_BALANCED, False)\n        else:\n            # balanced set if global balanced and node healthy\n            v = _set_flag(v, LAY_BALANCED, balanced)\n        # Failover flag: set if global failover and node has heartbeat ok\n        if global_failover and hb_ok:\n            v = _set_flag(v, LAY_FAILOVER, True)\n        else:\n            v = _set_flag(v, LAY_FAILOVER, False)\n        # Reactive: simple deterministic rule based on per-bit aggregate: if node has bits corresponding to positions where aggregate demand > supply, enable reactive\n        reactive = False\n        for i in range(lower_range):\n            if (orig & (1<<i)):\n                if demand_counts[i] > supply_counts[i]:\n                    reactive = True\n                    break\n        v = _set_flag(v, LAY_REACTIVE, reactive)\n        # Clear/Set HEARTBEAT flags unchanged (do not flip)\n        # Ensure LAY_FAULT also set if global_fail_flag and node had no heartbeat ok\n        if global_fail_flag and not hb_ok:\n            v = _set_flag(v, LAY_FAULT, True)\n\n        out[idx] = v\n\n    # Ensure idempotence: applying function twice yields same result, so we canonicalize by sorting layered flags deterministically:\n    # We'll ensure that top-layer bits 120-127 reflect the computed booleans and remain stable.\n    # Already deterministic above.\n\n    return out"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1359,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2746,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4105
+  },
+  "user": null,
+  "metadata": {}
+}

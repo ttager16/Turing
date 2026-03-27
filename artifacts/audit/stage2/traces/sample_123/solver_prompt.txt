@@ -1,0 +1,209 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+In a large-scale solar energy grid, substations are interconnected through energy transfer channels that can be modeled as an **undirected weighted graph**.
+Each **substation (vertex)** has two key properties:
+
+1. **Reliability Score** — a numeric value representing its operational stability (higher means more stable).
+2. **Priority Level** — determines whether it is a **high-priority substation** that must maintain **redundant connectivity** to the main power source.
+
+Each **channel (edge)** connects two substations and has:
+
+* A **capacity** (maximum power transfer limit).
+* A **cost** (energy loss or operational cost) associated with using that channel.
+
+The goal is to dynamically maintain a **minimum-cost connected subgraph** that:
+
+1. Connects all substations efficiently.
+2. Guarantees that **every high-priority substation** has **at least two disjoint paths** to the **main power source** (ensuring redundancy in case of single channel failure).
+3. Adjusts efficiently when a substation’s **priority** or **reliability** changes.
+
+---
+
+### Objectives
+
+1. Build and maintain a **low-cost spanning subgraph** that connects all substations.
+2. Ensure every **high-priority substation** maintains **two disjoint paths** to the **main power source** for redundancy.
+3. Allow updates to node reliability or priority without reconstructing the graph from scratch.
+4. Keep all structures in **pure Python (no external libraries)** while ensuring the system remains testable and scalable.
+
+---
+
+### Constraints
+
+* Each substation has:
+
+  * A **reliability score** (integer or float).
+  * A **priority flag** (1 for high-priority, 0 for normal).
+* Each edge is represented as a **list** `[u, v, cost]` where:
+
+  * `u`, `v` are integer node IDs.
+  * `cost` is a float representing operational or transfer cost.
+* **Updates** may change either:
+
+  * The **priority level** of a substation, or
+  * Its **reliability score**.
+* The algorithm must:
+
+  * Maintain redundancy for all high-priority nodes.
+  * Minimize total cost of selected edges.
+  * Avoid full recomputation after every update.
+
+* Whenever two or more high-priority substations share overlapping redundancy paths, the algorithm must dynamically rebalance edge weights based on shared utilization, ensuring that each critical connection’s effective cost reflects proportional load distribution among parallel edges.
+
+
+---
+
+### Key Definitions
+
+**Substation (Vertex):** A node representing an energy distribution point in the grid.
+
+**Energy Channel (Edge):** A connection between two substations, defined by cost and capacity.
+
+**Cost:** Represents energy loss or transmission cost along a channel. Lower cost means more efficiency.
+
+**Reliability Score:** A numeric stability measure of each substation; a higher score indicates greater reliability.
+
+**Reliability Score Formula** 
+
+[
+R_i = \alpha \times S_i + \beta \times (1 - F_i) + \gamma \times C_i
+]
+
+**Where:**
+
+* ( R_i ) → **Reliability Score** of substation *i*.
+* ( S_i ) → **Stability Factor** of substation *i* (based on voltage/frequency consistency; normalized 0–1).
+* ( F_i ) → **Failure Rate** of substation *i* (number of recent failures per time unit; normalized 0–1).
+* ( C_i ) → **Connectivity Strength** (fraction of successfully maintained links to neighboring substations; normalized 0–1).
+* ( \alpha, \beta, \gamma ) → **Weight coefficients** that determine importance of each factor (and sum to 1):
+  [
+  \alpha + \beta + \gamma = 1
+  ]
+
+* High **stability** and **connectivity** increase reliability.
+* High **failure rate** decreases reliability.
+* Weights (\alpha, \beta, \gamma) can be tuned — for instance:
+
+  * (\alpha = 0.4) → Emphasize operational stability.
+  * (\beta = 0.3) → Account for fault tolerance.
+  * (\gamma = 0.3) → Reflect network integration strength.
+
+**Priority Level:** Determines redundancy requirement (1 = high-priority, must have 2 disjoint paths; 0 = normal).
+
+**Main Power Source:** The root substation (node 0 by default) that supplies energy to the network.
+
+**Disjoint Paths:** Two paths between a high-priority node and the main source that do not share any common edge.
+
+---
+
+### Function Signature
+
+```python
+def prioritize_mst(
+    graph: list[list[int or float]],
+    priorities: list[list[int or float]],
+    updates: list[list[int or float]]
+) -> list[list[int]]:
+    """
+    Maintains a dynamic low-cost subgraph ensuring:
+    1. Every high-priority substation has two edge-disjoint paths to the main power source.
+    2. Updates to reliability or priority are efficiently handled.
+    3. Total connection cost remains minimal under given constraints.
+    """
+```
+
+---
+
+### Input Format
+
+1. **graph** → A list of edges in the form `[u, v, cost]`.
+
+   * Example: `[[0, 1, 4.2], [0, 2, 3.1], [1, 3, 2.0]]`
+   * Represents undirected edges between nodes `u` and `v` with associated costs.
+
+2. **priorities** → A list where each element corresponds to a substation and is represented as `[priority_level, reliability_score]`.
+
+   * Example: `[[1, 5.0], [0, 3.2], [1, 4.5], [0, 2.1]]`
+
+3. **updates** → A list of update operations in the form `[vertex_id, new_priority, new_reliability]`.
+
+   * Example: `[[1, 1, 6.0], [3, 1, 4.8]]`
+
+---
+
+### Sample Input
+
+```python
+graph = [
+  [0, 1, 4.2],
+  [0, 2, 3.1],
+  [1, 3, 2.0],
+  [2, 3, 1.9],
+  [2, 4, 5.5]
+]
+
+priorities = [
+  [1, 4.5],  # Vertex 0: high-priority, high reliability
+  [0, 3.0],  # Vertex 1: normal
+  [1, 2.8],  # Vertex 2: high-priority, low reliability
+  [0, 2.0],  # Vertex 3: normal
+  [0, 3.7]   # Vertex 4: normal
+]
+
+updates = [
+  [1, 1, 5.5],  # Vertex 1 becomes high-priority with increased reliability
+  [3, 1, 4.1]   # Vertex 3 also promoted to high-priority
+]
+```
+
+---
+
+### Output Format
+
+
+* Return a **list of lists** `[[u, v], [x, y], ...]` representing the final set of selected edges in the optimized subgraph after processing all updates.
+* The resulting subgraph must:
+
+  * Maintain full connectivity across all substations.
+  * Ensure every **high-priority substation** has **two edge-disjoint paths** to the main power source (node 0).
+  * Achieve the **lowest possible total connection cost** while satisfying redundancy constraints.
+
+---
+
+### Sample Output
+
+```python
+[[0, 1], [0, 2], [1, 3], [2, 3], [2, 4]]
+```
+
+---
+
+### **Explanation of the Sample**
+
+* At the start, substations **0** and **2** are high-priority, so the structure ensures redundant connectivity for both through efficient low-cost edges like `[0, 2]` and `[2, 3]`.
+* When updates promote substations **1** and **3** to high-priority, the network dynamically adjusts by reinforcing connections through `[0, 1]` and `[1, 3]`, ensuring that all high-priority nodes (0, 1, 2, 3) now have at least two disjoint paths to the main source (node 0).
+* The final subgraph `[[0, 1], [0, 2], [1, 3], [2, 3], [2, 4]]` achieves full redundancy and minimal total cost while maintaining stable connectivity across the grid.
+
+Starter Code:
+```python
+from typing import List, Dict, Set, Tuple, Optional
+from collections import defaultdict, deque
+import heapq
+
+
+def prioritize_mst(
+    graph: List[List],
+    priorities: List[List],
+    updates: List[List]
+) -> List[List[int]]:
+    pass
+```

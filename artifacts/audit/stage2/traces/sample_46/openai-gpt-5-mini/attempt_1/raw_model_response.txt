@@ -1,0 +1,212 @@
+from typing import Dict, List, Any, Tuple
+
+def maximize_ad_impressions(payload: Dict[str, Any]) -> Dict[str, float | List[str]]:
+    budget: float = float(payload.get("budget", 0.0))
+    raw_bids = payload.get("bids", [])
+    synergy_list = payload.get("synergy", [])
+    seg_caps_raw = payload.get("segment_roi_cap", {}) or {}
+
+    # Normalize segment caps: keys may be strings or ints
+    seg_caps: Dict[int, float] = {}
+    for k, v in seg_caps_raw.items():
+        try:
+            key = int(k)
+        except Exception:
+            # fallback if not int-like
+            key = k
+        seg_caps[key] = float(v)
+
+    # Parse bids into dicts
+    bids: List[Dict[str, Any]] = []
+    for entry in raw_bids:
+        bid_id, cost, roi, segments = entry
+        bids.append({
+            "id": str(bid_id),
+            "cost": float(cost),
+            "roi": float(roi),
+            "segs": list(int(s) for s in segments)
+        })
+
+    # Build synergy map: unordered pair -> penalty
+    synergy: Dict[Tuple[int, int], float] = {}
+    for item in synergy_list:
+        a, b = item.get("pair", [None, None])
+        if a is None or b is None:
+            continue
+        a_i, b_i = int(a), int(b)
+        if a_i == b_i:
+            continue
+        key = (a_i, b_i) if a_i < b_i else (b_i, a_i)
+        synergy[key] = float(item.get("penalty", 0.0))
+
+    # Deterministic ordering of bids (tie-breakers): by id
+    bids.sort(key=lambda x: x["id"])
+
+    # Helper functions
+    def compute_roi_and_penalty(selected_ids: List[str]) -> Tuple[float, float, Dict[int, float]]:
+        """Return (total_roi_after_caps, total_penalty, per_segment_allocated)"""
+        sel = [b for b in bids if b["id"] in selected_ids]
+        per_seg_alloc: Dict[int, float] = {}
+        # allocate ROI split equally per bid
+        for b in sel:
+            segs = b["segs"]
+            if not segs:
+                continue
+            per_seg = b["roi"] / len(segs)
+            for s in segs:
+                per_seg_alloc[s] = per_seg_alloc.get(s, 0.0) + per_seg
+        # apply caps
+        total_roi = 0.0
+        for s, val in per_seg_alloc.items():
+            cap = seg_caps.get(s, None)
+            if cap is None:
+                total_roi += val
+            else:
+                # cap applies per segment overall
+                total_roi += min(val, cap)
+        # compute penalties: presence-based for unordered pairs
+        present_segments = set(per_seg_alloc.keys())
+        total_pen = 0.0
+        for (a, b), p in synergy.items():
+            if a in present_segments and b in present_segments:
+                total_pen += p
+        return total_roi, total_pen, per_seg_alloc
+
+    def total_cost_of(selected_ids: List[str]) -> float:
+        s = 0.0
+        idset = set(selected_ids)
+        for b in bids:
+            if b["id"] in idset:
+                s += b["cost"]
+        return s
+
+    # Greedy initial selection: sort by marginal utility per cost
+    accepted: List[str] = []
+    remaining_budget = budget
+    # We'll compute marginal utility assuming no caps/pens initially to rank, but deterministically refine
+    # For deterministic behavior, iterate and pick best marginal that fits budget; recompute true marginal each time.
+    candidate_ids = [b["id"] for b in bids]
+    # Precompute lookup
+    bid_map = {b["id"]: b for b in bids}
+
+    while True:
+        best_id = None
+        best_delta = 0.0
+        for bid_id in candidate_ids:
+            if bid_id in accepted:
+                continue
+            b = bid_map[bid_id]
+            if b["cost"] > remaining_budget:
+                continue
+            # Evaluate adding bid
+            new_sel = accepted + [bid_id]
+            new_roi, new_pen, _ = compute_roi_and_penalty(new_sel)
+            cur_roi, cur_pen, _ = compute_roi_and_penalty(accepted)
+            delta = (new_roi - cur_roi) - (new_pen - cur_pen)
+            # tie-break deterministically by bid id (lower id preferred)
+            if delta > best_delta or (delta == best_delta and best_id is not None and bid_id < best_id):
+                best_delta = delta
+                best_id = bid_id
+            elif delta == best_delta and best_id is None and delta > 0:
+                best_id = bid_id
+        if best_id is not None and best_delta > 0:
+            accepted.append(best_id)
+            remaining_budget -= bid_map[best_id]["cost"]
+        else:
+            break
+
+    # Local improvement: try additions and swaps until no improvement
+    improved = True
+    # For deterministic iterations, always consider candidates in sorted id order
+    while improved:
+        improved = False
+        # Attempt single additions first
+        for bid_id in candidate_ids:
+            if bid_id in accepted:
+                continue
+            b = bid_map[bid_id]
+            if b["cost"] <= remaining_budget:
+                new_sel = accepted + [bid_id]
+                new_roi, new_pen, _ = compute_roi_and_penalty(new_sel)
+                cur_roi, cur_pen, _ = compute_roi_and_penalty(accepted)
+                delta = (new_roi - cur_roi) - (new_pen - cur_pen)
+                if delta > 1e-9:
+                    accepted.append(bid_id)
+                    remaining_budget -= b["cost"]
+                    improved = True
+                    break
+        if improved:
+            continue
+        # Attempt beneficial swaps: replace one accepted with one candidate or two-for-one etc.
+        # We'll attempt single-for-single swaps deterministically
+        best_swap = None  # (gain, remove_id, add_id)
+        for rem_id in list(accepted):
+            rem_b = bid_map[rem_id]
+            for add_id in candidate_ids:
+                if add_id in accepted:
+                    continue
+                add_b = bid_map[add_id]
+                new_cost = total_cost_of([x for x in accepted if x != rem_id] + [add_id])
+                if new_cost > budget:
+                    continue
+                new_sel = [x for x in accepted if x != rem_id] + [add_id]
+                new_roi, new_pen, _ = compute_roi_and_penalty(new_sel)
+                cur_roi, cur_pen, _ = compute_roi_and_penalty(accepted)
+                delta = (new_roi - cur_roi) - (new_pen - cur_pen)
+                if delta > 1e-9:
+                    if best_swap is None or delta > best_swap[0] or (abs(delta - best_swap[0]) <= 1e-12 and (rem_id, add_id) < (best_swap[1], best_swap[2])):
+                        best_swap = (delta, rem_id, add_id)
+        if best_swap:
+            _, rem_id, add_id = best_swap
+            accepted.remove(rem_id)
+            accepted.append(add_id)
+            remaining_budget = budget - total_cost_of(accepted)
+            improved = True
+            continue
+        # Attempt two-for-one swaps: remove two accepted and add one candidate
+        best_swap2 = None  # (gain, remove_ids(tuple), add_id)
+        if len(accepted) >= 2:
+            for i in range(len(accepted)):
+                for j in range(i+1, len(accepted)):
+                    rem_ids = (accepted[i], accepted[j])
+                    rem_cost = bid_map[rem_ids[0]]["cost"] + bid_map[rem_ids[1]]["cost"]
+                    for add_id in candidate_ids:
+                        if add_id in accepted:
+                            continue
+                        add_b = bid_map[add_id]
+                        new_cost = total_cost_of([x for x in accepted if x not in rem_ids] + [add_id])
+                        if new_cost > budget:
+                            continue
+                        new_sel = [x for x in accepted if x not in rem_ids] + [add_id]
+                        new_roi, new_pen, _ = compute_roi_and_penalty(new_sel)
+                        cur_roi, cur_pen, _ = compute_roi_and_penalty(accepted)
+                        delta = (new_roi - cur_roi) - (new_pen - cur_pen)
+                        if delta > 1e-9:
+                            if best_swap2 is None or delta > best_swap2[0] or (abs(delta - best_swap2[0]) <= 1e-12 and (rem_ids, add_id) < (best_swap2[1], best_swap2[2])):
+                                best_swap2 = (delta, rem_ids, add_id)
+        if best_swap2:
+            _, rem_ids, add_id = best_swap2
+            for r in rem_ids:
+                accepted.remove(r)
+            accepted.append(add_id)
+            remaining_budget = budget - total_cost_of(accepted)
+            improved = True
+            continue
+        # No improvements found
+        break
+
+    # Final deterministic ordering of accepted IDs
+    accepted_sorted = sorted(accepted)
+
+    total_roi, total_penalty, _ = compute_roi_and_penalty(accepted_sorted)
+    total_cost = total_cost_of(accepted_sorted)
+    utility = total_roi - total_penalty
+
+    # Round floats minimally (but keep deterministic)
+    return {
+        "accepted": accepted_sorted,
+        "total_cost": float(total_cost),
+        "total_roi": float(total_roi),
+        "total_penalty": float(total_penalty),
+        "utility": float(utility)
+    }

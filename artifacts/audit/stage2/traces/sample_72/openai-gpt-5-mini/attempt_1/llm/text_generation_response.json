@@ -1,0 +1,76 @@
+{
+  "id": "resp_0ee3b78af8130a2c0069c32c19311081a2806dee89a48b38b8",
+  "object": "response",
+  "created_at": 1774398489,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398507,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0ee3b78af8130a2c0069c32c19bf6c81a2bb653cfa4811a8d6",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0ee3b78af8130a2c0069c32c19e54c81a2b5cf15e8515784f6",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any\nfrom collections import defaultdict, deque\nimport math\nimport time\n\ndef detect_anomalies(transaction_data: List[Dict[str, Any]], \n                     historical_data: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:\n    # Validation helpers\n    def valid_cid(cid):\n        return isinstance(cid, str) and cid != \"\" and all(ch.isupper() or ch.isdigit() for ch in cid)\n    def valid_amount(a):\n        return (isinstance(a, (int, float)) and not isinstance(a, bool)) and a > 0\n    def valid_timestamp(t):\n        return isinstance(t, int) and t > 0\n    def validate_tx(tx, is_hist=False):\n        if not isinstance(tx, dict):\n            return False\n        keys = {'customer_id', 'amount', 'location', 'timestamp', 'linked_accounts'}\n        if set(tx.keys()) != keys:\n            return False\n        if not valid_cid(tx['customer_id']): return False\n        if not valid_amount(tx['amount']): return False\n        if not valid_timestamp(tx['timestamp']): return False\n        if not isinstance(tx['linked_accounts'], list): return False\n        if is_hist:\n            if len(tx['linked_accounts']) not in (0,1): return False\n            if len(tx['linked_accounts'])==1 and not valid_cid(tx['linked_accounts'][0]): return False\n        else:\n            if len(tx['linked_accounts']) != 1: return False\n            if not valid_cid(tx['linked_accounts'][0]): return False\n        return True\n\n    # Input presence\n    if not transaction_data:\n        return []\n    if not isinstance(transaction_data, list):\n        return []\n    for tx in transaction_data:\n        if not validate_tx(tx, is_hist=False):\n            return []\n    if not isinstance(historical_data, dict):\n        return []\n    for k,v in historical_data.items():\n        if not valid_cid(k): return []\n        if not isinstance(v, list):\n            return []\n        for tx in v:\n            if not validate_tx(tx, is_hist=True):\n                return []\n\n    # Build set of all nodes\n    nodes = set()\n    for tx in transaction_data:\n        nodes.add(tx['customer_id'])\n        nodes.add(tx['linked_accounts'][0])\n    for cust, txs in historical_data.items():\n        nodes.add(cust)\n        for tx in txs:\n            if tx['linked_accounts']:\n                nodes.add(tx['linked_accounts'][0])\n\n    # Build directed graph including historical edges (optionally all)\n    graph = defaultdict(list)  # adjacency list u -> [v,...]\n    # Include historical edges\n    for cust, txs in historical_data.items():\n        for tx in txs:\n            if tx['linked_accounts']:\n                v = tx['linked_accounts'][0]\n                graph[cust].append(v)\n    # Include new batch edges\n    for tx in transaction_data:\n        u = tx['customer_id']; v = tx['linked_accounts'][0]\n        graph[u].append(v)\n\n    # Prepare historical statistics: amounts list and timestamps for rate\n    hist_amounts = {}\n    hist_timestamps = {}\n    for cust, txs in historical_data.items():\n        amt_list = []\n        ts_list = []\n        for tx in txs:\n            amt_list.append(float(tx['amount']))\n            ts_list.append(int(tx['timestamp']))\n        if amt_list:\n            hist_amounts[cust] = sorted(amt_list)\n        else:\n            hist_amounts[cust] = []\n        hist_timestamps[cust] = sorted(ts_list)\n\n    # Helper stats\n    def median(sorted_list):\n        n = len(sorted_list)\n        if n==0: return None\n        mid = n//2\n        if n%2==1:\n            return sorted_list[mid]\n        return 0.5*(sorted_list[mid-1]+sorted_list[mid])\n    def mad(sorted_list, med):\n        # median absolute deviation\n        devs = sorted([abs(x - med) for x in sorted_list])\n        return median(devs) if devs else 0.0\n\n    # Precompute medians and MADs for customers with >=2 history\n    stats = {}\n    for cust, arr in hist_amounts.items():\n        if len(arr) >= 2:\n            m = median(arr)\n            md = mad(arr, m)\n            stats[cust] = (m, md)\n    # Precompute average hourly rate over 7-day historical window:\n    # For simplicity, compute average transactions per hour over the full historical timestamps span capped at 7 days.\n    avg_rate = {}\n    SEVEN_DAYS = 7*24*3600\n    for cust, ts_list in hist_timestamps.items():\n        if not ts_list:\n            avg_rate[cust] = 0.0\n            continue\n        # consider only last 7 days relative to max timestamp\n        max_t = ts_list[-1]\n        cutoff = max_t - SEVEN_DAYS\n        relevant = [t for t in ts_list if t >= cutoff]\n        span = max_t - (relevant[0] if relevant else max_t)\n        span = max(span, 3600)  # at least 1 hour to avoid div 0\n        hours = span / 3600.0\n        avg_rate[cust] = len(relevant) / hours if hours>0 else float(len(relevant))\n\n    # Union-Find over nodes for pruning\n    parent = {}\n    rank = {}\n    def make_set(x):\n        parent[x]=x; rank[x]=0\n    for n in nodes:\n        make_set(n)\n    def find(x):\n        while parent[x]!=x:\n            parent[x]=parent[parent[x]]\n            x=parent[x]\n        return x\n    def union(a,b):\n        ra, rb = find(a), find(b)\n        if ra==rb: return\n        if rank[ra] < rank[rb]:\n            parent[ra]=rb\n        else:\n            parent[rb]=ra\n            if rank[ra]==rank[rb]:\n                rank[ra]+=1\n\n    # Union edges from historical and new to form undirected connectivity for pruning\n    for u, vs in graph.items():\n        for v in vs:\n            if u in parent and v in parent:\n                union(u,v)\n\n    # Cycle detection BFS bounded to K=3 hops (i.e., path length <=3 from v to u)\n    K = 3\n    def has_short_cycle(u,v):\n        # if u and v not in same component, skip\n        if find(u) != find(v):\n            return False\n        # BFS from v up to depth K to find u\n        q = deque()\n        q.append((v,0))\n        visited = {v}\n        while q:\n            node, d = q.popleft()\n            if d> K: \n                continue\n            if node == u and d>0:\n                return True\n            if d==K:\n                continue\n            for nb in graph.get(node,()):\n                if nb not in visited:\n                    visited.add(nb)\n                    q.append((nb,d+1))\n        return False\n\n    # High-frequency burst: compare count in 1-hour window around the tx timestamp vs historical avg_rate\n    def is_burst(cust, tx_timestamp):\n        # compute number of transactions in [ts-1800, ts+1800] among new batch + historical? Requirement: \"customer performs more transactions within a short window compared to 7-day historical average\"\n        # We'll count transactions from both historical (within last 7 days) and new batch timestamps.\n        window_start = tx_timestamp - 3600//2\n        window_end = tx_timestamp + 3600//2\n        # collect histories within last 7 days relative to tx_timestamp\n        hist_ts = hist_timestamps.get(cust, [])\n        count = 0\n        for t in hist_ts:\n            if window_start <= t <= window_end:\n                count += 1\n        # include new batch transactions by same cust in that window\n        for tx in transaction_data:\n            if tx['customer_id']==cust and window_start <= tx['timestamp'] <= window_end:\n                count += 1\n        # expected count = avg_rate[cust] * 1 hour\n        expected = avg_rate.get(cust,0.0) * 1.0\n        # If expected very small, set threshold minimally to avoid false positives: require count >=3 when expected <1\n        if expected < 1.0:\n            return count >= 3\n        # flag if count > 3x expected\n        return count > 3.0 * expected\n\n    results = []\n    for tx in transaction_data:\n        u = tx['customer_id']\n        amt = float(tx['amount'])\n        ts = int(tx['timestamp'])\n        v = tx['linked_accounts'][0]\n        anomaly = False\n        # Amount outlier\n        if u in stats:\n            med, md = stats[u]\n            threshold = med + 3.5 * (1.4826 * md)\n            if amt > threshold:\n                anomaly = True\n        # Cycle detection using DSU pruning\n        if not anomaly:\n            try:\n                if has_short_cycle(u,v):\n                    anomaly = True\n            except Exception:\n                pass\n        # High-frequency burst\n        if not anomaly:\n            if is_burst(u, ts):\n                anomaly = True\n        results.append({'customer_id': u, 'anomaly': bool(anomaly)})\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1328,
+    "input_tokens_details": {
+      "cached_tokens": 1280
+    },
+    "output_tokens": 2037,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3365
+  },
+  "user": null,
+  "metadata": {}
+}

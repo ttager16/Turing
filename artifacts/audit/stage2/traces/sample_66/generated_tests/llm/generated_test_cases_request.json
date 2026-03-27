@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: manage_trust_relationships\n\nProblem Statement:\n### Problem Statement\n\nIn a cutting-edge research initiative focused on secure multi-party computation (MPC), a global consortium of researchers is developing a cryptographic coordination framework that manages dynamic trust relationships among a large set of participants. The system serves as the backbone of a real-time MPC environment, where multiple entities collaborate securely without revealing their private data. As participants join, leave, or reconfigure their trust links, the framework must dynamically maintain which entities are currently part of the same connected trust group. This ensures that secure computation tasks can continue smoothly, while maintaining strict isolation between untrusted or disconnected parties.\n\nTo achieve this, the framework leverages dynamic connectivity structures inspired by the Disjoint-Set (Union-Find) model. It must efficiently process frequent connectivity changes, enforce strong validation rules to prevent invalid operations, and guarantee deterministic outcomes for every connectivity query. The structure should remain stable even under rapid trust updates, invalid merges, or attempts to remove non-existent edges, ensuring robustness and reproducibility in a cryptographic setting.\n\nSupported operations:\n\n* union(u, v) - merge the groups containing u and v and add a direct edge between them.\n* split(u, v) - remove the direct edge between u and v. This operation is edge-only and must not affect other edges or paths.\n* rekey(u, v) - a logical event that does not modify connectivity.\n* find(u, v) - check if u and v are currently in the same connected group.\n\nThe system must maintain connectivity efficiently under repeated merges and splits.\n\n\n### Objectives\n\n1. Implement a deterministic, high-performance dynamic connectivity structure that supports union, split (edge-only), and find operations.\n2. Ensure deterministic results for identical inputs and guarantee reproducibility.\n4. Handle multiple operations in sequence or batches without breaking deterministic order.\n5. Maintain lexicographically consistent traversal and output order under all valid scenarios.\n\n\n### Constraints\n\n* Implemented in pure Python, no external libraries.\n* A typical connectivity update (union or split) should execute in O(n log n) time or better.\n* The result must be deterministic for identical inputs.\n* If both participants and operations are empty, return [] immediately.\n* participants must be a list of unique, all names must consist only of english letters and non-empty strings, on any violation return [].\n* operations must be a list of lists, where each inner list is exactly [operation_type, participant_a, participant_b]. Each element must be a string, otherwise return [].\n* operation_type must be one of the following: \"union\", \"split\", \"rekey\", \"find\".\n**Connectivity rules**\n* union(u, v)\n  * Adds a direct edge between u and v if no such edge exists.\n  * If a direct edge already exists between u and v (in either order), return [].\n  * If u and v are already connected indirectly but have no direct edge, the union succeeds and adds exactly one direct edge.\n* split(u, v)\n  * Removes only the direct edge between u and v.\n  * If there is no direct edge between them, return [].\n  * Removing this edge may disconnect the component, this is allowed. No other edges are modified.\n* rekey(u, v)\n  * Logical event with no effect on connectivity.\n* find(u, v)\n  * Returns True if u and v are in the same connected component, otherwise False.\n  * Must not modify connectivity or internal state.\n**Validation and failure conditions**\n* Any self-loop operation must return [].\n* Any repeated union(u, v) call for an already-existing direct edge must return [].\n* Any split(u, v) call for a non-existent direct edge must return [].\n**Deterministic behavior**\n* All internal traversal, set, or dictionary operations must produce deterministic results.\n* When multiple participants are processed, iteration order must be lexicographically sorted by participant IDs.\n* Any structure relying on hashing or unordered sets must be normalized to a deterministic order before comparison or output.\n\n\n### Function Signature\n\n```python\ndef manage_trust_relationships(participants: List[str], operations: List[List[str]]) -> List[bool]:\n    pass\n```\n\n\n### Sample Input/Output\n\nInput\n\n```python\nparticipants = ['alice', 'bob', 'charlie', 'david', 'eve']\noperations = [\n    ['union', 'alice', 'bob'],\n    ['union', 'bob', 'charlie'],\n    ['split', 'bob', 'charlie'],\n    ['rekey', 'alice', 'bob'],\n    ['union', 'charlie', 'david'],\n    ['find', 'alice', 'bob'],\n    ['find', 'bob', 'david'],\n    ['union', 'david', 'eve'],\n    ['split', 'david', 'eve'],\n    ['find', 'alice', 'eve']\n]\n```\n\nOutput\n\n```python\n[True, False, False]\n```\n\n\n### Expected Output Format\n- Return a list of booleans for all find operations in order.\n- If there are no find operations, return an empty list [].\n- If any input or operation violates the constraints, return [] immediately.\n\nStarter Code:\n```python\nfrom typing import List\nimport collections\n\ndef manage_trust_relationships(participants: List[str], operations: List[List[str]]) -> List[bool]:\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[\\\"alice\\\", \\\"bob\\\", \\\"charlie\\\", \\\"david\\\", \\\"eve\\\"]\\n[[\\\"union\\\", \\\"alice\\\", \\\"bob\\\"], [\\\"union\\\", \\\"bob\\\", \\\"charlie\\\"], [\\\"split\\\", \\\"bob\\\", \\\"charlie\\\"], [\\\"rekey\\\", \\\"alice\\\", \\\"bob\\\"], [\\\"union\\\", \\\"charlie\\\", \\\"david\\\"], [\\\"find\\\", \\\"alice\\\", \\\"bob\\\"], [\\\"find\\\", \\\"bob\\\", \\\"david\\\"], [\\\"union\\\", \\\"david\\\", \\\"eve\\\"], [\\\"split\\\", \\\"david\\\", \\\"eve\\\"], [\\\"find\\\", \\\"alice\\\", \\\"eve\\\"]]\",\n    \"output\": \"[true, false, false]\"\n  },\n  {\n    \"input\": \"[\\\"alice\\\", \\\"bob\\\"]\\n[[\\\"union\\\", \\\"alice\\\", \\\"bob\\\"], [\\\"find\\\", \\\"alice\\\", \\\"bob\\\"]]\",\n    \"output\": \"[true]\"\n  },\n  {\n    \"input\": \"[\\\"alice\\\", \\\"bob\\\", \\\"charlie\\\"]\\n[[\\\"union\\\", \\\"alice\\\", \\\"bob\\\"], [\\\"union\\\", \\\"bob\\\", \\\"charlie\\\"], [\\\"find\\\", \\\"alice\\\", \\\"charlie\\\"]]\",\n    \"output\": \"[true]\"\n  }\n]\n"
+    }
+  ]
+}

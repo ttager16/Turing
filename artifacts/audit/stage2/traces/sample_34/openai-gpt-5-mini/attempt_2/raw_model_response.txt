@@ -1,0 +1,377 @@
+from typing import Dict, List, Tuple, Any, Optional, FrozenSet
+from collections import defaultdict, deque
+import math
+import random
+import copy
+
+def optimize_trading_strategy(
+    asset_data: Dict[str, Dict[str, Any]],
+    correlation_matrix: List[Dict[str, Any]],
+    portfolio_constraints: Dict[str, float],
+) -> Dict[str, Any]:
+    # Basic validations
+    if not asset_data:
+        return {"error": "No assets provided"}
+    total_capital = portfolio_constraints.get("total_capital", 0.0)
+    if total_capital <= 0:
+        return {"error": "Insufficient capital"}
+    min_liq = int(portfolio_constraints.get("min_liquidity", 1))
+    # Filter by liquidity
+    filtered_assets = {aid: ad for aid, ad in asset_data.items() if int(ad.get("liquidity_score", 0)) >= min_liq}
+    if not filtered_assets:
+        return {"error": "All assets below minimum liquidity threshold"}
+    asset_ids = sorted(filtered_assets.keys())
+    n_assets = len(asset_ids)
+    # Build correlation dict
+    corr = defaultdict(lambda: 0.0)
+    for entry in correlation_matrix:
+        a, b = entry["asset_pair"]
+        corr[(a, b)] = entry["correlation"]
+        corr[(b, a)] = entry["correlation"]
+    # Union-Find for clustering
+    parent = {aid: aid for aid in asset_ids}
+    rank = {aid: 0 for aid in asset_ids}
+    def find(x):
+        # path compression
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    def union(x, y):
+        rx, ry = find(x), find(y)
+        if rx == ry:
+            return
+        if rank[rx] < rank[ry]:
+            parent[rx] = ry
+        else:
+            parent[ry] = rx
+            if rank[rx] == rank[ry]:
+                rank[rx] += 1
+    for i in range(n_assets):
+        for j in range(i+1, n_assets):
+            a, b = asset_ids[i], asset_ids[j]
+            if corr[(a, b)] > 0.7:
+                union(a, b)
+    clusters = defaultdict(list)
+    for aid in asset_ids:
+        clusters[find(aid)].append(aid)
+    segment_ids = []
+    segments_map = {}
+    for idx, (root, members) in enumerate(sorted(clusters.items(), key=lambda x: x[0])):
+        seg_id = f"segment_{idx}"
+        segment_ids.append(seg_id)
+        for m in members:
+            segments_map[m] = seg_id
+    # detect cross-segment arbitrage candidates (ρ > 0.8)
+    arbitrage_candidates = []
+    for i in range(n_assets):
+        for j in range(i+1, n_assets):
+            a, b = asset_ids[i], asset_ids[j]
+            r = corr[(a, b)]
+            if r > 0.8 and segments_map.get(a) != segments_map.get(b):
+                arbitrage_candidates.append((a, b, r))
+    # Precompute returns and avg_return per asset
+    asset_returns = {}
+    avg_returns = {}
+    for aid, ad in filtered_assets.items():
+        prices = ad.get("prices", [])
+        if len(prices) < 2:
+            returns = [0.0]
+        else:
+            returns = []
+            for k in range(1, len(prices)):
+                prev = prices[k-1]
+                if prev == 0:
+                    returns.append(0.0)
+                else:
+                    returns.append((prices[k] - prev) / prev)
+        asset_returns[aid] = returns
+        avg_returns[aid] = (sum(returns) / len(returns)) if returns else 0.0
+    vol = {aid: float(ad.get("volatility", 1.0)) for aid, ad in filtered_assets.items()}
+    sector_of = {aid: ad.get("sector", "unknown") for aid, ad in filtered_assets.items()}
+    max_pos = float(portfolio_constraints.get("max_position_size", 1.0))
+    max_sector = float(portfolio_constraints.get("max_sector_concentration", 1.0))
+    max_portfolio_vol = portfolio_constraints.get("max_portfolio_volatility", None)
+    # Theoretical max sharpe helper
+    def theoretical_max_sharpe(available):
+        if not available:
+            return 0.0
+        max_returns = [max(asset_returns[a]) if asset_returns[a] else avg_returns[a] for a in available]
+        min_vols = [vol[a] for a in available if vol[a] > 0]
+        if not min_vols:
+            return 0.0
+        return (max(max_returns) if max_returns else 0.0) / (min(min_vols) if min_vols else 1.0)
+    # Portfolio metrics
+    def portfolio_metrics(allocation_dict):
+        # allocation_dict maps asset -> weight (0..1) summing to <=1
+        expected = 0.0
+        for a, w in allocation_dict.items():
+            expected += w * avg_returns.get(a, 0.0)
+        variance = 0.0
+        for i, ai in enumerate(allocation_dict):
+            wi = allocation_dict[ai]
+            sigma_i = vol.get(ai, 0.0)
+            variance += (wi*wi)*(sigma_i*sigma_i)
+            for aj in list(allocation_dict.keys())[i+1:]:
+                wj = allocation_dict[aj]
+                sigma_j = vol.get(aj, 0.0)
+                rho = corr[(ai, aj)]
+                variance += 2 * wi * wj * sigma_i * sigma_j * rho
+        portfolio_volatility = math.sqrt(max(variance, 0.0))
+        sharpe = expected / portfolio_volatility if portfolio_volatility > 0 else 0.0
+        return expected, portfolio_volatility, sharpe
+    # State memoization with FNV-1a and linear probing
+    cache_size = 4096
+    cache = [None] * cache_size
+    cache_keys = [None] * cache_size
+    memo_hits = 0
+    memo_misses = 0
+    collisions = 0
+    def fnv1a_hash(fset: FrozenSet[Tuple[str, float]]) -> int:
+        # FNV-1a 32-bit
+        h = 0x811c9dc5
+        for item in sorted(fset):
+            s = f"{item[0]}:{item[1]:.3f}"
+            for ch in s:
+                h ^= ord(ch)
+                h = (h * 0x01000193) & 0xffffffff
+        return h
+    def cache_get(state_fset):
+        nonlocal memo_hits, memo_misses, collisions
+        h = fnv1a_hash(state_fset)
+        idx = h % cache_size
+        start = idx
+        while True:
+            key = cache_keys[idx]
+            if key is None:
+                memo_misses += 1
+                return None
+            if key == state_fset:
+                memo_hits += 1
+                return cache[idx]
+            collisions += 1
+            idx = (idx + 1) % cache_size
+            if idx == start:
+                memo_misses += 1
+                return None
+    def cache_set(state_fset, value):
+        nonlocal collisions
+        h = fnv1a_hash(state_fset)
+        idx = h % cache_size
+        start = idx
+        while True:
+            key = cache_keys[idx]
+            if key is None:
+                cache_keys[idx] = state_fset
+                cache[idx] = value
+                return
+            if key == state_fset:
+                cache[idx] = value
+                return
+            collisions += 1
+            idx = (idx + 1) % cache_size
+            if idx == start:
+                # overwrite
+                cache_keys[idx] = state_fset
+                cache[idx] = value
+                return
+    # Decision path and counters
+    decision_path = []
+    prune_ops = 0
+    backtrack_count = 0
+    max_tree_depth_reached = 0
+    # Build per-segment asset lists
+    segment_assets = defaultdict(list)
+    for a in asset_ids:
+        segment_assets[segments_map[a]].append(a)
+    # Solve per-segment recursive optimizer with iterative deepening and alpha-beta
+    per_segment_strategies = {}
+    per_segment_decisions = {}
+    resolved_conflicts = []
+    arbitrage_ops = []
+    random.seed(0)
+    # recursive search
+    def search_segment(assets, depth_limit):
+        nonlocal prune_ops, backtrack_count, max_tree_depth_reached
+        best_alloc = {}
+        best_sharpe = -1e9
+        best_path = []
+        available = list(assets)
+        # start with empty allocation
+        def helper(idx, depth, current_alloc, current_sharpe, alpha, beta, path):
+            nonlocal best_alloc, best_sharpe, best_path, prune_ops, backtrack_count, max_tree_depth_reached
+            max_tree_depth_reached = max(max_tree_depth_reached, depth)
+            # constraints: per-asset, per-sector, volatility
+            # state key
+            state = frozenset(((k, round(v, 3)) for k, v in current_alloc.items()))
+            cached = cache_get(state)
+            if cached is not None:
+                # cached is (strategy_dict, sharpe)
+                strat, sharpe = cached
+                # use cached result as leaf
+                return strat, sharpe, []
+            if depth >= depth_limit or idx >= len(available):
+                exp, pv, sh = portfolio_metrics(current_alloc)
+                cache_set(state, (copy.deepcopy(current_alloc), sh))
+                if sh > best_sharpe + 1e-12 or (abs(sh - best_sharpe) <= 0.001 and len(current_alloc) < len(best_alloc)):
+                    best_sharpe = sh
+                    best_alloc = copy.deepcopy(current_alloc)
+                    best_path = path.copy()
+                return copy.deepcopy(current_alloc), sh, path.copy()
+            # compute theoretical max for remaining
+            remaining = available[idx:]
+            node_theoretical = theoretical_max_sharpe(remaining)
+            node_upper = min(current_sharpe + node_theoretical * 0.5, node_theoretical)
+            if node_upper <= alpha:
+                prune_ops += 1
+                return {}, -1e9, []
+            # iterate allocation choices for next asset: try 0, small, medium, max_pos proportions
+            a = available[idx]
+            choices = [0.0, round(max_pos*0.25,3), round(max_pos*0.5,3), round(max_pos,3)]
+            # ensure total allocation <=1
+            total_alloc = sum(current_alloc.values())
+            res_best_local = ({}, -1e9, [])
+            for ch in choices:
+                if ch < 1e-12:
+                    # skip allocating
+                    new_alloc = current_alloc.copy()
+                    new_path = path + [(depth, a, 0.0, 0.0, [])]
+                    strat, sh, pth = helper(idx+1, depth+1, new_alloc, current_sharpe, alpha, beta, new_path)
+                    if sh > res_best_local[1]:
+                        res_best_local = (strat, sh, pth)
+                    continue
+                if total_alloc + ch > 1.0 + 1e-9:
+                    backtrack_count += 1
+                    continue
+                # sector constraint
+                sector = sector_of.get(a)
+                sector_alloc = sum(v for k,v in current_alloc.items() if sector_of.get(k)==sector)
+                if sector_alloc + ch > max_sector + 1e-9:
+                    backtrack_count += 1
+                    continue
+                # apply allocation
+                new_alloc = current_alloc.copy()
+                new_alloc[a] = ch
+                exp, pv, sh = portfolio_metrics(new_alloc)
+                if max_portfolio_vol is not None and pv > max_portfolio_vol + 1e-9:
+                    backtrack_count += 1
+                    continue
+                # constraints active list
+                constraints_active = []
+                if ch >= max_pos - 1e-9:
+                    constraints_active.append("position_limit")
+                if sector_alloc + ch >= max_sector - 1e-9:
+                    constraints_active.append("sector_concentration")
+                sharpe_delta = sh - current_sharpe
+                new_path = path + [(depth, a, ch, sharpe_delta, constraints_active)]
+                # alpha-beta update
+                if sh > alpha:
+                    alpha = sh
+                strat, child_sh, child_path = helper(idx+1, depth+1, new_alloc, sh, alpha, beta, new_path)
+                if child_sh > res_best_local[1]:
+                    res_best_local = (strat, child_sh, child_path)
+                if alpha >= beta:
+                    prune_ops += 1
+                    break
+            # cache result
+            cache_set(state, (res_best_local[0], res_best_local[1]))
+            return res_best_local
+        # iterative deepening
+        final_alloc = {}
+        final_sh = -1e9
+        final_path = []
+        for dlimit in range(2, 9):  # 2..8
+            strat, sh, pth = helper(0, 1, {}, 0.0, final_sh, theoretical_max_sharpe(available), [])
+            if sh > final_sh or (abs(sh - final_sh) <= 0.001 and strat and len(strat) < len(final_alloc)):
+                final_alloc, final_sh, final_path = strat, sh, pth
+        if final_sh < -1e8:
+            return None, None, None
+        return final_alloc, final_sh, final_path
+    # Perform per-segment optimization
+    for seg, assets in segment_assets.items():
+        alloc, sh, path = search_segment(assets, 8)
+        if alloc is None:
+            return {"error": "Unsolvable sector concentration constraints"}
+        per_segment_strategies[seg] = alloc
+        per_segment_decisions[seg] = path
+    # Cross-segment arbitrage detection and conflict resolution
+    arbitrage_opportunities = []
+    for a,b,r in arbitrage_candidates:
+        ret_a = avg_returns.get(a,0.0)
+        ret_b = avg_returns.get(b,0.0)
+        if abs(ret_a - ret_b) / max(abs(r),1e-9) > 0.05:
+            action = "LONG_HIGHER" if ret_a > ret_b else "LONG_LOWER"
+            arbitrage_opportunities.append({"asset_pair": [a,b], "divergence": abs(ret_a-ret_b), "action": action})
+    # Resolve conflicts where two segments allocate opposing (long/short) small sim via sharpe weights
+    for i in range(n_assets):
+        for j in range(i+1, n_assets):
+            a,b = asset_ids[i], asset_ids[j]
+            r = corr[(a,b)]
+            if r > 0.7:
+                seg_a = segments_map[a]
+                seg_b = segments_map[b]
+                alloc_a = per_segment_strategies.get(seg_a, {}).get(a, 0.0)
+                alloc_b = per_segment_strategies.get(seg_b, {}).get(b, 0.0)
+                # opposing positions determined arbitrarily: higher avg_return -> long
+                pos_a = 1 if avg_returns.get(a,0.0)>=0 else -1
+                pos_b = 1 if avg_returns.get(b,0.0)>=0 else -1
+                if pos_a != pos_b and (alloc_a>0 or alloc_b>0):
+                    # Sharpe weighted merge
+                    _,_,sh_a = portfolio_metrics({a:alloc_a}) if alloc_a>0 else ({},0,0)
+                    _,_,sh_b = portfolio_metrics({b:alloc_b}) if alloc_b>0 else ({},0,0)
+                    wa = sh_a if sh_a>0 else 0.0
+                    wb = sh_b if sh_b>0 else 0.0
+                    totalw = wa + wb
+                    if totalw == 0:
+                        # prefer smaller allocation
+                        chosen = a if alloc_a>=alloc_b else b
+                        resolved_conflicts.append({"pair":[a,b],"conflict_type":"opposing_positions","resolution":{"chosen_asset":chosen}})
+                    else:
+                        # merge into both scaled
+                        frac_a = wa/totalw
+                        frac_b = wb/totalw
+                        new_alloc_a = (alloc_a+alloc_b)*frac_a
+                        new_alloc_b = (alloc_a+alloc_b)*frac_b
+                        per_segment_strategies[seg_a][a] = round(new_alloc_a,3)
+                        per_segment_strategies[seg_b][b] = round(new_alloc_b,3)
+                        resolved_conflicts.append({"pair":[a,b],"conflict_type":"opposing_positions","resolution":{"a_alloc":round(new_alloc_a,3),"b_alloc":round(new_alloc_b,3)}})
+    # Merge per-segment strategies into global
+    global_alloc = {}
+    for seg, alloc in per_segment_strategies.items():
+        for a,w in alloc.items():
+            global_alloc[a] = global_alloc.get(a,0.0) + w
+    # Normalize if total >1
+    total_alloc = sum(global_alloc.values())
+    if total_alloc > 1.0 + 1e-9:
+        for a in list(global_alloc.keys()):
+            global_alloc[a] = global_alloc[a] / total_alloc
+    # Iterative rebalancing to satisfy soft constraints
+    iteration_history = []
+    converged = False
+    max_iterations = 15
+    for it in range(1, max_iterations+1):
+        # compute violations: per-asset, per-sector, volatility
+        violations = []
+        # per-asset
+        for a,w in list(global_alloc.items()):
+            if w - max_pos > 0:
+                violations.append(w - max_pos)
+        # per-sector
+        sectors = defaultdict(float)
+        for a,w in global_alloc.items():
+            sectors[sector_of.get(a)] += w
+        for s, val in sectors.items():
+            if val - max_sector > 0:
+                violations.append(val - max_sector)
+        # volatility
+        exp, pv, sh = portfolio_metrics(global_alloc)
+        if max_portfolio_vol is not None and pv - max_portfolio_vol > 0:
+            violations.append(pv - max_portfolio_vol)
+        max_violation = max(violations) if violations else 0.0
+        iteration_history.append({"iteration": it, "max_violation": max_violation})
+        if max_violation < 0.001:
+            converged = True
+            break
+        # identify worst violator: asset or sector
+        worst_asset = None
+        worst_amount =

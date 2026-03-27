@@ -1,0 +1,127 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "S1": [
+          "C1",
+          [
+            "C1",
+            -1
+          ],
+          [
+            "C2",
+            2
+          ]
+        ],
+        "S2": [
+          [
+            "C1",
+            5
+          ],
+          "C2"
+        ],
+        "S3": [
+          "C2",
+          [
+            "C3",
+            0
+          ]
+        ],
+        "S4": [
+          [
+            "C3",
+            -2
+          ],
+          [
+            "C1",
+            0
+          ]
+        ]
+      },
+      []
+    ],
+    "input_lines": [
+      "{\"S1\": [\"C1\", [\"C1\", -1], [\"C2\", 2]], \"S2\": [[\"C1\", 5], \"C2\"], \"S3\": [\"C2\", [\"C3\", 0]], \"S4\": [[\"C3\", -2], [\"C1\", 0]]}",
+      "[]"
+    ],
+    "focus": "duplicates_with_different_costs_and_negative_costs_capacity_counts_duplicates"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "A": [
+          "X",
+          [
+            "B",
+            1
+          ]
+        ],
+        "B": [
+          [
+            "A",
+            0
+          ],
+          "C"
+        ],
+        "X": [
+          "C",
+          [
+            "D",
+            2
+          ]
+        ],
+        "C": [
+          [
+            "X",
+            3
+          ]
+        ]
+      },
+      [
+        [
+          "fail",
+          "X"
+        ],
+        [
+          "attack",
+          "Z"
+        ],
+        [
+          "restore",
+          "Y"
+        ]
+      ]
+    ],
+    "input_lines": [
+      "{\"A\": [\"X\", [\"B\", 1]], \"B\": [[\"A\", 0], \"C\"], \"X\": [\"C\", [\"D\", 2]], \"C\": [[\"X\", 3]]}",
+      "[[\"fail\", \"X\"], [\"attack\", \"Z\"], [\"restore\", \"Y\"]]"
+    ],
+    "focus": "disruption_applies_to_node_that_is_both_service_and_control_unknown_disruptions_ignored"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "S1": [
+          "A",
+          "B"
+        ],
+        "S2": [
+          "A",
+          "B"
+        ],
+        "S3": [
+          "B"
+        ]
+      },
+      []
+    ],
+    "input_lines": [
+      "{\"S1\": [\"A\", \"B\"], \"S2\": [\"A\", \"B\"], \"S3\": [\"B\"]}",
+      "[]"
+    ],
+    "focus": "lexicographic_tie_breaking_when_multiple_equal_matchings_and_controls_have_capacity>1"
+  }
+]

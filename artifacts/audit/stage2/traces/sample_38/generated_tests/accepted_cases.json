@@ -1,0 +1,12 @@
+[
+  {
+    "case_index": 1,
+    "input_text": "[{\"symbol\": \"A\", \"price\": 100.0, \"volatility\": 0.1, \"correlated_with\": [\"B\", \"C\"]}, {\"symbol\": \"B\", \"price\": 50.0, \"volatility\": 0.12, \"correlated_with\": [\"A\"]}, {\"symbol\": \"C\", \"price\": 20.0, \"volatility\": 0.2, \"correlated_with\": [\"A\"]}]\n0.001\n0.75\n1.0",
+    "output_text": "{\"portfolio\": {\"A\": 0, \"B\": 0, \"C\": 0}, \"expected_return\": 0.0, \"risk\": 0.0}"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[{\"symbol\": \"S1\", \"price\": 10.0, \"volatility\": 0.0, \"correlated_with\": [\"S2\", \"S3\"]}, {\"symbol\": \"S2\", \"price\": 20.0, \"volatility\": 0.15, \"correlated_with\": [\"S1\", \"S1\"]}, {\"symbol\": \"S3\", \"price\": 5.0, \"volatility\": 0.25, \"correlated_with\": [\"S4\"]}, {\"symbol\": \"S4\", \"price\": 8.0, \"volatility\": 0.5, \"correlated_with\": [\"S3\", \"MISSING\"]}, {\"symbol\": \"S5\", \"price\": 2.0, \"volatility\": 0.05, \"correlated_with\": []}, {\"symbol\": \"S6\", \"price\": 1.0, \"volatility\": 0.02, \"correlated_with\": [\"S7\"]}, {\"symbol\": \"S7\", \"price\": 3.0, \"volatility\": 0.07, \"correlated_with\": [\"S6\"]}]\n0.25\n1.0\n10.0",
+    "output_text": "{\"portfolio\": {\"S1\": 10, \"S2\": 0, \"S3\": 0, \"S4\": 0, \"S5\": 0, \"S6\": 0, \"S7\": 0}, \"expected_return\": 0.025043, \"risk\": 0.006333}"
+  }
+]

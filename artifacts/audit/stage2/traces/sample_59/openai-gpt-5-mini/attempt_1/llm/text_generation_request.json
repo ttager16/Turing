@@ -1,0 +1,30 @@
+{
+  "model": "gpt-5-mini",
+  "input": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are a careful coding assistant. Return the best possible answer for the task."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Solve the following Python coding task.\n\nRequirements:\n- Return only Python code.\n- Implement the requested entry function exactly.\n- Do not include explanations before or after the code.\n- Use only the Python standard library unless the prompt explicitly permits otherwise.\n\nProblem Statement:\n### Problem Statement\nYou are tasked with implementing a circulant matrix decomposition algorithm for network adjacency matrices. A **circulant matrix** is a special matrix where each row is a cyclic right shift of the previous row. \n\nGiven an adjacency matrix representing a network with weighted edges, decompose it into a sum of circulant matrices. The decomposition must satisfy: **Input Matrix = Sum of all Output Circulant Matrices**.\n\n### Key Definitions:\n\n**Circulant Matrix Property:**\nFor a circulant matrix C with first row [c₀, c₁, c₂, ..., cₙ₋₁]:\n- Row 0: [c₀, c₁, c₂, ..., cₙ₋₁]\n- Row 1: [cₙ₋₁, c₀, c₁, ..., cₙ₋₂]\n- Row 2: [cₙ₋₂, cₙ₋₁, c₀, ..., cₙ₋₃]\n- And so on (each row is a right cyclic shift)\n\n**Decomposition Requirement:**\nIf A is the input matrix and C₁, C₂, ..., Cₖ are the output circulant matrices, then:\nA[i][j] = C₁[i][j] + C₂[i][j] + ... + Cₖ[i][j] for all positions (i, j)\n\n### Algorithm Specification:\n\nThe algorithm works by iteratively extracting circulant components:\n\n1. **Initialization:** Start with the input matrix as the \"remaining\" matrix.\n\n2. **Circulant Extraction:** For each iteration:\n   - Select a non-zero element at position (r, c) in the remaining matrix with value v.\n   - Create a circulant matrix where position (i, j) has value v if (j - i) mod n == (c - r) mod n, else 0.\n   - This ensures the circulant pattern contains value v at position (r, c).\n   - Subtract this circulant from the remaining matrix (element-wise).\n\n3. **Termination:** Continue until the remaining matrix contains only zeros.\n\n4. **Best Match Criteria:** When multiple circulants are possible, select the one that:\n   - Maximizes the number of positions where the circulant value matches the remaining matrix value.\n   - This greedy approach minimizes the total number of circulant matrices needed.\n\n### Constraints:\n- Matrix values are non-negative integers from 0 to 1000.\n- Use pure Python without external libraries (no NumPy, SciPy).\n- A value of 0 indicates no edge between nodes.\n\n### Function Signature:\n```python\ndef circulant_decomposition(adj_matrix: List[List[int]]) -> List[List[List[int]]]:\n    pass\n```\n\n### Example:\n**Input:**\n```python\nadj_matrix = [\n    [5, 2, 0, 0],\n    [0, 5, 2, 0],\n    [0, 0, 5, 2],\n    [2, 0, 0, 5]\n]\n```\n\n**Output:**\n```python\n[\n    [[5, 0, 0, 0], [0, 5, 0, 0], [0, 0, 5, 0], [0, 0, 0, 5]],\n    [[0, 2, 0, 0], [0, 0, 2, 0], [0, 0, 0, 2], [2, 0, 0, 0]]\n]\n```\n\n**Explanation:**\n- First circulant: diagonal pattern with value 5\n- Second circulant: off-diagonal pattern with value 2\n- Sum verification: [5+0, 0+2, 0+0, 0+0] = [5, 2, 0, 0] \n\n### Expected Output Format:\nReturn a list of circulant matrices where the sum of all matrices equals the input matrix. Each circulant matrix is represented as a list of lists (2D list).\n\nStarter Code:\n```python\ndef circulant_decomposition(adj_matrix):\n    \"\"\"\n    Performs compound circulant decomposition on a multi-layer adjacency matrix.\n    \n    Args:\n        adj_matrix: List[List[int]] - Square adjacency matrix\n        \n    Returns:\n        List[List[List[int]]] - List of circulant matrices\n    \"\"\"\n    pass\n```\n"
+        }
+      ]
+    }
+  ],
+  "reasoning": {
+    "effort": "minimal"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 4096
+}

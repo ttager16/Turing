@@ -1,0 +1,133 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+In a metropolitan water-distribution network, a senior infrastructure engineer is responsible for optimizing water flow between multiple reservoirs, purification facilities, and consumption zones. The system is modeled as a directed graph where each node may function as a reservoir, a distribution junction, or a consumption endpoint. Each directed edge represents a pipeline that carries water with a given capacity, which may change due to maintenance, environmental conditions, or operational adjustments. The engineer must compute the maximum feasible flow from a specified source node to a target node after applying all capacity updates. The computation must be deterministic, validation-aware, and fail-fast under any invalid conditions, ensuring consistent and reproducible results for identical inputs.
+
+
+#### Objectives
+
+1. **Deterministic Flow Computation**
+    Implement a deterministic maximum-flow procedure that computes the total feasible flow from source to target, with the following requirements:
+      * Traverse adjacency lists in lexicographic string order of node IDs (e.g., "10" < "2").
+      * When multiple augmenting paths have equal bottleneck capacity, always select the lexicographically smallest full path.
+      * Any internal searches must respect the same lexicographic string order when expanding neighbors.
+2. **Batched Capacity Updates**
+    * Each update is a list of the form ["u", "v", delta].
+    * Edge creation policy:
+      * If an edge from u to v does not exist and the update value (delta) is greater than zero, the function must create a new edge with that capacity.
+      * If the edge does not exist and the update value is exactly zero, the function must take no action.
+      * If the edge does not exist and the update value is negative, the function must immediately return 0.
+    * Apply all updates sequentially in order.
+    * Negative capacity rule (single authoritative rule): During updates, if any edge's capacity becomes < 0 at any time, return 0 immediately.
+    * After all updates, drop (ignore) any edge whose final capacity == 0.
+3. **Hard Validation Constraints**
+    The algorithm must immediately return 0 without computing flow if any of the following are true:
+      * A self-loop exists (e.g., ["X","X",c]).
+      * The source or target node is missing or unreachable (no valid path exists) after updates and zero-drops.
+      * The graph contains duplicate edges between the same (u,v) pair after dropping zero-capacity edges.
+4. **Deterministic State Isolation**
+    * All search and residual structures must be freshly initialized for every search/augmentation.
+    * No global or persistent residual state may survive between runs.
+    * The algorithm must yield identical outputs for identical inputs.
+    * No randomization or reliance on unordered dictionary traversal.
+
+
+### Constraints
+* Implemented in pure Python, using only the standard library (e.g. heapq, etc). External libraries are not permitted.
+* Any validation or schema violation must cause an immediate return 0.
+* If both graph and capacity_changes are empty, the function must return 0.
+* **Input structure**
+  * graph must be a dictionary whose keys are strings (node IDs) and whose values are lists (neighbor lists). Any non-dictionary graph, non-string key, or non-list value, function immediately return 0.
+  * capacity_changes must be a list of lists, each exactly ["u","v",delta]. Any malformed or wrong-length entry, function immediately return 0.
+  * Each neighbor entry in graph[node_id] must be a two-element list that contains a neighbor identifier and its capacity.
+  * The neighbor identifier must be a non-empty string, and the capacity must be an integer greater than or equal to zero. If any neighbor entry has an invalid type (such as dictionary, float, or string-only), or has the wrong number of elements, or if duplicate neighbors appear within the same list, the function must immediately return 0.
+  * Treat any 0-capacity edge in the initial graph as absent before computation.
+* **Capacity-update schema**
+  * Each update list must contain exactly three elements ["u","v",delta] with "u" and "v" non-empty strings and delta an integer (negative, zero, or positive), if any other type is found return 0.
+  * If an update is a self loop (u equals v), the function must immediately return 0.
+  * while applying updates in order, if the capacity of any edge ever becomes less than 0 at any time, the function must immediately return 0. This is the only negative capacity rule.
+* **Edge and capacity rules**
+  * Apply all capacity updates (deltas) sequentially, one at a time.
+  * Edge creation policy: if an edge from u to v does not exist and the delta value is greater than 0, create the edge with that capacity. If the delta value is 0, do nothing. If the delta value is negative, the function must immediately return 0.
+  * After all updates have been applied, remove or ignore any edges whose final capacity is exactly 0.
+  * After removing zero capacity edges, if any duplicate edges with the same (u, v) pair remain, the function must immediately return 0.
+* **Connectivity checks**
+  * If either source or target is missing or there is no path between them after updates and zero-drops, return 0 immediately.
+* **Operational behavior**
+  * When expanding any node, iterate all currently available outgoing residual neighbors in lexicographic string order. Do not rely on insertion order or a one-time pre-sort.
+  * Among equal-capacity augmenting paths, choose the lexicographically smallest full path.
+  * Residual reverse edges are internal only, they are always integer capacities >= 0.
+* **Empty-case rules**
+  * Both graph and capacity_changes are empty, the function must return 0.
+  * If the graph is non-empty and capacity_changes is empty, the function must validate the input and compute the maximum feasible flow.
+  * If the graph is empty and capacity_changes is non-empty, the function must apply the updates (which may create new edges), then validate and compute the flow. If no valid path exists after updates, the function must return 0.
+
+
+#### Function Signature
+```python
+def optimize_water_flow(
+    graph: Dict[str, List[List]],
+    source: str,
+    target: str,
+    capacity_changes: List[List]
+) -> int:
+    """
+    Computes the final maximum feasible flow in a directed water network
+    after applying all capacity updates.
+
+    Must enforce:
+      - Lexicographic traversal (string order).
+      - Immediate return 0 on invalid schema or constraint violations.
+      - Drop or ignore zero-capacity edges.
+      - Deterministic, reproducible output with lexicographic tie-breaking.
+    """
+```
+
+
+#### Sample Input
+```python
+graph = {
+    "0": [["1", 10], ["2", 5]],
+    "1": [["2", 5], ["3", 10]],
+    "2": [["4", 7]],
+    "3": [["4", 8]],
+    "4": []
+}
+source = "0"
+target = "4"
+capacity_changes = [
+    ["0", "1", 4],
+    ["1", "3", -5],
+    ["2", "4", 3]
+]
+```
+
+#### Sample Output
+```
+15
+```
+
+**Output**
+Return a single integer, the total maximum feasible flow from source to target after updates and validation.
+
+Starter Code:
+```python
+from typing import Dict, List
+from collections import deque
+
+def optimize_water_flow(
+    graph: Dict[str, List[List]],
+    source: str,
+    target: str,
+    capacity_changes: List[List]
+) -> int:
+    pass
+```

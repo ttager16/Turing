@@ -1,0 +1,205 @@
+from typing import Dict, List
+from collections import deque, defaultdict
+import copy
+
+def max_flow_simulator(graph: Dict[str, List[Dict[str, int]]], source: int, sink: int) -> Dict:
+    # Normalize nodes as strings for keys
+    graph_copy = {}
+    for u_str, nbrs in graph.items():
+        graph_copy[str(u_str)] = []
+        for e in nbrs:
+            graph_copy[str(u_str)].append({"neighbor": str(e["neighbor"]), "capacity": int(e["capacity"])})
+
+    nodes = set(graph_copy.keys())
+    for u in list(nodes):
+        for e in graph_copy.get(u, []):
+            nodes.add(e["neighbor"])
+    # Ensure all nodes present
+    for n in nodes:
+        graph_copy.setdefault(n, [])
+
+    # Build capacity dict (allow multiple edges and anti-parallel edges)
+    capacity = defaultdict(int)  # key (u,v) -> capacity (sum if multiple edges provided)
+    original_edges = []  # preserve listed edges individually for edge_flows keys
+    for u, nbrs in graph_copy.items():
+        for e in nbrs:
+            v = e["neighbor"]
+            c = e["capacity"]
+            capacity[(u, v)] += c
+            original_edges.append((u, v))
+
+    # Initialize flow dict
+    flow = defaultdict(int)  # (u,v) -> flow (can be positive only in direction u->v)
+    # Residual capacities computed as capacity[(u,v)] - flow[(u,v)] + flow[(v,u)] (via backward)
+    def residual(u, v):
+        cap_uv = capacity.get((u, v), 0)
+        f_uv = flow.get((u, v), 0)
+        f_vu = flow.get((v, u), 0)
+        # residual forward = cap_uv - f_uv
+        # residual backward (via existing forward flow) = f_vu (i.e., can push back flow on (v,u))
+        if cap_uv > 0:
+            return cap_uv - f_uv
+        else:
+            # If there was no original capacity u->v, residual forward is 0, but backward may exist if flow exists
+            return -f_uv  # typically zero
+    # But when BFS we need full residual graph: for any pair u->v, residual capacity = capacity[(u,v)] - flow[(u,v)] (if >0)
+    # plus backward edge v->u residual = flow[(u,v)] (if >0)
+    def build_residual_adj():
+        adj = defaultdict(list)
+        # forward residuals
+        for (u, v), cap in capacity.items():
+            res = cap - flow.get((u, v), 0)
+            if res > 0:
+                adj[u].append(v)
+        # backward residuals from existing flow
+        for (u, v), f in list(flow.items()):
+            if f > 0:
+                adj[v].append(u)
+        return adj
+
+    # BFS to find shortest augmenting path in residual graph; returns parent map and bottleneck
+    def bfs(s, t):
+        s = str(s); t = str(t)
+        parent = {}
+        visited = set()
+        q = deque()
+        q.append(s)
+        visited.add(s)
+        while q:
+            u = q.popleft()
+            # iterate neighbors in deterministic sorted order for tie-breaking
+            # build neighbors with residuals
+            neighs = set()
+            # forward edges with residual >0
+            for (a, b), cap in capacity.items():
+                if a == u:
+                    res = cap - flow.get((a, b), 0)
+                    if res > 0:
+                        neighs.add(b)
+            # backward edges where flow >0
+            for (a, b), f in flow.items():
+                if b == u and f > 0:
+                    neighs.add(a)
+            for v in sorted(neighs, key=lambda x: (int(x) if x.lstrip('-').isdigit() else x, x)):
+                if v not in visited:
+                    # check residual capacity value
+                    res_cap = 0
+                    cap_uv = capacity.get((u, v), 0)
+                    f_uv = flow.get((u, v), 0)
+                    if cap_uv - f_uv > 0:
+                        res_cap = cap_uv - f_uv
+                    else:
+                        # backward possibility: there may be positive flow on (v,u)
+                        res_cap = flow.get((v, u), 0)
+                    if res_cap <= 0:
+                        continue
+                    parent[v] = u
+                    visited.add(v)
+                    if v == t:
+                        # compute bottleneck
+                        path = []
+                        cur = t
+                        bottleneck = float('inf')
+                        while cur != s:
+                            prev = parent[cur]
+                            # residual from prev->cur
+                            cap_p = capacity.get((prev, cur), 0)
+                            f_p = flow.get((prev, cur), 0)
+                            if cap_p - f_p > 0:
+                                res = cap_p - f_p
+                            else:
+                                # backward edge available
+                                res = flow.get((cur, prev), 0)
+                            if res < bottleneck:
+                                bottleneck = res
+                            path.append((prev, cur))
+                            cur = prev
+                        path.reverse()
+                        return parent, bottleneck
+                    q.append(v)
+        return None, 0
+
+    algorithm_steps = []
+    explanations = []
+    step_no = 0
+    total_flow = 0
+
+    # Main Edmonds-Karp loop
+    while True:
+        parent, bottleneck = bfs(source, sink)
+        if parent is None or bottleneck == 0 or bottleneck == float('inf'):
+            break
+        # reconstruct path
+        path_nodes = []
+        cur = str(sink)
+        path_pairs = []
+        while cur != str(source):
+            prev = parent[cur]
+            path_pairs.append({"from": int(prev) if prev.lstrip('-').isdigit() else prev,
+                               "to": int(cur) if cur.lstrip('-').isdigit() else cur})
+            cur = prev
+        path_pairs.reverse()
+        # apply bottleneck
+        step_no += 1
+        # adjust flows along path: if forward edge exists (capacity>0), increase flow; else decrease reverse flow
+        cur = str(source)
+        for seg in path_pairs:
+            u = str(seg["from"])
+            v = str(seg["to"])
+            if capacity.get((u, v), 0) - flow.get((u, v), 0) > 0:
+                # forward augmentation
+                flow[(u, v)] = flow.get((u, v), 0) + bottleneck
+            else:
+                # must be backward augmentation: reduce flow on (v,u)
+                flow[(v, u)] = flow.get((v, u), 0) - bottleneck
+            cur = v
+        total_flow += bottleneck
+
+        # capture residual edges snapshot: include all original forward edges and any residual edges with positive residual
+        residual_edges = []
+        seen = set()
+        # include original capacity edges' residuals
+        for (u, v), cap in sorted(capacity.items(), key=lambda x: (int(x[0][0]) if x[0][0].lstrip('-').isdigit() else x[0][0], x[0][0], int(x[0][1]) if x[0][1].lstrip('-').isdigit() else x[0][1])):
+            res = cap - flow.get((u, v), 0)
+            residual_edges.append({"from": int(u) if u.lstrip('-').isdigit() else u, "to": int(v) if v.lstrip('-').isdigit() else v, "residual": res})
+            seen.add((u, v))
+        # include backward residuals where flow > 0
+        for (u, v), f in sorted(flow.items(), key=lambda x: (int(x[0][0]) if x[0][0].lstrip('-').isdigit() else x[0][0], x[0][0], int(x[0][1]) if x[0][1].lstrip('-').isdigit() else x[0][1])):
+            if f > 0 and (v, u) not in seen:
+                residual_edges.append({"from": int(v) if v.lstrip('-').isdigit() else v, "to": int(u) if u.lstrip('-').isdigit() else u, "residual": f})
+                seen.add((v, u))
+
+        algorithm_steps.append({
+            "step": step_no,
+            "path": path_pairs,
+            "bottleneck": bottleneck,
+            "flow_increase": bottleneck,
+            "residual_edges": residual_edges
+        })
+
+        # Explanation text (<200 words)
+        path_str = "→".join(str(p["from"]) + "→" + str(p["to"]).split("→")[0] for p in path_pairs)  # simple
+        expl = f"Step {step_no}: Selected augmenting path " \
+               + " ".join(f"{p['from']}→{p['to']}" for p in path_pairs) \
+               + f" with bottleneck capacity {bottleneck}. Increased flow by {bottleneck} units. Total flow: {total_flow}."
+        if len(expl.split()) > 200:
+            expl = expl[:1000]
+        explanations.append(expl)
+
+    # Build edge_flows mapping for all original edges (use capacities keys)
+    edge_flows = {}
+    # Use unique set of capacity edges to report
+    unique_edges = list(dict.fromkeys(original_edges))
+    for (u, v) in unique_edges:
+        key = f"{int(u) if u.lstrip('-').isdigit() else u}->{int(v) if v.lstrip('-').isdigit() else v}"
+        f = flow.get((u, v), 0)
+        res = capacity.get((u, v), 0) - f
+        edge_flows[key] = {"flow": f, "residual_capacity": res}
+
+    result = {
+        "total_flow": total_flow,
+        "edge_flows": edge_flows,
+        "algorithm_steps": algorithm_steps,
+        "explanations": explanations
+    }
+    return result

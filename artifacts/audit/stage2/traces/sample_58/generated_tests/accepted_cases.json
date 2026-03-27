@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[]\n[10, 20, 30]",
+    "output_text": "{\"processor_loads\": [], \"initial_loads\": [], \"total_load\": 0, \"load_balance_factor\": 0.0, \"matrix_dimensions\": [0, 0], \"block_partitioning\": {}, \"task_assignments\": {}, \"critical_path_length\": 0, \"data_movement_cost\": 0, \"throughput_metrics\": {}, \"task_distribution\": {}, \"load_history\": [], \"num_processors\": 0, \"num_tasks\": 0}"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[5, 0, 5, 10]\n[]",
+    "output_text": "{\"processor_loads\": [5, 0, 5, 10], \"initial_loads\": [5, 0, 5, 10], \"total_load\": 20, \"load_balance_factor\": 0.0, \"matrix_dimensions\": [0, 0], \"block_partitioning\": {}, \"task_assignments\": {}, \"critical_path_length\": 0, \"data_movement_cost\": 0, \"throughput_metrics\": {\"utilization_rate\": 0.0, \"processor_efficiency\": 1.0, \"parallelism_factor\": 1.0, \"average_load\": 5.0, \"max_load\": 10, \"min_load\": 0}, \"task_distribution\": {\"tasks_per_processor\": {}, \"max_tasks_on_processor\": 0, \"min_tasks_on_processor\": 0, \"processors_used\": 0, \"idle_processors\": 4}, \"load_history\": [[5, 0, 5, 10]], \"num_processors\": 4, \"num_tasks\": 0}"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[0, 9990, 5000]\n[0, 1, 1, 2, 2, 2, 50, 50, 100, 100]",
+    "output_text": "{\"processor_loads\": [308, 9990, 5000], \"initial_loads\": [0, 9990, 5000], \"total_load\": 15298, \"load_balance_factor\": 0.7753, \"matrix_dimensions\": [17, 19], \"block_partitioning\": {\"0\": [0, 0, 0], \"1\": [1, 0, 1], \"2\": [2, 0, 1], \"3\": [3, 0, 2], \"4\": [4, 0, 2], \"5\": [5, 0, 2], \"6\": [6, 0, 50], \"7\": [7, 0, 50], \"8\": [8, 0, 100], \"9\": [9, 0, 100]}, \"task_assignments\": {\"8\": \"0\", \"9\": \"0\", \"6\": \"0\", \"7\": \"0\", \"3\": \"0\", \"4\": \"0\", \"5\": \"0\", \"1\": \"0\", \"2\": \"0\", \"0\": \"0\"}, \"critical_path_length\": 1, \"data_movement_cost\": 0, \"throughput_metrics\": {\"utilization_rate\": 1.0, \"processor_efficiency\": 0.5104, \"parallelism_factor\": 10.0, \"average_load\": 5099.33, \"max_load\": 9990, \"min_load\": 308}, \"task_distribution\": {\"tasks_per_processor\": {\"0\": 10}, \"max_tasks_on_processor\": 10, \"min_tasks_on_processor\": 10, \"processors_used\": 1, \"idle_processors\": 2}, \"load_history\": [[0, 9990, 5000], [100, 9990, 5000], [250, 9990, 5000], [302, 9990, 5000], [306, 9990, 5000], [308, 9990, 5000], [308, 9990, 5000]], \"num_processors\": 3, \"num_tasks\": 10}"
+  }
+]

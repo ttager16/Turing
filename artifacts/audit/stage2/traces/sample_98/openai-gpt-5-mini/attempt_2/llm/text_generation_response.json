@@ -1,0 +1,76 @@
+{
+  "id": "resp_0d2c86db692a052b0069c333a144308191bb612071102174d4",
+  "object": "response",
+  "created_at": 1774400417,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774400441,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0d2c86db692a052b0069c333a190b48191bb083fca58f3858c",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0d2c86db692a052b0069c333a1ccc48191b6d8402591dc5460",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\nfrom array import array\n\ndef max_synergy_path(matrix: List[List[int]], water_costs: List[List[int]], budget: int) -> int:\n    R = len(matrix)\n    if R == 0:\n        return 0\n    C = len(matrix[0])\n    N = R * C\n    # Buckets for fertility 0..10000\n    MAXF = 10000\n    buckets = [[] for _ in range(MAXF + 1)]\n    for r in range(R):\n        row = matrix[r]\n        for c in range(C):\n            f = row[c]\n            buckets[f].append((r, c))\n    # storage arrays per cell index = r*C + c\n    length = array('I', [0]) * N  # unsigned int\n    total_cost = array('I', [0]) * N\n    start_fert = array('I', [0]) * N\n    start_r = array('I', [0]) * N\n    start_c = array('I', [0]) * N\n    hash1 = array('Q', [0]) * N  # unsigned long long\n    hash2 = array('Q', [0]) * N\n    last_r = array('I', [0]) * N\n    last_c = array('I', [0]) * N\n\n    BASE1 = 911382323\n    BASE2 = 972663749\n    MASK64 = (1 << 64) - 1\n\n    # neighbor order Right, Left, Down, Up\n    neigh = [(0,1),(0,-1),(1,0),(-1,0)]\n\n    # initialize bests to zero-length (no path)\n    best_overall = (0, 0, 0, 0, 0, 0, 0, 0, 0)  # tuple matching stored fields for best final answer\n    # To compare states lexicographically per dominance rules we define helpers\n\n    def idx(r,c):\n        return r * C + c\n\n    def state_tuple_at(i):\n        return (length[i], total_cost[i], start_fert[i], start_r[i], start_c[i],\n                hash1[i], hash2[i], last_r[i], last_c[i])\n\n    # For dominance comparison: S dominates T if:\n    # L > L_T or (L==L_T and C < C_T) or (L==L_T and C==C_T and tie_tuple smaller)\n    def dominates(S, T):\n        # S and T are tuples as above\n        if S[0] > T[0]:\n            return True\n        if S[0] < T[0]:\n            return False\n        if S[1] < T[1]:\n            return True\n        if S[1] > T[1]:\n            return False\n        # compare remaining tuple lexicographically\n        tailS = (S[2], S[3], S[4], S[5], S[6], S[7], S[8])\n        tailT = (T[2], T[3], T[4], T[5], T[6], T[7], T[8])\n        return tailS < tailT\n\n    # Iterate fertilities nondecreasing\n    for f in range(MAXF + 1):\n        bucket = buckets[f]\n        if not bucket:\n            continue\n        # process each cell in bucket in deterministic order: row-major\n        bucket.sort()  # sorts by (r,c)\n        for (r,c) in bucket:\n            i = idx(r,c)\n            w = water_costs[r][c]\n            # Candidate: start here as single-cell path, if within budget\n            if w <= budget:\n                h1 = ( (0 * BASE1) + (i + 1) ) & MASK64\n                h2 = ( (0 * BASE2) + (i + 1) ) & MASK64\n                cand = (1, w, f, r, c, h1, h2, r, c)\n                # compare with existing stored at i\n                cur = state_tuple_at(i)\n                if length[i] == 0:\n                    # no previous, accept\n                    length[i] = 1\n                    total_cost[i] = w\n                    start_fert[i] = f\n                    start_r[i] = r\n                    start_c[i] = c\n                    hash1[i] = h1\n                    hash2[i] = h2\n                    last_r[i] = r\n                    last_c[i] = c\n                else:\n                    # if cand dominates current, replace\n                    if dominates(cand, cur):\n                        length[i] = cand[0]\n                        total_cost[i] = cand[1]\n                        start_fert[i] = cand[2]\n                        start_r[i] = cand[3]\n                        start_c[i] = cand[4]\n                        hash1[i] = cand[5]\n                        hash2[i] = cand[6]\n                        last_r[i] = cand[7]\n                        last_c[i] = cand[8]\n            else:\n                # cannot start here; leave as zero-length unless improved from neighbors\n                pass\n            # Relax to neighbors with strictly greater fertility\n            for dr, dc in neigh:\n                nr = r + dr\n                nc = c + dc\n                if nr < 0 or nr >= R or nc < 0 or nc >= C:\n                    continue\n                if matrix[nr][nc] <= f:\n                    continue\n                j = idx(nr, nc)\n                # Only propagate if current cell has a feasible state\n                if length[i] == 0:\n                    continue\n                # build new candidate for neighbor j by extending i -> neighbor cell j\n                new_len = length[i] + 1\n                new_cost = total_cost[i] + water_costs[nr][nc]\n                if new_cost > budget:\n                    continue\n                new_start_fert = start_fert[i]\n                new_start_r = start_r[i]\n                new_start_c = start_c[i]\n                # update hash by appending j\n                new_h1 = ( (hash1[i] * BASE1) + (j + 1) ) & MASK64\n                new_h2 = ( (hash2[i] * BASE2) + (j + 1) ) & MASK64\n                new_last_r = nr\n                new_last_c = nc\n                cand = (new_len, new_cost, new_start_fert, new_start_r, new_start_c,\n                        new_h1, new_h2, new_last_r, new_last_c)\n                cur = state_tuple_at(j)\n                if length[j] == 0:\n                    # accept\n                    length[j] = cand[0]\n                    total_cost[j] = cand[1]\n                    start_fert[j] = cand[2]\n                    start_r[j] = cand[3]\n                    start_c[j] = cand[4]\n                    hash1[j] = cand[5]\n                    hash2[j] = cand[6]\n                    last_r[j] = cand[7]\n                    last_c[j] = cand[8]\n                else:\n                    if dominates(cand, cur):\n                        length[j] = cand[0]\n                        total_cost[j] = cand[1]\n                        start_fert[j] = cand[2]\n                        start_r[j] = cand[3]\n                        start_c[j] = cand[4]\n                        hash1[j] = cand[5]\n                        hash2[j] = cand[6]\n                        last_r[j] = cand[7]\n                        last_c[j] = cand[8]\n        # end bucket\n    # After processing all, select best feasible state among all cells by same dominance criteria,\n    # but only considering states with length>0 (feasible w.r.t budget)\n    best = None\n    for i in range(N):\n        if length[i] == 0:\n            continue\n        S = state_tuple_at(i)\n        # For final selection, dominance same as per definition; choose best S\n        if best is None or dominates(S, best):\n            best = S\n        elif S[0] == best[0] and S[1] == best[1]:\n            # if equal length and cost, need tie-breakers per problem statement:\n            # 2) starting cell lowest fertility (already in tuple), then start_r,start_c, then (h1,h2), then ending cell\n            tailS = (S[2], S[3], S[4], S[5], S[6], S[7], S[8])\n            tailB = (best[2], best[3], best[4], best[5], best[6], best[7], best[8])\n            if tailS < tailB:\n                best = S\n    if best is None:\n        return 0\n    return int(best[0])"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1952,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1906,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3858
+  },
+  "user": null,
+  "metadata": {}
+}

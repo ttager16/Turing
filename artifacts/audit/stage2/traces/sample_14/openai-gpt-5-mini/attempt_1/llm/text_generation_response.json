@@ -1,0 +1,76 @@
+{
+  "id": "resp_0ef6ee61de56b6f70069c31b52d874819cb9f1631ceaac0153",
+  "object": "response",
+  "created_at": 1774394194,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774394207,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0ef6ee61de56b6f70069c31b531640819c975234c23b9144ec",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0ef6ee61de56b6f70069c31b53422c819cb712d68abb0afa8f",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Tuple\nfrom collections import defaultdict\nimport itertools\n\ndef allocate_minimum_sessions(\n    departments: List[List[int]],   # each item: [capacity, synergy_group, resource_id]\n    conflicts: List[List[int]],     # each item: [dept_idx1, dept_idx2]\n    session_capacity: int\n) -> int:\n    # Build groups: each synergy_group >0 must be together. group id 0 -> unique per department\n    n = len(departments)\n    # Map original dept idx to group node id\n    group_members = {}\n    group_map = {}\n    next_gid = 1\n    for i, (cap, sg, res) in enumerate(departments):\n        if sg > 0:\n            if sg not in group_map:\n                group_map[sg] = next_gid\n                group_members[next_gid] = []\n                next_gid += 1\n            gid = group_map[sg]\n        else:\n            gid = next_gid\n            group_map[(0, i)] = gid\n            group_members[gid] = []\n            next_gid += 1\n        group_members[gid].append(i)\n    # Compute group properties\n    groups = []\n    dept_to_gid = {}\n    for gid, members in group_members.items():\n        total_cap = 0\n        resources = set()\n        for d in members:\n            cap, sg, res = departments[d]\n            total_cap += cap\n            if res != 0:\n                resources.add(res)\n            dept_to_gid[d] = len(groups)\n        groups.append({\n            \"members\": members,\n            \"cap\": total_cap,\n            \"resources\": resources\n        })\n    m = len(groups)\n    # Validity checks\n    for g in groups:\n        if g[\"cap\"] > session_capacity:\n            return -1\n    # conflicts between departments -> conflicts between groups\n    group_conflicts = [[False]*m for _ in range(m)]\n    for a,b in conflicts:\n        if a<0 or b<0 or a>=n or b>=n:\n            continue\n        ga = dept_to_gid[a]\n        gb = dept_to_gid[b]\n        if ga == gb:\n            # internal conflict in synergy group impossible\n            return -1\n        group_conflicts[ga][gb] = True\n        group_conflicts[gb][ga] = True\n    # Resource conflicts: same resource cannot be used in parallel sessions.\n    # That means two groups sharing same resource cannot be placed in different sessions simultaneously.\n    # Equivalent to: in any session, at most one group using resource r can be scheduled; but across sessions,\n    # groups that share resource must be assigned to distinct time slots? The statement: \"cannot be used simultaneously across multiple sessions.\"\n    # Interpret as: if two groups share same resource, they cannot be scheduled in the same time slot across different rooms -> they must be scheduled in non-overlapping times, i.e., cannot be in parallel sessions. That is identical to conflict between groups (they cannot be in same session index if sessions are parallel). So groups sharing resource must not be in different sessions that are simultaneous; but since sessions are time slots, groups sharing resource must not be in the same time slot (i.e., cannot be together). So treat as conflict (cannot be in same session) — same as conflicts.\n    # Build resource conflicts as group conflicts too.\n    resource_to_groups = defaultdict(list)\n    for i, g in enumerate(groups):\n        for r in g[\"resources\"]:\n            resource_to_groups[r].append(i)\n    for r, glist in resource_to_groups.items():\n        for a,b in itertools.combinations(glist,2):\n            group_conflicts[a][b] = True\n            group_conflicts[b][a] = True\n    # Now we need to partition groups into minimum number of sessions such that:\n    # - sum cap per session <= session_capacity\n    # - no conflicting groups in same session\n    # This is bin packing with conflicts; we attempt increasing number of sessions k and test feasibility via backtracking.\n    # Order groups by descending cap for pruning\n    order = sorted(range(m), key=lambda i: groups[i][\"cap\"], reverse=True)\n    caps = [groups[i][\"cap\"] for i in order]\n    conflict_matrix = [[False]*m for _ in range(m)]\n    for i in range(m):\n        for j in range(m):\n            conflict_matrix[i][j] = group_conflicts[i][j]\n    # Remap conflict matrix to ordered indices\n    index_map = {order[i]: i for i in range(m)}\n    conf = [[False]*m for _ in range(m)]\n    for oi in range(m):\n        for oj in range(m):\n            if conflict_matrix[order[oi]][order[oj]]:\n                conf[oi][oj] = True\n    # Try k from 1..m\n    def feasible(k):\n        loads = [0]*k\n        assigned = [-1]*m\n        # For each session, maintain set of groups assigned to check conflicts quickly via bitmask\n        sess_groups = [set() for _ in range(k)]\n        # backtracking\n        def dfs(pos):\n            if pos==m:\n                return True\n            w = caps[pos]\n            for s in range(k):\n                if loads[s]+w > session_capacity:\n                    continue\n                ok = True\n                for g in sess_groups[s]:\n                    if conf[pos][g] or conf[g][pos]:\n                        ok = False\n                        break\n                if not ok:\n                    continue\n                # assign\n                loads[s]+=w\n                sess_groups[s].add(pos)\n                if dfs(pos+1):\n                    return True\n                sess_groups[s].remove(pos)\n                loads[s]-=w\n                # symmetry break: if session empty and failed, don't try other empty sessions\n                if loads[s]==0:\n                    break\n            return False\n        return dfs(0)\n    for k in range(1, m+1):\n        if feasible(k):\n            return k\n    return -1"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 861,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1282,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2143
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,189 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+A leading social media platform has expanded into multiple content domains, requiring a sophisticated multi-layer algorithm to manage real-time detection and evolution of ephemeral user groups. These groups are defined by complex interactions (friend connections, content co-creation, shared topics, etc.) and must be continuously segmented according to both user behavior patterns and shifting interest profiles. The problem is now far more intricate: it necessitates a combination of advanced data structures (such as Union-Find with rollback, Tree Decomposition, or custom Tries for interest indexing) and non-trivial optimization logic (e.g., dynamic connectivity, multi-phase community merging/splitting, and subgraph-based recommendation strategies). Furthermore, it demands an integrated visualization pipeline capable of reflecting these evolving clusters and their multi-dimensional connections in real time.
+
+### Objectives:
+1. **Advanced Community Detection with State Tracking:**  
+   Incorporate a multi-step strategy for identifying and maintaining user clusters. This involves simultaneously tracking temporal connectivity (using Union-Find with time-travel or Heavy-Light Decomposition for partial reconstructions) and thematic affiliations (structured via tries on user interests).
+
+2. **Adaptive Multi-Stream Processing:**  
+   Manage multiple, interwoven input streams of user interactions, with each stream potentially prompting cluster merges, splits, or realignments. The algorithm must handle compound constraints—such as cyclical collaboration patterns—without resorting to brute-force methods.
+
+3. **Optimization for Real-Time Recommendations:**  
+   Ensure that each update pass efficiently resolves conflict regions in the network (e.g., overlapping clusters with divergent interest sets) to maximize recommendation coverage while minimizing redundant suggestions. This optimization must respect memory constraints and a strict per-update time budget.
+
+4. **High-Fidelity Visualization and Evolution Insights:**  
+   Produce a visualization layer that highlights dynamic cluster reconfigurations, cross-cluster user flows, and shifting interest hotspots. The system should generate actionable insights, such as potential new collaborative circles or trending interest domains, in live dashboards.
+
+### Constraints:
+- Must operate on a graph containing tens of millions of nodes and potentially billions of edges, with rapid insertion/deletion of edges.  
+- Processing and updating the cluster structure must occur in under 200 milliseconds per interaction batch, even under adversarial conditions (e.g., large bursts of updates).  
+- Visualization refreshes should complete within 500 milliseconds to maintain an interactive user experience capable of depicting continuous reorganization.  
+- The solution must not rely on non-native Python libraries, requiring custom implementations of advanced data structures (e.g., custom segment-tree-like structures, persistent union-find, or tries).  
+- Multiple overlapping interests, time-based event weighting, and user states (e.g., engagement tiers) must be handled in a unified model without compromising real-time performance.
+
+### Function Signature
+```python
+def detect_and_visualize_communities(user_interactions: List[List], interests: Dict[str, List[str]]) -> Dict[str, Any]:
+    pass
+```
+
+### Implementation Outline
+- UnionFind: disjoint-set with `add`, `find`, `union`, `groups`.
+- InterestTrie: trie with `insert`, `contains` for interest tags.
+- detect_and_visualize_communities: builds users, unions interactions, tracks events, aggregates interests via trie, returns communities and visualization data with nodes, edges, clusters.
+- Driver: under `if __name__ == "__main__":` constructs the sample input and prints the JSON of the function output.
+
+### Complete API Surface Used in main.py
+
+```python
+class UnionFind:
+    def __init__(self, elements: Optional[List[str]] = None) -> None: ...
+    def add(self, x: str) -> None: ...
+    def find(self, x: str) -> str: ...
+    def union(self, a: str, b: str) -> str: ...
+    def groups(self) -> Dict[str, List[str]]: ...
+
+class InterestTrie:
+    def __init__(self) -> None: ...
+    def insert(self, word: str) -> None: ...
+    def contains(self, word: str) -> bool: ...
+
+def detect_and_visualize_communities(
+    user_interactions: List[Tuple[str, str, int]],
+    interests: Dict[str, List[str]]
+) -> Dict[str, Any]: ...
+
+if __name__ == "__main__":
+    # Builds the sample inputs below and prints json.dumps(result)
+    ...
+```
+
+### Sample Input/Output
+
+**Input:**
+```python
+user_interactions = [
+    ['user1', 'user2', 1620000000],
+    ['user2', 'user3', 1620000100],
+    ['user1', 'user4', 1620000200],
+    ['user4', 'user5', 1620000300],
+    ['user3', 'user5', 1620000400],
+    ['user1', 'user2', 1620000500],  # repeated edge, different timestamp
+    ['user6', 'user7', 1620000600]
+]
+interests = {
+    'user1': ['sports', 'music'],
+    'user2': ['music', 'travel'],
+    'user3': ['sports', 'travel'],
+    'user4': ['cooking', 'tech'],
+    'user5': ['cooking', 'travel', 'sports'],
+    'user6': ['gaming', 'tech'],
+    'user7': ['music', 'gaming']
+}
+```
+
+**Output:**
+```python
+{
+    'communities': [
+        {
+            'members': ['user6', 'user7'],
+            'shared_interests': ['gaming', 'music', 'tech'],
+            'transition_events': [
+                {'user6': 'joined_cluster', 'timestamp': 1620000600},
+                {'user7': 'joined_cluster', 'timestamp': 1620000600}
+            ]
+        },
+        {
+            'members': ['user1', 'user2', 'user3', 'user4', 'user5'],
+            'shared_interests': ['cooking', 'music', 'sports', 'tech', 'travel'],
+            'transition_events': [
+                {'user1': 'joined_cluster', 'timestamp': 1620000000},
+                {'user2': 'joined_cluster', 'timestamp': 1620000000},
+                {'user3': 'joined_cluster', 'timestamp': 1620000100},
+                {'user4': 'joined_cluster', 'timestamp': 1620000200},
+                {'user5': 'joined_cluster', 'timestamp': 1620000300},
+                {'user3': 'connected_with_user5', 'timestamp': 1620000400},
+                {'user1': 'connected_with_user2', 'timestamp': 1620000500}
+            ]
+        }
+    ],
+    'visualization_data': {
+        'nodes': [
+            {'id': 'user1', 'interests': ['music', 'sports']},
+            {'id': 'user2', 'interests': ['music', 'travel']},
+            {'id': 'user3', 'interests': ['sports', 'travel']},
+            {'id': 'user4', 'interests': ['cooking', 'tech']},
+            {'id': 'user5', 'interests': ['cooking', 'sports', 'travel']},
+            {'id': 'user6', 'interests': ['gaming', 'tech']},
+            {'id': 'user7', 'interests': ['gaming', 'music']}
+        ],
+        'edges': [
+            {'source': 'user1', 'target': 'user2', 'timestamp': 1620000000},
+            {'source': 'user2', 'target': 'user3', 'timestamp': 1620000100},
+            {'source': 'user1', 'target': 'user4', 'timestamp': 1620000200},
+            {'source': 'user4', 'target': 'user5', 'timestamp': 1620000300},
+            {'source': 'user3', 'target': 'user5', 'timestamp': 1620000400},
+            {'source': 'user1', 'target': 'user2', 'timestamp': 1620000500},
+            {'source': 'user6', 'target': 'user7', 'timestamp': 1620000600}
+        ],
+        'clusters': [
+            {'root': 'user1', 'members': ['user1', 'user2', 'user3', 'user4', 'user5']},
+            {'root': 'user6', 'members': ['user6', 'user7']}
+        ]
+    }
+}
+```
+
+### Transition Event Rules
+The `transition_events` field in each community captures the temporal sequence of user interactions and cluster formations. The rules for generating different event types are:
+
+1. **`joined_cluster` events**: Generated when a user first appears in any interaction. This event is created only once per user, at the timestamp of their first interaction. Format: `{user_id: "joined_cluster", "timestamp": t}`
+
+2. **`connected_with_user` events**: Generated when two users who are already in the same cluster interact again. This represents repeated connections within an existing community. Format: `{user_id: "connected_with_{other_user}", "timestamp": t}`
+
+3. **Event ordering**: All events are sorted by timestamp, then by user_id for events with the same timestamp.
+
+### Edge Case Handling
+The function must handle the following edge cases with specific output structures:
+
+1. **Empty user_interactions (`[]`)**: 
+   - If `interests` is also empty: Returns `{"communities": [], "visualization_data": {"nodes": [], "edges": [], "clusters": []}}`
+   - If `interests` has users: Creates individual communities for each user with their interests, but no transition_events
+
+2. **Empty interests (`{}`)**:
+   - Processes users from interactions normally
+   - Sets `shared_interests` to `[]` for all communities
+   - Still generates appropriate transition_events
+
+3. **Users with interests but no interactions**:
+   - Creates individual communities with empty `transition_events` arrays
+   - Includes these users in visualization_data nodes
+
+4. **Self-interactions** (user interacts with themselves):
+   - Treated as normal interactions
+   - Generates `joined_cluster` event if first appearance
+   - Generates `connected_with_self` event for subsequent self-interactions
+
+### Expected Output Format
+The function should return a dictionary with:
+• 'communities': A list of dictionaries capturing each dynamically formed or merged community, its members, the aggregated interests, and details of significant transition events (e.g., joins or splits with timestamps).  
+• 'visualization_data': A dictionary with 'nodes' [{'id', 'interests'}], 'edges' [{'source','target','timestamp'}], and 'clusters' [{'root','members'}].
+
+Starter Code:
+```python
+from typing import Any, Dict, List, Tuple, Optional
+import json
+
+def detect_and_visualize_communities(user_interactions: List[List], interests: Dict[str, List[str]]) -> Dict[str, Any]:
+    pass
+```

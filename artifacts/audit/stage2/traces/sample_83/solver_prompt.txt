@@ -1,0 +1,105 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+Implement a segment tree to process stock market data and compute financial metrics over time intervals. The segment tree must support range sum queries, average calculations, weighted averages, variance computations, and custom aggregation functions over specified ranges. Handle point updates, range updates, and batch operations efficiently using segment tree data structure principles with lazy propagation.
+
+The implementation will process stock prices and their associated weights, allowing queries over arbitrary ranges to calculate financial metrics. The segment tree must store sufficient information to compute sum, average, weighted average, variance, and custom weighted aggregations without recalculating from individual elements for each query. Additionally, support range updates that modify multiple price values simultaneously and handle overlapping query ranges efficiently.
+
+
+### Objectives:
+1. **Range Sum Queries:** Calculate sum of prices over any range [start_idx, end_idx].
+2. **Range Average Queries:** Calculate arithmetic mean of prices over any range.
+3. **Weighted Average Queries:** Calculate weighted average using formula: sum(prices[i] * weights[i]) / sum(weights[i]) over any range.
+4. **Variance Calculations:** Calculate population variance over any range using stored sum and sum-of-squares.
+5. **Custom Weighted Aggregation:** Calculate weighted sum with custom weight multipliers: sum(prices[i] * weights[i] * multiplier) over any range.
+6. **Point Updates:** Set individual price values to a new value (assignment, not addition) and recalculate affected segment tree nodes.
+7. **Range Updates:** Update all prices in a range by adding a constant value using lazy propagation.
+8. **Batch Operations:** Process multiple operations (queries and updates) in sequence while maintaining consistency.
+
+
+### Constraints:
+- Receive prices as a list of integers representing stock prices (1 to 10,000) in chronological order.
+- Receive weights as a list of floats representing weight factors (0.1 to 10.0) corresponding to each price point.
+- Receive multipliers as a list of floats (0.5 to 2.0) for custom weighted aggregation operations.
+- Maximum array size: 1,000 price points.
+- Maximum number of operations: 500 queries and updates combined.
+- All prices, weights, and multipliers will be non-negative values.
+- Query ranges are 0-indexed and inclusive of both endpoints.
+- Implementation must handle: single-point queries (start_idx == end_idx), multi-point ranges, and full-array queries.
+- Cannot use external libraries - implement segment tree from scratch.
+- Segment tree must store: sum of prices, sum of weights, sum of (price * weight), sum of (price * price), sum of (price * weight * multiplier), and count for each segment.
+- Use this weighted average formula: sum(prices[i] * weights[i]) / sum(weights[i]) for the range.
+- Use this variance formula: (sum(prices[i] * prices[i]) / count) - (sum(prices[i]) / count)^2 for the range.
+- Use this custom weighted aggregation formula: sum(prices[i] * weights[i] * multipliers[i]) for the range.
+- Range updates must use lazy propagation for efficient updates.
+- Handle edge cases: single elements and range updates that span multiple segments.
+- All floating-point results must be rounded to exactly 2 decimal places.
+- Implementation must be consistent: queries after updates must reflect the updated values.
+
+
+### Function Signature
+```python
+def financial_segment_tree(prices: List[int],
+                           weights: List[float],
+                           multipliers: List[float],
+                           operations: List[List]) -> List[float]:
+```
+
+
+### Sample Input
+```python
+prices = [100, 105, 98, 110, 95]
+weights = [1.0, 1.2, 0.8, 1.5, 0.9]
+multipliers = [1.1, 0.9, 1.3, 0.7, 1.2]
+operations = [["sum", 0, 2, None], ["average", 1, 3, None], ["weighted_avg", 0, 4, None], ["variance", 2, 4, None], ["custom_weighted", 0, 3, None], ["range_update", 1, 3, 5]]
+```
+
+
+### Sample Output: 
+```
+[303.0, 104.33, 102.76, 42.0, 440.82, 0.0]
+```
+
+
+### Expected Output Format
+The output should be a list of float values corresponding to each query operation in the same order:
+1. **Sum queries:** Return the sum of prices in the specified range as a float.
+2. **Average queries:** Return the arithmetic mean of prices in the range as a float.
+3. **Weighted average queries:** Return the weighted average using the provided weights as a float.
+4. **Variance queries:** Return the population variance of prices in the range as a float.
+5. **Custom weighted queries:** Return the custom weighted sum using prices, weights, and multipliers as a float.
+6. **Point update operations:** Return 0.0 (no meaningful result for updates).
+7. **Range update operations:** Return 0.0 (no meaningful result for updates).
+
+All results must be rounded to 2 decimal places and returned as floats. The function must handle single-point ranges (start_idx == end_idx), full-array ranges (start_idx == 0, end_idx == len(prices)-1), and overlapping ranges. Updates (both point and range) must be applied before subsequent queries in the same operation list.
+
+
+### Invalid Inputs and Edge Cases Handling
+- **Operation format:** Each operation is a list `[name, start_idx, end_idx, value_or_None]` where `name` is one of `"sum"`, `"average"`, `"weighted_avg"`, `"variance"`, `"custom_weighted"`, `"range_update"`, `"point_update"`. For `range_update`, `value_or_None` is the numeric value to add to all prices in the range. For `point_update`, `value_or_None` is the new price value to set at the specified index (note: for point_update, `start_idx` should equal `end_idx`). For queries, `value_or_None` should be `None` (it is ignored by the function).
+- **Point update semantics:** `point_update` sets the price at a specific index to a new value (assignment), while `range_update` adds a value to existing prices (addition). For example, if `prices[i] = 20` and you do `point_update(i, i, 50)`, the result is `prices[i] = 50`. If you do `range_update(i, i, 5)`, the result is `prices[i] = 25`.
+- **Index ranges are inclusive.** If `start_idx > end_idx`, treat the range as empty and return `0.0` for that operation.
+- **Out-of-bounds indices:** Ignore portions of a query/update range outside `[0, len(prices) - 1]`. If the entire range lies outside, return `0.0` and perform no update.
+- **Zero weights:** If the sum of weights over a requested range is `0.0`, the weighted average is defined as `0.0`.
+- **Empty ranges:** For any query whose effective range after intersection has zero elements, return `0.0`.
+- **Custom aggregation scope:** "Custom weighted aggregation" refers exclusively to the provided per-index `multipliers` list in the input. Arbitrary user-defined functions are not supported.
+
+Starter Code:
+```python
+from typing import List
+
+def financial_segment_tree(
+        prices: List[int],
+        weights: List[float],
+        multipliers: List[float],
+        operations: List[List]
+) -> List[float]:
+    
+    pass
+```

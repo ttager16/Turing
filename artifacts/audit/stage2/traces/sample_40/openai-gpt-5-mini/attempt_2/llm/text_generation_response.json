@@ -1,0 +1,76 @@
+{
+  "id": "resp_04cb1f1c0fc4bdb70069c3234764f08191910eef9bfe8114dd",
+  "object": "response",
+  "created_at": 1774396231,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774396264,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_04cb1f1c0fc4bdb70069c32347bb788191b82e52c1ff9c601c",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_04cb1f1c0fc4bdb70069c323480c1081918b5228b8ae93452d",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Tuple, Dict, Union, Set, Optional\nfrom collections import defaultdict, deque\nimport heapq\nimport math\n\nclass VehicleEntry(Dict):\n    pass\n\ndef optimize_fleet_scheduling(\n    cities: List[List[Union[str, int, int]]],\n    vehicles: List[List[Union[int, int]]],\n    traffic_data: Dict[str, int],\n    demands: Optional[Dict[str, int]] = None,\n    hub_capacity: Optional[Dict[str, int]] = None,\n    updates: Optional[List[List[Union[str, Optional[int]]]]] = None,\n    phases: Optional[List[Dict[str, int]]] = None\n) -> Dict[str, VehicleEntry]:\n    # Helper parse\n    city_windows = {}\n    city_list = []\n    for c in cities:\n        name = c[0]\n        start_h = float(c[1])\n        end_h = float(c[2])\n        city_windows[name] = (int(start_h*60), int(end_h*60))\n        city_list.append(name)\n    city_set = set(city_list)\n\n    # Apply updates deterministically: sort by route key; removals (None) before additions/changes\n    if updates:\n        sorted_updates = sorted(updates, key=lambda x: (x[0], 0 if x[1] is None else 1))\n        for key, val in sorted_updates:\n            if val is None:\n                if key in traffic_data:\n                    del traffic_data[key]\n            else:\n                traffic_data[key] = int(val)\n\n    # Build adjacency\n    adj = defaultdict(list)\n    for k, t in traffic_data.items():\n        if '-' in k:\n            a, b = k.split('-', 1)\n            if a in city_set and b in city_set and isinstance(t, int) and t >= 0:\n                adj[a].append((b, t))\n\n    # Vehicles sorted by (capacity, id)\n    vehicles_sorted = sorted(vehicles, key=lambda x: (int(x[1]), int(x[0])))\n\n    # Candidate routes: single-city stays and shortest paths between ordered pairs\n    # Dijkstra for each source to get shortest paths and times and parents\n    def dijkstra(src):\n        dist = {src: 0}\n        prev = {}\n        pq = [(0, src)]\n        while pq:\n            d, u = heapq.heappop(pq)\n            if d != dist.get(u, None):\n                continue\n            for v, w in adj.get(u, []):\n                nd = d + w\n                if nd < dist.get(v, 10**18):\n                    dist[v] = nd\n                    prev[v] = u\n                    heapq.heappush(pq, (nd, v))\n        return dist, prev\n\n    shortest_paths = {}\n    parents = {}\n    for src in city_list:\n        dist, prev = dijkstra(src)\n        shortest_paths[src] = dist\n        parents[src] = prev\n\n    def reconstruct_path(src, dst, prev):\n        if dst == src:\n            return [src]\n        if dst not in prev:\n            return None\n        path = []\n        cur = dst\n        while cur != src:\n            path.append(cur)\n            cur = prev.get(cur)\n            if cur is None:\n                return None\n        path.append(src)\n        path.reverse()\n        return path\n\n    # Fuel cost formula\n    def fuel_cost(minutes, capacity):\n        if minutes <= 0:\n            return 0\n        base_rate = 0.1\n        eff = 1.0 + capacity / 200.0\n        cost = base_rate * minutes * eff\n        cost_int = int(cost)\n        if cost_int < 1:\n            cost_int = 1\n        return cost_int\n\n    # Route value\n    def route_value(num_cities, fuelc):\n        return 10 * num_cities - fuelc\n\n    # Generate candidate options per vehicle: up to 30 after scoring\n    all_candidates = {}\n    for v in vehicles_sorted:\n        vid, cap = int(v[0]), int(v[1])\n        cand = []\n        # single-city stays\n        for city in city_list:\n            travel = 0\n            fuel = fuel_cost(travel, cap)\n            val = route_value(1, fuel)\n            cand.append((val, travel, [city], fuel))\n        # shortest paths between ordered pairs\n        for src in city_list:\n            dist = shortest_paths.get(src, {})\n            prev = parents.get(src, {})\n            for dst, t in dist.items():\n                if dst == src:\n                    continue\n                path = reconstruct_path(src, dst, prev)\n                if not path:\n                    continue\n                travel = t\n                fuel = fuel_cost(travel, cap)\n                val = route_value(len(path), fuel)\n                cand.append((val, travel, path, fuel))\n        # sort by value desc then travel asc then lex path\n        cand_sorted = sorted(cand, key=lambda x: (-x[0], x[1], x[2]))\n        cand_trunc = cand_sorted[:30]\n        all_candidates[vid] = cand_trunc\n\n    # Decide small or large instance\n    small_instance = (len(city_list) <= 18 and len(vehicles_sorted) <= 12)\n\n    assigned = {}  # vid -> chosen tuple (val, travel, path, fuel)\n    used_cities = set()\n    # If demands or phases present, multiple vehicles may serve same city; else restrict to at most one per city\n    allow_multi_city = bool(demands) or bool(phases)\n\n    if small_instance:\n        # Dynamic programming: for each vehicle independently choose best route respecting non-overlap of cities if not allow_multi_city\n        # We'll perform simple DP assigning vehicles in order, respecting used_cities constraint\n        # DP state: index of vehicle, frozenset of used cities -> total value and assignment\n        vlist = [int(v[0]) for v in vehicles_sorted]\n        cand_map = all_candidates\n\n        from functools import lru_cache\n\n        @lru_cache(None)\n        def dp(i, used_key):\n            used = set(used_key.split('|')) if used_key else set()\n            if i >= len(vlist):\n                return 0, {}\n            vid = vlist[i]\n            best_total = -10**18\n            best_assign = {}\n            # Try each candidate including empty route\n            # empty route\n            val0 = 0\n            total0, assign0 = dp(i+1, '|'.join(sorted(used)) if used else '')\n            best_total = total0\n            best_assign = dict(assign0)\n            best_assign[vid] = (0, 0, [], 0)\n            for cand in cand_map[vid]:\n                val, travel, path, fuel = cand\n                path_cities = set(path)\n                if not allow_multi_city and used & path_cities:\n                    continue\n                new_used = used | path_cities\n                new_used_key = '|'.join(sorted(new_used)) if new_used else ''\n                sub_total, sub_assign = dp(i+1, new_used_key)\n                total = val + sub_total\n                if total > best_total:\n                    best_total = total\n                    best_assign = dict(sub_assign)\n                    best_assign[vid] = (val, travel, path, fuel)\n            return best_total, best_assign\n\n        _, final_assign = dp(0, '')\n        for vid in final_assign:\n            assigned[vid] = final_assign[vid]\n    else:\n        # Greedy heuristic: process vehicles in ascending (capacity,id) order already sorted\n        for v in vehicles_sorted:\n            vid, cap = int(v[0]), int(v[1])\n            chosen = None\n            for cand in all_candidates[vid]:\n                val, travel, path, fuel = cand\n                path_cities = set(path)\n                if not allow_multi_city and (used_cities & path_cities):\n                    continue\n                chosen = cand\n                break\n            if chosen is None:\n                assigned[vid] = (0, 0, [], 0)\n            else:\n                assigned[vid] = chosen\n                if not allow_multi_city:\n                    used_cities.update(chosen[2])\n\n    # Across phases, vehicle's first chosen route persists. If phases provided, we ignore reassigning.\n    # Build schedules: arrival times considering time windows. Start at max(0, start_window) of first city.\n    result = {}\n    for v in vehicles_sorted:\n        vid, cap = int(v[0]), int(v[1])\n        key = f\"Vehicle{vid}\"\n        val, travel, path, fuel = assigned.get(vid, (0,0,[],0))\n        travel_time = int(travel)\n        fuel_c = int(fuel)\n        entry = {'Route': path.copy(), 'TravelTime': travel_time, 'FuelCost': fuel_c}\n        if path:\n            schedule = []\n            # arrival at first city is max(0, start_window)\n            first = path[0]\n            start_min = max(0, city_windows.get(first, (0, 24*60))[0])\n            arrival = start_min\n            schedule.append([first, round(arrival/60.0, 2)])\n            # traverse edges along path\n            for i in range(len(path)-1):\n                a = path[i]; b = path[i+1]\n                keyedge = f\"{a}-{b}\"\n                tt = traffic_data.get(keyedge)\n                if tt is None:\n                    # If no direct edge (shouldn't happen), set large and break\n                    tt = shortest_paths.get(a, {}).get(b, 0)\n                arrival += int(tt)\n                # enforce city window: arrival must be at least start window\n                start_w = city_windows.get(b, (0, 24*60))[0]\n                if arrival < start_w:\n                    arrival = start_w\n                schedule.append([b, round(arrival/60.0, 2)])\n            entry['Schedule'] = schedule\n        else:\n            entry['Schedule'] = []\n        result[key] = entry\n\n    # Ensure deterministic order of keys not required but content deterministic\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2024,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2167,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4191
+  },
+  "user": null,
+  "metadata": {}
+}

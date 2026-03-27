@@ -1,0 +1,76 @@
+{
+  "id": "resp_02634d32f19d5f360069c33bfefd18819d9268423ff266df48",
+  "object": "response",
+  "created_at": 1774402559,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774402574,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_02634d32f19d5f360069c33bff41ac819d9aeb7596cfd77388",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_02634d32f19d5f360069c33bff7e1c819d82de0f6848800113",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List, Union, Set, Tuple\nimport ast\n\ndef dynamic_mst(\n    graph: Dict[str, int],\n    updates: List[List[Union[List[int], Union[int, str]]]]\n) -> List[List[int]]:\n    # Parse initial graph into mapping from tuple to cost and maintain status\n    # key: (layer, a, b) with a<=b\n    def norm(edge):\n        l, u, v = edge\n        if u <= v:\n            return (l, u, v)\n        return (l, v, u)\n    edges_cost: Dict[Tuple[int,int,int], int] = {}\n    mandatory: Set[Tuple[int,int,int]] = set()\n    prohibited: Set[Tuple[int,int,int]] = set()\n    nodes: Set[int] = set()\n    for k, cost in graph.items():\n        e = tuple(ast.literal_eval(k))\n        ne = norm(e)\n        edges_cost[ne] = cost\n        nodes.add(ne[1]); nodes.add(ne[2])\n    # Apply updates sequentially, updating edges_cost and status\n    for upd in updates:\n        e_raw, val = upd\n        e = tuple(e_raw)\n        ne = norm(e)\n        if isinstance(val, int):\n            # cost update or new conduit\n            edges_cost[ne] = val\n            nodes.add(ne[1]); nodes.add(ne[2])\n        elif isinstance(val, str):\n            if val == \"MANDATORY\":\n                mandatory.add(ne)\n                # ensure it's present in edges_cost (if missing, add with cost 0)\n                if ne not in edges_cost:\n                    edges_cost[ne] = 0\n                    nodes.add(ne[1]); nodes.add(ne[2])\n                # remove from prohibited if existed\n                prohibited.discard(ne)\n            elif val == \"PROHIBITED\":\n                prohibited.add(ne)\n                # remove from mandatory if existed\n                mandatory.discard(ne)\n            else:\n                # ignore unknown directive\n                pass\n    # Constraint: if two conduits connect same intersections in different layers, only one active at a time.\n    # We'll treat nodes by their node ids only (layers separate edges). For that constraint,\n    # when building MST, ensure at most one edge between same node-pair chosen.\n    # Build list of candidate edges excluding prohibited\n    candidates = []\n    for e, c in edges_cost.items():\n        if e in prohibited:\n            continue\n        candidates.append((c, e))\n    # Kruskal-like with mandatory edges forced first\n    parent = {}\n    rank = {}\n    def find(x):\n        parent.setdefault(x, x)\n        if parent[x] != x:\n            parent[x] = find(parent[x])\n        return parent[x]\n    def union(x, y):\n        rx, ry = find(x), find(y)\n        if rx == ry:\n            return False\n        if rank.get(rx,0) < rank.get(ry,0):\n            parent[rx] = ry\n        else:\n            parent[ry] = rx\n            if rank.get(rx,0) == rank.get(ry,0):\n                rank[rx] = rank.get(rx,0) + 1\n        return True\n    # initialize parent for all nodes\n    for n in nodes:\n        parent[n] = n\n        rank[n] = 0\n    result_set: Set[Tuple[int,int,int]] = set()\n    used_nodepairs: Set[Tuple[int,int]] = set()  # to enforce only one edge per node-pair across layers\n    # First include mandatory edges if they don't violate node-pair uniqueness; if conflict, pick the mandatory and remove others\n    for me in list(mandatory):\n        if me in prohibited:\n            # prohibited overrides mandatory: cannot include; but constraints said mandatory cannot be removed.\n            # We'll ignore prohibited in presence of mandatory by removing prohibition.\n            prohibited.discard(me)\n        a,b = me[1], me[2]\n        nodepair = (min(a,b), max(a,b))\n        # If another mandatory exists for same pair in different layer, keep the cheaper one\n        conflicts = [m for m in mandatory if (min(m[1],m[2]),max(m[1],m[2]))==nodepair]\n        if len(conflicts) > 1:\n            # choose the mandatory with smallest cost\n            best = min(conflicts, key=lambda x: edges_cost.get(x, 0))\n            # remove other mandatories\n            for oc in conflicts:\n                if oc != best:\n                    mandatory.discard(oc)\n        # Now include if it doesn't form cycle; but mandatory must be included even if creates cycle -> but constraints say mandatory cannot be removed.\n        # To keep graph spanning and valid, we include mandatory even if cycle; however spanning tree needs no cycles.\n        # We'll include mandatory edges but ensure final set connects all nodes; if cycles due to mandates exist, they stay.\n        result_set.add(me)\n        used_nodepairs.add(nodepair)\n        union(a,b)\n    # Now process remaining edges sorted by cost\n    candidates.sort()\n    for cost, e in candidates:\n        if e in mandatory:\n            continue  # already added\n        nodepair = (min(e[1],e[2]), max(e[1],e[2]))\n        if nodepair in used_nodepairs:\n            continue  # cannot add another edge for same node-pair\n        # skip if prohibited (already filtered)\n        # try to add if connects components\n        if union(e[1], e[2]):\n            result_set.add(e)\n            used_nodepairs.add(nodepair)\n    # After building, ensure connectivity: all nodes connected? If not, try to add edges even if they create cycles or from mandatory leftover, respecting prohibition and nodepair rule.\n    # Attempt to connect components by adding cheapest remaining edges that respect nodepair uniqueness and not prohibited.\n    # Recompute components\n    comps = {}\n    for n in nodes:\n        comps.setdefault(find(n), []).append(n)\n    if len(comps) > 1:\n        # list remaining edges (including those that would create cycles but between different components)\n        remaining = []\n        for e, c in edges_cost.items():\n            if e in prohibited:\n                continue\n            if e in result_set:\n                continue\n            nodepair = (min(e[1],e[2]), max(e[1],e[2]))\n            if nodepair in used_nodepairs:\n                continue\n            remaining.append((c, e))\n        remaining.sort()\n        for cost, e in remaining:\n            if union(e[1], e[2]):\n                result_set.add(e)\n                used_nodepairs.add((min(e[1],e[2]), max(e[1],e[2])))\n            # stop if connected\n            roots = set(find(n) for n in nodes)\n            if len(roots) == 1:\n                break\n    # Final check: if still not connected, include mandatory/prohibited conflicts resolution: try to add prohibited edges only if needed? But prohibited cannot be used.\n    # If cannot connect due to prohibitions, we return the best we can (as per constraints, inputs should allow connectivity).\n    # Return result as list of lists\n    out = [ [e[0], e[1], e[2]] for e in result_set ]\n    return out"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1624,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1554,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3178
+  },
+  "user": null,
+  "metadata": {}
+}

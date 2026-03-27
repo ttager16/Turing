@@ -1,0 +1,187 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+A leading financial technology company is developing its Python-based fraud detection system to identify suspicious clusters of related transactions and anomalous patterns across multiple data streams. To achieve this, the developers must integrate advanced graph-based analysis with dynamic segment trees, ensuring that each transaction is evaluated and cross-referenced with regional, temporal, and account-type metadata. The system will provide robust performance and scalability through efficient algorithmic analysis.
+
+### Objectives:
+
+1. **Construct a Multi-Graph Representation**: Each transaction is treated as an edge in a directed graph, where nodes represent unique accounts or entities. The solution should analyze transaction patterns and calculate suspiciousness indices for each node and edge.
+
+2. **Employ Advanced Data Structures for Analysis**: Implement a segment tree to execute range queries on transaction attributes (e.g., amounts, timestamps) and detect outliers efficiently. Integrate these results into the multi-graph structure for deeper analysis of suspicious subgraphs or cycles.
+
+3. **Leverage Recursive DP for Pattern Detection**: Use a non-trivial algorithmic technique (e.g., Tarjan’s SCC detection supplemented by a specialized DP on subgraphs to split and recombine paths) to identify recurrent fraud patterns within strongly connected components or repeated transaction paths that simple greedy methods would miss.
+
+4. **Scalability and Performance**: Ensure the system processes transactions efficiently, performing each detection pass with good performance. Provide good throughput as transaction volume grows.
+
+5. **Implement Fully Native, Self-Contained Algorithms**: Ensure that all data structures and algorithmic routines are fully self-implemented within the codebase, with no reliance on external Python libraries.
+
+6. **Ensure Robust Processing**: Design robust mechanisms to process transactions reliably under various conditions.
+
+### Constraints:
+
+- Preserve all original transaction data in the output format.
+- Only analyze non-trivial strongly connected components (size > 1) for efficiency.
+- Flagged transactions must appear in input order.
+- If `transaction_data` is empty, return `[]`.
+
+- **Account Type Field**: Transaction data must include an optional `account_type` field (defaults to "unknown" if not provided).
+- **Fraud Detection Thresholds**:
+
+  - High transaction frequency: >10 per account
+  - High cumulative amount: >$50,000 per account
+  - Multi-region: >2 regions per account
+  - High connectivity: >5 connected accounts
+  - High-amount bump: >$15,000 adds score; general flag >$10,000
+  - Cross-region two-tier: signal >$2,000; direct flag >$5,000
+  - Business transactions: >$5,000 per transaction
+  - Rapid transactions: gap <180s for amounts >$1,000
+  - Suspicious edge threshold: S > 0.6
+
+- **Data Structure Limits**:
+
+  - Segment tree initial capacity: 1000
+  - Max recursion depth: 3
+
+- **Account Type Risk Weights**:
+
+  - Business/Corporate: +0.05 suspiciousness
+  - New: +0.15 suspiciousness
+  - Personal: baseline (no additional weight)
+
+- **Percentile Values**:
+
+  - Estimator: deterministic upper-bound; non-decreasing with new data
+  - Amount threshold: approx 90th percentile via segment-tree upper-bound (exact not required)
+  - Outliers: approx 85th percentile via same estimate
+  - Account-type risk threshold: 80% of approx 90th-percentile amount
+
+- **Time Gap Calculations**:
+
+  - Temporal anomaly: gap <60s for amounts >$2,000
+  - General rapid succession: gap <180s for amounts >$1,000
+  - Precedence: temporal anomaly supersedes general rapid when both apply
+
+- **Transaction Processing**:
+
+  - Process in input order
+  - Create sender and receiver nodes with the transaction's account_type (default "unknown")
+    -- **Pattern Detection**:
+  - Detect cross-region, rapid succession, chain transactions (after receiving funds, an account sends an outgoing transaction where the amount >$5,000 and exceeds at least one prior incoming), and temporal anomalies
+  - In SCCs (>1), evaluate simple paths length ≤3 using deterministic bounded-depth DP; aggregate edge suspiciousness for edges with S > 0.6; de-duplicate and preserve input order in output
+  - Combine multiple risk factors into a suspiciousness score
+  - Use approx 85th–90th percentile estimates for dynamic thresholds
+  - Enforce minimum amounts to reduce false positives
+  - Apply amount-based thresholds to avoid flagging low-value legitimate transactions
+
+- **Amount-Based Detection Thresholds**:
+  - General high-value: >$10,000
+  - Cross-region: >$5,000 (min >$2,000 for cross-region flagging)
+  - Business: >$5,000
+  - New account: >$5,000
+  - Chain: >$5,000
+  - Rapid succession: >$1,000 (gap <180s)
+  - Temporal anomalies: >$2,000 (gap <60s)
+  - Outliers: >$5,000 minimum
+  - Extra high-amount bump: >$15,000 adds suspiciousness weight
+
+### Suspiciousness Scoring:
+
+- Node suspiciousness index (SI):
+
+  - SI = min(1.0, sum of):
+    - +0.30 if transaction_count > 10
+    - +0.40 if cumulative_amount > $50,000
+    - +0.20 if unique_regions > 2
+    - +0.10 if connected_accounts > 5
+    - +0.05 if account_type ∈ {business, corporate}
+    - +0.15 if account_type == new
+
+- Edge suspiciousness score (S):
+
+  - P90_est: approximate upper-bound 90th-percentile amount from the segment tree (exact percentile not required).
+  - S = min(1.0, sum of):
+    - +0.40 if amount > $15,000
+    - +0.30 if amount > max(P90_est, $5,000)
+    - +0.20 if cross-region (region not in sender’s regions) and amount > $2,000
+    - +0.30 if time gap since sender’s last < 180s and amount > $1,000
+    - +0.40 if sender.SI > 0.5 and receiver.SI > 0.5 and amount > $2,000
+    - +0.20 if account_type ∈ {new, business} and amount > $5,000
+
+- Thresholding:
+  - Use edges with S > 0.6 for SCC path analysis.
+  - Other detectors (high-value, outliers, temporal anomalies, chain behavior) may flag edges independently of S.
+
+### Function Signature:
+
+```python
+def detect_fraudulent_activity(transaction_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Analyze transactions and return those flagged as fraudulent.
+
+    Params:
+        transaction_data: List of transaction dicts with keys such as
+            'transaction_id', 'sender', 'receiver', 'amount', 'timestamp',
+            'region', and optional 'account_type'.
+
+    Returns:
+        List of transaction dicts (original fields preserved) each with
+        an added key 'fraudulent' set to True when suspected.
+    """
+    pass
+```
+
+### Sample Input:
+
+```python
+transaction_data = [
+    {"transaction_id": "t1", "sender": "A", "receiver": "B", "amount": 100, "timestamp": 1630245600, "region": "US", "account_type": "personal"},
+    {"transaction_id": "t2", "sender": "C", "receiver": "D", "amount": 15000, "timestamp": 1630249200, "region": "APAC", "account_type": "new"},
+    {"transaction_id": "t3", "sender": "E", "receiver": "F", "amount": 12000, "timestamp": 1630252800, "region": "EU", "account_type": "business"},
+    {"transaction_id": "t4", "sender": "G", "receiver": "H", "amount": 250, "timestamp": 1630256400, "region": "US", "account_type": "personal"}
+]
+```
+
+### Sample Output:
+
+```python
+[
+    {
+        "transaction_id": "t2",
+        "sender": "C",
+        "receiver": "D",
+        "amount": 15000,
+        "timestamp": 1630249200,
+        "region": "APAC",
+        "account_type": "new",
+        "fraudulent": True
+    },
+    {
+        "transaction_id": "t3",
+        "sender": "E",
+        "receiver": "F",
+        "amount": 12000,
+        "timestamp": 1630252800,
+        "region": "EU",
+        "account_type": "business",
+        "fraudulent": True
+    }
+]
+```
+
+### Expected Output Format:
+
+The function should return a list of dictionaries identifying transactions that have been flagged as fraudulent based on advanced multi-graph interactions and segment tree analysis. Each returned dictionary includes the complete original transaction data plus a boolean key "fraudulent" set to True to indicate suspected fraudulent activity.
+
+Starter Code:
+```python
+from typing import List, Dict, Any, Set
+from collections import defaultdict
+
+def detect_fraudulent_activity(transaction_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    ...
+```

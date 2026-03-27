@@ -1,0 +1,387 @@
+from typing import Any, Dict, List, Optional, Set, Tuple
+from collections import defaultdict, deque
+
+class Node:
+    __slots__ = ('key','amount','desc','category','merchant_id','sequence','left','right','height')
+    def __init__(self,key,amount,desc,category,merchant_id,sequence):
+        self.key=key
+        self.amount=amount
+        self.desc=desc
+        self.category=category
+        self.merchant_id=merchant_id
+        self.sequence=sequence
+        self.left=None
+        self.right=None
+        self.height=1
+
+def height(n: Optional[Node]) -> int:
+    return n.height if n else 0
+
+def update_height(n: Node):
+    n.height = 1 + max(height(n.left), height(n.right))
+
+def balance_factor(n: Node) -> int:
+    return height(n.left) - height(n.right)
+
+def rotate_right(y: Node) -> Node:
+    x = y.left
+    T2 = x.right
+    x.right = y
+    y.left = T2
+    update_height(y)
+    update_height(x)
+    return x
+
+def rotate_left(x: Node) -> Node:
+    y = x.right
+    T2 = y.left
+    y.left = x
+    x.right = T2
+    update_height(x)
+    update_height(y)
+    return y
+
+def rebalance(node: Node) -> Node:
+    update_height(node)
+    bf = balance_factor(node)
+    if bf > 1:
+        if balance_factor(node.left) < 0:
+            node.left = rotate_left(node.left)
+        return rotate_right(node)
+    if bf < -1:
+        if balance_factor(node.right) > 0:
+            node.right = rotate_right(node.right)
+        return rotate_left(node)
+    return node
+
+def insert_node(root: Optional[Node], node: Node) -> Node:
+    if root is None:
+        return node
+    if node.key < root.key:
+        root.left = insert_node(root.left, node)
+    elif node.key > root.key:
+        root.right = insert_node(root.right, node)
+    else:
+        # Should not happen for insert; handled separately
+        root = node
+    return rebalance(root)
+
+def min_value_node(n: Node) -> Node:
+    current = n
+    while current.left:
+        current = current.left
+    return current
+
+def delete_key(root: Optional[Node], key: int) -> Optional[Node]:
+    if root is None:
+        return None
+    if key < root.key:
+        root.left = delete_key(root.left, key)
+    elif key > root.key:
+        root.right = delete_key(root.right, key)
+    else:
+        if root.left is None:
+            return root.right
+        elif root.right is None:
+            return root.left
+        temp = min_value_node(root.right)
+        root.key = temp.key
+        root.amount = temp.amount
+        root.desc = temp.desc
+        root.category = temp.category
+        root.merchant_id = temp.merchant_id
+        root.sequence = temp.sequence
+        root.right = delete_key(root.right, temp.key)
+    return rebalance(root) if root else None
+
+def inorder_collect(root: Optional[Node], res: List[Node]):
+    if not root: return
+    inorder_collect(root.left, res)
+    res.append(root)
+    inorder_collect(root.right, res)
+
+def find_node(root: Optional[Node], key: int) -> Optional[Node]:
+    cur = root
+    while cur:
+        if key < cur.key:
+            cur = cur.left
+        elif key > cur.key:
+            cur = cur.right
+        else:
+            return cur
+    return None
+
+def design_fraud_detection_tree(commands: List[str]) -> Dict[str, Any]:
+    root: Optional[Node]=None
+    seq_counter = 0
+    alerts: List[int]=[]
+    size = 0
+    # Indexes
+    token_index: Dict[str, Set[int]] = defaultdict(set)  # token -> set of tx_ids
+    id_node_map: Dict[int, Node] = {}  # tx_id -> node
+    category_counts: Dict[str, int] = defaultdict(int)
+    merchant_seqs: Dict[int, List[Tuple[int,int]]] = defaultdict(list)  # merchant_id -> list of (sequence, tx_id) sorted by sequence
+    valid_categories = {"TRANSFER","PURCHASE","REFUND","WITHDRAWAL","DEPOSIT"}
+
+    def assign_sequence() -> int:
+        nonlocal seq_counter
+        seq_counter += 1
+        return seq_counter
+
+    def add_token_index(txid:int, desc:str):
+        tokens = desc.lower().split()
+        for t in tokens:
+            token_index[t].add(txid)
+
+    def remove_token_index(txid:int, desc:str):
+        tokens = desc.lower().split()
+        for t in tokens:
+            s = token_index.get(t)
+            if s and txid in s:
+                s.remove(txid)
+                if not s:
+                    del token_index[t]
+
+    def add_merchant(txid:int, merchant:int, sequence:int):
+        lst = merchant_seqs[merchant]
+        # keep sorted by sequence (append as sequence always increasing)
+        lst.append((sequence, txid))
+
+    def remove_merchant(txid:int, merchant:int):
+        lst = merchant_seqs.get(merchant)
+        if not lst: return
+        # remove any entries with txid
+        merchant_seqs[merchant] = [(s,tid) for (s,tid) in lst if tid!=txid]
+        if not merchant_seqs[merchant]:
+            del merchant_seqs[merchant]
+
+    def compute_decay(curr_seq:int, other_seq:int) -> float:
+        d = 1.0 - 0.01 * (curr_seq - other_seq)
+        return d if d >= 0.5 else 0.5
+
+    def evaluate_rules(node: Node, is_update=False):
+        # compute risk for this event (insert or update)
+        total = 0.0
+        curr_seq = node.sequence
+        # C1
+        if node.amount >= 50000.0:
+            total += 100.0
+        # C2
+        if node.category == "REFUND" and node.amount >= 5000.0:
+            total += 100.0
+        # C3: among 5 most recent prior inserts before this event (by sequence)
+        lst = merchant_seqs.get(node.merchant_id, [])
+        # consider prior entries with sequence < curr_seq
+        prior = [ (s,tid) for (s,tid) in lst if s < curr_seq ]
+        prior.sort(reverse=True)
+        top5 = prior[:5]
+        same_count = len(top5)
+        # need same merchant_id appears in at least 3 nodes among 5 most recent prior inserts
+        if len(top5) >= 3:
+            # compute sum of decays for those prior nodes (only those that match merchant_id, which they all do)
+            dec_sum = 0.0
+            count_same = 0
+            for s, tid in top5:
+                count_same += 1
+                dec_sum += compute_decay(curr_seq, s)
+            if count_same >= 3:
+                total += 100.0 * dec_sum
+        # H1
+        if 10000.0 <= node.amount < 50000.0:
+            total += 50.0
+        # H2 token frequency with decay
+        desc_tokens = node.desc.lower().split()
+        for tok in set(desc_tokens):
+            holders = token_index.get(tok, set())
+            if len(holders) >= 4:
+                # consider other nodes only
+                weighted = 0.0
+                count_distinct_nodes = 0
+                for tid in holders:
+                    if tid == node.key: continue
+                    other = id_node_map.get(tid)
+                    if other:
+                        weighted += compute_decay(curr_seq, other.sequence)
+                        count_distinct_nodes += 1
+                # requirement: token appears in at least 4 distinct nodes currently in tree
+                if len(holders) >= 4 and weighted >= 3.0:
+                    total += 50.0
+                    break
+        # H3 Velocity pattern
+        # current node and at least 2 other nodes from same merchant inserted within sequence window of 8
+        lst_all = merchant_seqs.get(node.merchant_id, [])
+        window = [ (s,tid) for (s,tid) in lst_all if curr_seq-8 <= s <= curr_seq ]
+        if len(window) >= 3:
+            # sum decays for prior qualifying nodes (exclude current node)
+            dec_sum = 0.0
+            for s, tid in window:
+                if s < curr_seq:
+                    dec_sum += compute_decay(curr_seq, s)
+            if dec_sum > 0:
+                total += 50.0 * dec_sum
+        # M1 Category concentration
+        if node.category in valid_categories:
+            total_nodes = len(id_node_map)
+            if total_nodes>0:
+                cat_count = category_counts.get(node.category,0)
+                # after event, node's category already counted
+                if cat_count / total_nodes > 0.6:
+                    total += 25.0
+        # M2 Amount proximity cluster
+        others = []
+        for other in id_node_map.values():
+            if other.key == node.key: continue
+            if abs(other.amount - node.amount) <= 0.05 * node.amount:
+                others.append(other)
+        if len(others) >=3:
+            dec_sum = sum(compute_decay(curr_seq, o.sequence) for o in others)
+            total += 25.0 * dec_sum
+        # M3 Descriptor similarity
+        def jaccard(a:set,b:set)->float:
+            if not a and not b: return 0.0
+            inter = len(a & b)
+            uni = len(a | b)
+            return inter/uni if uni>0 else 0.0
+        node_tokens_set = set(desc_tokens)
+        sim_others = []
+        for other in id_node_map.values():
+            if other.key==node.key: continue
+            other_set = set(other.desc.lower().split())
+            if jaccard(node_tokens_set, other_set) >= 0.6:
+                sim_others.append(other)
+        if len(sim_others) >=2:
+            dec_sum = sum(compute_decay(curr_seq, o.sequence) for o in sim_others)
+            total += 25.0 * dec_sum
+        if total >= 100.0:
+            alerts.append(node.key)
+
+    def perform_insert(tx_id:int, amount:float, category:str, merchant_id:int, desc:str):
+        nonlocal root,size
+        node = find_node(root, tx_id)
+        if node:
+            # update existing: update fields, keep sequence
+            # update indexes: remove old token and merchant and category, then add new
+            old_desc = node.desc
+            old_cat = node.category
+            old_merchant = node.merchant_id
+            remove_token_index(tx_id, old_desc)
+            remove_merchant(tx_id, old_merchant)
+            if old_cat in valid_categories:
+                category_counts[old_cat] -= 1
+                if category_counts[old_cat]==0:
+                    del category_counts[old_cat]
+            node.amount = amount
+            node.desc = desc
+            node.category = category if category in valid_categories else node.category
+            node.merchant_id = merchant_id
+            # indexes
+            add_token_index(tx_id, desc)
+            add_merchant(tx_id, merchant_id, node.sequence)
+            if node.category in valid_categories:
+                category_counts[node.category] += 1
+            # tree structure unchanged key-wise but balances may change due to nothing; we still rebalance path by delete+insert replacement not necessary
+            evaluate_rules(node, is_update=True)
+            return
+        # new insert
+        seq = assign_sequence()
+        newnode = Node(tx_id, amount, desc, category if category in valid_categories else category, merchant_id, seq)
+        root = insert_node(root, newnode)
+        id_node_map[tx_id]=newnode
+        add_token_index(tx_id, desc)
+        if newnode.category in valid_categories:
+            category_counts[newnode.category]+=1
+        add_merchant(tx_id, merchant_id, seq)
+        size += 1
+        evaluate_rules(newnode, is_update=False)
+        return
+
+    def perform_delete(tx_id:int):
+        nonlocal root,size
+        node = id_node_map.get(tx_id)
+        if not node:
+            return
+        # remove from indexes
+        remove_token_index(tx_id, node.desc)
+        if node.category in valid_categories:
+            category_counts[node.category]-=1
+            if category_counts[node.category]==0:
+                del category_counts[node.category]
+        remove_merchant(tx_id, node.merchant_id)
+        # delete from tree
+        root = delete_key(root, tx_id)
+        del id_node_map[tx_id]
+        size -= 1
+
+    def perform_reallocate(old:int,new:int):
+        nonlocal root,size
+        node = id_node_map.get(old)
+        if not node:
+            return
+        # capture payload
+        payload = (node.amount, node.desc, node.category, node.merchant_id)
+        # delete old
+        perform_delete(old)
+        # insert new with new sequence
+        perform_insert(new, payload[0], payload[2], payload[3], payload[1])
+
+    def perform_batch_reallocate(pairs: List[Tuple[int,int]]):
+        nonlocal root,size
+        # first collect existing payloads for those old ids
+        payloads: Dict[int, Tuple[float,str,str,int]] = {}
+        for old,new in pairs:
+            node = id_node_map.get(old)
+            if node:
+                payloads[new] = (node.amount, node.desc, node.category, node.merchant_id)
+        # perform deletions first (for all olds that exist)
+        for old,new in pairs:
+            if old in id_node_map:
+                perform_delete(old)
+        # then perform insertions in ascending order of new id
+        for new in sorted(payloads.keys()):
+            amt, desc, cat, mid = payloads[new]
+            perform_insert(new, amt, cat, mid, desc)
+
+    for line in commands:
+        line=line.strip()
+        if not line:
+            continue
+        if line.startswith("INSERT "):
+            parts = line.split()
+            # INSERT <tx_id:int> <amount:float> <category:str> <merchant_id:int> <desc:str...>
+            if len(parts) < 6: continue
+            tx_id = int(parts[1])
+            amount = float(parts[2])
+            category = parts[3]
+            merchant_id = int(parts[4])
+            desc = " ".join(parts[5:])
+            perform_insert(tx_id, amount, category, merchant_id, desc)
+        elif line.startswith("DELETE "):
+            parts = line.split()
+            if len(parts)<2: continue
+            tx_id = int(parts[1])
+            perform_delete(tx_id)
+        elif line.startswith("REALLOCATE "):
+            parts = line.split()
+            if len(parts)<3: continue
+            old = int(parts[1])
+            new = int(parts[2])
+            perform_reallocate(old,new)
+        elif line.startswith("BATCH_REALLOCATE "):
+            rest = line[len("BATCH_REALLOCATE "):].strip()
+            if not rest:
+                continue
+            pairs=[]
+            items = rest.split(',')
+            for it in items:
+                if '->' in it:
+                    a,b = it.split('->')
+                    try:
+                        pairs.append((int(a), int(b)))
+                    except:
+                        pass
+            perform_batch_reallocate(pairs)
+        else:
+            # unknown command ignore
+            continue
+
+    return {"alerts": alerts, "size": size}

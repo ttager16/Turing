@@ -1,0 +1,76 @@
+{
+  "id": "resp_0a34f916d701b7190069c3269c476c81909ddd5075eb60403b",
+  "object": "response",
+  "created_at": 1774397084,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774397114,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0a34f916d701b7190069c3269cb934819085d05ade276e877f",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0a34f916d701b7190069c3269cff948190bbef1f0c4ae1165e",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any\n\ndef optimize_supply_chain_routes(distribution_centers: List[Dict], destinations: List[Dict], \n                                 cost_matrix: List[List[float]], time_windows: List) -> Dict[str, Any]:\n    # Input validations\n    if not isinstance(distribution_centers, list) or not isinstance(destinations, list) or not isinstance(cost_matrix, list) or not isinstance(time_windows, list):\n        return {\"error\": \"Input is not valid\"}\n    if len(destinations) == 0:\n        return {\"error\": \"Empty destination list provided\"}\n    num_dc = len(distribution_centers)\n    num_dest = len(destinations)\n    # cost_matrix dimensions\n    if any(not isinstance(row, list) or len(row) != num_dest for row in cost_matrix) or len(cost_matrix) != num_dc:\n        return {\"error\": \"Invalid cost matrix dimensions\"}\n    # negative cost check\n    for row in cost_matrix:\n        for v in row:\n            try:\n                if v < 0:\n                    return {\"error\": \"Negative cost detected in cost matrix\"}\n            except TypeError:\n                return {\"error\": \"Input is not valid\"}\n    # time windows validation length\n    if len(time_windows) != num_dest:\n        return {\"error\": \"Input is not valid\"}\n    # validate time windows\n    for idx, tw in enumerate(time_windows):\n        if (not isinstance(tw, (list, tuple))) or len(tw) != 2:\n            return {\"error\": \"Input is not valid\"}\n        try:\n            earliest, latest = int(tw[0]), int(tw[1])\n        except Exception:\n            return {\"error\": \"Input is not valid\"}\n        if earliest >= latest:\n            dest_id = destinations[idx].get(\"id\", idx)\n            return {\"error\": f\"Invalid time window for destination {dest_id}\"}\n        # also validate range\n        if earliest < 0 or latest < 0:\n            dest_id = destinations[idx].get(\"id\", idx)\n            return {\"error\": f\"Invalid time window for destination {dest_id}\"}\n    # prepare mappings\n    dc_map = {}\n    for dc in distribution_centers:\n        if not isinstance(dc, dict) or 'id' not in dc or 'capacity' not in dc or 'base_cost' not in dc or 'efficiency_factor' not in dc:\n            return {\"error\": \"Input is not valid\"}\n        dc_map[dc['id']] = {\n            'capacity': dc['capacity'],\n            'remaining': dc['capacity'],\n            'base_cost': float(dc['base_cost']),\n            'efficiency_factor': float(dc['efficiency_factor'])\n        }\n    dest_list = []\n    for i, dest in enumerate(destinations):\n        if not isinstance(dest, dict) or 'id' not in dest or 'demand' not in dest or 'priority_level' not in dest:\n            return {\"error\": \"Input is not valid\"}\n        dest_list.append({\n            'index': i,\n            'id': dest['id'],\n            'demand': int(dest['demand']),\n            'priority_level': int(dest['priority_level'])\n        })\n    # compute max time window span\n    spans = []\n    for tw in time_windows:\n        earliest, latest = int(tw[0]), int(tw[1])\n        spans.append(latest - earliest)\n    max_time_span = max(spans) if spans else 0\n    urgency_multiplier = 0.75 * max_time_span\n    # helper to compute weighted cost\n    def compute_cost(dc_idx, dest_idx):\n        dc = distribution_centers[dc_idx]\n        dest = destinations[dest_idx]\n        transportation_cost = float(cost_matrix[dc_idx][dest_idx])\n        operational_cost = dc['base_cost'] * dest['demand'] * dc['efficiency_factor']\n        total_route_cost = transportation_cost + operational_cost\n        priority_level = dest.get('priority_level', 5)\n        if priority_level <= 0:\n            priority_level = 1\n        urgency_weight = urgency_multiplier / (priority_level * 10.0)\n        weighted_cost = total_route_cost - urgency_weight\n        return {\n            'transportation_cost': transportation_cost,\n            'operational_cost': operational_cost,\n            'total_route_cost': total_route_cost,\n            'weighted_cost': weighted_cost\n        }\n    # assignment loop\n    unassigned = set(d['index'] for d in dest_list)\n    assignments = []\n    # deterministic ordering: process by destination id order when ties\n    while unassigned:\n        best_option = None  # (weighted_cost, priority_level, dc_id, dest_index, cost_details)\n        for dest_idx in list(unassigned):\n            dest = destinations[dest_idx]\n            demand = int(dest['demand'])\n            priority_level = int(dest['priority_level'])\n            for dc_idx, dc in enumerate(distribution_centers):\n                dc_id = dc['id']\n                if dc_id not in dc_map:\n                    return {\"error\": \"Input is not valid\"}\n                remaining = dc_map[dc_id]['remaining']\n                if demand > remaining:\n                    continue\n                # compute cost\n                cost_det = compute_cost(dc_idx, dest_idx)\n                wc = cost_det['weighted_cost']\n                # tie-breaker: lower priority_level preferred (i.e., 1 better than 2)\n                key = (wc, priority_level, dc_id, dest['id'])\n                if best_option is None or key < best_option[0]:\n                    best_option = (key, dc_id, dest_idx, cost_det)\n        if best_option is None:\n            # no feasible assignments remain\n            break\n        _, chosen_dc_id, chosen_dest_idx, cost_det = best_option\n        # final capacity check and assign\n        demand = int(destinations[chosen_dest_idx]['demand'])\n        if demand > dc_map[chosen_dc_id]['remaining']:\n            return {\"error\": f\"Capacity exceeded for distribution center {chosen_dc_id}\"}\n        dc_map[chosen_dc_id]['remaining'] -= demand\n        # schedule time at midpoint\n        earliest, latest = time_windows[chosen_dest_idx]\n        scheduled_time = (int(earliest) + int(latest)) // 2\n        assignments.append({\n            \"distribution_center_id\": chosen_dc_id,\n            \"destination_id\": destinations[chosen_dest_idx]['id'],\n            \"transportation_cost\": round(cost_det['transportation_cost'], 6),\n            \"operational_cost\": round(cost_det['operational_cost'], 6),\n            \"total_route_cost\": round(cost_det['total_route_cost'], 6),\n            \"scheduled_delivery_time\": scheduled_time\n        })\n        unassigned.remove(chosen_dest_idx)\n    unassigned_dest_ids = [destinations[i]['id'] for i in sorted(unassigned)]\n    # If any destination left unassigned due to capacity limits, indicate but do not error unless specification requires error\n    total_system_cost = sum(a['total_route_cost'] for a in assignments)\n    return {\n        \"assignments\": assignments,\n        \"total_system_cost\": round(total_system_cost, 6),\n        \"unassigned_destinations\": unassigned_dest_ids\n    }"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2173,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1521,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3694
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,76 @@
+{
+  "id": "resp_015d514cf8a241620069c345dcf9248191993b877163b257d3",
+  "object": "response",
+  "created_at": 1774405085,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774405098,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_015d514cf8a241620069c345dd490481918405ded52de426ab",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_015d514cf8a241620069c345dd9b58819191e0e5fc3fc2b587",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any\nfrom collections import defaultdict\n\ndef optimize_rehearsal_schedule(\n    actor_availability: List[List],\n    scene_requirements: List[Dict[str, Any]],\n    historical_data: Dict[str, List[int]],\n    role_mapping: Dict[str, Dict[str, float]],\n    transport_times: Dict[str, int],\n    buffer_intervals: int,\n    rehearsal_capacity: Dict[str, int]\n) -> Dict[str, Dict[str, List[str]]]:\n    # prepare actor structures\n    actors = [a[0] for a in actor_availability]\n    avail_map = {a[0]: set(a[1]) for a in actor_availability}\n    # historical availability probability\n    p_available = {}\n    for actor in actors:\n        hist = historical_data.get(actor, [])\n        p_available[actor] = (sum(hist) / len(hist)) if hist else 0.5\n    # role fit default\n    def role_fit(actor, role):\n        return role_mapping.get(actor, {}).get(role, 1.0)\n    # transport lookup symmetric\n    def transport(a, b):\n        if a == b: return 0\n        key1 = f\"{a}-{b}\"\n        key2 = f\"{b}-{a}\"\n        return transport_times.get(key1, transport_times.get(key2, 5))  # default moderate travel\n    # sort actors for deterministic tie-breaker\n    sorted_actors = sorted(actors)\n    name_index = {a: i for i, a in enumerate(sorted_actors)}\n    # result init\n    schedule = {}\n    # track assignments per actor: list of (scene_time, scene_id)\n    assignments = defaultdict(list)\n    # track counts\n    assigned_counts = {a: 0 for a in actors}\n    # index scenes by time to check conflicts easily\n    scenes = sorted(scene_requirements, key=lambda s: s['time_slot'])\n    # helper to check buffer/conflict\n    def can_assign(actor, scene_time):\n        # availability\n        if scene_time not in avail_map.get(actor, set()):\n            return False\n        # capacity\n        cap = rehearsal_capacity.get(actor, 0)\n        if assigned_counts.get(actor, 0) >= cap:\n            return False\n        # buffer: ensure no assigned scene within buffer_intervals (including consecutive)\n        for t, _ in assignments[actor]:\n            if abs(t - scene_time) <= buffer_intervals:\n                return False\n        return True\n    # For each scene, for each role and number needed, pick best actors greedily maximizing score\n    for scene in scenes:\n        sid = scene['scene_id']\n        time = scene['time_slot']\n        roles = scene['roles']\n        schedule[sid] = {r: [] for r in roles}\n        # For multi-actor per role, iterate filling slots\n        for role, needed in roles.items():\n            for _ in range(needed):\n                # build candidate list\n                candidates = []\n                for actor in actors:\n                    if not can_assign(actor, time): continue\n                    # actor cannot already be assigned to same scene (one role per scene)\n                    already_in_scene = any(s == sid for _, s in assignments[actor])\n                    if already_in_scene: continue\n                    # compute workload U_workload\n                    maxcap = rehearsal_capacity.get(actor, 1)\n                    U_workload = (assigned_counts.get(actor, 0) / maxcap) if maxcap > 0 else 1.0\n                    # travel cost C_travel: average travel to other assigned actors in this scene (none so far -> 0)\n                    current_scene_actors = []\n                    for r2, lst in schedule[sid].items():\n                        current_scene_actors.extend(lst)\n                    travel_costs = []\n                    for other in current_scene_actors:\n                        travel_costs.append(transport(actor, other))\n                    C_travel = (sum(travel_costs) / len(travel_costs)) if travel_costs else 0.0\n                    # compute score\n                    P_av = p_available.get(actor, 0.5)\n                    W_fit = role_fit(actor, role)\n                    P_name = 0.001 * name_index.get(actor, 0)\n                    score = 2.0 * P_av + 1.5 * W_fit - 0.3 * U_workload - 0.1 * C_travel - P_name\n                    candidates.append((score, actor))\n                if not candidates:\n                    # cannot fill slot\n                    break\n                # pick best\n                candidates.sort(key=lambda x: (-x[0], x[1]))\n                chosen = candidates[0][1]\n                schedule[sid][role].append(chosen)\n                # update assignment records\n                assigned_counts[chosen] += 1\n                assignments[chosen].append((time, sid))\n    return schedule"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2591,
+    "input_tokens_details": {
+      "cached_tokens": 2560
+    },
+    "output_tokens": 1039,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3630
+  },
+  "user": null,
+  "metadata": {}
+}

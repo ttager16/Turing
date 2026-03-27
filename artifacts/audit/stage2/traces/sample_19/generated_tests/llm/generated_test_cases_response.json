@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5L299NIgsDg3xkD9ma1O4b4nG4o",
+  "object": "chat.completion",
+  "created": 1774394436,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[[], [5.000000000000001, 5.0], [1e-307]]\",\n        \"[\\\"FIND\\\", \\\"UPDATE\\\", \\\"FIND\\\", \\\"UPDATE\\\", \\\"FIND\\\", \\\"FIND\\\"]\",\n        \"[5.0, 5.000000000000001, 5.000000000000001, 3.141592653589793, 3.141592653589793, 1e-307]\",\n        \"[0, 0, 0, 1, 1, 2]\"\n      ],\n      \"focus\": \"Empty market insertion and float-precision collisions (very close duplicate floats and tiny exponent values).\"\n    },\n    {\n      \"input_lines\": [\n        \"[[1.0, 2.0, 3.0], [1000000000000.0], [-1e308, 0.0, 1e308], []]\",\n        \"[\\\"UPDATE\\\", \\\"FIND\\\", \\\"UPDATE\\\", \\\"FIND\\\", \\\"UPDATE\\\", \\\"FIND\\\", \\\"FIND\\\"]\",\n        \"[2.0, 2.0, 1000000000000.0, 1000000000000.0, -1e308, -1e308, 1e308]\",\n        \"[0, 0, 1, 1, 2, 2, 2]\"\n      ],\n      \"focus\": \"Large and extreme float values, duplicate updates, and operations on an empty market; checks handling of huge exponents and duplicates.\"\n    },\n    {\n      \"input_lines\": [\n        \"[[10.0, 20.0, 30.0], [15.0, 25.0], [12.5]]\",\n        \"[\\\"FIND\\\", \\\"UPDATE\\\", \\\"FIND\\\", \\\"UPDATE\\\", \\\"FIND\\\", \\\"UPDATE\\\", \\\"FIND\\\", \\\"FIND\\\"]\",\n        \"[25.0, 22.0, 22.0, 30.0, 30.0, 11.0, 11.0, 12.5]\",\n        \"[1, 1, 1, 0, 0, 2, 2, 0]\"\n      ],\n      \"focus\": \"Order-breaking updates across markets, repeated finds after inserts, and cross-market value movements to detect naive sorted-list assumptions.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1600,
+    "completion_tokens": 2765,
+    "total_tokens": 4365,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2240,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

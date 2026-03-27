@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN7BqCkhkDLqQiYUDlif5Ce8mPfYy",
+  "object": "chat.completion",
+  "created": 1774401554,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"{\\\"0\\\": [{\\\"neighbor\\\": 1, \\\"capacity\\\": 10}, {\\\"neighbor\\\": 2, \\\"capacity\\\": 5}], \\\"1\\\": [{\\\"neighbor\\\": 0, \\\"capacity\\\": 3}, {\\\"neighbor\\\": 3, \\\"capacity\\\": 7}, {\\\"neighbor\\\": 2, \\\"capacity\\\": 2}], \\\"2\\\": [{\\\"neighbor\\\": 1, \\\"capacity\\\": 4}, {\\\"neighbor\\\": 3, \\\"capacity\\\": 8}], \\\"3\\\": [{\\\"neighbor\\\": 4, \\\"capacity\\\": 10}], \\\"4\\\": []}\",\n        \"0\",\n        \"4\"\n      ],\n      \"focus\": \"Anti-parallel edges (0↔1 and 1↔2) plus regular paths to sink: tests handling of separate flows per direction and correct residual updates.\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"0\\\": [{\\\"neighbor\\\": 1, \\\"capacity\\\": 10}, {\\\"neighbor\\\": 2, \\\"capacity\\\": 10}], \\\"1\\\": [{\\\"neighbor\\\": 2, \\\"capacity\\\": 1}, {\\\"neighbor\\\": 4, \\\"capacity\\\": 9}], \\\"2\\\": [{\\\"neighbor\\\": 3, \\\"capacity\\\": 10}], \\\"3\\\": [{\\\"neighbor\\\": 1, \\\"capacity\\\": 5}, {\\\"neighbor\\\": 4, \\\"capacity\\\": 10}], \\\"4\\\": []}\",\n        \"0\",\n        \"4\"\n      ],\n      \"focus\": \"Forces use of residual/backward edges: early small-bottleneck augmenting path exists that should be later adjusted via residual edges to reach optimal flow.\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"0\\\": [{\\\"neighbor\\\": 1, \\\"capacity\\\": 5}, {\\\"neighbor\\\": 2, \\\"capacity\\\": 5}, {\\\"neighbor\\\": 3, \\\"capacity\\\": 5}, {\\\"neighbor\\\": 4, \\\"capacity\\\": 5}, {\\\"neighbor\\\": 5, \\\"capacity\\\": 0}], \\\"1\\\": [{\\\"neighbor\\\": 6, \\\"capacity\\\": 5}], \\\"2\\\": [{\\\"neighbor\\\": 6, \\\"capacity\\\": 5}], \\\"3\\\": [{\\\"neighbor\\\": 6, \\\"capacity\\\": 5}], \\\"4\\\": [{\\\"neighbor\\\": 6, \\\"capacity\\\": 5}], \\\"5\\\": [{\\\"neighbor\\\": 6, \\\"capacity\\\": 5}], \\\"6\\\": []}\",\n        \"0\",\n        \"6\"\n      ],\n      \"focus\": \"Many equal-capacity disjoint paths from source to sink (tie-breaking) plus a zero-capacity branch: checks deterministic BFS selection and ignoring zero-capacity edges.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3533,
+    "completion_tokens": 3269,
+    "total_tokens": 6802,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2688,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

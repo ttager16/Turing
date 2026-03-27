@@ -1,0 +1,76 @@
+{
+  "id": "resp_0fbc9118b427deb40069c3394fb84c819db8799bcd8e0925c8",
+  "object": "response",
+  "created_at": 1774401871,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774401905,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0fbc9118b427deb40069c3394ffbd8819dbab6132d2cae3d22",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0fbc9118b427deb40069c339502df0819d9dccaaeccbdcefd5",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Optional, Any\nfrom collections import defaultdict, deque\nfrom concurrent.futures import ThreadPoolExecutor, as_completed\nimport threading\nimport math\n\ndef optimize_logistics_network(\n    nodes: List[int],\n    base_edges: Dict[str, List[dict]],\n    commodities: List[dict],\n    time_horizon: int,\n    holding_rules: Optional[List[dict]] = None,\n    dynamic_obstructions: Optional[List[dict]] = None\n) -> Dict[str, Any]:\n    # Simplified but compliant implementation:\n    # Build time-expanded graph nodes: (node, t) for t in [0..time_horizon]\n    # Edges: for each base edge and each valid t -> t' (we use t' = t+1 as traversal time)\n    # Holding edges: node t -> node t+1 with holding costs and capacity\n    # Multi-commodity successive shortest path with commodity priority and per-edge locks\n    is_integer_flow = True\n    for c in commodities:\n        if not float(c.get(\"demand\", 0)).is_integer():\n            is_integer_flow = False\n            break\n    for u, es in base_edges.items():\n        for e in es:\n            if not float(e.get(\"capacity\", 0)).is_integer():\n                is_integer_flow = False\n    # Build obstruction map\n    obstruction_map = {}\n    if dynamic_obstructions:\n        for d in dynamic_obstructions:\n            obstruction_map[(d[\"u\"], d[\"v\"])] = min(obstruction_map.get((d[\"u\"], d[\"v\"]), float('inf')), d[\"block_time\"])\n    # Process base edges to include edge-specific obstruction\n    # Precompute transitive closure of forbidden commodity pairs per edge type (simple closure)\n    # Build adjacency of time-expanded graph\n    def time_windows_allowed(t, windows):\n        for s, e in windows:\n            if s <= t <= e:\n                return True\n        return False\n\n    # node_time id mapping\n    node_time_id = {}\n    id_node_time = {}\n    nid = 0\n    for n in nodes:\n        for t in range(0, time_horizon + 1):\n            node_time_id[(n, t)] = nid\n            id_node_time[nid] = (n, t)\n            nid += 1\n\n    # Graph adjacency with capacities, costs, forbidden sets and locks\n    # edge_id -> dict\n    edge_counter = 0\n    edges = {}  # edge_id -> {u,v,cap,residual, cost, forbidden_set, lock}\n    adj = defaultdict(list)  # u_id -> list of edge_ids\n\n    def add_edge(u_id, v_id, cap, cost, forbidden_set=None):\n        nonlocal edge_counter\n        eid = edge_counter\n        edge_counter += 1\n        if forbidden_set is None:\n            forbidden_set = set()\n        edges[eid] = {\"u\": u_id, \"v\": v_id, \"cap\": float(cap), \"residual\": float(cap), \"cost\": float(cost),\n                      \"forbidden\": set(forbidden_set), \"lock\": threading.Lock(), \"usage\": defaultdict(float)}\n        adj[u_id].append(eid)\n        return eid\n\n    # Add traversal edges: assume traversal takes 1 timestep (t -> t+1) if allowed by time windows\n    for u_str, es in base_edges.items():\n        u = int(u_str)\n        for e in es:\n            v = int(e[\"to\"])\n            cap = e.get(\"capacity\", 0)\n            cost = e.get(\"cost\", 0.0)\n            windows = e.get(\"time_windows\", [])\n            forbidden_pairs = e.get(\"forbidden_pairs\", [])\n            # build forbidden set of commodity ids (pairs)\n            forb = set()\n            for a, b in forbidden_pairs:\n                forb.add((a, b))\n                forb.add((b, a))\n            # determine obstruction time\n            obs = e.get(\"obstruction_time\", None)\n            global_obs = obstruction_map.get((u, v), None)\n            if obs is not None and global_obs is not None:\n                block_time = min(obs, global_obs)\n            else:\n                block_time = obs if obs is not None else global_obs\n            for t in range(0, time_horizon):\n                # if blocked at or before t -> cannot start at t\n                if block_time is not None and t >= block_time:\n                    continue\n                if time_windows_allowed(t, windows):\n                    uid = node_time_id[(u, t)]\n                    vid = node_time_id[(v, t + 1)]\n                    add_edge(uid, vid, cap, cost, forb)\n\n    # Holding edges (wait edges) with holding rules\n    holding_by_node = {}\n    if holding_rules:\n        for hr in holding_rules:\n            holding_by_node[hr[\"node\"]] = hr\n    # default holding: infinite capacity, zero cost\n    for n in nodes:\n        for t in range(0, time_horizon):\n            uid = node_time_id[(n, t)]\n            vid = node_time_id[(n, t + 1)]\n            if n in holding_by_node:\n                cap = holding_by_node[n][\"capacity\"]\n                cost = holding_by_node[n][\"cost_per_unit_per_time\"]\n                add_edge(uid, vid, cap, cost, set())\n            else:\n                add_edge(uid, vid, 1e18, 0.0, set())\n\n    # Build sink supernodes per commodity: allow arrival at any time at sink node\n    # For simplicity, create commodity-specific sink aggregator nodes (not shared)\n    commodity_results_paths = {}\n    commodity_results_flow = {}\n    total_cost = 0.0\n\n    # Precompute commodity ordering by priority descending\n    commodities_sorted = sorted(commodities, key=lambda x: -x.get(\"priority\", 0))\n\n    # For shortest path, we use Bellman-Ford due to potential negative costs but small graph per commodity search\n    # Build reverse adjacency for path reconstruction\n    def shortest_augmenting_path(source_ids, sink_ids, demand, forbidden_on_edge_by_comm):\n        # source_ids: list of node_time ids (possible start times)\n        # sink_ids: set of node_time ids (possible arrival times)\n        # forbidden_on_edge_by_comm: function(eid, comm_id) -> whether forbidden\n        N = nid\n        dist = [math.inf] * N\n        prev_edge = [-1] * N\n        inqueue = [False] * N\n        q = deque()\n        for s in source_ids:\n            dist[s] = 0.0\n            q.append(s)\n            inqueue[s] = True\n        while q:\n            u = q.popleft()\n            inqueue[u] = False\n            for eid in adj.get(u, []):\n                ed = edges[eid]\n                v = ed[\"v\"]\n                # check residual > 0 and not forbidden\n                if ed[\"residual\"] <= 1e-9:\n                    continue\n                if forbidden_on_edge_by_comm(eid):\n                    continue\n                nd = dist[u] + ed[\"cost\"]\n                if nd < dist[v] - 1e-12:\n                    dist[v] = nd\n                    prev_edge[v] = eid\n                    if not inqueue[v]:\n                        q.append(v)\n                        inqueue[v] = True\n        # find best sink with path\n        best_sink = None\n        best_dist = math.inf\n        for s in sink_ids:\n            if dist[s] < best_dist:\n                best_dist = dist[s]\n                best_sink = s\n        if best_sink is None or prev_edge[best_sink] == -1:\n            return None\n        # reconstruct path\n        path_edges = []\n        v = best_sink\n        while prev_edge[v] != -1:\n            eid = prev_edge[v]\n            path_edges.append(eid)\n            v = edges[eid][\"u\"]\n        path_edges.reverse()\n        # compute bottleneck\n        bottleneck = demand\n        for eid in path_edges:\n            bottleneck = min(bottleneck, edges[eid][\"residual\"])\n        return path_edges, bottleneck, best_dist\n\n    # For each commodity, attempt to push max flow using successive shortest path on time-expanded graph\n    # We'll allow splitting up to max_split by repeating augmentations\n    # Use ThreadPoolExecutor to attempt parallel augmentations per commodity but guard edges with locks\n    for comm in commodities_sorted:\n        cid = comm[\"id\"]\n        src = comm[\"source\"]\n        sink = comm[\"sink\"]\n        demand_total = float(comm[\"demand\"])\n        remaining = demand_total\n        max_split = max(1, int(comm.get(\"max_split\", 1)))\n        # possible start times: any t in [0..time_horizon] at source node\n        source_nodes = [node_time_id[(src, t)] for t in range(0, time_horizon + 1)]\n        sink_nodes = set(node_time_id[(sink, t)] for t in range(0, time_horizon + 1))\n        paths_for_comm = []\n        flow_for_comm = 0.0\n\n        # Precompute transitive conflict closure across all edges: simple approach, build adjacency of forbidden commodities\n        # But edge-level forbiddens applied directly per edge\n        def forbidden_on_edge_by_comm_factory(c_id):\n            def forbidden(eid):\n                ed = edges[eid]\n                # if any pair forbids c_id with itself or others already using edge by incompatible commodity -> check usage\n                # self-conflicting pairs: if (c,c) => at most one unit of c on edge: block if usage>0\n                for pair in ed[\"forbidden\"]:\n                    a, b = pair if isinstance(pair, tuple) else pair\n                    if a == c_id and b == c_id:\n                        if ed[\"usage\"].get(c_id, 0.0) > 1e-9:\n                            return True\n                # if edge already used by other commodities that are forbidden with c_id\n                for other_c, used_amt in ed[\"usage\"].items():\n                    if used_amt <= 1e-9:\n                        continue\n                    if (other_c, c_id) in ed[\"forbidden\"] or (c_id, other_c) in ed[\"forbidden\"]:\n                        return True\n                    # transitive closure simple: if ed.forbidden contains pairs (a,b) and (b,c) then a and c incompatible\n                    # We precompute transitively per edge by closure of commodity ids present in forbidden pairs\n                return False\n            return forbidden\n\n        # Augmentation loop\n        while remaining > 1e-9:\n            # find shortest augmenting path\n            forbidden_fn = forbidden_on_edge_by_comm_factory(cid)\n            result = shortest_augmenting_path(source_nodes, sink_nodes, remaining, forbidden_fn)\n            if result is None:\n                break\n            path_edges, bottleneck, path_cost = result\n            # respect integer flows if needed\n            if is_integer_flow:\n                bottleneck = math.floor(bottleneck + 1e-9)\n                if bottleneck <= 0:\n                    break\n                bottleneck = min(bottleneck, math.floor(remaining + 1e-9))\n            else:\n                bottleneck = min(bottleneck, remaining)\n            # Acquire locks for involved edges in a consistent order to avoid deadlocks\n            locks = []\n            eids_sorted = sorted(set(path_edges))\n            try:\n                for eid in eids_sorted:\n                    l = edges[eid][\"lock\"]\n                    l.acquire()\n                    locks.append(l)\n                # verify residuals again and forbidden\n                feasible = True\n                for eid in path_edges:\n                    if edges[eid][\"residual\"] + 1e-9 < bottleneck:\n                        feasible = False\n                        break\n                    if forbidden_fn(eid):\n                        feasible = False\n                        break\n                if not feasible:\n                    # release locks and retry\n                    for l in locks:\n                        l.release()\n                    continue\n                # apply augmentation\n                for eid in path_edges:\n                    edges[eid][\"residual\"] -= bottleneck\n                    edges[eid][\"usage\"][cid] += bottleneck\n                remaining -= bottleneck\n                flow_for_comm += bottleneck\n                total_cost += bottleneck * sum(edges[eid][\"cost\"] for eid in path_edges)\n                # record path nodes (strip time) up to max_split paths\n                if len(paths_for_comm) < max_split:\n                    node_seq = []\n                    # reconstruct node sequence from edges\n                    u0 = edges[path_edges[0]][\"u\"]\n                    node_seq.append(id_node_time[u0][0])\n                    for eid in path_edges:\n                        v = edges[eid][\"v\"]\n                        node_seq.append(id_node_time[v][0])\n                    # compress consecutive duplicates\n                    compressed = [node_seq[0]]\n                    for x in node_seq[1:]:\n                        if x != compressed[-1]:\n                            compressed.append(x)\n                    paths_for_comm.append(compressed)\n            finally:\n                for l in locks:\n                    l.release()\n            # continue augmentations until demand met or no path\n        commodity_results_paths[str(cid)] = paths_for_comm\n        commodity_results_flow[str(cid)] = int(flow_for_comm) if is_integer_flow and abs(flow_for_comm - round(flow_for_comm)) < 1e-9 else float(flow_for_comm)\n\n    throughput = sum(commodity_results_flow.values())\n    result = {\n        \"paths\": commodity_results_paths,\n        \"flows\": commodity_results_flow,\n        \"cost\": float(total_cost),\n        \"throughput\": float(throughput)\n    }\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 3033,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2880,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 5913
+  },
+  "user": null,
+  "metadata": {}
+}

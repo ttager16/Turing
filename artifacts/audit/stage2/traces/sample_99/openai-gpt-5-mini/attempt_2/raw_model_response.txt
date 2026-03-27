@@ -1,0 +1,290 @@
+from typing import Dict, List
+
+def analyze_network_vulnerability(
+    network: Dict[str, List[List[int]]],
+    vulnerability_scores: Dict[str, float],
+    system_types: Dict[str, int],
+    privilege_levels: Dict[str, int],
+    source_system: int,
+    target_systems: List[int],
+    vulnerability_threshold: float,
+    max_path_length: int,
+    threat_model: str,
+    use_recursive: bool,
+) -> Dict[str, List[List[int]]]:
+
+    # Helper to return error dict
+    def err(msg: str) -> Dict[str, List[List[int]]]:
+        return {"error": msg}
+
+    # Basic presence checks
+    src_str = str(source_system)
+    if src_str not in network:
+        return err("Source system not found in network")
+    # Validate threat model
+    if threat_model not in ("insider", "external", "apt"):
+        return err("Invalid threat model")
+    # max_path_length
+    if not isinstance(max_path_length, int) or max_path_length < 1 or max_path_length > 50:
+        return err("Invalid max_path_length")
+    # vulnerability_threshold
+    if not (isinstance(vulnerability_threshold, int) or isinstance(vulnerability_threshold, float)) or vulnerability_threshold < 0:
+        return err("Invalid vulnerability_threshold")
+    # Validate system_types and privilege_levels values ranges and presence for source
+    if src_str not in vulnerability_scores:
+        return err("Source system not found in vulnerability_scores")
+    if src_str not in system_types:
+        return err("Source system not found in system_types")
+    if src_str not in privilege_levels:
+        return err("Source system not found in privilege_levels")
+    # Validate ranges for system_types and privilege_levels over provided dicts
+    for k, v in system_types.items():
+        if not isinstance(v, int) or v < 1 or v > 5:
+            return err("Invalid system_type")
+    for k, v in privilege_levels.items():
+        if not isinstance(v, int) or v < 1 or v > 4:
+            return err("Invalid privilege_level")
+    # Validate network edges for malformed edges and validate connected systems existence and attributes
+    for node, edges in network.items():
+        if not isinstance(edges, list):
+            continue
+        for e in edges:
+            if not isinstance(e, list):
+                continue
+            if len(e) < 3:
+                continue
+            connected_id = str(e[0])
+            sec_level = e[1]
+            trust_level = e[2]
+            if not (isinstance(sec_level, int) and 1 <= sec_level <= 5):
+                return err("Invalid connection_security_level")
+            if not (isinstance(trust_level, int) and 1 <= trust_level <= 10):
+                return err("Invalid trust_level")
+            if connected_id not in vulnerability_scores:
+                return err("Connected system not found in vulnerability_scores")
+            if connected_id not in system_types:
+                return err("Connected system not found in system_types")
+            if connected_id not in privilege_levels:
+                return err("Connected system not found in privilege_levels")
+    # Validate target systems presence in network
+    for t in target_systems:
+        tstr = str(t)
+        if tstr not in network:
+            return err("Target system not found in network")
+    # Validate targets presence in vulnerability_scores/system_types/privilege_levels
+    for t in target_systems:
+        tstr = str(t)
+        if tstr not in vulnerability_scores:
+            return err("Target system not found in vulnerability_scores")
+        if tstr not in system_types:
+            return err("Target system not found in system_types")
+        if tstr not in privilege_levels:
+            return err("Target system not found in privilege_levels")
+
+    # System type compatibility rules
+    def types_compatible(a_type: int, b_type: int) -> bool:
+        # a connects to b
+        if a_type == 1:
+            return True
+        if a_type == 2:
+            return b_type in (1, 3)
+        if a_type == 3:
+            return b_type in (1, 2)
+        if a_type == 4:
+            return True
+        if a_type == 5:
+            return b_type in (1, 4)
+        return False
+
+    # Privilege escalation rules: check if move from level a to b is allowed
+    def privilege_ok(a_priv: int, b_priv: int) -> bool:
+        if a_priv == b_priv:
+            return True
+        if a_priv == 1 and b_priv == 2:
+            return True
+        if a_priv == 2 and b_priv == 3:
+            return True
+        if a_priv == 3 and b_priv == 4:
+            return True
+        # higher can access lower
+        if a_priv > b_priv:
+            return True
+        return False
+
+    # Vulnerability factor per threat model
+    factor = 1.0
+    if threat_model == "insider":
+        factor = 1.5
+    elif threat_model == "external":
+        factor = 0.8
+    elif threat_model == "apt":
+        factor = 2.0
+
+    # Build adjacency list filtering malformed edges
+    adj: Dict[str, List[List[int]]] = {}
+    for node, edges in network.items():
+        adj[node] = []
+        if not isinstance(edges, list):
+            continue
+        for e in edges:
+            if not isinstance(e, list):
+                continue
+            if len(e) < 3:
+                continue
+            adj[node].append([str(e[0]), e[1], e[2]])
+
+    targets_set: Dict[str, bool] = {}
+    for t in target_systems:
+        targets_set[str(t)] = True
+
+    results: Dict[str, List[List[int]]] = {}
+    for t in target_systems:
+        results[str(t)] = []
+
+    # DFS implementations must avoid cycles and respect constraints
+    src = str(source_system)
+
+    # Common check per edge whether we can traverse
+    def can_traverse(from_node: str, to_node: str) -> bool:
+        # type compat
+        if not types_compatible(system_types.get(from_node, 0), system_types.get(to_node, 0)):
+            return False
+        # privilege
+        if not privilege_ok(privilege_levels.get(from_node, 0), privilege_levels.get(to_node, 0)):
+            return False
+        return True
+
+    # Compute vulnerability increment when stepping to node 'v' via edge with sec and trust
+    def vuln_increment(v: str, sec: int, trust: int) -> float:
+        return vulnerability_scores.get(v, 0.0) * (sec / trust) * factor
+
+    # Recursive DFS
+    visited_init = set()
+
+    found_paths: Dict[str, List[List[int]]] = {}
+    for t in target_systems:
+        found_paths[str(t)] = []
+
+    if use_recursive:
+        def dfs_recursive(path_nodes: List[str], cum_vuln: float):
+            current = path_nodes[-1]
+            # Check length constraint: path length is number of nodes
+            if len(path_nodes) > max_path_length:
+                return
+            # If current is target, record if threshold met
+            if current in targets_set:
+                if cum_vuln >= vulnerability_threshold:
+                    # append copy as list of ints
+                    tgt = current
+                    p_ints = [int(x) for x in path_nodes]
+                    found_paths[tgt].append([x for x in p_ints])
+            # Traverse neighbors
+            if current not in adj:
+                return
+            for edge in adj[current]:
+                to_node = edge[0]
+                sec = edge[1]
+                trust = edge[2]
+                if to_node in path_nodes:
+                    continue
+                if not can_traverse(current, to_node):
+                    continue
+                inc = vuln_increment(to_node, sec, trust)
+                path_nodes.append(to_node)
+                dfs_recursive(path_nodes, cum_vuln + inc)
+                path_nodes.pop()
+        # start
+        dfs_recursive([src], 0.0)
+    else:
+        # Iterative DFS using explicit stack: each stack entry is list: [path_list, cum_vuln]
+        stack: List[List[object]] = []
+        stack.append([[src], 0.0])
+        while stack:
+            entry = stack.pop()
+            path_nodes = entry[0]
+            cum_vuln = entry[1]
+            current = path_nodes[-1]
+            if len(path_nodes) > max_path_length:
+                continue
+            if current in targets_set:
+                if cum_vuln >= vulnerability_threshold:
+                    tgt = current
+                    p_ints = [int(x) for x in path_nodes]
+                    found_paths[tgt].append([x for x in p_ints])
+            if current not in adj:
+                continue
+            # iterate neighbors in reverse to mimic typical DFS order
+            neighs = adj[current]
+            for i in range(len(neighs)-1, -1, -1):
+                edge = neighs[i]
+                to_node = edge[0]
+                sec = edge[1]
+                trust = edge[2]
+                if to_node in path_nodes:
+                    continue
+                if not can_traverse(current, to_node):
+                    continue
+                inc = vuln_increment(to_node, sec, trust)
+                # push new path
+                new_path = [x for x in path_nodes]
+                new_path.append(to_node)
+                stack.append([new_path, cum_vuln + inc])
+
+    # For each target, sort paths by computed vulnerability descending.
+    # But we didn't store vulnerabilities per path. Recompute them to sort.
+    def compute_path_vuln(path: List[int]) -> float:
+        s = 0.0
+        for i in range(len(path)-1):
+            a = str(path[i])
+            b = str(path[i+1])
+            # find edge a->b
+            edges = adj.get(a, [])
+            found = False
+            for e in edges:
+                if e[0] == b:
+                    s += vuln_increment(b, e[1], e[2])
+                    found = True
+                    break
+            if not found:
+                # should not happen
+                pass
+        return s
+
+    final: Dict[str, List[List[int]]] = {}
+    for t in target_systems:
+        key = str(t)
+        paths = found_paths.get(key, [])
+        # remove duplicates
+        unique_paths: List[List[int]] = []
+        seen_sets: List[List[int]] = []
+        for p in paths:
+            if p not in unique_paths:
+                unique_paths.append(p)
+        # Filter length constraint again and system type & priv checks along path
+        filtered: List[List[int]] = []
+        for p in unique_paths:
+            if len(p) > max_path_length:
+                continue
+            valid = True
+            for i in range(len(p)-1):
+                a = str(p[i])
+                b = str(p[i+1])
+                if not can_traverse(a, b):
+                    valid = False
+                    break
+            if valid:
+                # compute vuln and threshold
+                v = compute_path_vuln(p)
+                if v >= vulnerability_threshold:
+                    filtered.append((p, v))  # using list elements; but cannot use tuple, so will handle
+        # sort by vulnerability desc
+        # Implement simple sort using key extraction
+        for i in range(len(filtered)):
+            for j in range(i+1, len(filtered)):
+                if filtered[j][1] > filtered[i][1]:
+                    filtered[i], filtered[j] = filtered[j], filtered[i]
+        # extract paths
+        final[key] = []
+        for item in filtered:
+            final[key].append(item[0])
+    return final

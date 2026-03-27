@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6o3otYc6xcJ6fHmhD64xnEWTG4A",
+  "object": "chat.completion",
+  "created": 1774400079,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[]\"\n      ],\n      \"focus\": \"empty operations list -> should return [] immediately\"\n    },\n    {\n      \"input_lines\": [\n        \"[[\\\"insert\\\", \\\"\\\"], [\\\"insert\\\", \\\"a\\\"], [\\\"insert\\\", \\\"a\\\"], [\\\"search\\\", \\\"a\\\"], [\\\"delete\\\", \\\"a\\\"], [\\\"search\\\", \\\"a\\\"], [\\\"delete\\\", \\\"a\\\"], [\\\"search\\\", \\\"a\\\"], [\\\"insert\\\", \\\"ab\\\"], [\\\"delete\\\", \\\"a\\\"], [\\\"search\\\", \\\"ab\\\"], [\\\"delete\\\", \\\"ab\\\"], [\\\"search\\\", \\\"ab\\\"]]\"\n      ],\n      \"focus\": \"empty-string no-op, single-letter counts, idempotent and non-existent deletions, and subsequent searches\"\n    },\n    {\n      \"input_lines\": [\n        \"[[\\\"insert\\\", \\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\\"], [\\\"insert\\\", \\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\\"], [\\\"delete\\\", \\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\\"], [\\\"search\\\", \\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\\"], [\\\"delete\\\", \\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\\"], [\\\"search\\\", \\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\\"]]\"\n      ],\n      \"focus\": \"long-prefix boundary (49 vs 50 chars): deleting longer should leave shorter prefix path; full removal then yields empty search\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1387,
+    "completion_tokens": 2693,
+    "total_tokens": 4080,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2368,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

@@ -1,0 +1,206 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+A fast-growing smart-home IoT platform must maintain a **multi-layer, branchable “adaptive linked list”** to ingest high-frequency sensor events (temperature, humidity, light) across multiple building zones (e.g., `zone1`, `zone2`, `kitchen`, `livingroom`). The structure must *look like* a linked list externally (single `next` traversal), but internally allow **hierarchical segmentation** (root → zones → types), **adaptive hot-segment promotion** for bursty sensors, **partial rollback**, and **segment-level queries**—all with **tight memory** via on-demand child creation.
+
+Unlike a traditional linked list, each node may have multiple children (tree-like), but the data structure **exposes a deterministic single linear traversal order** via a `next` pointer computed from a fixed rule so tests can verify correctness.
+
+### Deterministic Rules (Must Implement)
+
+1. **Hierarchy & IDs**
+
+   * Parse each sensor key as `<type>_<zone>` (e.g., `temperature_zone1` → type=`temperature`, zone=`zone1`).
+   * Create node IDs as:
+
+     * Root: `"root"`
+     * Zone: `"zone:<zone>"`
+     * Type under a zone: `"zone:<zone>/type:<type>"`
+     * **Hot segment (promotion rule below):** `"zone:<zone>/type:<type>*"` (note the trailing `*`).
+2. **On-Demand Children**
+
+   * Create zone and type nodes **only when first needed**.
+3. **Hot-Segment Promotion (Adaptive Reorg)**
+
+   * For each `(zone, type)`, when its **event count reaches ≥ 2**, **promote the most recently inserted reading** into a **hot segment** with ID `"zone:<zone>/type:<type>*"`.
+   * The base type node **retains all readings**, including those represented in the hot segment; the hot segment **duplicates only the latest reading** for O(1) hot retrieval.
+   * Only **one** hot segment per `(zone, type)`; it always mirrors the latest reading.
+4. **Partial Rollback**
+
+   * If an event index appears in `invalidations`, **remove that reading** from **both** the base type node’s buffer and the hot segment (if it was the latest when applied). The *latest* valid reading after rollback becomes the hot segment’s value (or the hot segment is deleted if none).
+5. **Linked-List Traversal Order (Deterministic)**
+
+   * Linear traversal order (and thus `next` pointers) is:
+     `root` → **zones in ascending lexicographic order** → for each zone: **types in ascending lexicographic order** → **its hot segment immediately after its base type node** (if exists).
+   * The final node’s `next` is `None`.
+6. **Aggregates**
+
+   * For each **type node** (not the hot node), compute:
+
+     * `count`, `sum`, `min`, `max`, `avg` (rounded to **3 decimal places**) over **valid** readings after rollback.
+   * For each **hot node**, store only:
+
+     * `latest_value` (float) or `null` if none (and delete the hot node if none).
+
+### Constraints
+
+* No external libraries (no NumPy, no `collections.deque`, etc.).
+* On-demand child allocation only; avoid pre-allocating sparse segments.
+* Promotion/rollback must keep the structure and outputs **exactly** consistent with the rules above.
+* Assume events could arrive concurrently, but the test harness serializes them in the provided order. Your structure should be **thread-safe by design**, but the **deterministic output is judged only on the given sequential order**.
+* Use only Python’s basic synchronization primitives if you need them (`threading.Lock`, etc.). No external libs.
+
+### Function Signature
+
+```python
+from typing import Any, Dict, List
+
+def build_adaptive_sensor_list(
+    data_stream: List[Dict[str, Any]],
+    invalidations: List[int] = []
+) -> Dict[str, Any]:
+    """
+    Build a hierarchical, adaptive, branchable linked list with a deterministic single
+    next-pointer traversal, hot-segment promotion, partial rollback, and per-segment aggregates.
+
+    Returns a deterministic snapshot containing:
+      - 'linked_order': List[str] of node IDs in traversal order.
+      - 'next_pointer_of': Dict[str, str or None] mapping node ID -> next node ID (or None).
+      - 'segment_stats': Dict[str, Dict[str, Any]] per node:
+            For base type nodes: {count, sum, min, max, avg}
+            For hot nodes: {latest_value}
+      - 'path_index': Dict[str, str] mapping each sensor key to its base type node ID.
+      - 'leaf_values': Dict[str, List[float]] final per (zone/type) values after invalidations.
+    """
+    ...
+````
+
+---
+
+## Sample Input
+
+```python
+data_stream = [
+    {"sensor": "temperature_zone1", "value": 23.5},   # idx 0
+    {"sensor": "humidity_zone1", "value": 45.0},      # idx 1
+    {"sensor": "temperature_zone2", "value": 21.0},   # idx 2
+    {"sensor": "humidity_zone2", "value": 48.0},      # idx 3
+    {"sensor": "light_livingroom", "value": 300.0},   # idx 4
+    {"sensor": "temperature_zone1", "value": 24.1},   # idx 5  -> triggers hot segment for (zone1, temperature)
+    {"sensor": "light_kitchen", "value": 180.0},      # idx 6
+]
+invalidations = []  # no rollbacks
+```
+
+### Expected Output
+
+```python
+{
+  "linked_order": [
+    "root",
+    "zone:kitchen",
+    "zone:kitchen/type:light",
+    "zone:livingroom",
+    "zone:livingroom/type:light",
+    "zone:zone1",
+    "zone:zone1/type:humidity",
+    "zone:zone1/type:temperature",
+    "zone:zone1/type:temperature*",
+    "zone:zone2",
+    "zone:zone2/type:humidity",
+    "zone:zone2/type:temperature"
+  ],
+  "next_pointer_of": {
+    "root": "zone:kitchen",
+    "zone:kitchen": "zone:kitchen/type:light",
+    "zone:kitchen/type:light": "zone:livingroom",
+    "zone:livingroom": "zone:livingroom/type:light",
+    "zone:livingroom/type:light": "zone:zone1",
+    "zone:zone1": "zone:zone1/type:humidity",
+    "zone:zone1/type:humidity": "zone:zone1/type:temperature",
+    "zone:zone1/type:temperature": "zone:zone1/type:temperature*",
+    "zone:zone1/type:temperature*": "zone:zone2",
+    "zone:zone2": "zone:zone2/type:humidity",
+    "zone:zone2/type:humidity": "zone:zone2/type:temperature",
+    "zone:zone2/type:temperature": None
+  },
+  "segment_stats": {
+    "zone:kitchen/type:light": {
+      "count": 1, "sum": 180.0, "min": 180.0, "max": 180.0, "avg": 180.000
+    },
+    "zone:livingroom/type:light": {
+      "count": 1, "sum": 300.0, "min": 300.0, "max": 300.0, "avg": 300.000
+    },
+    "zone:zone1/type:humidity": {
+      "count": 1, "sum": 45.0, "min": 45.0, "max": 45.0, "avg": 45.000
+    },
+    "zone:zone1/type:temperature": {
+      "count": 2, "sum": 47.6, "min": 23.5, "max": 24.1, "avg": 23.800
+    },
+    "zone:zone1/type:temperature*": {
+      "latest_value": 24.1
+    },
+    "zone:zone2/type:humidity": {
+      "count": 1, "sum": 48.0, "min": 48.0, "max": 48.0, "avg": 48.000
+    },
+    "zone:zone2/type:temperature": {
+      "count": 1, "sum": 21.0, "min": 21.0, "max": 21.0, "avg": 21.000
+    }
+  },
+  "path_index": {
+    "temperature_zone1": "zone:zone1/type:temperature",
+    "humidity_zone1": "zone:zone1/type:humidity",
+    "temperature_zone2": "zone:zone2/type:temperature",
+    "humidity_zone2": "zone:zone2/type:humidity",
+    "light_livingroom": "zone:livingroom/type:light",
+    "light_kitchen": "zone:kitchen/type:light"
+  },
+  "leaf_values": {
+    "zone:kitchen/type:light": [180.0],
+    "zone:livingroom/type:light": [300.0],
+    "zone:zone1/type:humidity": [45.0],
+    "zone:zone1/type:temperature": [23.5, 24.1],
+    "zone:zone2/type:humidity": [48.0],
+    "zone:zone2/type:temperature": [21.0]
+  }
+}
+```
+
+---
+
+## Second Sample (with Rollback)
+
+```python
+data_stream = [
+    {"sensor": "temperature_zone1", "value": 23.5},   # 0
+    {"sensor": "temperature_zone1", "value": 24.1},   # 1 -> hot=24.1
+    {"sensor": "temperature_zone1", "value": 22.9},   # 2 -> hot=22.9
+    {"sensor": "humidity_zone1", "value": 45.0}       # 3
+]
+invalidations = [2]  # remove idx 2 (22.9)
+```
+
+**Expected Output (differences only):**
+
+* `leaf_values["zone:zone1/type:temperature"] == [23.5, 24.1]`
+* `segment_stats["zone:zone1/type:temperature"] == {"count": 2, "sum": 47.6, "min": 23.5, "max": 24.1, "avg": 23.800}`
+* Hot node exists and **latest_value == 24.1** after rollback.
+
+Starter Code:
+```python
+from typing import Any, Dict, List
+import threading
+
+def build_adaptive_sensor_list(
+    data_stream: List[Dict[str, Any]],
+    invalidations: List[int] = []
+) -> Dict[str, Any]:
+    pass
+```

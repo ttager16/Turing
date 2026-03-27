@@ -1,0 +1,293 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        {
+          "intersection_id": "A1",
+          "vehicle_count": 0,
+          "average_speed": 0,
+          "congestion_level": 0.9
+        },
+        {
+          "intersection_id": "B2",
+          "vehicle_count": 320,
+          "average_speed": 70,
+          "congestion_level": 0.85
+        },
+        {
+          "intersection_id": "C3",
+          "vehicle_count": 150,
+          "average_speed": 30,
+          "congestion_level": 0.65
+        },
+        {
+          "intersection_id": "D4",
+          "vehicle_count": 300,
+          "average_speed": 10,
+          "congestion_level": 0.9
+        },
+        {
+          "intersection_id": "E5",
+          "vehicle_count": 75,
+          "average_speed": 40,
+          "congestion_level": 0.4
+        },
+        {
+          "intersection_id": "F6",
+          "vehicle_count": 290,
+          "average_speed": 55,
+          "congestion_level": 0.9
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"intersection_id\": \"A1\", \"vehicle_count\": 0, \"average_speed\": 0, \"congestion_level\": 0.9}, {\"intersection_id\": \"B2\", \"vehicle_count\": 320, \"average_speed\": 70, \"congestion_level\": 0.85}, {\"intersection_id\": \"C3\", \"vehicle_count\": 150, \"average_speed\": 30, \"congestion_level\": 0.65}, {\"intersection_id\": \"D4\", \"vehicle_count\": 300, \"average_speed\": 10, \"congestion_level\": 0.9}, {\"intersection_id\": \"E5\", \"vehicle_count\": 75, \"average_speed\": 40, \"congestion_level\": 0.4}, {\"intersection_id\": \"F6\", \"vehicle_count\": 290, \"average_speed\": 55, \"congestion_level\": 0.9}]"
+    ],
+    "focus": "Tie for highest congestion among multiple intersections; includes zeros and values exceeding typical bounds to test tie-breaking and clamping behavior."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        {
+          "intersection_id": "X1",
+          "vehicle_count": 10,
+          "average_speed": 5,
+          "congestion_level": 0.0
+        },
+        {
+          "intersection_id": "X2",
+          "vehicle_count": 20,
+          "average_speed": 10,
+          "congestion_level": 0.1
+        },
+        {
+          "intersection_id": "X3",
+          "vehicle_count": 30,
+          "average_speed": 15,
+          "congestion_level": 0.2
+        },
+        {
+          "intersection_id": "X4",
+          "vehicle_count": 40,
+          "average_speed": 20,
+          "congestion_level": 0.3
+        },
+        {
+          "intersection_id": "X5",
+          "vehicle_count": 50,
+          "average_speed": 25,
+          "congestion_level": 0.4
+        },
+        {
+          "intersection_id": "X6",
+          "vehicle_count": 60,
+          "average_speed": 30,
+          "congestion_level": 0.5
+        },
+        {
+          "intersection_id": "X7",
+          "vehicle_count": 70,
+          "average_speed": 35,
+          "congestion_level": 0.6
+        },
+        {
+          "intersection_id": "X8",
+          "vehicle_count": 80,
+          "average_speed": 40,
+          "congestion_level": 0.7
+        },
+        {
+          "intersection_id": "X9",
+          "vehicle_count": 90,
+          "average_speed": 45,
+          "congestion_level": 0.8
+        },
+        {
+          "intersection_id": "X10",
+          "vehicle_count": 100,
+          "average_speed": 50,
+          "congestion_level": 0.9
+        },
+        {
+          "intersection_id": "X11",
+          "vehicle_count": 110,
+          "average_speed": 55,
+          "congestion_level": 1.0
+        },
+        {
+          "intersection_id": "X12",
+          "vehicle_count": 120,
+          "average_speed": 0,
+          "congestion_level": 0.0
+        },
+        {
+          "intersection_id": "X13",
+          "vehicle_count": 130,
+          "average_speed": 5,
+          "congestion_level": 0.1
+        },
+        {
+          "intersection_id": "X14",
+          "vehicle_count": 140,
+          "average_speed": 10,
+          "congestion_level": 0.2
+        },
+        {
+          "intersection_id": "X15",
+          "vehicle_count": 150,
+          "average_speed": 15,
+          "congestion_level": 0.3
+        },
+        {
+          "intersection_id": "X16",
+          "vehicle_count": 160,
+          "average_speed": 20,
+          "congestion_level": 0.4
+        },
+        {
+          "intersection_id": "X17",
+          "vehicle_count": 170,
+          "average_speed": 25,
+          "congestion_level": 0.5
+        },
+        {
+          "intersection_id": "X18",
+          "vehicle_count": 180,
+          "average_speed": 30,
+          "congestion_level": 0.6
+        },
+        {
+          "intersection_id": "X19",
+          "vehicle_count": 190,
+          "average_speed": 35,
+          "congestion_level": 0.7
+        },
+        {
+          "intersection_id": "X20",
+          "vehicle_count": 200,
+          "average_speed": 40,
+          "congestion_level": 0.8
+        },
+        {
+          "intersection_id": "X21",
+          "vehicle_count": 210,
+          "average_speed": 45,
+          "congestion_level": 0.9
+        },
+        {
+          "intersection_id": "X22",
+          "vehicle_count": 220,
+          "average_speed": 50,
+          "congestion_level": 1.0
+        },
+        {
+          "intersection_id": "X23",
+          "vehicle_count": 230,
+          "average_speed": 55,
+          "congestion_level": 0.0
+        },
+        {
+          "intersection_id": "X24",
+          "vehicle_count": 240,
+          "average_speed": 0,
+          "congestion_level": 0.1
+        },
+        {
+          "intersection_id": "X25",
+          "vehicle_count": 250,
+          "average_speed": 5,
+          "congestion_level": 0.2
+        },
+        {
+          "intersection_id": "X26",
+          "vehicle_count": 260,
+          "average_speed": 10,
+          "congestion_level": 0.3
+        },
+        {
+          "intersection_id": "X27",
+          "vehicle_count": 270,
+          "average_speed": 15,
+          "congestion_level": 0.4
+        },
+        {
+          "intersection_id": "X28",
+          "vehicle_count": 280,
+          "average_speed": 20,
+          "congestion_level": 0.5
+        },
+        {
+          "intersection_id": "X29",
+          "vehicle_count": 290,
+          "average_speed": 25,
+          "congestion_level": 0.6
+        },
+        {
+          "intersection_id": "X30",
+          "vehicle_count": 350,
+          "average_speed": 30,
+          "congestion_level": 0.7
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"intersection_id\": \"X1\", \"vehicle_count\": 10, \"average_speed\": 5, \"congestion_level\": 0.0}, {\"intersection_id\": \"X2\", \"vehicle_count\": 20, \"average_speed\": 10, \"congestion_level\": 0.1}, {\"intersection_id\": \"X3\", \"vehicle_count\": 30, \"average_speed\": 15, \"congestion_level\": 0.2}, {\"intersection_id\": \"X4\", \"vehicle_count\": 40, \"average_speed\": 20, \"congestion_level\": 0.3}, {\"intersection_id\": \"X5\", \"vehicle_count\": 50, \"average_speed\": 25, \"congestion_level\": 0.4}, {\"intersection_id\": \"X6\", \"vehicle_count\": 60, \"average_speed\": 30, \"congestion_level\": 0.5}, {\"intersection_id\": \"X7\", \"vehicle_count\": 70, \"average_speed\": 35, \"congestion_level\": 0.6}, {\"intersection_id\": \"X8\", \"vehicle_count\": 80, \"average_speed\": 40, \"congestion_level\": 0.7}, {\"intersection_id\": \"X9\", \"vehicle_count\": 90, \"average_speed\": 45, \"congestion_level\": 0.8}, {\"intersection_id\": \"X10\", \"vehicle_count\": 100, \"average_speed\": 50, \"congestion_level\": 0.9}, {\"intersection_id\": \"X11\", \"vehicle_count\": 110, \"average_speed\": 55, \"congestion_level\": 1.0}, {\"intersection_id\": \"X12\", \"vehicle_count\": 120, \"average_speed\": 0, \"congestion_level\": 0.0}, {\"intersection_id\": \"X13\", \"vehicle_count\": 130, \"average_speed\": 5, \"congestion_level\": 0.1}, {\"intersection_id\": \"X14\", \"vehicle_count\": 140, \"average_speed\": 10, \"congestion_level\": 0.2}, {\"intersection_id\": \"X15\", \"vehicle_count\": 150, \"average_speed\": 15, \"congestion_level\": 0.3}, {\"intersection_id\": \"X16\", \"vehicle_count\": 160, \"average_speed\": 20, \"congestion_level\": 0.4}, {\"intersection_id\": \"X17\", \"vehicle_count\": 170, \"average_speed\": 25, \"congestion_level\": 0.5}, {\"intersection_id\": \"X18\", \"vehicle_count\": 180, \"average_speed\": 30, \"congestion_level\": 0.6}, {\"intersection_id\": \"X19\", \"vehicle_count\": 190, \"average_speed\": 35, \"congestion_level\": 0.7}, {\"intersection_id\": \"X20\", \"vehicle_count\": 200, \"average_speed\": 40, \"congestion_level\": 0.8}, {\"intersection_id\": \"X21\", \"vehicle_count\": 210, \"average_speed\": 45, \"congestion_level\": 0.9}, {\"intersection_id\": \"X22\", \"vehicle_count\": 220, \"average_speed\": 50, \"congestion_level\": 1.0}, {\"intersection_id\": \"X23\", \"vehicle_count\": 230, \"average_speed\": 55, \"congestion_level\": 0.0}, {\"intersection_id\": \"X24\", \"vehicle_count\": 240, \"average_speed\": 0, \"congestion_level\": 0.1}, {\"intersection_id\": \"X25\", \"vehicle_count\": 250, \"average_speed\": 5, \"congestion_level\": 0.2}, {\"intersection_id\": \"X26\", \"vehicle_count\": 260, \"average_speed\": 10, \"congestion_level\": 0.3}, {\"intersection_id\": \"X27\", \"vehicle_count\": 270, \"average_speed\": 15, \"congestion_level\": 0.4}, {\"intersection_id\": \"X28\", \"vehicle_count\": 280, \"average_speed\": 20, \"congestion_level\": 0.5}, {\"intersection_id\": \"X29\", \"vehicle_count\": 290, \"average_speed\": 25, \"congestion_level\": 0.6}, {\"intersection_id\": \"X30\", \"vehicle_count\": 350, \"average_speed\": 30, \"congestion_level\": 0.7}]"
+    ],
+    "focus": "Larger sequential network (30 intersections) to test performance, varied vehicle counts (including >300), and multiple congestion extremes to exercise alternate-route generation across many nodes."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        {
+          "intersection_id": "N-01",
+          "vehicle_count": 85,
+          "average_speed": 33.333,
+          "congestion_level": 0.333333
+        },
+        {
+          "intersection_id": "B_2",
+          "vehicle_count": 200,
+          "average_speed": 15.5,
+          "congestion_level": 0.92
+        },
+        {
+          "intersection_id": "Alpha",
+          "vehicle_count": 120,
+          "average_speed": 22.2,
+          "congestion_level": 0.92
+        },
+        {
+          "intersection_id": "Mid",
+          "vehicle_count": 300,
+          "average_speed": 10.75,
+          "congestion_level": 0.95
+        },
+        {
+          "intersection_id": "Z9",
+          "vehicle_count": 50,
+          "average_speed": 45.0,
+          "congestion_level": 0.1
+        },
+        {
+          "intersection_id": "Tail",
+          "vehicle_count": 10,
+          "average_speed": 60.0,
+          "congestion_level": 0.05
+        },
+        {
+          "intersection_id": "End",
+          "vehicle_count": 400,
+          "average_speed": 5.0,
+          "congestion_level": 0.95
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"intersection_id\": \"N-01\", \"vehicle_count\": 85, \"average_speed\": 33.333, \"congestion_level\": 0.333333}, {\"intersection_id\": \"B_2\", \"vehicle_count\": 200, \"average_speed\": 15.5, \"congestion_level\": 0.92}, {\"intersection_id\": \"Alpha\", \"vehicle_count\": 120, \"average_speed\": 22.2, \"congestion_level\": 0.92}, {\"intersection_id\": \"Mid\", \"vehicle_count\": 300, \"average_speed\": 10.75, \"congestion_level\": 0.95}, {\"intersection_id\": \"Z9\", \"vehicle_count\": 50, \"average_speed\": 45.0, \"congestion_level\": 0.1}, {\"intersection_id\": \"Tail\", \"vehicle_count\": 10, \"average_speed\": 60.0, \"congestion_level\": 0.05}, {\"intersection_id\": \"End\", \"vehicle_count\": 400, \"average_speed\": 5.0, \"congestion_level\": 0.95}]"
+    ],
+    "focus": "Format-sensitive and unordered IDs with high-precision floats and ties for top congestion; ensures the algorithm uses input order for the sequential network and handles decimal precision correctly."
+  }
+]

@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: manage_inventory\n\nProblem Statement:\n### Problem Statement\n\nA global logistics company is developing a **Python-based inventory management system** that uses a **Fenwick Tree (Binary Indexed Tree)** to efficiently manage and query stock levels across multiple warehouses.  \nEach warehouse maintains real-time stock data for thousands of product categories. During high-traffic shopping seasons, massive updates and queries occur simultaneously — for example, flash sales, restocks, or inventory corrections.  \nThe goal is to implement a **dynamic Fenwick Tree** capable of handling:\n\n- **Real-time insertions, deletions, and updates** of stock quantities.  \n- **Efficient prefix-sum queries** to report total stock up to a certain index.  \n- **Automatic scaling** when the number of tracked categories grows or shrinks.  \n- **Overflow prevention and data integrity**, even under extreme transaction volume.\n\nThe system must sustain performance and accuracy despite frequent structural mutations, ensuring no data corruption or miscalculated prefix sums.\n\n---\n\n### Objectives\n\n1. **Dynamic Updates:**  \n   Implement logic for three operations:\n   - `'add'` → Insert a new product quantity at the next available index (expanding the tree if needed).  \n   - `'remove'` → Delete a product at a specific index, rebuilding or rebalancing as necessary.  \n   - `'update'` → Modify the stock level of an existing product by adding or subtracting a delta.\n\n2. **Efficient Prefix Queries:**  \n   Support operations of the form `'query', idx'` that return the cumulative stock level from index `1` to `idx` (inclusive).\n\n3. **Dynamic Resizing:**  \n   When `add` or `remove` changes the total number of tracked products, ensure the Fenwick Tree remains consistent without manual reinitialization.\n\n4. **Robust Error Handling:**  \n   - Prevent overflows, invalid removals, or negative stock propagation.  \n   - If `'remove'` or `'update'` refers to a non-existent index, the operation should be ignored safely.\n\n5. **Performance Constraints:**  \n   - Must handle up to **1 million operations** efficiently.  \n   - Operations must execute within **O(log n)** average time.  \n   - Use **only Python’s standard library**, no external dependencies.\n\n---\n\n### Function Signature\n\n```python\ndef manage_inventory(operations: List[List[Union[str, int]]]) -> List[int]:\n    pass\n````\n\n---\n\n### Parameters\n\n* **operations:** A list of lists representing operations to be performed sequentially.\n  Each inner list follows the structure:\n\n  * `[\"add\", value]` → Add a new stock quantity.\n  * `[\"remove\", index]` → Remove the product at position `index`.\n  * `[\"update\", index, delta]` → Increase or decrease stock by `delta`.\n  * `[\"query\", index]` → Get total stock from index `1` to `index`.\n\n---\n\n### Return Format\n\nReturn a list of integers representing the results of all `'query'` operations in the order they appear.\nNon-query operations should not produce direct output.\n\n---\n\n### Example\n\n**Input:**\n\n```python\noperations = [\n    [\"add\", 10],\n    [\"add\", 20],\n    [\"add\", 15],\n    [\"query\", 2],\n    [\"update\", 3, 5],\n    [\"remove\", 1],\n    [\"query\", 2]\n]\n```\n\n**Step Explanation:**\n\n* Add 10 → [10]\n* Add 20 → [10, 20]\n* Add 15 → [10, 20, 15]\n* Query(2) → 10 + 20 = **30**\n* Update(3, +5) → [10, 20, 20]\n* Remove(1) → [20, 20]\n* Query(2) → 20 + 20 = **40**\n\n**Output:**\n\n```python\n[30, 40]\n```\n\n---\n\n### Constraints\n\n* `1 <= len(operations) <= 10^6`\n* Each value or delta is an integer (`-10^6 ≤ value ≤ 10^6`)\n* Must not use external libraries.\n* Must ensure the Fenwick Tree integrity is maintained after every mutation.\n\n---\n\n### Expected Output Format\n\nReturn a list containing the result of each `'query'` operation.\nAll other operations must update the internal state of the Fenwick Tree dynamically without producing direct output.\n\n```\n\nStarter Code:\n```python\nfrom typing import List, Union\ndef manage_inventory(operations: List[List[Union[str, int]]]) -> List[int]:\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[]\",\n    \"output\": \"[]\"\n  },\n  {\n    \"input\": \"[[\\\"add\\\", 5], [\\\"update\\\", 1, 5], [\\\"update\\\", 1, -2], [\\\"query\\\", 1]]\",\n    \"output\": \"[8]\"\n  },\n  {\n    \"input\": \"[[\\\"add\\\", 10], [\\\"add\\\", 20], [\\\"add\\\", 15], [\\\"remove\\\", 3], [\\\"remove\\\", 2], [\\\"query\\\", 1]]\",\n    \"output\": \"[10]\"\n  }\n]\n"
+    }
+  ]
+}

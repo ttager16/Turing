@@ -1,0 +1,139 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### **Problem Statement**
+
+A multinational logistics company must efficiently manage the flow of different shipment types across a large network of distribution centers. Each distribution center can dynamically merge or split based on regional demands. The network contains multiple routes (called **lanes**) between centers, and each lane has its own capacity, cost, and priority.
+
+The objective is to develop a **Python algorithm** that computes the most cost-efficient and capacity-balanced shipment flow using a **Min-Cost Max-Flow** strategy that ensures maximum throughput at minimal transportation cost.
+
+The system must also identify **critical connections** (edges) that restrict total flow — known as **bottlenecks** — and adapt dynamically when certain routes or centers become unavailable. This ensures that the logistics system maintains optimal performance even during operational disruptions.
+
+---
+
+### **Objectives**
+
+1. **Graph Representation:**
+   Represent the logistics network as a **directed graph** where nodes correspond to distribution centers and edges represent transportation routes (lanes). Each edge should store its capacity, cost, and priority. Multiple parallel edges between the same nodes (multi-lane routes) are allowed.
+
+2. **Flow Optimization (Min-Cost Max-Flow):**
+   Implement a **Min-Cost Max-Flow algorithm** to find the maximum possible flow of shipments through the network while minimizing the total cost. The algorithm should support updates when nodes merge or split (representing dynamic reconfiguration of centers).
+
+3. **Dynamic Bottleneck Detection (Min-Cut Analysis):**
+   Apply **min-cut principles** to identify which edges most restrict the total feasible flow. These edges are the **critical bottlenecks** that should be prioritized for capacity or route upgrades.
+
+4. **Real-Time Adaptability:**
+   Allow the system to **update flow and bottleneck information**  when any route or node becomes temporarily unavailable. Instead of recalculating from scratch, the algorithm should efficiently recompute affected portions of the network.
+
+---
+
+### **Key Definitions**
+
+* **Node:** A distribution center or transfer hub in the logistics network.
+* **Edge / Lane:** A directed route from one node to another, with associated `capacity`, `cost`, and `priority`.
+* **Capacity:** The maximum quantity of goods that can pass through an edge.
+* **Cost:** The expense of transporting one unit of goods along the edge.
+* **Min-Cost Max-Flow:** A graph algorithm that finds the highest flow possible between a source and sink while minimizing the total transportation cost.
+* **Min-Cut:** A set of edges that, if removed, would prevent any flow from reaching the destination (sink). These represent bottlenecks.
+* **Cost:** The transportation expense per unit of goods along an edge, used as the optimization criterion minimized in the Min-Cost Max-Flow computation.
+* **Priority:** A weight factor influencing route preference during optimization. Higher priority lanes are favored when costs are similar, acting as a secondary optimization criterion.
+---
+
+### **Constraints**
+
+* Each edge can have multiple lanes, each with its own capacity and cost.
+* Some nodes or edges may become unavailable; the system should handle this without complete recomputation.
+* All operations must be deterministic and verifiable within standard computational limits.
+* The system focuses on a single, aggregate shipment flow representing total cargo movement across the network. 
+* The target complexity should remain practical for large networks, around O(V × E log V), where:
+
+V = number of vertices (nodes)
+
+E = number of edges (lanes)
+
+*(This is a realistic, testable guideline — not a hard performance guarantee.)*
+
+---
+
+### **Function Signature**
+
+```python
+def optimize_logistics_flow(network: List[List[int]], source: int, sink: int) -> List[List[int]]:
+    pass
+```
+
+---
+
+### **Input Format**
+
+* **`network`**: A list of lists, where each sub-list represents an edge in the format
+  `[start_node, end_node, capacity,  cost, priority]`.
+
+  * There may be multiple edges between the same nodes (representing parallel lanes).
+  * Nodes can be merged or split dynamically.
+
+* **`source`**: The integer ID of the source node (where shipments originate).
+
+* **`sink`**: The integer ID of the sink node (where shipments are delivered).
+
+---
+
+### **Sample Input**
+
+```python
+    network = [
+        [0, 1, 10, 5, 3],
+        [0, 1, 20, 3, 5],
+        [1, 2, 5, 10, 2],
+        [2, 3, 10, 2, 4],
+        [0, 4, 15, 4, 3],
+        [4, 2, 10, 6, 1]
+    ]
+    source = 0
+    sink = 3
+```
+
+---
+
+### **Expected Output Format**
+
+A list of lists, where each inner list represents a **critical edge** that limits the network’s flow capacity in the format:
+`[start_node, end_node]`.
+After computing flow, perform a Min-Cut analysis on the resulting residual graph to identify bottleneck edges, these are returned as output in the format [start_node, end_node]
+---
+
+### **Sample Output**
+
+```python
+ [[2, 3]]
+```
+
+---
+
+### **Explanation of the Sample**
+
+The logistics network contains multiple routes (lanes) between the same nodes, each with different capacities, transportation costs, and priority levels.
+
+The algorithm evaluates all possible paths from the source (0) to the sink (3) to determine the minimum-cost maximum flow configuration. It considers both direct and alternate routes while balancing the trade-off between cost efficiency and total capacity.
+
+After computing the optimized flow, the system identifies the edge [2, 3] as the critical bottleneck.
+This edge restricts the maximum achievable throughput from node 0 to node 3, since its limited capacity and relatively high utilization prevent any further increase in overall flow.
+
+Improving or expanding the capacity of [2, 3] would therefore yield the greatest improvement in total network performance while maintaining minimal cost impact.
+
+Starter Code:
+```python
+from typing import List, Dict, Tuple, Set, Optional
+from collections import defaultdict, deque
+import heapq
+import sys
+
+def optimize_logistics_flow(network: List[List[int]], source: int, sink: int) -> List[List[int]]:
+    pass
+```

@@ -1,0 +1,124 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        [
+          1,
+          "C1"
+        ],
+        [
+          99,
+          "C2"
+        ],
+        [
+          50,
+          "C3"
+        ]
+      ],
+      [
+        [
+          "split",
+          "C1"
+        ],
+        [
+          "merge",
+          [
+            "C2",
+            "C1"
+          ]
+        ],
+        [
+          "adjust",
+          [
+            -200,
+            "C2"
+          ]
+        ],
+        [
+          "balance",
+          [
+            "C2",
+            "C3"
+          ]
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[1, \"C1\"], [99, \"C2\"], [50, \"C3\"]]",
+      "[[\"split\", \"C1\"], [\"merge\", [\"C2\", \"C1\"]], [\"adjust\", [-200, \"C2\"]], [\"balance\", [\"C2\", \"C3\"]]]"
+    ],
+    "focus": "Split that rounds down to zero, merging with a zero-capacity cluster, large negative adjust clamped to zero, then balance involving a zero capacity."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        [
+          60,
+          "A"
+        ],
+        [
+          50,
+          "B"
+        ]
+      ],
+      [
+        [
+          "merge",
+          [
+            "A",
+            "B"
+          ]
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[60, \"A\"], [50, \"B\"]]",
+      "[[\"merge\", [\"A\", \"B\"]]]"
+    ],
+    "focus": "Merge whose combined capacity exceeds the global limit (100) — should trigger immediate invalidation and return []."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        [
+          5,
+          "X"
+        ],
+        [
+          5,
+          "Y"
+        ]
+      ],
+      [
+        [
+          "link",
+          [
+            "X",
+            "Y"
+          ]
+        ],
+        [
+          "split",
+          [
+            "X"
+          ]
+        ],
+        [
+          "adjust",
+          [
+            3,
+            "Y"
+          ]
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[5, \"X\"], [5, \"Y\"]]",
+      "[[\"link\", [\"X\", \"Y\"]], [\"split\", [\"X\"]], [\"adjust\", [3, \"Y\"]]]"
+    ],
+    "focus": "Payload type validation: split payload is a list instead of a string — strict payload format should cause immediate failure and return []."
+  }
+]

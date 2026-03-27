@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: manage_traffic_graph\n\nProblem Statement:\n### Problem Statement\n\nA multinational logistics consortium is developing a City-Scale Dynamic Traffic Governance using only Python’s built-in data structures. The city is modeled as a directed, weighted adjacency map. The system must apply a batch of traffic updates (congestion changes and closures) and then compute an optimal route between two intersections. To ensure robust and deterministic routing, the system enforces a set of governance rules that affect feasibility, effective costs, and tie-breaking.\n\n\n### Objectives\n\n1. **Graph Initialization**\n   Construct a directed weighted graph as an adjacency dictionary:\n   * \"city_map[u][v] = time\" where \"time\" is a non-negative integer.\n\n2. **Dynamic Traffic Updates (Ordered, Last-Write-Wins)**\n   * If \"w == 0\", edge (u, v) is closed (kept but unusable).\n   * If \"w > 0\", edge (u, v) is open with travel time w.\n   * Multiple updates on the same edge use last-write-wins.\n   * Nodes mentioned anywhere in updates must exist afterward (even if isolated).\n   * Updates to (u, v) never imply anything about (v, u).\n\n3. **Real-time Pathfinding (Offline, Deterministic)**\n   After applying all updates, compute the least-cost route from start to end using Dijkstra (non-negative costs).\n\n\n### Constraints\n\n- Must be implemented in pure Python (no external libraries allowed).\n- If city_map is missing, immediately return []. If city_map is empty and updates is non-empty, construct nodes/edges from updates and proceed. If both are empty, return [].\n- updates must be provided (can be empty). If empty, perform route computation on the original graph without applying any modifications and updates must be a list of lists. otherwise immediately return []\n- If a self-loop or direct cycle (u, u) is found in either the initial city_map or the applied updates, the function must immediately return [] without performing any further processing\n- If start or end does not exist after updates, return [].\n- Return [] if no feasible route exists under the following rules:\n  * \"Zero-time = Closed\" Any edge with \"time == 0\" is closed and must be skipped.\n  * A node v is a sink if it has no open outgoing edges. Entering a sink that is not end adds \"SINK_PENALTY = 10**6\" to the cost of the incoming edge (keeps Dijkstra valid but discourages dead ends).\n  * If multiple routes have identical total cost, prefer (1) fewer hops, if still tied, prefer the lexicographically smallest full node sequence.\n\n\n### Function Signature\n\n```python\ndef manage_traffic_graph(\n    city_map: Dict[str, Dict[str, int]],\n    updates: List[List], # list of lists [str, str, int]\n    start: str,\n    end: str\n) -> List[str]:\n```\n\n\n### Sample Input/Output\n\n* **Input**:\n```python\ncity_map = {\n  \"A\": {\"B\": 5, \"C\": 2},\n  \"B\": {\"D\": 3, \"E\": 1},\n  \"C\": {\"B\": 8, \"F\": 2},\n  \"D\": {\"G\": 4},\n  \"E\": {\"F\": 6},\n  \"F\": {\"G\": 5},\n  \"G\": {\"A\": 10}\n}\nupdates = [\n  [\"B\", \"E\", 10],\n  [\"E\", \"F\", 0],\n  [\"C\", \"B\", 12]\n]\nstart = \"A\"\nend =  \"G\"\n```\n\n* **Expected Output**:\n```\n[\"A\", \"C\", \"F\", \"G\"]\n```\n\n\n### Expected Output Format\nReturn a list of strings representing the sequence of intersections in the computed path from start to end, after applying updates and enforcing all rules. Return [] if no feasible path exists.\n\nStarter Code:\n```python\nfrom typing import Dict, List\nimport heapq\n\ndef manage_traffic_graph(\n    city_map: Dict[str, Dict[str, int]],\n    updates: List[List],\n    start: str,\n    end: str\n) -> List[str]:\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"{\\\"A\\\": {\\\"B\\\": 5, \\\"C\\\": 2}, \\\"B\\\": {\\\"D\\\": 3, \\\"E\\\": 1}, \\\"C\\\": {\\\"B\\\": 8, \\\"F\\\": 2}, \\\"D\\\": {\\\"G\\\": 4}, \\\"E\\\": {\\\"F\\\": 6}, \\\"F\\\": {\\\"G\\\": 5}, \\\"G\\\": {\\\"A\\\": 10}}\\n[[\\\"B\\\", \\\"E\\\", 10], [\\\"E\\\", \\\"F\\\", 0], [\\\"C\\\", \\\"B\\\", 12]]\\n\\\"A\\\"\\n\\\"G\\\"\",\n    \"output\": \"[\\\"A\\\", \\\"C\\\", \\\"F\\\", \\\"G\\\"]\"\n  },\n  {\n    \"input\": \"{\\\"A\\\": {\\\"B\\\": 5}, \\\"B\\\": {}}\\n[]\\n\\\"A\\\"\\n\\\"B\\\"\",\n    \"output\": \"[\\\"A\\\", \\\"B\\\"]\"\n  },\n  {\n    \"input\": \"{\\\"A\\\": {\\\"B\\\": 2}, \\\"B\\\": {\\\"C\\\": 3}, \\\"C\\\": {}}\\n[]\\n\\\"A\\\"\\n\\\"C\\\"\",\n    \"output\": \"[\\\"A\\\", \\\"B\\\", \\\"C\\\"]\"\n  }\n]\n"
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "id": "resp_01b6beffc7232ad70069c31ec5d5e481949c72a742b20159af",
+  "object": "response",
+  "created_at": 1774395077,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774395114,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_01b6beffc7232ad70069c31ec63f90819490c9b80639260205",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_01b6beffc7232ad70069c31ec6a2948194a2f766b2bd39f746",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from collections import defaultdict\nfrom itertools import combinations, product\nimport copy\nfrom typing import List, Dict, Any, Tuple\n\ndef simulate_optimal_strategy(units: List[Dict[str, Any]], terrain_graph: Dict[str, Any], scenarios: List[Dict[str, str]]) -> List[Dict[str, Any]]:\n    if not units or not scenarios:\n        return []\n\n    # Build unit lookup\n    unit_by_type = {u['type']: u for u in units}\n    unit_types = list(unit_by_type.keys())\n    sectors = terrain_graph.get('nodes', [])\n    edges_orig = terrain_graph.get('edges', [])\n    resources = terrain_graph.get('resources', {})\n    if not sectors or not edges_orig:\n        return []\n\n    # Build synergy lookup (bidirectional)\n    synergy_lookup = {}\n    for u in units:\n        a = u['type']\n        for b in u.get('synergy', []):\n            if b in unit_by_type:\n                key = tuple(sorted((a, b)))\n                synergy_lookup[key] = 1.2\n\n    # Helper to compute synergy score for allocations\n    def compute_synergy(allocs: List[Dict[str, Any]]) -> float:\n        # expand units per sector\n        sector_units = defaultdict(list)  # sector -> list of unit types (repeated)\n        for a in allocs:\n            sector_units[a['sector']].extend([a['unit']] * a['count'])\n        total = 0.0\n        for sec, ul in sector_units.items():\n            if len(ul) < 2:\n                continue\n            # unique pairs from expanded list; to avoid double counting identical positions, consider combinations by indices\n            for i in range(len(ul)):\n                for j in range(i + 1, len(ul)):\n                    u1, u2 = ul[i], ul[j]\n                    key = tuple(sorted((u1, u2)))\n                    mult = synergy_lookup.get(key, 1.0)\n                    if mult > 1.0:\n                        p1 = unit_by_type[u1]['power']\n                        p2 = unit_by_type[u2]['power']\n                        total += (p1 + p2) * 0.2  # coefficient\n        return total\n\n    # Terrain change effects mapping (percentage multipliers)\n    terrain_effects = {\n        'forest_to_desert': 0.80,\n        'desert_to_mountain': 0.60,\n        'mountain_to_forest': 1.10\n    }\n    terrain_penalty = {\n        'forest_to_desert': 20,\n        'desert_to_mountain': 40,\n        'mountain_to_forest': -10\n    }\n    tactical_penalty = {\n        'aggressive': 30,\n        'flanking': 10,\n        'turtling': 0\n    }\n    tactical_effects = {\n        'aggressive': 0.70,\n        'flanking': 0.90,\n        'turtling': 1.0\n    }\n\n    # Flow calculation per scenario\n    def adjust_capacities_for_scenario(edges, terrain_change, enemy_strat):\n        edges_copy = copy.deepcopy(edges)\n        te = terrain_effects.get(terrain_change, 1.0)\n        te_pen = terrain_penalty.get(terrain_change, 0)\n        tac = tactical_effects.get(enemy_strat, 1.0)\n        tac_pen = tactical_penalty.get(enemy_strat, 0)\n        # apply environmental then tactical, integer truncation\n        for e in edges_copy:\n            cap = e.get('capacity', 0)\n            cap = int(cap * te)\n            cap = int(cap * tac)\n            e['capacity'] = max(0, cap)\n        return edges_copy, te_pen, tac_pen\n\n    # Flow distribution algorithm\n    def compute_flows(adjusted_edges, resources_map):\n        if not adjusted_edges or not resources_map:\n            return {}\n        total_resources = sum(resources_map.get(n, 0) for n in sectors)\n        total_adjusted_capacity = sum(e['capacity'] for e in adjusted_edges)\n        distributable = min(total_resources, total_adjusted_capacity)\n        if distributable <= 0 or total_adjusted_capacity <= 0:\n            # zero-valued flow mappings when exhausted\n            return {f\"{e['from']}->{e['to']}\": 0 for e in adjusted_edges}\n        flows = {}\n        # allocate proportionally to edge capacity\n        for e in adjusted_edges:\n            key = f\"{e['from']}->{e['to']}\"\n            cap = e['capacity']\n            if total_adjusted_capacity == 0:\n                flow = 0\n            else:\n                flow = int(distributable * (cap / total_adjusted_capacity))\n                if flow > cap:\n                    flow = cap\n            flows[key] = flow\n        # Due to truncation we may have leftover; distribute greedily up to caps\n        assigned = sum(flows.values())\n        leftover = distributable - assigned\n        if leftover > 0:\n            # sort edges by remaining capacity\n            rem_caps = [(k, e['capacity'] - flows[k]) for k, e in zip([f\"{e['from']}->{e['to']}\" for e in adjusted_edges], adjusted_edges)]\n            for k, rem in rem_caps:\n                if leftover <= 0:\n                    break\n                add = min(rem, leftover)\n                flows[k] += add\n                leftover -= add\n        return flows\n\n    # Efficiency metrics\n    def compute_efficiencies(total_power, total_cost, achieved_flow, original_total_capacity):\n        power_eff = (total_power / total_cost) if total_cost > 0 else 0.0\n        flow_eff = (achieved_flow / original_total_capacity) if original_total_capacity > 0 else 0.0\n        return power_eff, flow_eff\n\n    # Generate configurations\n    configs = []\n\n    # Single-sector: one unit type in one sector counts 1..10\n    for s in sectors:\n        for ut in unit_types:\n            for c in range(1, 11):\n                allocs = [{'unit': ut, 'sector': s, 'count': c}]\n                configs.append({'allocations': allocs, 'flows': {}})\n\n    # Multi-sector: distinct sector pairs with different unit types, counts 1..10 each\n    # choose ordered pairs of distinct sectors and ordered pairs of unit types (allow same unit? requirement says different unit types across pairs)\n    for s1, s2 in combinations(sectors, 2):\n        for ut1 in unit_types:\n            for ut2 in unit_types:\n                if ut1 == ut2:\n                    continue\n                for c1 in range(1, 11):\n                    for c2 in range(1, 11):\n                        allocs = [{'unit': ut1, 'sector': s1, 'count': c1}, {'unit': ut2, 'sector': s2, 'count': c2}]\n                        configs.append({'allocations': allocs, 'flows': {}})\n                        # also reversed sectors\n                        allocs2 = [{'unit': ut1, 'sector': s2, 'count': c1}, {'unit': ut2, 'sector': s1, 'count': c2}]\n                        configs.append({'allocations': allocs2, 'flows': {}})\n\n    # Synergy-focused: compatible pairs co-located in same sector\n    compatible_pairs = []\n    for a in unit_types:\n        for b in unit_types:\n            if a >= b:\n                continue\n            if tuple(sorted((a, b))) in synergy_lookup:\n                compatible_pairs.append((a, b))\n    for s in sectors:\n        for a, b in compatible_pairs:\n            for ca in range(1, 11):\n                for cb in range(1, 11):\n                    allocs = [{'unit': a, 'sector': s, 'count': ca}, {'unit': b, 'sector': s, 'count': cb}]\n                    configs.append({'allocations': allocs, 'flows': {}})\n\n    # Remove duplicates (by allocations normalized)\n    seen = set()\n    unique_configs = []\n    for c in configs:\n        # sort allocations for normalization\n        key = tuple(sorted([(a['unit'], a['sector'], a['count']) for a in c['allocations']]))\n        if key in seen:\n            continue\n        seen.add(key)\n        unique_configs.append(c)\n    configs = unique_configs\n\n    # Heuristic ranking: raw power + synergy potential\n    def heuristic_score(cfg):\n        total_power = sum(unit_by_type[a['unit']]['power'] * a['count'] for a in cfg['allocations'])\n        syn = compute_synergy(cfg['allocations'])\n        return total_power + syn\n    configs.sort(key=heuristic_score, reverse=True)\n    configs = configs[:100]\n\n    # Precompute original total capacity\n    original_total_capacity = sum(e.get('capacity', 0) for e in edges_orig)\n\n    results = []\n    # Evaluate each candidate across scenarios\n    for cfg in configs:\n        per_scenario_scores = []\n        accumulated_flows = defaultdict(int)\n        for sc in scenarios:\n            enemy = sc.get('enemy_strat', '')\n            terr = sc.get('terrain_change', '')\n            adjusted_edges, terr_pen, tac_pen = adjust_capacities_for_scenario(edges_orig, terr, enemy)\n            # compute flows\n            flows = compute_flows(adjusted_edges, resources)\n            # compute aggregate power and cost\n            total_power = sum(unit_by_type[a['unit']]['power'] * a['count'] for a in cfg['allocations'])\n            total_cost = sum(unit_by_type[a['unit']]['base_cost'] * a['count'] for a in cfg['allocations'])\n            # synergy\n            syn_score = compute_synergy(cfg['allocations'])\n            syn_bonus = syn_score * 2  # doubled\n            # efficiencies\n            achieved_flow = sum(flows.values())\n            power_eff, flow_eff = compute_efficiencies(total_power, total_cost, achieved_flow, original_total_capacity)\n            # Score formula:\n            base = total_power + (power_eff + flow_eff) * (1/100) * 100  # since scaled by 1/100, multiply back: effectively power_eff+flow_eff\n            # The spec: \"both efficiency metrics scaled by 1/100\" ambiguous; implement as adding (power_eff + flow_eff)*(1/100)*100 => power_eff+flow_eff\n            score = base + syn_bonus\n            # apply penalties/bonuses\n            score -= terr_pen\n            score -= tac_pen\n            # clamp 0..1000\n            score = max(0, min(1000, score))\n            per_scenario_scores.append(int(score))\n            # accumulate flows\n            for k, v in flows.items():\n                accumulated_flows[k] += v\n        # average score integer division\n        avg_score = sum(per_scenario_scores) // len(per_scenario_scores)\n        # average flows per edge across scenarios (integer division)\n        avg_flows = {k: accumulated_flows[k] // len(scenarios) for k in accumulated_flows}\n        result_cfg = {\n            'configuration': {\n                'allocations': [{'unit': a['unit'], 'sector': a['sector'], 'count': a['count']} for a in cfg['allocations']],\n                'flows': avg_flows\n            },\n            'score': int(max(0, min(1000, avg_score)))\n        }\n        results.append(result_cfg)\n\n    # sort by score desc and select top 10\n    results.sort(key=lambda x: x['score'], reverse=True)\n    return results[:10]"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 3197,
+    "input_tokens_details": {
+      "cached_tokens": 3072
+    },
+    "output_tokens": 2495,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 5692
+  },
+  "user": null,
+  "metadata": {}
+}

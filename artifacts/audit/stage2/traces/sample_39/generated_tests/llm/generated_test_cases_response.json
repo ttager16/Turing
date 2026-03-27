@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5lFc4sAmC1E4hei7MVG6kKN8SS5",
+  "object": "chat.completion",
+  "created": 1774396061,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[{\\\"transaction_id\\\":\\\"x1\\\",\\\"sender\\\":\\\"X\\\",\\\"receiver\\\":\\\"Y\\\",\\\"amount\\\":6000,\\\"timestamp\\\":1600000000,\\\"region\\\":\\\"US\\\",\\\"account_type\\\":\\\"business\\\"},{\\\"transaction_id\\\":\\\"x2\\\",\\\"sender\\\":\\\"X\\\",\\\"receiver\\\":\\\"Y\\\",\\\"amount\\\":6000,\\\"timestamp\\\":1600000060,\\\"region\\\":\\\"EU\\\"},{\\\"transaction_id\\\":\\\"x3\\\",\\\"sender\\\":\\\"X\\\",\\\"receiver\\\":\\\"Y\\\",\\\"amount\\\":6000,\\\"timestamp\\\":1600000120,\\\"region\\\":\\\"US\\\"},{\\\"transaction_id\\\":\\\"x4\\\",\\\"sender\\\":\\\"X\\\",\\\"receiver\\\":\\\"Y\\\",\\\"amount\\\":6000,\\\"timestamp\\\":1600000180,\\\"region\\\":\\\"EU\\\"},{\\\"transaction_id\\\":\\\"x5\\\",\\\"sender\\\":\\\"X\\\",\\\"receiver\\\":\\\"Y\\\",\\\"amount\\\":6000,\\\"timestamp\\\":1600000240,\\\"region\\\":\\\"US\\\"},{\\\"transaction_id\\\":\\\"x6\\\",\\\"sender\\\":\\\"X\\\",\\\"receiver\\\":\\\"Y\\\",\\\"amount\\\":6000,\\\"timestamp\\\":1600000300,\\\"region\\\":\\\"EU\\\"},{\\\"transaction_id\\\":\\\"x7\\\",\\\"sender\\\":\\\"X\\\",\\\"receiver\\\":\\\"Y\\\",\\\"amount\\\":6000,\\\"timestamp\\\":1600000360,\\\"region\\\":\\\"US\\\"},{\\\"transaction_id\\\":\\\"x8\\\",\\\"sender\\\":\\\"X\\\",\\\"receiver\\\":\\\"Y\\\",\\\"amount\\\":6000,\\\"timestamp\\\":1600000420,\\\"region\\\":\\\"EU\\\"},{\\\"transaction_id\\\":\\\"x9\\\",\\\"sender\\\":\\\"X\\\",\\\"receiver\\\":\\\"Y\\\",\\\"amount\\\":6000,\\\"timestamp\\\":1600000480,\\\"region\\\":\\\"US\\\"},{\\\"transaction_id\\\":\\\"x10\\\",\\\"sender\\\":\\\"X\\\",\\\"receiver\\\":\\\"Y\\\",\\\"amount\\\":6000,\\\"timestamp\\\":1600000540,\\\"region\\\":\\\"EU\\\"},{\\\"transaction_id\\\":\\\"x11\\\",\\\"sender\\\":\\\"X\\\",\\\"receiver\\\":\\\"Y\\\",\\\"amount\\\":6000,\\\"timestamp\\\":1600000600,\\\"region\\\":\\\"US\\\"},{\\\"transaction_id\\\":\\\"c1\\\",\\\"sender\\\":\\\"A\\\",\\\"receiver\\\":\\\"B\\\",\\\"amount\\\":7000,\\\"timestamp\\\":1600000010,\\\"region\\\":\\\"APAC\\\"},{\\\"transaction_id\\\":\\\"c2\\\",\\\"sender\\\":\\\"B\\\",\\\"receiver\\\":\\\"C\\\",\\\"amount\\\":8000,\\\"timestamp\\\":1600000020,\\\"region\\\":\\\"APAC\\\",\\\"account_type\\\":\\\"new\\\"},{\\\"transaction_id\\\":\\\"c3\\\",\\\"sender\\\":\\\"C\\\",\\\"receiver\\\":\\\"A\\\",\\\"amount\\\":9000,\\\"timestamp\\\":1600000030,\\\"region\\\":\\\"EU\\\",\\\"account_type\\\":\\\"business\\\"},{\\\"transaction_id\\\":\\\"y1\\\",\\\"sender\\\":\\\"Y\\\",\\\"receiver\\\":\\\"Z\\\",\\\"amount\\\":7000,\\\"timestamp\\\":1600000700,\\\"region\\\":\\\"US\\\"}]\"\n      ],\n      \"focus\": \"SCC_cycle_and_high_frequency_chain: X->Y repeated 11 times to trigger frequency/cumulative thresholds; A-B-C cycle forms non-trivial SCC; Y then chains funds to Z above prior incoming amounts\"\n    },\n    {\n      \"input_lines\": [\n        \"[{\\\"transaction_id\\\":\\\"b1\\\",\\\"sender\\\":\\\"S1\\\",\\\"receiver\\\":\\\"R1\\\",\\\"amount\\\":10000,\\\"timestamp\\\":1611000000,\\\"region\\\":\\\"US\\\"},{\\\"transaction_id\\\":\\\"b2\\\",\\\"sender\\\":\\\"S1\\\",\\\"receiver\\\":\\\"R2\\\",\\\"amount\\\":10001,\\\"timestamp\\\":1611000300,\\\"region\\\":\\\"US\\\"},{\\\"transaction_id\\\":\\\"b3\\\",\\\"sender\\\":\\\"S2\\\",\\\"receiver\\\":\\\"R3\\\",\\\"amount\\\":15000,\\\"timestamp\\\":1611000600,\\\"region\\\":\\\"EU\\\"},{\\\"transaction_id\\\":\\\"b4\\\",\\\"sender\\\":\\\"S2\\\",\\\"receiver\\\":\\\"R4\\\",\\\"amount\\\":2000,\\\"timestamp\\\":1611000900,\\\"region\\\":\\\"APAC\\\"},{\\\"transaction_id\\\":\\\"b5\\\",\\\"sender\\\":\\\"S3\\\",\\\"receiver\\\":\\\"R5\\\",\\\"amount\\\":5000,\\\"timestamp\\\":1611001200,\\\"region\\\":\\\"US\\\"},{\\\"transaction_id\\\":\\\"b6\\\",\\\"sender\\\":\\\"NewAcc\\\",\\\"receiver\\\":\\\"R6\\\",\\\"amount\\\":5000,\\\"timestamp\\\":1611001500,\\\"region\\\":\\\"EU\\\",\\\"account_type\\\":\\\"new\\\"}]\"\n      ],\n      \"focus\": \"boundary_amounts_exact_thresholds_missing_account_type: amounts at and just above thresholds (10000, 10001, 15000, 2000, 5000) and missing account_type to test defaulting and strict > comparisons\"\n    },\n    {\n      \"input_lines\": [\n        \"[{\\\"transaction_id\\\":\\\"t1\\\",\\\"sender\\\":\\\"S1\\\",\\\"receiver\\\":\\\"R1\\\",\\\"amount\\\":2500,\\\"timestamp\\\":1610000000,\\\"region\\\":\\\"US\\\",\\\"account_type\\\":\\\"personal\\\"},{\\\"transaction_id\\\":\\\"t2\\\",\\\"sender\\\":\\\"S1\\\",\\\"receiver\\\":\\\"R2\\\",\\\"amount\\\":3000,\\\"timestamp\\\":1610000020,\\\"region\\\":\\\"US\\\"},{\\\"transaction_id\\\":\\\"t3\\\",\\\"sender\\\":\\\"R1\\\",\\\"receiver\\\":\\\"R3\\\",\\\"amount\\\":6000,\\\"timestamp\\\":1610000040,\\\"region\\\":\\\"US\\\",\\\"account_type\\\":\\\"new\\\"},{\\\"transaction_id\\\":\\\"t4\\\",\\\"sender\\\":\\\"S2\\\",\\\"receiver\\\":\\\"S1\\\",\\\"amount\\\":12000,\\\"timestamp\\\":1610000040,\\\"region\\\":\\\"EU\\\",\\\"account_type\\\":\\\"business\\\"},{\\\"transaction_id\\\":\\\"t5\\\",\\\"sender\\\":\\\"S3\\\",\\\"receiver\\\":\\\"S4\\\",\\\"amount\\\":1500,\\\"timestamp\\\":1610000040,\\\"region\\\":\\\"US\\\"},{\\\"transaction_id\\\":\\\"t6\\\",\\\"sender\\\":\\\"R3\\\",\\\"receiver\\\":\\\"S5\\\",\\\"amount\\\":7000,\\\"timestamp\\\":1610000100,\\\"region\\\":\\\"US\\\"}]\"\n      ],\n      \"focus\": \"temporal_anomalies_and_chain_with_identical_timestamps: identical timestamps and short gaps (<60s and <180s) to trigger temporal anomalies and rapid succession; chain where R1 (new) forwards >5000 after receiving smaller amount\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2373,
+    "completion_tokens": 2943,
+    "total_tokens": 5316,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1792,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

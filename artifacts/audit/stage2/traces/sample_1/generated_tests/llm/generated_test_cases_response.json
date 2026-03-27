@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN4x2h2UyWPs0Uj2eFmrP5bIP2t1e",
+  "object": "chat.completion",
+  "created": 1774392948,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"4\",\n        \"[]\",\n        \"[]\",\n        \"{\\\"2\\\": true, \\\"1\\\": true}\",\n        \"\\\"satisfiability\\\"\",\n        \"[{\\\"variables\\\": [0, 1, 2], \\\"count\\\": 1}]\"\n      ],\n      \"focus\": \"Pre-solve cardinality infeasible: too many forced-true variables in a single cardinality constraint\"\n    },\n    {\n      \"input_lines\": [\n        \"5\",\n        \"[[[0, false], [1, false]], [[1, true], [2, false]], [[2, true], [3, false]], [[3, true], [4, false]], [[4, true], [0, true]], [[0, true], [2, true]]]\",\n        \"[5, 10, 10, 10, 20, 15]\",\n        \"{\\\"04\\\": false, \\\"1\\\": true}\",\n        \"\\\"weighted\\\"\",\n        \"[{\\\"variables\\\": [0, 1, 2, 3, 4], \\\"count\\\": 2}]\"\n      ],\n      \"focus\": \"Format-sensitive forced_assignments keys (leading zero) and weighted mode with cardinality that restricts flips during local search\"\n    },\n    {\n      \"input_lines\": [\n        \"3\",\n        \"[[[0, false], [1, false]], [[1, false], [0, false]]]\",\n        \"[7, 7]\",\n        \"{\\\"0\\\": false, \\\"1\\\": false, \\\"2\\\": true}\",\n        \"\\\"satisfiability\\\"\",\n        \"[{\\\"variables\\\": [0, 1, 2], \\\"count\\\": 1}]\"\n      ],\n      \"focus\": \"Duplicate unordered clause pairs (reversed order) to test conflict_cluster deduplication when forced assignments make those clauses unsatisfied\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2576,
+    "completion_tokens": 3668,
+    "total_tokens": 6244,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3264,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

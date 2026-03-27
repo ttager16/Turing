@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5MxwX75SLMADuTtcrM9oaxZ3s8F",
+  "object": "chat.completion",
+  "created": 1774394555,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"17039496\",\n        \"[{\\\"plan_name\\\": \\\"Seafood Rich\\\", \\\"required_bits\\\": 262144, \\\"excluded_bits\\\": 16777216, \\\"base_nutrients\\\": {}, \\\"customizable\\\": false}, {\\\"plan_name\\\": \\\"Allergen-Friendly Mix\\\", \\\"required_bits\\\": 0, \\\"excluded_bits\\\": 0, \\\"base_nutrients\\\": {}, \\\"customizable\\\": true}]\",\n        \"{\\\"genetic_markers\\\": {\\\"3\\\": \\\"Lactase persistence\\\", \\\"7\\\": \\\"Iron absorption variant\\\"}, \\\"dietary_preferences\\\": {\\\"16\\\": \\\"Vegan\\\", \\\"18\\\": \\\"Pescatarian\\\"}, \\\"allergies\\\": {\\\"24\\\": \\\"Tree nuts\\\", \\\"25\\\": \\\"Shellfish\\\"}}\"\n      ],\n      \"focus\": \"Non-customizable plan should be skipped due to an allergy conflict (excluded_bits intersects user allergies). Tests fallback to a customizable plan and partial matching across genetics/dietary segments.\"\n    },\n    {\n      \"input_lines\": [\n        \"0\",\n        \"[{\\\"plan_name\\\": \\\"Default Minimal\\\", \\\"required_bits\\\": 0, \\\"excluded_bits\\\": 0, \\\"base_nutrients\\\": {}, \\\"customizable\\\": true}, {\\\"plan_name\\\": \\\"Dairy Sensitive\\\", \\\"required_bits\\\": 0, \\\"excluded_bits\\\": 16777216, \\\"base_nutrients\\\": {}, \\\"customizable\\\": true}]\",\n        \"{\\\"genetic_markers\\\": {}, \\\"dietary_preferences\\\": {}, \\\"allergies\\\": {\\\"24\\\": \\\"Dairy (treated as allergen flag for test)\\\"}}\"\n      ],\n      \"focus\": \"Empty user profile (no active bits). Ensures system handles zero-profile, returns defaults, and that alternative_plans remains empty when fewer than 3 alternatives are available.\"\n    },\n    {\n      \"input_lines\": [\n        \"4294967295\",\n        \"[{\\\"plan_name\\\": \\\"Complete Harmony\\\", \\\"required_bits\\\": 16777215, \\\"excluded_bits\\\": 0, \\\"base_nutrients\\\": {}, \\\"customizable\\\": false}, {\\\"plan_name\\\": \\\"No-Allergen Plan\\\", \\\"required_bits\\\": 0, \\\"excluded_bits\\\": 251658240, \\\"base_nutrients\\\": {}, \\\"customizable\\\": false}, {\\\"plan_name\\\": \\\"Custom Elimination\\\", \\\"required_bits\\\": 0, \\\"excluded_bits\\\": 4278190080, \\\"base_nutrients\\\": {}, \\\"customizable\\\": true}]\",\n        \"{\\\"genetic_markers\\\": {\\\"0\\\": \\\"Lactose intolerance\\\", \\\"1\\\": \\\"MTHFR variant\\\", \\\"15\\\": \\\"Slow caffeine metabolism\\\"}, \\\"dietary_preferences\\\": {\\\"16\\\": \\\"Vegan\\\", \\\"17\\\": \\\"Vegetarian\\\", \\\"18\\\": \\\"Gluten-free\\\", \\\"23\\\": \\\"Ketogenic\\\"}, \\\"allergies\\\": {\\\"24\\\": \\\"Tree nuts\\\", \\\"25\\\": \\\"Shellfish\\\", \\\"26\\\": \\\"Peanuts\\\", \\\"27\\\": \\\"Dairy\\\", \\\"28\\\": \\\"Soy\\\", \\\"29\\\": \\\"Eggs\\\", \\\"30\\\": \\\"Wheat\\\", \\\"31\\\": \\\"Sesame\\\"}}\"\n      ],\n      \"focus\": \"All 32 bits set (max boundary). Validates perfect-match scoring, rejection of non-customizable plans with allergen exclusions, and generation of multiple modification strings for a fully conflicting customizable plan.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2479,
+    "completion_tokens": 3912,
+    "total_tokens": 6391,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3200,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

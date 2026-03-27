@@ -1,0 +1,311 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        {
+          "op": "set_matrix",
+          "matrix": [
+            [
+              1.0,
+              0.9999,
+              0.0
+            ],
+            [
+              0.9999,
+              1.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              1e-08
+            ]
+          ],
+          "note": "near-singular initial"
+        },
+        {
+          "op": "set_matrix",
+          "matrix": [
+            [
+              1.0,
+              0.9999,
+              1e-06
+            ],
+            [
+              0.9999,
+              1.0,
+              1e-06
+            ],
+            [
+              1e-06,
+              1e-06,
+              1e-08
+            ]
+          ],
+          "note": "small perturbation to third col"
+        },
+        {
+          "op": "set_matrix",
+          "matrix": [
+            [
+              1.0,
+              0.9999,
+              1e-06
+            ],
+            [
+              0.9999,
+              1.0,
+              1e-06
+            ],
+            [
+              1e-06,
+              1e-06,
+              1e-08
+            ]
+          ],
+          "note": "idempotent repeat"
+        }
+      ],
+      {
+        "diag_sign": "nonnegative",
+        "round_dp": 4,
+        "reorth_epsilon": 0.001,
+        "lower_tol": 1e-12,
+        "rank_tol": 1e-12,
+        "max_full_refactor": true
+      }
+    ],
+    "input_lines": [
+      "[{\"op\":\"set_matrix\",\"matrix\":[[1.0,0.9999,0.0],[0.9999,1.0,0.0],[0.0,0.0,1e-8]],\"note\":\"near-singular initial\"},{\"op\":\"set_matrix\",\"matrix\":[[1.0,0.9999,1e-6],[0.9999,1.0,1e-6],[1e-6,1e-6,1e-8]],\"note\":\"small perturbation to third col\"},{\"op\":\"set_matrix\",\"matrix\":[[1.0,0.9999,1e-6],[0.9999,1.0,1e-6],[1e-6,1e-6,1e-8]],\"note\":\"idempotent repeat\"}]",
+      "{\"diag_sign\":\"nonnegative\",\"round_dp\":4,\"reorth_epsilon\":0.001,\"lower_tol\":1e-12,\"rank_tol\":1e-12,\"max_full_refactor\":true}"
+    ],
+    "focus": "Near-singular matrix with a tiny variance direction; perturb only the last column then repeat to exercise reorthogonalization, rank handling, and idempotence/reuse detection."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        {
+          "op": "set_matrix",
+          "matrix": [
+            [
+              1.0,
+              0.1
+            ],
+            [
+              0.1,
+              1.0
+            ]
+          ],
+          "note": "base 2x2"
+        },
+        {
+          "op": "set_matrix",
+          "matrix": [
+            [
+              1.0,
+              0.0,
+              0.1
+            ],
+            [
+              0.0,
+              0.25,
+              0.05
+            ],
+            [
+              0.1,
+              0.05,
+              1.0
+            ]
+          ],
+          "note": "insert variable in middle (index 1)"
+        },
+        {
+          "op": "set_matrix",
+          "matrix": [
+            [
+              1.0,
+              0.2
+            ],
+            [
+              0.2,
+              1.0
+            ]
+          ],
+          "note": "remove middle variable, changed corr"
+        },
+        {
+          "op": "reset"
+        },
+        {
+          "op": "set_matrix",
+          "matrix": [
+            [
+              1.0,
+              0.2
+            ],
+            [
+              0.2,
+              1.0
+            ]
+          ],
+          "note": "fresh after reset"
+        }
+      ],
+      {
+        "diag_sign": "nonnegative",
+        "round_dp": 4,
+        "reorth_epsilon": 0.0005,
+        "lower_tol": 1e-06,
+        "rank_tol": 1e-10,
+        "max_full_refactor": false
+      }
+    ],
+    "input_lines": [
+      "[{\"op\":\"set_matrix\",\"matrix\":[[1.0,0.1],[0.1,1.0]],\"note\":\"base 2x2\"},{\"op\":\"set_matrix\",\"matrix\":[[1.0,0.0,0.1],[0.0,0.25,0.05],[0.1,0.05,1.0]],\"note\":\"insert variable in middle (index 1)\"},{\"op\":\"set_matrix\",\"matrix\":[[1.0,0.2],[0.2,1.0]],\"note\":\"remove middle variable, changed corr\"},{\"op\":\"reset\"},{\"op\":\"set_matrix\",\"matrix\":[[1.0,0.2],[0.2,1.0]],\"note\":\"fresh after reset\"}]",
+      "{\"diag_sign\":\"nonnegative\",\"round_dp\":4,\"reorth_epsilon\":0.0005,\"lower_tol\":1e-6,\"rank_tol\":1e-10,\"max_full_refactor\":false}"
+    ],
+    "focus": "Insert a variable in the middle (shape growth and reindexing), then remove it (shape shrink). Also include an immediate reset and a fresh build to verify reset semantics and deterministic rounding."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        {
+          "op": "set_matrix",
+          "matrix": [
+            [
+              1.0,
+              0.8,
+              1e-12,
+              1e-12
+            ],
+            [
+              0.8,
+              1.0,
+              1e-12,
+              1e-12
+            ],
+            [
+              1e-12,
+              1e-12,
+              2.0,
+              -0.5
+            ],
+            [
+              1e-12,
+              1e-12,
+              -0.5,
+              2.0
+            ]
+          ],
+          "note": "almost block-diagonal (tiny cross-block noise)"
+        },
+        {
+          "op": "set_matrix",
+          "matrix": [
+            [
+              1.0,
+              0.8,
+              0.0,
+              0.0
+            ],
+            [
+              0.8,
+              1.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              2.0,
+              -0.5
+            ],
+            [
+              0.0,
+              0.0,
+              -0.5,
+              2.0
+            ]
+          ],
+          "note": "exact block-diagonal (A then B)"
+        },
+        {
+          "op": "set_matrix",
+          "matrix": [
+            [
+              2.0,
+              -0.5,
+              0.0,
+              0.0
+            ],
+            [
+              -0.5,
+              2.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              1.0,
+              0.8
+            ],
+            [
+              0.0,
+              0.0,
+              0.8,
+              1.0
+            ]
+          ],
+          "note": "same blocks swapped (B then A)"
+        },
+        {
+          "op": "set_matrix",
+          "matrix": [
+            [
+              1.0,
+              0.8,
+              0.0,
+              0.0
+            ],
+            [
+              0.8,
+              1.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              2.0,
+              -0.5
+            ],
+            [
+              0.0,
+              0.0,
+              -0.5,
+              2.0
+            ]
+          ],
+          "note": "back to exact block-diagonal (A then B)"
+        }
+      ],
+      {
+        "diag_sign": "nonnegative",
+        "round_dp": 4,
+        "reorth_epsilon": 1e-06,
+        "lower_tol": 1e-08,
+        "rank_tol": 1e-12,
+        "max_full_refactor": true
+      }
+    ],
+    "input_lines": [
+      "[{\"op\":\"set_matrix\",\"matrix\":[[1.0,0.8,1e-12,1e-12],[0.8,1.0,1e-12,1e-12],[1e-12,1e-12,2.0,-0.5],[1e-12,1e-12,-0.5,2.0]],\"note\":\"almost block-diagonal (tiny cross-block noise)\"},{\"op\":\"set_matrix\",\"matrix\":[[1.0,0.8,0.0,0.0],[0.8,1.0,0.0,0.0],[0.0,0.0,2.0,-0.5],[0.0,0.0,-0.5,2.0]],\"note\":\"exact block-diagonal (A then B)\"},{\"op\":\"set_matrix\",\"matrix\":[[2.0,-0.5,0.0,0.0],[-0.5,2.0,0.0,0.0],[0.0,0.0,1.0,0.8],[0.0,0.0,0.8,1.0]],\"note\":\"same blocks swapped (B then A)\"},{\"op\":\"set_matrix\",\"matrix\":[[1.0,0.8,0.0,0.0],[0.8,1.0,0.0,0.0],[0.0,0.0,2.0,-0.5],[0.0,0.0,-0.5,2.0]],\"note\":\"back to exact block-diagonal (A then B)\"}]",
+      "{\"diag_sign\":\"nonnegative\",\"round_dp\":4,\"reorth_epsilon\":1e-6,\"lower_tol\":1e-8,\"rank_tol\":1e-12,\"max_full_refactor\":true}"
+    ],
+    "focus": "Construct a block-diagonal covariance via different paths (tiny noise -> exact -> permuted blocks -> back). Targets detection of block equivalence after rounding, deterministic sign rule, and stable handling of tiny off-block noise."
+  }
+]

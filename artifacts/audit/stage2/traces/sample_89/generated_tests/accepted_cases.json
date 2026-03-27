@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[[\"init\", \"AAPL\", [100.0, 105.0, 110.0]], [\"init\", \"MSFT\", [50.0, 55.0, 60.0]], [\"update\", \"AAPL\", 2, 115.1234], [\"update\", \"AAPL\", 2, 117.8766], [\"update\", \"MSFT\", 1, 56.5], [\"rollback\", \"AAPL\", 1, 2], [\"query\", \"AAPL\", \"average\", 2, 2], [\"query\", \"AAPL\", \"volatility\", 0, 2], [\"snapshot\", \"AAPL\"]]",
+    "output_text": "[null, null, null, null, null, null, 115.1234, 6.2911, {\"latest\": 115.1234, \"average\": 106.7078}]"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[[\"init\", \"GOOG\", [1500.0, 1510.5]], [\"update\", \"GOOG\", 1, 1505.25], [\"rollback\", \"GOOG\", 0], [\"rollback\", \"GOOG\", 2], [\"rollback\", \"GOOG\", 1], [\"query\", \"GOOG\", \"sum\", 0, 1], [\"query\", \"GOOG\", \"average\", 1, 0]]",
+    "output_text": "[null, null, \"Error: Invalid input.\", \"Error: Rollback exceeds update history.\", null, 3010.5, \"Error: Invalid query range.\"]"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[[\"init\", \"X\", [1.0, 1.0, 1.0, 1.0]], [\"update\", \"X\", 2, 1.0000001], [\"query\", \"X\", \"volatility\", 0, 3], [\"query\", \"X\", \"max\", 0, 3], [\"update\", \"Y\", 0, 5.0], [\"query\", \"Y\", \"sum\", 0, 0]]",
+    "output_text": "[null, null, 0.0, 1.0, \"Error: Invalid ticker or day index.\", \"Error: Invalid ticker.\"]"
+  }
+]

@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN7fHXwe28d47XYJf3KgoXr77HgPZ",
+  "object": "chat.completion",
+  "created": 1774403379,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"{\\\"0\\\": [[1, {\\\"vehicle_access\\\": [\\\"electric\\\"], \\\"time_windows\\\": [[0, 10]], \\\"env_limits\\\": {}, \\\"base_cost\\\": 4, \\\"capacity\\\": 1}], [2, {\\\"vehicle_access\\\": [\\\"electric\\\"], \\\"time_windows\\\": [[0, 24]], \\\"env_limits\\\": {\\\"icy\\\": true}, \\\"base_cost\\\": 2, \\\"capacity\\\": 2}]], \\\"1\\\": [[3, {\\\"vehicle_access\\\": [\\\"electric\\\"], \\\"time_windows\\\": [[0, 24]], \\\"env_limits\\\": {}, \\\"base_cost\\\": 1, \\\"capacity\\\": 1}]], \\\"2\\\": [[3, {\\\"vehicle_access\\\": [\\\"electric\\\"], \\\"time_windows\\\": [[0, 24]], \\\"env_limits\\\": {}, \\\"base_cost\\\": 1, \\\"capacity\\\": 2}]], \\\"3\\\": []}\",\n        \"\\\"electric\\\"\",\n        \"0\",\n        \"3\",\n        \"10\",\n        \"{\\\"icy\\\": true}\",\n        \"{\\\"0,1\\\": 1, \\\"0,2\\\": 0, \\\"1,3\\\": 0, \\\"2,3\\\": 0}\"\n      ],\n      \"focus\": \"Capacity boundary: edge (0->1) at full capacity should be unavailable, forcing choice of icy path with hazard multiplier\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"0\\\": [[1, {\\\"vehicle_access\\\": [\\\"diesel\\\"], \\\"time_windows\\\": [[0, 24]], \\\"env_limits\\\": {}, \\\"base_cost\\\": 1, \\\"capacity\\\": 1}], [2, {\\\"vehicle_access\\\": [\\\"electric\\\"], \\\"time_windows\\\": [[0, 24]], \\\"env_limits\\\": {\\\"flooded\\\": false}, \\\"base_cost\\\": 5, \\\"capacity\\\": 2}]], \\\"2\\\": [[3, {\\\"vehicle_access\\\": [\\\"electric\\\"], \\\"time_windows\\\": [[12, 14]], \\\"env_limits\\\": {}, \\\"base_cost\\\": 1, \\\"capacity\\\": 1}], [4, {\\\"vehicle_access\\\": [\\\"electric\\\"], \\\"time_windows\\\": [], \\\"env_limits\\\": {}, \\\"base_cost\\\": 2, \\\"capacity\\\": 2}]], \\\"4\\\": [[3, {\\\"vehicle_access\\\": [\\\"electric\\\"], \\\"time_windows\\\": [[0, 24]], \\\"env_limits\\\": {}, \\\"base_cost\\\": 1, \\\"capacity\\\": 1}]], \\\"1\\\": [], \\\"3\\\": []}\",\n        \"\\\"electric\\\"\",\n        \"0\",\n        \"3\",\n        \"11\",\n        \"{\\\"flooded\\\": false}\",\n        \"{\\\"0,1\\\": 0, \\\"0,2\\\": 0, \\\"2,3\\\": 0, \\\"2,4\\\": 0, \\\"4,3\\\": 0}\"\n      ],\n      \"focus\": \"Time-window and empty-window handling: direct edge (2->3) closed at current_time so route must use an always-open intermediate (2->4->3); env_limits false/false should not apply multiplier\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"5\\\": [], \\\"0\\\": [[5, {\\\"vehicle_access\\\": [\\\"diesel\\\"], \\\"time_windows\\\": [[0, 24]], \\\"env_limits\\\": {\\\"icy\\\": true}, \\\"base_cost\\\": 10, \\\"capacity\\\": 1}]], \\\"1\\\": []}\",\n        \"\\\"diesel\\\"\",\n        \"5\",\n        \"5\",\n        \"8\",\n        \"{\\\"icy\\\": true}\",\n        \"{\\\"0,5\\\": 0}\"\n      ],\n      \"focus\": \"Start equals end: trivial zero-cost route when start_node == end_node should return [start_node] regardless of graph edges\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2517,
+    "completion_tokens": 4640,
+    "total_tokens": 7157,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3840,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

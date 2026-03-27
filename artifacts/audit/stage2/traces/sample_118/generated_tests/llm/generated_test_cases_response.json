@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN7JA0bcaTlvstxn7Ahuw4tvKSrK0",
+  "object": "chat.completion",
+  "created": 1774402008,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"{\\\"A\\\": [[\\\"B\\\", 5]], \\\"B\\\": [[\\\"C\\\", 5]], \\\"C\\\": []}\",\n        \"\\\"A\\\"\",\n        \"\\\"C\\\"\",\n        \"[[\\\"B\\\", \\\"B\\\", 1]]\"\n      ],\n      \"focus\": \"Self-loop in capacity_changes should trigger immediate return 0 (validation of updates).\"\n    },\n    {\n      \"input_lines\": [\n        \"{}\",\n        \"\\\"X\\\"\",\n        \"\\\"Y\\\"\",\n        \"[[\\\"X\\\", \\\"Y\\\", -2]]\"\n      ],\n      \"focus\": \"Empty initial graph with a negative delta for a non-existent edge — edge-creation negative delta must cause immediate return 0.\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"S\\\": [[\\\"A\\\", 5], [\\\"B\\\", 5], [\\\"C\\\", 0]], \\\"A\\\": [[\\\"T\\\", 3]], \\\"B\\\": [[\\\"T\\\", 3]], \\\"C\\\": [[\\\"T\\\", 10]], \\\"T\\\": []}\",\n        \"\\\"S\\\"\",\n        \"\\\"T\\\"\",\n        \"[]\"\n      ],\n      \"focus\": \"Tie-breaking and format sensitivity: initial 0-capacity edge ignored; two equal-capacity S->A->T and S->B->T paths require lexicographic traversal and path tie-breaking.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2032,
+    "completion_tokens": 2161,
+    "total_tokens": 4193,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1856,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

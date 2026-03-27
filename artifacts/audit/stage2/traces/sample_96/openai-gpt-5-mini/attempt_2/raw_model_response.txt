@@ -1,0 +1,103 @@
+from collections import defaultdict, deque
+
+def get_shortest_paths(graph: dict, source: str, updates: list[list[str]]) -> dict:
+    # Validation helpers
+    def is_valid_id(x):
+        return isinstance(x, str) and x.isdigit()
+    if not isinstance(graph, dict) or not is_valid_id(source) or not isinstance(updates, list):
+        return {}
+    for k, neigh in graph.items():
+        if not is_valid_id(k) or not isinstance(neigh, list):
+            return {}
+        for v in neigh:
+            if not is_valid_id(v):
+                return {}
+    for op in updates:
+        if not isinstance(op, list) or len(op) != 3:
+            return {}
+        act, u, v = op
+        if act not in ("activate", "deactivate") or not is_valid_id(u) or not is_valid_id(v):
+            return {}
+    if graph == {} and updates == []:
+        return {}
+
+    # Build adjacency symmetric, deduplicate, ignore self-loops
+    adj = defaultdict(set)
+    for u, neigh in graph.items():
+        for v in neigh:
+            if u == v:
+                continue
+            adj[u].add(v)
+            adj[v].add(u)
+    # ensure nodes from graph keys exist even if empty
+    for u in list(graph.keys()):
+        if u not in adj:
+            adj[u] = set(adj[u])
+
+    # Include nodes from updates (ensure present)
+    for op in updates:
+        _, u, v = op
+        if u == v:
+            continue
+        if u not in adj:
+            adj[u] = set()
+        if v not in adj:
+            adj[v] = set()
+
+    # Apply batch atomically: collect changes then apply
+    # process each op: self-loops and duplicate activates/deactivates are no-ops
+    for act, u, v in updates:
+        if u == v:
+            continue
+        if act == "activate":
+            adj[u].add(v)
+            adj[v].add(u)
+        else:  # deactivate
+            adj[u].discard(v)
+            adj[v].discard(u)
+
+    # Convert neighbor sets to sorted lists for deterministic traversal
+    for u in list(adj.keys()):
+        adj[u] = sorted(adj[u])
+
+    # Initial BFS from source with deterministic ordering
+    nodes = sorted(adj.keys())
+    dist = {u: -1 for u in nodes}
+    parent = {}  # parent mapping for tree edges
+    if source not in adj:
+        # source may be isolated node added by validation; ensure included
+        adj[source] = []
+        dist[source] = 0
+        nodes = sorted(adj.keys())
+    # BFS
+    q = deque()
+    dist[source] = 0
+    q.append(source)
+    while q:
+        # process current frontier level by level with lexicographic order
+        # collect current level
+        level = []
+        while q:
+            level.append(q.popleft())
+        level.sort()
+        next_nodes = []
+        for u in level:
+            for v in adj[u]:
+                if dist.get(v, -1) == -1:
+                    dist[v] = dist[u] + 1
+                    parent[v] = u
+                    next_nodes.append(v)
+                elif dist[v] == dist[u] + 1:
+                    # tie: choose lexicographically smallest parent
+                    if v in parent:
+                        if u < parent[v]:
+                            parent[v] = u
+                    else:
+                        parent[v] = u
+        for x in sorted(next_nodes):
+            q.append(x)
+
+    # After BFS, dist and parent reflect distances after atomic updates
+    # Return dict mapping all nodes seen in graph or updates to distances sorted by node id
+    result = {u: dist.get(u, -1) for u in sorted(nodes)}
+    return result

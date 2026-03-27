@@ -1,0 +1,149 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+A financial analytics firm requires a Python-based algorithm to efficiently process and rank a large network of multi-level investment portfolios. Each portfolio may contain nested sub-portfolios and cross-references to other portfolios, forming an interconnected dependency graph. Every portfolio includes measurable attributes such as risk and return values, and the algorithm must determine a globally consistent ranking based on these metrics.
+
+The goal is to design a deterministic and validation-strict sorting system that can handle complex data hierarchies, cyclical references, and missing relationships without compromising structural integrity or reproducibility. The function must compute composite scores derived from return-to-risk ratios and cross-reference influence, sort top-level portfolios by these scores, and preserve the nested structure of all sub-portfolios. Any malformed or invalid input must trigger fail-fast behavior by returning an empty list immediately.
+
+
+### Objectives
+
+1. Graph Construction and Validation
+   * Construct a directed graph from portfolios, capturing both sub-portfolio (hierarchical) and reference (cross-link) edges.
+   * Validate input structure before computation. Any invalid node or field must cause an immediate [] return.
+   * All adjacency relationships must be deduplicated and sorted lexicographically.
+2. Cycle Handling and Deterministic Scoring
+   * Detect strongly connected components (cycles).
+   * All nodes within a cycle share the same final score, equal to the arithmetic mean of their members base scores (return / risk). This value is not further adjusted by reference averaging for those members and is used only when other portfolios average over their references.
+   * Within a cycle, the lexicographically smallest portfolio name represents the group for ordering.
+3. Score Calculation
+   For each portfolio p:
+   score(p) = (return / risk) + 0.1 * average(score(references))
+   * References to missing portfolios are ignored.
+   * All arithmetic must remain finite.
+   * No division by zero is allowed.
+4. Stable Sorting and Output Preservation
+   * Sort only top-level portfolios by:
+     1. Descending _score (higher first)
+     2. Ascending name (for ties)
+   * Preserve the internal order of sub_portfolios and references exactly as in the input.
+5. Deterministic Traversal Rules
+   * All nodes and adjacency lists must be processed in lexicographic order.
+   * Traversal or set iteration must never depend on Pythons internal hashing order.
+   * Lexicographic processing and deduplication apply to internal graph structures only and must not modify the order of references or sub_portfolios in the returned output.
+
+
+### Constraints
+* Implemented in pure Python, no external libraries.
+* If the input list portfolios is empty, return [] immediately.
+* Structural validation (Any invalid type, missing key, or malformed field triggers immediate return of [])
+  * Each input portfolio must be a dictionary containing exactly the keys: name, risk, return, references, sub_portfolios.
+  * name must be a non-empty string of English letters.
+  * risk and return must be numeric (int or float).
+  * risk must be strictly greater than 0.
+  * references and sub_portfolios must be lists.
+  * All portfolio names must be unique across the entire hierarchy.
+* Reference and hierarchy rules
+  * Duplicate entries in references must be ignored (treated as one).
+  * References to unknown portfolio names must be ignored (not treated as errors).
+  * Self-references (a portfolio referencing itself) must cause a validation failure and return [].
+* Cycle rules
+  * Cycles must be collapsed into single strongly connected groups.
+  * The cycles final score is the arithmetic mean of its members base scores and is not modified by reference averaging for those members.
+  * The lexicographically smallest portfolio name in the cycle represents the group in final sorting.
+* Score calculation
+  * For each valid portfolio,
+    score(p) = (return / risk) + 0.1 * average(score(references))
+  * Missing or invalid references are ignored.
+  * All floating-point values (risk, return, _score) must be rounded to exactly 10 decimal places before being returned.
+* Sorting and ranking
+  * Top-level portfolios are sorted first by _score descending, then by name ascending.
+  * Equal scores within floating tolerance (1e-12) must retain lexicographic stability.
+  * The _rank field starts at 1 and increases sequentially without gaps.
+* Output integrity
+  * Each portfolio dictionary in the result must include all original fields plus _score and _rank.
+  * sub_portfolios and references must appear exactly as given in the input.
+* Failure conditions
+  * Any non-deterministic ordering or missing field is considered failure.
+
+
+### Function Signature
+
+```python
+def sort_investment_portfolios(portfolios: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    pass
+```
+
+
+### Sample Input
+
+```python
+portfolios = [
+    {
+        'name': 'A',
+        'risk': 0.2,
+        'return': 6.0,
+        'references': ['B'],
+        'sub_portfolios': []
+    },
+    {
+        'name': 'B',
+        'risk': 0.3,
+        'return': 7.0,
+        'references': ['A'],
+        'sub_portfolios': []
+    }
+]
+```
+
+
+### Sample Output
+
+```python
+[
+    {
+        'name': 'A',
+        'risk': 0.2,
+        'return': 6.0,
+        'references': ['B'],
+        'sub_portfolios': [],
+        '_score': 26.6666666667,
+        '_rank': 1
+    },
+    {
+        'name': 'B',
+        'risk': 0.3,
+        'return': 7.0,
+        'references': ['A'],
+        'sub_portfolios': [],
+        '_score': 26.6666666667,
+        '_rank': 2
+    }
+]
+```
+
+
+### Expected Output Format
+
+Return a list of dictionaries representing the top-level portfolios, each containing all original fields plus _score and _rank.
+If validation fails, return [].
+
+Starter Code:
+```python
+from decimal import Decimal, ROUND_HALF_UP
+import math
+from functools import cmp_to_key
+from heapq import heappush, heappop
+
+
+def sort_investment_portfolios(portfolios: list[dict]) -> list[dict]:
+    pass
+```

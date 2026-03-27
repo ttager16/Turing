@@ -1,0 +1,1532 @@
+{
+  "stage": "sample-efficacy-analysis",
+  "batched": true,
+  "batch_count": 31,
+  "batch_output_dirs": [
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\subset_pipeline_run_5_finalcheck\\stage2",
+    "artifacts\\tmp\\subset_pipeline_run_5_batch2\\stage2",
+    "artifacts\\tmp\\subset_pipeline_run_5_batch3\\stage2",
+    "artifacts\\tmp\\subset_pipeline_run_5_batch4\\stage2",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\top_level_batch5\\stage2_batches\\batch_020_024",
+    "artifacts\\tmp\\subset_pipeline_run_5_batch6\\stage2",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_030_034",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_035_039",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_040_044",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_045_049",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_050_054",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_055_059",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_060_064",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_065_069",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_070_074",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_075_079",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_080_084",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_085_089",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_090_094",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_095_099",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_100_104",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_105_109",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_110_114",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_115_119",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_120_124",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_125_129",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_130_134",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_135_139",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_140_144",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_145_149",
+    "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_150_154"
+  ],
+  "sample_indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125,
+    126,
+    127,
+    128,
+    129,
+    130,
+    131,
+    132,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    143,
+    144,
+    145,
+    146,
+    147,
+    148,
+    149,
+    150,
+    151,
+    152,
+    153,
+    154
+  ],
+  "question_ids": [
+    "146030",
+    "146032",
+    "146031",
+    "146037",
+    "146048",
+    "146063",
+    "146085",
+    "146100",
+    "146099",
+    "146105",
+    "146110",
+    "146109",
+    "146115",
+    "146119",
+    "146120",
+    "146123",
+    "146117",
+    "146130",
+    "146121",
+    "146127",
+    "146137",
+    "146140",
+    "146142",
+    "146145",
+    "146150",
+    "146135",
+    "146160",
+    "146158",
+    "146170",
+    "146183",
+    "146180",
+    "146192",
+    "146193",
+    "146199",
+    "146210",
+    "146211",
+    "146205",
+    "146204",
+    "146223",
+    "146229",
+    "146232",
+    "146237",
+    "146234",
+    "146245",
+    "146242",
+    "146251",
+    "146252",
+    "146265",
+    "146259",
+    "146263",
+    "146256",
+    "146271",
+    "146279",
+    "146285",
+    "146302",
+    "146296",
+    "146303",
+    "146342",
+    "146348",
+    "146344",
+    "146372",
+    "146369",
+    "146376",
+    "146388",
+    "146387",
+    "146389",
+    "146385",
+    "146400",
+    "146406",
+    "146416",
+    "146404",
+    "146418",
+    "146436",
+    "146446",
+    "146454",
+    "146465",
+    "146473",
+    "146470",
+    "146476",
+    "146469",
+    "146474",
+    "146475",
+    "146492",
+    "146506",
+    "146503",
+    "146515",
+    "146510",
+    "146516",
+    "146521",
+    "146522",
+    "146539",
+    "146556",
+    "146553",
+    "146569",
+    "146575",
+    "146600",
+    "146597",
+    "146584",
+    "146619",
+    "146618",
+    "146623",
+    "146621",
+    "146656",
+    "146635",
+    "146634",
+    "146637",
+    "146640",
+    "146668",
+    "146639",
+    "146658",
+    "146655",
+    "146686",
+    "146676",
+    "146691",
+    "146690",
+    "146695",
+    "146693",
+    "146696",
+    "146699",
+    "146701",
+    "146708",
+    "146709",
+    "146718",
+    "146719",
+    "146715",
+    "146726",
+    "146725",
+    "146724",
+    "146738",
+    "146739",
+    "146736",
+    "146743",
+    "146737",
+    "146740",
+    "146733",
+    "146765",
+    "146756",
+    "146753",
+    "146751",
+    "146760",
+    "146764",
+    "146768",
+    "146770",
+    "146786",
+    "146774",
+    "146781",
+    "146798",
+    "146804",
+    "146800",
+    "146835",
+    "146813",
+    "146861",
+    "146870",
+    "146878",
+    "146942"
+  ],
+  "source_manifests": [
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\subset_pipeline_run_5_finalcheck\\stage1\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\subset_pipeline_run_5_finalcheck\\stage2",
+      "limit": null,
+      "offset": 0,
+      "indices": "0,1,2,3,4",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "question_ids": [
+        "146030",
+        "146032",
+        "146031",
+        "146037",
+        "146048"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "artifacts\\tmp\\subset_pipeline_run_5_batch2\\stage1\\guideline_audit.xlsx",
+      "output_dir": "artifacts\\tmp\\subset_pipeline_run_5_batch2\\stage2",
+      "limit": null,
+      "offset": 0,
+      "indices": "5,6,7,8,9",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "question_ids": [
+        "146063",
+        "146085",
+        "146100",
+        "146099",
+        "146105"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "artifacts\\tmp\\subset_pipeline_run_5_batch3\\stage1\\guideline_audit.xlsx",
+      "output_dir": "artifacts\\tmp\\subset_pipeline_run_5_batch3\\stage2",
+      "limit": null,
+      "offset": 0,
+      "indices": "10,11,12,13,14",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "question_ids": [
+        "146110",
+        "146109",
+        "146115",
+        "146119",
+        "146120"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "artifacts\\tmp\\subset_pipeline_run_5_batch4\\stage1\\guideline_audit.xlsx",
+      "output_dir": "artifacts\\tmp\\subset_pipeline_run_5_batch4\\stage2",
+      "limit": null,
+      "offset": 0,
+      "indices": "15,16,17,18,19",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "question_ids": [
+        "146123",
+        "146117",
+        "146130",
+        "146121",
+        "146127"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\outputs\\sample_requirements_analysis\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\top_level_batch5\\stage2_batches\\batch_020_024",
+      "limit": null,
+      "offset": 0,
+      "indices": "20,21,22,23,24",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "question_ids": [
+        "146137",
+        "146140",
+        "146142",
+        "146145",
+        "146150"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "artifacts\\tmp\\subset_pipeline_run_5_batch6\\stage1\\guideline_audit.xlsx",
+      "output_dir": "artifacts\\tmp\\subset_pipeline_run_5_batch6\\stage2",
+      "limit": null,
+      "offset": 0,
+      "indices": "25,26,27,28,29",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        25,
+        26,
+        27,
+        28,
+        29
+      ],
+      "question_ids": [
+        "146135",
+        "146160",
+        "146158",
+        "146170",
+        "146183"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_030_034\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_030_034",
+      "limit": null,
+      "offset": 0,
+      "indices": "30,31,32,33,34",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        30,
+        31,
+        32,
+        33,
+        34
+      ],
+      "question_ids": [
+        "146180",
+        "146192",
+        "146193",
+        "146199",
+        "146210"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_035_039\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_035_039",
+      "limit": null,
+      "offset": 0,
+      "indices": "35,36,37,38,39",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        35,
+        36,
+        37,
+        38,
+        39
+      ],
+      "question_ids": [
+        "146211",
+        "146205",
+        "146204",
+        "146223",
+        "146229"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_040_044\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_040_044",
+      "limit": null,
+      "offset": 0,
+      "indices": "40,41,42,43,44",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        40,
+        41,
+        42,
+        43,
+        44
+      ],
+      "question_ids": [
+        "146232",
+        "146237",
+        "146234",
+        "146245",
+        "146242"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_045_049\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_045_049",
+      "limit": null,
+      "offset": 0,
+      "indices": "45,46,47,48,49",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        45,
+        46,
+        47,
+        48,
+        49
+      ],
+      "question_ids": [
+        "146251",
+        "146252",
+        "146265",
+        "146259",
+        "146263"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_050_054\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_050_054",
+      "limit": null,
+      "offset": 0,
+      "indices": "50,51,52,53,54",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        50,
+        51,
+        52,
+        53,
+        54
+      ],
+      "question_ids": [
+        "146256",
+        "146271",
+        "146279",
+        "146285",
+        "146302"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_055_059\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_055_059",
+      "limit": null,
+      "offset": 0,
+      "indices": "55,56,57,58,59",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        55,
+        56,
+        57,
+        58,
+        59
+      ],
+      "question_ids": [
+        "146296",
+        "146303",
+        "146342",
+        "146348",
+        "146344"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_060_064\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_060_064",
+      "limit": null,
+      "offset": 0,
+      "indices": "60,61,62,63,64",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        60,
+        61,
+        62,
+        63,
+        64
+      ],
+      "question_ids": [
+        "146372",
+        "146369",
+        "146376",
+        "146388",
+        "146387"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_065_069\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_065_069",
+      "limit": null,
+      "offset": 0,
+      "indices": "65,66,67,68,69",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        65,
+        66,
+        67,
+        68,
+        69
+      ],
+      "question_ids": [
+        "146389",
+        "146385",
+        "146400",
+        "146406",
+        "146416"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_070_074\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_070_074",
+      "limit": null,
+      "offset": 0,
+      "indices": "70,71,72,73,74",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        70,
+        71,
+        72,
+        73,
+        74
+      ],
+      "question_ids": [
+        "146404",
+        "146418",
+        "146436",
+        "146446",
+        "146454"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_075_079\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_075_079",
+      "limit": null,
+      "offset": 0,
+      "indices": "75,76,77,78,79",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        75,
+        76,
+        77,
+        78,
+        79
+      ],
+      "question_ids": [
+        "146465",
+        "146473",
+        "146470",
+        "146476",
+        "146469"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_080_084\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_080_084",
+      "limit": null,
+      "offset": 0,
+      "indices": "80,81,82,83,84",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        80,
+        81,
+        82,
+        83,
+        84
+      ],
+      "question_ids": [
+        "146474",
+        "146475",
+        "146492",
+        "146506",
+        "146503"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_085_089\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_085_089",
+      "limit": null,
+      "offset": 0,
+      "indices": "85,86,87,88,89",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        85,
+        86,
+        87,
+        88,
+        89
+      ],
+      "question_ids": [
+        "146515",
+        "146510",
+        "146516",
+        "146521",
+        "146522"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_090_094\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_090_094",
+      "limit": null,
+      "offset": 0,
+      "indices": "90,91,92,93,94",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        90,
+        91,
+        92,
+        93,
+        94
+      ],
+      "question_ids": [
+        "146539",
+        "146556",
+        "146553",
+        "146569",
+        "146575"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_095_099\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_095_099",
+      "limit": null,
+      "offset": 0,
+      "indices": "95,96,97,98,99",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        95,
+        96,
+        97,
+        98,
+        99
+      ],
+      "question_ids": [
+        "146600",
+        "146597",
+        "146584",
+        "146619",
+        "146618"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_100_104\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_100_104",
+      "limit": null,
+      "offset": 0,
+      "indices": "100,101,102,103,104",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        100,
+        101,
+        102,
+        103,
+        104
+      ],
+      "question_ids": [
+        "146623",
+        "146621",
+        "146656",
+        "146635",
+        "146634"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_105_109\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_105_109",
+      "limit": null,
+      "offset": 0,
+      "indices": "105,106,107,108,109",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        105,
+        106,
+        107,
+        108,
+        109
+      ],
+      "question_ids": [
+        "146637",
+        "146640",
+        "146668",
+        "146639",
+        "146658"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_110_114\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_110_114",
+      "limit": null,
+      "offset": 0,
+      "indices": "110,111,112,113,114",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        110,
+        111,
+        112,
+        113,
+        114
+      ],
+      "question_ids": [
+        "146655",
+        "146686",
+        "146676",
+        "146691",
+        "146690"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_115_119\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_115_119",
+      "limit": null,
+      "offset": 0,
+      "indices": "115,116,117,118,119",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        115,
+        116,
+        117,
+        118,
+        119
+      ],
+      "question_ids": [
+        "146695",
+        "146693",
+        "146696",
+        "146699",
+        "146701"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_120_124\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_120_124",
+      "limit": null,
+      "offset": 0,
+      "indices": "120,121,122,123,124",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        120,
+        121,
+        122,
+        123,
+        124
+      ],
+      "question_ids": [
+        "146708",
+        "146709",
+        "146718",
+        "146719",
+        "146715"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_125_129\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_125_129",
+      "limit": null,
+      "offset": 0,
+      "indices": "125,126,127,128,129",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        125,
+        126,
+        127,
+        128,
+        129
+      ],
+      "question_ids": [
+        "146726",
+        "146725",
+        "146724",
+        "146738",
+        "146739"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_130_134\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_130_134",
+      "limit": null,
+      "offset": 0,
+      "indices": "130,131,132,133,134",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        130,
+        131,
+        132,
+        133,
+        134
+      ],
+      "question_ids": [
+        "146736",
+        "146743",
+        "146737",
+        "146740",
+        "146733"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_135_139\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_135_139",
+      "limit": null,
+      "offset": 0,
+      "indices": "135,136,137,138,139",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        135,
+        136,
+        137,
+        138,
+        139
+      ],
+      "question_ids": [
+        "146765",
+        "146756",
+        "146753",
+        "146751",
+        "146760"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_140_144\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_140_144",
+      "limit": null,
+      "offset": 0,
+      "indices": "140,141,142,143,144",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        140,
+        141,
+        142,
+        143,
+        144
+      ],
+      "question_ids": [
+        "146764",
+        "146768",
+        "146770",
+        "146786",
+        "146774"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_145_149\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_145_149",
+      "limit": null,
+      "offset": 0,
+      "indices": "145,146,147,148,149",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        145,
+        146,
+        147,
+        148,
+        149
+      ],
+      "question_ids": [
+        "146781",
+        "146798",
+        "146804",
+        "146800",
+        "146835"
+      ]
+    },
+    {
+      "stage": "sample-efficacy-analysis",
+      "jsonl": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\provided\\Samples.jsonl",
+      "stage1_workbook": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage1_batches\\batch_150_154\\guideline_audit.xlsx",
+      "output_dir": "C:\\Users\\Tristan\\Dropbox\\Documents\\Turing\\Takehome\\artifacts\\tmp\\final_stage2_batches\\batch_150_154",
+      "limit": null,
+      "offset": 0,
+      "indices": "150,151,152,153,154",
+      "timeout_seconds": 10,
+      "attempts": 2,
+      "generated_tests": 3,
+      "k_values": [
+        1,
+        2
+      ],
+      "skip_llm": false,
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ],
+      "model_labels": {
+        "openai-gpt-5-mini": "openai:gpt-5-mini"
+      },
+      "generated_test_target": "openai-gpt-5-mini",
+      "sample_indices": [
+        150,
+        151,
+        152,
+        153,
+        154
+      ],
+      "question_ids": [
+        "146813",
+        "146861",
+        "146870",
+        "146878",
+        "146942"
+      ]
+    }
+  ]
+}

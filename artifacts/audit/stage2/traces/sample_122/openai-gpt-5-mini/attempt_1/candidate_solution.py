@@ -1,0 +1,188 @@
+def find_optimal_multilayer_network(
+    layer_graphs: List[Dict[str, Any]],
+    critical_nodes: Dict[str, float]
+) -> List[Dict[str, int]]:
+    # Build aggregated nodes balances and edges with adjusted costs
+    node_balance = defaultdict(float)
+    edges = []  # list of (layer_id, u, v, capacity, adj_cost, edge_id)
+    edge_id = 0
+    # Normalize critical node weights: priority_weight(node) = max(0.1, critical_nodes.get(node,1.0))
+    crit = {}
+    for k, v in critical_nodes.items():
+        try:
+            key = int(k)
+        except Exception:
+            key = k
+        crit[key] = max(0.1, float(v))
+    # Populate nodes and edges
+    for layer in layer_graphs:
+        lid = layer.get("layer_id")
+        nodes = layer.get("nodes", {})
+        for n, bal in nodes.items():
+            node_balance[n] += float(bal)
+        for e in layer.get("edges", []):
+            u = e["from"]
+            v = e["to"]
+            base_cost = float(e["cost"])
+            cap = float(e["capacity"])
+            pw_u = crit.get(u, 1.0)
+            pw_v = crit.get(v, 1.0)
+            priority_factor = 1.0 / (pw_u * pw_v) if (pw_u * pw_v) != 0 else 1.0
+            adj_cost = base_cost * priority_factor
+            edges.append((lid, u, v, cap, adj_cost, edge_id, base_cost))
+            edge_id += 1
+
+    # Check global supply == total demand (within epsilon)
+    total_supply = sum(v for v in node_balance.values() if v > 0)
+    total_demand = -sum(v for v in node_balance.values() if v < 0)
+    if abs(total_supply - total_demand) > 1e-6:
+        return []
+
+    if total_supply == 0:
+        # nothing to route; but ensure critical nodes with non-zero balance none exist
+        for n, bal in node_balance.items():
+            if abs(bal) > 1e-9 and n in crit:
+                return []
+        return []
+
+    # Map nodes to indices
+    all_nodes = set(node_balance.keys())
+    for _, u, v, _, _, _, _ in edges:
+        all_nodes.add(u); all_nodes.add(v)
+    node_list = list(all_nodes)
+    nid = {n: i for i, n in enumerate(node_list)}
+    N = len(node_list)
+    # Build directed graph for flow: edges as forward/backward for residual
+    adj = [[] for _ in range(N)]
+    class Edge:
+        __slots__ = ("to","rev","cap","cost","layer","orig_u","orig_v","eid","flow")
+        def __init__(self, to, rev, cap, cost, layer, orig_u, orig_v, eid):
+            self.to = to; self.rev = rev; self.cap = cap; self.cost = cost
+            self.layer = layer; self.orig_u = orig_u; self.orig_v = orig_v; self.eid = eid
+            self.flow = 0.0
+
+    # add edges
+    for lid, u, v, cap, cost, eidv, base_cost in edges:
+        ui = nid[u]; vi = nid[v]
+        # forward
+        adj[ui].append(Edge(vi, len(adj[vi]), cap, cost, lid, u, v, eidv))
+        # backward
+        adj[vi].append(Edge(ui, len(adj[ui]) - 1, 0.0, -cost, lid, v, u, eidv))
+
+    # Build super source and sink by adding indices
+    S = N
+    T = N + 1
+    adj.append([]); adj.append([])
+    def add_edge(u, v, cap, cost, layer=None, orig_u=None, orig_v=None, eid=None):
+        adj[u].append(Edge(v, len(adj[v]), cap, cost, layer, orig_u, orig_v, eid))
+        adj[v].append(Edge(u, len(adj[u]) - 1, 0.0, -cost, layer, orig_v, orig_u, eid))
+
+    # Connect supplies to S and demands to T
+    for n, bal in node_balance.items():
+        i = nid[n]
+        if bal > 0:
+            add_edge(S, i, bal, 0.0)
+        elif bal < 0:
+            add_edge(i, T, -bal, 0.0)
+
+    # Min-cost max-flow (successive shortest augmenting path with potentials)
+    V = N + 2
+    INF = 1e18
+    potential = [0.0] * V
+    maxflow = 0.0
+    mincost = 0.0
+    flow_needed = total_supply
+
+    while maxflow + 1e-9 < flow_needed:
+        dist = [INF] * V
+        inq = [False] * V
+        prev_v = [-1] * V
+        prev_e = [-1] * V
+        dist[S] = 0.0
+        heap = [(0.0, S)]
+        while heap:
+            d, v = heapq.heappop(heap)
+            if d > dist[v] + 1e-12:
+                continue
+            for ei, e in enumerate(adj[v]):
+                if e.cap > 1e-12:
+                    nd = dist[v] + e.cost + potential[v] - potential[e.to]
+                    if nd + 1e-12 < dist[e.to]:
+                        dist[e.to] = nd
+                        prev_v[e.to] = v
+                        prev_e[e.to] = ei
+                        heapq.heappush(heap, (nd, e.to))
+        if dist[T] == INF:
+            # cannot send more flow
+            break
+        for v in range(V):
+            if dist[v] < INF/2:
+                potential[v] += dist[v]
+        # augment
+        addf = flow_needed - maxflow
+        v = T
+        while v != S:
+            e = adj[prev_v[v]][prev_e[v]]
+            addf = min(addf, e.cap)
+            v = prev_v[v]
+        if addf <= 0:
+            break
+        v = T
+        while v != S:
+            e = adj[prev_v[v]][prev_e[v]]
+            e.cap -= addf
+            adj[v][e.rev].cap += addf
+            # track flow on original edges if applicable
+            e.flow += addf
+            adj[v][e.rev].flow -= addf
+            v = prev_v[v]
+        maxflow += addf
+        mincost += addf * potential[T]
+
+    if abs(maxflow - flow_needed) > 1e-6:
+        return []
+
+    # After flow found, ensure critical nodes with non-zero balance are connected to at least one supply node in solution network.
+    # Build graph of used edges (forward edges with positive flow)
+    used_adj = defaultdict(list)
+    for u_idx in range(N):
+        for e in adj[u_idx]:
+            if e.flow > 1e-9:
+                used_adj[node_list[u_idx]].append(e.to if e.to < N else None)
+    # Find supply nodes that had supply >0
+    supplies = [n for n, b in node_balance.items() if b > 0]
+    # BFS from supplies over used edges (treat inter-layer via node ids)
+    reachable = set()
+    dq = deque()
+    for s in supplies:
+        reachable.add(s)
+        dq.append(s)
+    while dq:
+        cur = dq.popleft()
+        for to_idx in used_adj.get(cur, []):
+            if to_idx is None:
+                continue
+            to_node = node_list[to_idx]
+            if to_node not in reachable:
+                reachable.add(to_node)
+                dq.append(to_node)
+    # Check critical nodes with non-zero balance
+    for cn, weight in crit.items():
+        bal = node_balance.get(cn, 0.0)
+        if abs(bal) > 1e-9:
+            if cn not in reachable:
+                return []
+
+    # Collect edges used with positive flow and map back to layer and endpoints (unique)
+    selected = []
+    seen = set()
+    for u_idx in range(N):
+        u_node = node_list[u_idx]
+        for e in adj[u_idx]:
+            # original forward edges we added from graph creation have attributes layer not None and eid set
+            if e.layer is not None and e.flow > 1e-9:
+                key = (e.layer, e.orig_u, e.orig_v)
+                if key not in seen:
+                    seen.add(key)
+                    selected.append({"layer_id": e.layer, "from": e.orig_u, "to": e.orig_v})
+    return selected

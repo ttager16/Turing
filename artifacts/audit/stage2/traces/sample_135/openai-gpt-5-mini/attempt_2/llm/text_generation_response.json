@@ -1,0 +1,76 @@
+{
+  "id": "resp_0213267b998dd90e0069c33eb8035c819f845b53ee6260d742",
+  "object": "response",
+  "created_at": 1774403256,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774403371,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0213267b998dd90e0069c33eb95f14819f839e58d944400196",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0213267b998dd90e0069c33eba9ad4819fb197c5da9b1cbdad",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import heapq\nimport itertools\nfrom typing import List, Dict, Any\n\ndef find_emergency_route(graph_nodes: List[int], uncertain_edges: List[Dict], \n                        start_node: int, end_node: int) -> Dict[str, Any]:\n    # Input validations\n    if not isinstance(graph_nodes, list):\n        return {\"error\": \"Input is not valid\"}\n    if len(graph_nodes) == 0:\n        return {\"error\": \"Empty graph provided\"}\n    node_set = set(graph_nodes)\n    if start_node not in node_set or end_node not in node_set:\n        return {\"error\": \"Start or end node not in graph\"}\n    # Build adjacency, compute per-edge stats\n    adj = {n: [] for n in graph_nodes}\n    edge_info = {}\n    for e in uncertain_edges:\n        try:\n            u = e[\"from_node\"]; v = e[\"to_node\"]; scenarios = e[\"scenarios\"]; eid = e[\"edge_id\"]\n        except Exception:\n            return {\"error\": \"Input is not valid\"}\n        if u not in node_set or v not in node_set:\n            return {\"error\": \"Invalid node ID\"}\n        if not isinstance(scenarios, list) or len(scenarios) == 0:\n            return {\"error\": f\"Invalid scenario data for edge {eid}\"}\n        # Validate probabilities\n        prob_sum = 0.0\n        for s in scenarios:\n            if (\"travel_time\" not in s) or (\"probability\" not in s):\n                return {\"error\": f\"Invalid scenario data for edge {eid}\"}\n            prob_sum += float(s[\"probability\"])\n        if abs(prob_sum - 1.0) > 0.001:\n            return {\"error\": \"Edge probabilities do not sum to 1.0\"}\n        # compute expected time\n        expected = 0.0\n        for s in scenarios:\n            expected += float(s[\"travel_time\"]) * float(s[\"probability\"])\n        threshold = 1.25 * expected\n        reliability = 0.0\n        for s in scenarios:\n            if float(s[\"travel_time\"]) <= threshold:\n                reliability += float(s[\"probability\"])\n        if reliability == 0.0:\n            reliability = 1.0\n        # store\n        info = {\n            \"from\": u, \"to\": v, \"scenarios\": [(float(s[\"travel_time\"]), float(s[\"probability\"])) for s in scenarios],\n            \"expected\": expected, \"reliability\": reliability, \"edge_id\": eid\n        }\n        adj[u].append(info)\n        edge_info[(u,v,eid)] = info\n    # Modified Dijkstra: state holds cumulative expected time, cumulative reliability(product), path, edge list\n    REL_PENALTY = 50.0\n    # For visited maintain best score found to node with given path reliability maybe composite; to ensure correctness we store best total_path_score and tie-break by lexicographic path\n    # Priority queue by (total_path_score, expected_time, -path_reliability, path_tuple)\n    heap = []\n    start_state = (0.0, 1.0, (start_node,), [])  # expected_sum, reliability_prod, path nodes, edges list (infos)\n    start_score = 0.0 + REL_PENALTY * (1 - 1.0)\n    heapq.heappush(heap, (start_score, 0.0, -1.0, (start_node,), []))\n    # visited: node -> dict mapping (expected_time rounded, reliability rounded) to best score to prune; but keep simple: best score per node and path tuple for lexicographic tie\n    visited_best = {}\n    valid_paths = []\n    # Helper: scenario consistency check for a path (list of edge infos)\n    def path_scenario_consistent(edge_infos, expected_total):\n        # generate all combinations of one scenario per edge\n        # If too many combos, we can early abort if combos exceed 20000 to avoid explosion; but problem expects up to small paths. Implement safe cap.\n        combos = 1\n        for ei in edge_infos:\n            combos *= len(ei[\"scenarios\"])\n            if combos > 20000:\n                # fallback conservative: sample extremes by taking min and max combos; here perform full check by bounding sums: compute max_possible and if max_possible <= 2*expected_total okay; if min_possible > 2*expected_total fail; else do partial check by sampling combinations including extremes\n                max_possible = sum(max(t for t,p in ei[\"scenarios\"]) for ei in edge_infos)\n                min_possible = sum(min(t for t,p in ei[\"scenarios\"]) for ei in edge_infos)\n                if max_possible <= 2*expected_total:\n                    return True\n                if min_possible > 2*expected_total:\n                    return False\n                # sample combinations including all max/min per edge and some mixed\n                # check all combos of choosing either min or max for each edge (2^k)\n                k = len(edge_infos)\n                for mask in range(1<<k):\n                    s = 0.0\n                    for i in range(k):\n                        times = [t for t,p in edge_infos[i][\"scenarios\"]]\n                        if (mask>>i)&1:\n                            s += max(times)\n                        else:\n                            s += min(times)\n                    if s > 2*expected_total:\n                        return False\n                return True\n        # if combos manageable, iterate all\n        for prod in itertools.product(*[ei[\"scenarios\"] for ei in edge_infos]):\n            s = sum(p[0] for p in prod)\n            if s > 2*expected_total:\n                return False\n        return True\n\n    while heap:\n        total_score, exp_sum, neg_rel, path_tuple, edge_list = heapq.heappop(heap)\n        rel_prod = -neg_rel\n        current = path_tuple[-1]\n        # prune by visited_best\n        key = (current, tuple(path_tuple))\n        if key in visited_best and visited_best[key] <= total_score:\n            continue\n        visited_best[key] = total_score\n        # If reached end, validate scenario consistency and record\n        if current == end_node:\n            # validate scenario consistency\n            if path_scenario_consistent(edge_list, exp_sum):\n                valid_paths.append((total_score, exp_sum, rel_prod, list(path_tuple), list(edge_list)))\n                # continue exploring to find possibly better lexicographic tie\n                # but we can continue; do not early return\n        # expand neighbors\n        for ei in adj.get(current, []):\n            v = ei[\"to\"]\n            new_exp = exp_sum + ei[\"expected\"]\n            new_rel = rel_prod * ei[\"reliability\"]\n            new_score = new_exp + REL_PENALTY * (1 - new_rel)\n            new_path = path_tuple + (v,)\n            new_edges = edge_list + [ei]\n            # quick pruning: if visited node with same path tuple exists better skip handled by visited_best\n            # push\n            heapq.heappush(heap, (new_score, new_exp, -new_rel, new_path, new_edges))\n    if not valid_paths:\n        return {\"error\": \"No path exists between start and end nodes\"}\n    # choose best: minimal total_score, tie-break expected_time, then lexicographic path\n    valid_paths.sort(key=lambda x: (round(x[0], 10), round(x[1], 10), x[3]))\n    best = valid_paths[0]\n    total_score, exp_sum, rel_prod, path_nodes, edge_list = best\n    # scenario analysis: best_case = sum min times per edge, worst_case = sum max, variance across all combinations\n    times_lists = [ [t for t,p in ei[\"scenarios\"]] for ei in edge_list ]\n    best_case = sum(min(lst) for lst in times_lists) if times_lists else 0.0\n    worst_case = sum(max(lst) for lst in times_lists) if times_lists else 0.0\n    # compute distribution of path times: combine scenario probabilities\n    # compute all combinations (cap high combos similar to above)\n    combos = 1\n    for ei in edge_list:\n        combos *= len(ei[\"scenarios\"])\n    mean = exp_sum\n    variance = 0.0\n    if combos <= 20000:\n        # compute expected of square and then variance\n        exp_sq = 0.0\n        for prod in itertools.product(*[ei[\"scenarios\"] for ei in edge_list]):\n            prob = 1.0\n            tsum = 0.0\n            for t,p in prod:\n                tsum += t\n                prob *= p\n            exp_sq += (tsum*tsum) * prob\n        variance = exp_sq - mean*mean\n    else:\n        # approximate variance by assuming independence and using sum of variances since edges independent\n        var_sum = 0.0\n        for ei in edge_list:\n            # edge variance\n            e_mean = ei[\"expected\"]\n            e_exp_sq = sum((t*t)*p for t,p in ei[\"scenarios\"])\n            var_sum += (e_exp_sq - e_mean*e_mean)\n        variance = var_sum\n    # assemble edge_details\n    edge_details = []\n    for ei in edge_list:\n        edge_details.append({\n            \"from_node\": ei[\"from\"],\n            \"to_node\": ei[\"to\"],\n            \"expected_time\": round(ei[\"expected\"], 6),\n            \"reliability\": round(ei[\"reliability\"], 6),\n            \"edge_id\": ei[\"edge_id\"]\n        })\n    result = {\n        \"path\": list(path_nodes),\n        \"expected_travel_time\": round(exp_sum, 6),\n        \"path_reliability\": round(rel_prod, 6),\n        \"total_path_score\": round(total_score, 6),\n        \"scenario_analysis\": {\n            \"best_case_time\": round(best_case, 6),\n            \"worst_case_time\": round(worst_case, 6),\n            \"variance\": round(variance, 6)\n        },\n        \"edge_details\": edge_details\n    }\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2368,
+    "input_tokens_details": {
+      "cached_tokens": 2304
+    },
+    "output_tokens": 2169,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4537
+  },
+  "user": null,
+  "metadata": {}
+}

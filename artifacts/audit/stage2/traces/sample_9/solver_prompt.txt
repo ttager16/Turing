@@ -1,0 +1,438 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Personalized Educational Experience with Probabilistic Constraint Satisfaction
+
+#### Scenario
+
+In a globally distributed educational platform, students receive personalized learning paths based on their evolving profiles, engagement patterns, and learning preferences. To handle the massive scale and ever-shifting constraints, the system must employ an intricate network of advanced data structures such as augmented tries for preference indexing and min-cost max-flow subroutines for dynamic resource allocation. Moreover, student performance tracking requires heavy-light decomposition on tree-based progress graphs to support multi-phase updates without sacrificing speed.
+
+Each student’s profile is dynamically evolving: they may log in from multiple devices, progress through different lesson modules concurrently, and exhibit varied engagement levels over time. The platform’s engine must reconcile these fluctuations by frequently updating the internal constraint network, ensuring each student’s path remains feasible and optimized. Naive or greedy strategies quickly collapse under these compound demands and partial-failure scenarios, necessitating a sophisticated multi-step optimization approach.
+
+#### Objectives
+
+1. Design and Implement a Multi-Level Flow Network:
+
+   - Construct a bipartite or multi-partite graph representing students and modules. Employ min-cost max-flow algorithms to find optimal learning paths under concurrency, balancing module difficulty distribution and capacity constraints.
+   - Support efficient computation of min-cost max-flow for student learning path optimization.
+
+2. Trie-Augmented Constraint Satisfaction:
+
+   - Develop a trie-based structure to index student preferences, prior performance data, and localized engagement levels. This trie must efficiently update partial matches as new profiles and constraints stream in, supporting fast retrieval of potential learning modules.
+
+3. Dynamic Analysis on Trees with Heavy-Light Decomposition:
+
+   - Maintain a tree-based representation of a student’s learning trajectory, where each node embodies a module cluster, and edges denote progression difficulty. Employ heavy-light decomposition for rapid updates and queries, ensuring minimal overhead while analyzing a student’s current path state.
+   - Enable queries for path difficulty updates and realign subsequent modules as needed.
+
+4. Predictive Quiz Refinement:
+   - Incorporate probabilistic forecasting of student performance to generate adaptive quizzes. Use advanced randomization techniques with multi-phase sampling to identify knowledge gaps that interplay with the min-cost flow assignment. Adjust quizzes based on student responses.
+
+#### Constraints
+
+- All stochastic components (randomization, sampling, tie-breaking) must be deterministically seeded solely from `student_profile["id"]`. Identical inputs (including the same `id`) must yield identical outputs across runs; differing `id` values may yield different outputs.
+- Defaults when `constraints` keys are missing: `max_flow_cost` = 100.0, `priority_subjects` = [], `max_difficulty_spread` = 2, `max_concurrent_modules` = unlimited (no cap).
+- The `learning_path` must include all input modules; modules not selected by constraints should have `allocated_flow_cost` = 0.00 but remain listed.
+- The order of `learning_path` must mirror the input order of `learning_modules`.
+- If `student_profile["id"]` is missing or non-integer, use its string representation to derive the deterministic seed via a stable hash; do not raise an error.
+- Engagement and performance signals should yield small, bounded adjustments to both difficulty and allocation, refining outcomes without dominating other constraints.
+- The trie MUST index modules under the key path `[type, subject]` and ALSO under `["", subject]` to enable subject-only matches.
+- A preference “match” MUST be validated via the trie (module ID present on the matched path), not by raw string comparison alone.
+- Preference scoring MUST be: `+0.5` for a preferred `type` match, `+0.5` for a preferred `subject` match; cap total in `[0.0, 1.0]`.
+- If `subject` is in `constraints["priority_subjects"]`, add an EXTRA `+0.1` to the preference score (still capped at `1.0`).
+- If `constraints["max_concurrent_modules"] <= 0` or missing, treat concurrency as UNLIMITED.
+- The flow network MUST model each module with capacity `1` (0/1 selection); multi-unit allocation per module is NOT allowed.
+- Flow edge costs MUST be defined as `1.0 - module_score`, and min-cost max-flow is used ONLY to choose which modules are selected.
+- The entire `max_flow_cost` budget MUST be distributed proportionally to the scores of SELECTED modules only; non-selected modules get `0.00`.
+- Proportional budget split MUST use Largest Remainder (Hare–Niemeyer) to two decimals with deterministic tie-breaking by original module order.
+- Difficulty spread control MUST clamp each module’s difficulty to `mean(updated_difficulties) ± max_difficulty_spread/2`.
+- Missing `difficulty` in a module MUST default to `3.0`.
+- Randomness MUST be seeded from `student_profile["id"]`: if numeric, use `int(id)`; otherwise use `int(md5(str(id)), 16) % 2**32`.
+- Mastery probability MUST be computed via a logistic transform with: baseline `z = (mean−70)/10 − sqrt(variance)/50`, engagement weights `high=1.1`, `medium=1.0`, `low=0.9`, and MUST be clamped to `[0.05, 0.95]`.
+- Difficulty adjustment MUST be `(p−0.5) * 1.4 * baseline_factor`, where `baseline_factor = clamp(1 − (base_difficulty − 3)*0.05, 0.7, 1.3)`.
+- Final numeric outputs MUST be rounded using Python’s `round` to two decimals (banker’s rounding semantics).
+- `priority_subjects` MUST act as a scoring boost only and MUST NOT enforce hard constraints or capacities in the flow.
+- Module score = 0.65·preference_score + 0.25·(0.5 + difficulty_adjustment/2) + 0.10·(0.5 + 0.02·depth), clamped to [0.0, 1.0].
+- Type preference credit (+0.5) is granted if the module ID exists on the trie prefix `[type]` (subject not required), validated via the trie.
+- Subject preference credit (+0.5) is granted if the module ID exists on either `[type, subject]` or `["", subject]` in the trie.
+- Quiz refinement appends exactly 3 synthetic scores: if correct → uniform in [80, 100]; if incorrect → uniform in [50, 70].
+- Depth bias is **always** applied as `0.02 × depth(node)` to the scoring term.
+- HLD node used for depth is the module’s ID if present in the HLD; otherwise the root node is used.
+- “Unlimited” concurrency is implemented as selecting up to `min(n_modules, K)` with `K = n_modules` for that batch.
+- When splitting budget, zero weights are replaced by `1e-9` to avoid division by zero in proportional allocation.
+- Type/subject preference matching is **case-sensitive** string equality after casting fields to `str`.
+- Apply the max_difficulty_spread clamp only after computing difficulty adjustments and allocations (for reporting only), not fed back into scoring.
+- The trie MUST also index modules under the prefix path `[type]` (in addition to `[type, subject]` and `["", subject]`) so the type-only preference credit can be validated.
+
+#### Determinism and Tie-breaking Guarantees
+
+- Use exactly one deterministic RNG instance seeded solely from `student_profile["id"]` (seed derivation below). Reuse this same RNG for all randomized operations in the entire function, including both quiz sampling and synthetic score generation. Do not create any additional RNGs.
+- Seed derivation: if `id` is a numeric type and not a boolean, use `int(id)`; otherwise use `int(md5(str(id).encode("utf-8")).hexdigest(), 16) % (2**32)`. Booleans MUST NOT be treated as numbers; treat them as strings for hashing.
+- Quiz refinement behavior: `multi_phase_sampling(num_questions=3)` MUST append exactly one synthetic score per question directly inside the function to `performance_history`, using the same RNG instance as for sampling. These appended scores MUST be reflected in subsequent mastery/difficulty calculations without recreating or reseeding RNGs.
+- Variance in the mastery probability formula MUST be the sample variance with denominator `max(1, len(history) - 1)` before the square root, not the population variance.
+- If `current_path_tree` is missing or invalid, initialize the path with a virtual root node `1` and no edges, and compute depths on an undirected adjacency. When a module ID is not present in the tree, use the root node for depth.
+- Min-cost max-flow selection tie-breaking: when module scores are equal, selection MUST be deterministically broken by original module index (ascending). Do NOT alter costs for tie-breaking; costs MUST remain exactly `1.0 - module_score`. Implement tie-breaking via stable processing order in the shortest-path/priority-queue logic or any equivalent mechanism that preserves original index order for equal-cost choices.
+- Budget split (Largest Remainder/Hare–Niemeyer) MUST be performed in integer cents: compute exact quotas in cents, take floors, then distribute the remaining cents to the largest fractional remainders with deterministic tie-breaking by original module index (ascending). The final allocations MUST sum exactly to `max_flow_cost` and be rendered with two decimals.
+- Final numeric outputs (both `allocated_flow_cost` and `updated_difficulty`) MUST be rounded using Python’s `round(x, 2)` (banker’s rounding semantics) after all computations above, including the cents-based budget assignment and the post-analysis difficulty spread clamp.
+
+#### Function Signatures
+
+```python
+from typing import Dict, List, Any, Set, Optional, Tuple
+from dataclasses import dataclass
+
+# Main function
+def personalize_learning(student_profile: Dict[str, Any], learning_modules: List[Dict[str, Any]], constraints: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Personalizes the learning path for each student based on their profile, preferences, constraints, and predicted performance.
+
+    Args:
+        student_profile: Student data including performance, engagement, preferences, and current path tree
+        learning_modules: Available learning modules with id, type, subject, and difficulty
+        constraints: System constraints including max_flow_cost, priority_subjects, max_difficulty_spread
+
+    Returns:
+        Dict containing 'learning_path' with module allocations and updated difficulties
+    """
+    pass
+
+class PreferenceTrieNode:
+    """Trie node for storing module IDs and child nodes."""
+    def __init__(self) -> None:
+        """Initialize empty trie node with no children or module IDs."""
+        pass
+
+class PreferenceTrie:
+    """Trie for efficient module indexing by attributes."""
+
+    def __init__(self) -> None:
+        """Initialize empty trie with root node."""
+        pass
+
+    def index_module(self, module: Dict[str, Any]) -> None:
+        """
+        Index a learning module in the trie by its type and subject.
+
+        Args:
+            module: Module dict with 'id', 'type', and 'subject' fields
+        """
+        pass
+
+    def update_preference(self, keys: List[str], affected_module_ids: Set[int]) -> None:
+        """
+        Update trie nodes with affected module IDs for preference changes.
+
+        Args:
+            keys: Path keys (type, subject) to update
+            affected_module_ids: Set of module IDs affected by preference change
+        """
+        pass
+
+    def partial_match(self, keys_prefix: List[str]) -> Set[int]:
+        """
+        Find module IDs matching a partial key path.
+
+        Args:
+            keys_prefix: Partial path of keys to match
+
+        Returns:
+            Set of module IDs matching the prefix
+        """
+        pass
+
+    def preference_score(self, module: Dict[str, Any], preferences: Dict[str, List[str]]) -> float:
+        """
+        Compute preference score for a module based on student preferences.
+
+        Args:
+            module: Module to score with 'id', 'type', 'subject' fields
+            preferences: Student preferences with 'format' and 'topic_focus' lists
+
+        Returns:
+            Score between 0.0 and 1.0 indicating preference match strength
+        """
+        pass
+
+@dataclass
+class _Edge:
+    """Edge in flow network for min-cost max-flow algorithm."""
+    to: int          # Destination node
+    rev: int         # Reverse edge index
+    cap: int         # Edge capacity
+    cost: float      # Edge cost
+
+class MinCostMaxFlow:
+    """Standard min-cost max-flow implementation."""
+
+    def __init__(self, n: int) -> None:
+        """
+        Initialize flow network with n nodes.
+
+        Args:
+            n: Number of nodes in the network
+        """
+        pass
+
+    def add_edge(self, u: int, v: int, cap: int, cost: float) -> None:
+        """
+        Add directed edge from u to v with given capacity and cost.
+
+        Args:
+            u: Source node
+            v: Destination node
+            cap: Edge capacity
+            cost: Edge cost per unit flow
+        """
+        pass
+
+    def min_cost_flow(self, s: int, t: int, maxf: int) -> Tuple[int, float]:
+        """
+        Find minimum cost maximum flow from source to sink.
+
+        Args:
+            s: Source node
+            t: Sink node
+            maxf: Maximum flow to find
+
+        Returns:
+            Tuple of (flow_amount, total_cost)
+        """
+        pass
+
+class SegmentTree:
+    """Segment tree for range updates and point queries."""
+
+    def __init__(self, n: int) -> None:
+        """
+        Initialize segment tree for n elements.
+
+        Args:
+            n: Number of elements in the tree
+        """
+        pass
+
+    def range_add(self, l: int, r: int, val: float) -> None:
+        """
+        Add value to all elements in range [l, r).
+
+        Args:
+            l: Left bound (inclusive)
+            r: Right bound (exclusive)
+            val: Value to add
+        """
+        pass
+
+    def point_get(self, pos: int) -> float:
+        """
+        Get value at specific position.
+
+        Args:
+            pos: Position to query
+
+        Returns:
+            Value at the position
+        """
+        pass
+
+class HeavyLightDecomposition:
+    """HLD for learning path tree with segment tree support."""
+
+    def __init__(self, root: int, adjacency: Dict[int, List[int]]) -> None:
+        """
+        Initialize HLD for tree with given root and adjacency list.
+
+        Args:
+            root: Root node of the tree
+            adjacency: Adjacency list representation of the tree
+        """
+        pass
+
+    def add_difficulty_on_path(self, u: int, v: int, delta: float) -> None:
+        """
+        Add difficulty delta to all nodes on path from u to v.
+
+        Args:
+            u: Start node of path
+            v: End node of path
+            delta: Difficulty adjustment to apply
+        """
+        pass
+
+    def node_difficulty_bias(self, u: int) -> float:
+        """
+        Get current difficulty bias for a node.
+
+        Args:
+            u: Node to query
+
+        Returns:
+            Current difficulty bias value
+        """
+        pass
+
+class ProbabilisticRefiner:
+    """Bayesian estimator for mastery probability and difficulty adjustment."""
+
+    def __init__(self, performance_history: List[float], engagement_over_time: List[str], rng_seed=None) -> None:
+        """
+        Initialize refiner with student performance and engagement data.
+
+        Args:
+            performance_history: List of performance scores
+            engagement_over_time: List of engagement levels ('high', 'medium', 'low')
+            rng_seed: Optional integer seed used to create a local random.Random instance
+                for deterministic sampling (e.g., multi-phase quiz simulation). If None,
+                Python's default seeding is used; for full determinism, pass a seed
+                derived solely from the student_profile["id"].
+        """
+        pass
+
+    def mastery_probability(self) -> float:
+        """
+        Calculate probability of student mastery based on performance and engagement.
+
+        Returns:
+            Mastery probability between 0.05 and 0.95
+        """
+        pass
+
+    def difficulty_adjustment(self, base_difficulty: float) -> float:
+        """
+        Calculate difficulty adjustment based on mastery probability.
+
+        Args:
+            base_difficulty: Original difficulty level
+
+        Returns:
+            Difficulty adjustment factor
+        """
+        pass
+
+    def multi_phase_sampling(self, num_questions: int = 5) -> List[Tuple[int, bool]]:
+        """
+        Simulate multi-phase quiz sampling with probabilistic outcomes.
+
+        Args:
+            num_questions: Number of questions to simulate
+
+        Returns:
+            List of (question_id, correct) tuples
+        """
+        pass
+
+# Utility functions
+def _build_tree_from_nested_dict(tree: Dict[str, Any]) -> Tuple[int, Dict[int, List[int]]]:
+    """
+    Build tree structure from nested dictionary representation.
+
+    Args:
+        tree: Nested dict with 'node' and 'children' fields
+
+    Returns:
+        Tuple of (root_id, adjacency_dict)
+    """
+    pass
+
+def _distribute_budget(values: List[float], budget: float) -> List[float]:
+    """
+    Distribute budget proportionally based on values with rounding.
+
+    Args:
+        values: List of values to use for proportional distribution
+        budget: Total budget to distribute
+
+    Returns:
+        List of allocated amounts that sum to budget
+    """
+    pass
+```
+
+#### Sample Input/Output
+
+- Input:
+
+```
+student_profile = {
+    "id": 456,
+    "performance_history": [85, 92, 88],
+    "engagement_over_time": ["medium", "high", "low", "medium"],
+    "preferences": {
+        "format": ["interactive", "game-based"],
+        "topic_focus": ["mathematics", "physics"]
+    },
+    "current_path_tree": {
+        "node": 1,
+        "children": [
+            {"node": 2, "children": []},
+            {
+                "node": 3,
+                "children": [
+                    {"node": 4, "children": []}
+                ]
+            }
+        ]
+    }
+}
+
+learning_modules = [
+    {"id": 10, "type": "interactive", "subject": "mathematics", "difficulty": 4},
+    {"id": 11, "type": "game-based", "subject": "physics", "difficulty": 5},
+    {"id": 12, "type": "visual", "subject": "mathematics", "difficulty": 3}
+]
+
+constraints = {
+    "max_flow_cost": 100,
+    "priority_subjects": ["mathematics", "physics"],
+    "max_difficulty_spread": 2
+}
+```
+
+- Output Format:
+
+```
+{
+  "learning_path": [
+    {
+      "module_id": 10,
+      "allocated_flow_cost": 36.93,
+      "updated_difficulty": 4.52
+    },
+    {
+      "module_id": 11,
+      "allocated_flow_cost": 36.79,
+      "updated_difficulty": 5.49
+    },
+    {
+      "module_id": 12,
+      "allocated_flow_cost": 26.28,
+      "updated_difficulty": 3.55
+    }
+  ]
+}
+```
+
+#### Expected Output Format
+
+The output must be a dictionary containing the key "learning_path", mapping to a list of dictionaries. Each dictionary in this list should have:
+• "module_id": the module’s identification number.  
+• "allocated_flow_cost": the portion of the min-cost max-flow solution dedicated to this module under concurrent load.  
+• "updated_difficulty": the recalculated difficulty post-analysis of the student's performance, engagement trajectory, and trie-based preference matching.
+
+Starter Code:
+```python
+import hashlib
+import math
+import heapq
+import random
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple, Set, Any
+
+def personalize_learning(student_profile: Dict[str, Any], learning_modules: List[Dict[str, Any]], constraints: Dict[str, Any]) -> Dict[str, Any]:
+    ...
+```

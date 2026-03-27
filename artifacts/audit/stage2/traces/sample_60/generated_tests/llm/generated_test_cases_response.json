@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6DgSlpm6qk4sEs10kwlgggytSXA",
+  "object": "chat.completion",
+  "created": 1774397824,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[[\\\"insert\\\", 100], [\\\"insert\\\", 100], [\\\"bulk_insert\\\", 100], [\\\"query\\\", 100], [\\\"rollback\\\", 2], [\\\"query\\\", 100], [\\\"delete\\\", 100], [\\\"query\\\", 100], [\\\"rollback\\\", 1], [\\\"query\\\", 100]]\"\n      ],\n      \"focus\": \"Duplicates, bulk insert around the same value, repeated rollbacks and deletes to exercise instance-level removals and rollback ordering.\"\n    },\n    {\n      \"input_lines\": [\n        \"[[\\\"insert\\\", -10], [\\\"insert\\\", 0], [\\\"insert\\\", 5], [\\\"query\\\", -10], [\\\"rollback\\\", 3], [\\\"query\\\", 0], [\\\"bulk_insert\\\", 0], [\\\"query\\\", 1], [\\\"delete\\\", 0], [\\\"query\\\", 1]]\"\n      ],\n      \"focus\": \"Negative and zero prices, full rollback of recent history, then bulk insert at zero and deletes — edge cases for zero/negative handling and rollbacks that remove multiple operations.\"\n    },\n    {\n      \"input_lines\": [\n        \"[[\\\"query\\\", 1000], [\\\"insert\\\", 1], [\\\"insert\\\", 2], [\\\"insert\\\", 3], [\\\"bulk_insert\\\", 1000000], [\\\"query\\\", 999999], [\\\"delete\\\", 2], [\\\"rollback\\\", 2], [\\\"query\\\", 2], [\\\"rollback\\\", 10], [\\\"query\\\", 1000000]]\"\n      ],\n      \"focus\": \"Format-sensitive large values and queries on an initially empty structure, deletes and rollbacks (including rollback exceeding history) to test robustness under extreme/large inputs.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1318,
+    "completion_tokens": 1550,
+    "total_tokens": 2868,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1152,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

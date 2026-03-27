@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: collaborative_editor\n\nProblem Statement:\n### Problem Statement\n\nIn a **global collaborative text editing platform**, thousands of users simultaneously modify millions of distributed documents.  \nEach document is divided into multiple text **segments**, allowing independent editing, synchronization, and offline operation.  \nThe challenge is to maintain **consistency, concurrency control, and efficient prefix-based querying** under extreme scale — ensuring all edits remain conflict-free and recoverable after disconnections.\n\nTo achieve this, you must implement a **hybrid data structure** that combines:\n- A **Trie** for prefix-based text searches, and  \n- A **Segment-based Index** for partitioned text management and offline merge simulation.\n\nThis system should handle **real-time insertions, deletions, searches, and merges**, preserving all user changes while ensuring that concurrent edits do not corrupt shared data.\n\n---\n\n### Objectives\n\n1. **Hybrid Structure Integration**  \n   Combine a Trie with a segment-based indexing approach to support fast lookups and dynamic segment management.\n\n2. **Conflict Resolution**  \n   When multiple users edit the same segment, ensure all versions are preserved and merged deterministically.\n\n3. **Offline Merge Simulation**  \n   Support operations that merge offline edits safely into the main shared state.\n\n4. **Real-Time Search**  \n   Allow prefix-based and segment-based searches that retrieve all relevant text fragments efficiently.\n\n5. **Fault Tolerance and Efficiency**  \n   Handle several hundred sequential operations while maintaining internal consistency and preventing corruption.\n\n---\n### Constraints\n\n* `1 <= len(operations) <= 500`\n* No external Python libraries allowed.\n* Focus on correctness and efficiency, not true network concurrency.\n* Each primary operation (`insert`, `delete`, `search`, `merge_offline`) should execute in **O(N)** or better time.\n* The hybrid data structure must remain internally consistent after every mutation.\n\n---\n### Function Signature\n\n```python\ndef collaborative_editor(operations: list[dict[str, str]]) -> dict[str, list[str]]:\n    pass\n````\n\n---\n\n### Parameters\n\n* **operations:** A list of JSON-compatible operation objects, where each operation has:\n\n  * `\"user_id\"` — Unique identifier of the user performing the action.\n  * `\"operation\"` — One of `\"insert\"`, `\"delete\"`, `\"search\"`, or `\"merge_offline\"`.\n  * `\"data\"` — Segment identifier and content, e.g., `\"segment_1:collab\"`.\n\n---\n\n### Return Format\n\nThe function must return a dictionary with the key `\"matches\"` containing a list of words retrieved by the **last `\"search\"` operation** in the provided operations list.\n\nIf no `\"search\"` operation is present, the function should return an empty dictionary `{}`.\n\n---\n\n### Example\n\n**Input:**\n\n```python\noperations = [\n    {\"user_id\": \"userA\", \"operation\": \"insert\", \"data\": \"segment_1:collab\"},\n    {\"user_id\": \"userB\", \"operation\": \"insert\", \"data\": \"segment_1:collective\"},\n    {\"user_id\": \"userC\", \"operation\": \"delete\", \"data\": \"segment_1:collective\"},\n    {\"user_id\": \"userD\", \"operation\": \"insert\", \"data\": \"segment_2:colony\"},\n    {\"user_id\": \"userE\", \"operation\": \"search\", \"data\": \"segment_1:col\"}\n]\n```\n\n**Output:**\n\n```python\n{\"matches\": [\"collab\"]}\n```\n\n---\n\n### Edge Cases\n\n1. Concurrent inserts into the same segment by different users.\n2. Deletions of non-existent text entries.\n3. Offline merges from disconnected nodes.\n4. Simultaneous searches and updates on shared segments.\n5. Multiple segment isolation ensuring no cross-contamination of data.\n\n---\n\n\n\n---\n\n### Expected Output Format\n\nReturn a dictionary of the form:\n\n```python\n{\"matches\": [\"word1\", \"word2\", ...]}\n```\n\nrepresenting all valid matches from the **last search** in the operation list.\nIf no search is performed, return `{}`.\n\nStarter Code:\n```python\nfrom typing import List, Dict\n\ndef collaborative_editor(operations: List[Dict[str, str]]) -> Dict[str, List[str]]:\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[{\\\"user_id\\\": \\\"userA\\\", \\\"operation\\\": \\\"insert\\\", \\\"data\\\": \\\"segment_1:collab\\\"}, {\\\"user_id\\\": \\\"userB\\\", \\\"operation\\\": \\\"insert\\\", \\\"data\\\": \\\"segment_1:collective\\\"}, {\\\"user_id\\\": \\\"userC\\\", \\\"operation\\\": \\\"search\\\", \\\"data\\\": \\\"segment_1:col\\\"}]\",\n    \"output\": \"{\\\"matches\\\": [\\\"collab\\\", \\\"collective\\\"]}\"\n  },\n  {\n    \"input\": \"[{\\\"user_id\\\": \\\"userA\\\", \\\"operation\\\": \\\"insert\\\", \\\"data\\\": \\\"segment_2:team\\\"}, {\\\"user_id\\\": \\\"userB\\\", \\\"operation\\\": \\\"delete\\\", \\\"data\\\": \\\"segment_2:team\\\"}, {\\\"user_id\\\": \\\"userC\\\", \\\"operation\\\": \\\"search\\\", \\\"data\\\": \\\"segment_2:te\\\"}]\",\n    \"output\": \"{\\\"matches\\\": []}\"\n  },\n  {\n    \"input\": \"[{\\\"user_id\\\": \\\"userA\\\", \\\"operation\\\": \\\"search\\\", \\\"data\\\": \\\"segment_3:hel\\\"}]\",\n    \"output\": \"{\\\"matches\\\": []}\"\n  }\n]\n"
+    }
+  ]
+}

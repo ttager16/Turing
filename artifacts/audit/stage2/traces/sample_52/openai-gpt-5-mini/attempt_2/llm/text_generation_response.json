@@ -1,0 +1,76 @@
+{
+  "id": "resp_05f77c772b1fece20069c327b744b881a2b68591bcfe568102",
+  "object": "response",
+  "created_at": 1774397367,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774397378,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_05f77c772b1fece20069c327b7c17881a28a675665effebdea",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_05f77c772b1fece20069c327b80e2c81a29a9580341703071b",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from collections import deque\nfrom typing import Dict, List, Union\n\ndef compute_dcei(temperature_readings, power_readings, window_size) -> Dict[str, Union[List[float], str]]:\n    # Validation order:\n    # a. Check for empty lists\n    if not isinstance(temperature_readings, list) or not isinstance(power_readings, list):\n        return {'error': 'Unprocessable readings'}\n    if len(temperature_readings) == 0 and len(power_readings) == 0:\n        return {'error': 'No data provided'}\n    # b. Check for equal lengths\n    if len(temperature_readings) != len(power_readings):\n        return {'error': 'Mismatched input lengths'}\n    # c. Check for valid window size\n    if not isinstance(window_size, int) or window_size <= 0 or window_size > len(temperature_readings):\n        return {'error': 'Invalid window size'}\n    # d. Check for valid data types and value ranges\n    for x in temperature_readings:\n        if not isinstance(x, int) or x < -1000 or x > 1000:\n            return {'error': 'Unprocessable readings'}\n    for x in power_readings:\n        if not isinstance(x, int) or x < -1000 or x > 1000:\n            return {'error': 'Unprocessable readings'}\n    n = len(temperature_readings)\n    temp_max = deque()\n    temp_min = deque()\n    power_max = deque()\n    power_min = deque()\n    results: List[float] = []\n    for i in range(n):\n        # Remove expired indices from fronts (must be within current window)\n        while temp_max and temp_max[0] <= i - window_size:\n            temp_max.popleft()\n        while temp_min and temp_min[0] <= i - window_size:\n            temp_min.popleft()\n        while power_max and power_max[0] <= i - window_size:\n            power_max.popleft()\n        while power_min and power_min[0] <= i - window_size:\n            power_min.popleft()\n        # Maintain monotonic deques by removing from back\n        # temp_max: decreasing temperatures\n        while temp_max and temperature_readings[temp_max[-1]] <= temperature_readings[i]:\n            temp_max.pop()\n        temp_max.append(i)\n        # temp_min: increasing temperatures\n        while temp_min and temperature_readings[temp_min[-1]] >= temperature_readings[i]:\n            temp_min.pop()\n        temp_min.append(i)\n        # power_max: decreasing powers\n        while power_max and power_readings[power_max[-1]] <= power_readings[i]:\n            power_max.pop()\n        power_max.append(i)\n        # power_min: increasing powers\n        while power_min and power_readings[power_min[-1]] >= power_readings[i]:\n            power_min.pop()\n        power_min.append(i)\n        # When a full window is formed, compute DCEI\n        if i >= window_size - 1:\n            # Ensure deque heads are within window (already maintained)\n            max_temp = temperature_readings[temp_max[0]]\n            min_temp = temperature_readings[temp_min[0]]\n            max_power = power_readings[power_max[0]]\n            min_power = power_readings[power_min[0]]\n            temp_fluct = int(max_temp - min_temp)\n            power_delta = int(max_power - min_power)\n            if power_delta == 0:\n                return {'error': 'Division by zero detected'}\n            if temp_fluct == 0:\n                return {'error': 'Undefined fluctuation'}\n            dcei = round(temp_fluct / power_delta, 2)\n            results.append(dcei)\n    return {'result': results}"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1760,
+    "input_tokens_details": {
+      "cached_tokens": 1664
+    },
+    "output_tokens": 797,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2557
+  },
+  "user": null,
+  "metadata": {}
+}

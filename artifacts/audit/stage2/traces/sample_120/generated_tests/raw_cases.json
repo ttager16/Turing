@@ -1,0 +1,209 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        {
+          "start": "A",
+          "end": "B",
+          "cost": -100,
+          "bandwidth": 200,
+          "latency": 1,
+          "reliability": 0.95
+        },
+        {
+          "start": "A",
+          "end": "B",
+          "cost": -50,
+          "bandwidth": 200,
+          "latency": 1,
+          "reliability": 0.949999998
+        },
+        {
+          "start": "B",
+          "end": "C",
+          "cost": 10,
+          "bandwidth": 150,
+          "latency": 2,
+          "reliability": 0.95
+        },
+        {
+          "start": "A",
+          "end": "A",
+          "cost": 0,
+          "bandwidth": 100,
+          "latency": 1,
+          "reliability": 0.99
+        }
+      ],
+      100,
+      10,
+      0.95
+    ],
+    "input_lines": [
+      "[\"A\", \"B\", \"C\"]",
+      "[{\"start\": \"A\", \"end\": \"B\", \"cost\": -100, \"bandwidth\": 200, \"latency\": 1, \"reliability\": 0.95}, {\"start\": \"A\", \"end\": \"B\", \"cost\": -50, \"bandwidth\": 200, \"latency\": 1, \"reliability\": 0.949999998}, {\"start\": \"B\", \"end\": \"C\", \"cost\": 10, \"bandwidth\": 150, \"latency\": 2, \"reliability\": 0.95}, {\"start\": \"A\", \"end\": \"A\", \"cost\": 0, \"bandwidth\": 100, \"latency\": 1, \"reliability\": 0.99}]",
+      "100",
+      "10",
+      "0.95"
+    ],
+    "focus": "Parallel edges with negative cost; one parallel edge just below reliability threshold (rejected); self-loop ignored; ensure lowest-cost valid parallel edge chosen."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        "X",
+        "Y",
+        "Z",
+        "W"
+      ],
+      [
+        {
+          "start": "X",
+          "end": "Y",
+          "cost": 10,
+          "bandwidth": 100,
+          "latency": 5,
+          "reliability": 0.95
+        },
+        {
+          "start": "Y",
+          "end": "Z",
+          "cost": 5,
+          "bandwidth": 10,
+          "latency": 5,
+          "reliability": 0.99
+        },
+        {
+          "start": "Z",
+          "end": "W",
+          "cost": 1,
+          "bandwidth": 100,
+          "latency": 1000000000,
+          "reliability": 0.99
+        },
+        {
+          "start": "Y",
+          "end": "W",
+          "cost": 2,
+          "bandwidth": 100,
+          "latency": 10,
+          "reliability": 0.899999998
+        },
+        {
+          "start": "X",
+          "end": "Z",
+          "cost": 50,
+          "bandwidth": 0,
+          "latency": 1,
+          "reliability": 0.99
+        }
+      ],
+      50,
+      1000,
+      0.9
+    ],
+    "input_lines": [
+      "[\"X\", \"Y\", \"Z\", \"W\"]",
+      "[{\"start\": \"X\", \"end\": \"Y\", \"cost\": 10, \"bandwidth\": 100, \"latency\": 5, \"reliability\": 0.95}, {\"start\": \"Y\", \"end\": \"Z\", \"cost\": 5, \"bandwidth\": 10, \"latency\": 5, \"reliability\": 0.99}, {\"start\": \"Z\", \"end\": \"W\", \"cost\": 1, \"bandwidth\": 100, \"latency\": 1000000000, \"reliability\": 0.99}, {\"start\": \"Y\", \"end\": \"W\", \"cost\": 2, \"bandwidth\": 100, \"latency\": 10, \"reliability\": 0.899999998}, {\"start\": \"X\", \"end\": \"Z\", \"cost\": 50, \"bandwidth\": 0, \"latency\": 1, \"reliability\": 0.99}]",
+      "50",
+      "1000",
+      "0.9"
+    ],
+    "focus": "Constraint fragmentation / disconnected after filtering: zero bandwidth, huge-latency (≥1e9) rejection, and a reliability value slightly below threshold ensuring no spanning tree -> return []."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        "a",
+        "A",
+        "b",
+        "B"
+      ],
+      [
+        {
+          "start": "a",
+          "end": "b",
+          "cost": 10,
+          "bandwidth": 10,
+          "latency": 5,
+          "reliability": 0.99
+        },
+        {
+          "start": "A",
+          "end": "B",
+          "cost": 10,
+          "bandwidth": 10,
+          "latency": 5,
+          "reliability": 0.99
+        },
+        {
+          "start": "a",
+          "end": "A",
+          "cost": 10,
+          "bandwidth": 0,
+          "latency": 5,
+          "reliability": 0.99
+        },
+        {
+          "start": "a",
+          "end": "A",
+          "cost": 10,
+          "bandwidth": 10,
+          "latency": 5,
+          "reliability": 0.99
+        },
+        {
+          "start": "b",
+          "end": "B",
+          "cost": 10,
+          "bandwidth": 10,
+          "latency": 5,
+          "reliability": 0.99
+        },
+        {
+          "start": "a",
+          "end": "B",
+          "cost": 10,
+          "bandwidth": 10,
+          "latency": 5,
+          "reliability": 0.99
+        },
+        {
+          "start": "A",
+          "end": "b",
+          "cost": 10,
+          "bandwidth": 10,
+          "latency": 5,
+          "reliability": 0.99
+        },
+        {
+          "start": "b",
+          "end": "b",
+          "cost": 1,
+          "bandwidth": 10,
+          "latency": 1,
+          "reliability": 0.99
+        }
+      ],
+      1,
+      100,
+      0.5
+    ],
+    "input_lines": [
+      "[\"a\", \"A\", \"b\", \"B\"]",
+      "[{\"start\": \"a\", \"end\": \"b\", \"cost\": 10, \"bandwidth\": 10, \"latency\": 5, \"reliability\": 0.99}, {\"start\": \"A\", \"end\": \"B\", \"cost\": 10, \"bandwidth\": 10, \"latency\": 5, \"reliability\": 0.99}, {\"start\": \"a\", \"end\": \"A\", \"cost\": 10, \"bandwidth\": 0, \"latency\": 5, \"reliability\": 0.99}, {\"start\": \"a\", \"end\": \"A\", \"cost\": 10, \"bandwidth\": 10, \"latency\": 5, \"reliability\": 0.99}, {\"start\": \"b\", \"end\": \"B\", \"cost\": 10, \"bandwidth\": 10, \"latency\": 5, \"reliability\": 0.99}, {\"start\": \"a\", \"end\": \"B\", \"cost\": 10, \"bandwidth\": 10, \"latency\": 5, \"reliability\": 0.99}, {\"start\": \"A\", \"end\": \"b\", \"cost\": 10, \"bandwidth\": 10, \"latency\": 5, \"reliability\": 0.99}, {\"start\": \"b\", \"end\": \"b\", \"cost\": 1, \"bandwidth\": 10, \"latency\": 1, \"reliability\": 0.99}]",
+      "1",
+      "100",
+      "0.5"
+    ],
+    "focus": "Case-sensitive and special node names ('a' != 'A'), many equal-cost cycles and parallel edges where one parallel has zero bandwidth (invalid); tests tie-handling and cycle avoidance."
+  }
+]

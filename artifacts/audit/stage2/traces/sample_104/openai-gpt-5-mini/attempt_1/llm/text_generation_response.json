@@ -1,0 +1,76 @@
+{
+  "id": "resp_022c27cccd9e22af0069c335e47174819d9a4b18ec9c03187b",
+  "object": "response",
+  "created_at": 1774400997,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774401041,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_022c27cccd9e22af0069c335e60700819da54da3b75996f85d",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_022c27cccd9e22af0069c335e63a40819d9954b69776009582",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Any, Dict, List, Tuple\n\ndef optimize_resource_allocation(graph: \"BipartiteGraph\") -> List[List[str]]:\n    # Helper parsers\n    def to_int(x, default=0):\n        try:\n            if isinstance(x, str) and x.strip()==\"\":\n                return default\n            return int(float(x))\n        except Exception:\n            return default\n    def to_float(x, default=1e9):\n        try:\n            return float(x)\n        except Exception:\n            return default\n\n    # Deep copy-ish handling input dicts\n    providers_in = { }  # id -> dict\n    consumers_in = { }  # id -> dict\n    edges_in = {}  # (p,c) -> [max_edge, unit_cost]\n    prev_alloc = {}\n    ops = graph.get(\"ops\", [])\n    # Normalize providers list, later entries overwrite earlier\n    for p in graph.get(\"providers\", []):\n        pid = str(p.get(\"id\"))\n        providers_in[pid] = dict(p)\n        providers_in[pid]['id'] = pid\n    for c in graph.get(\"consumers\", []):\n        cid = str(c.get(\"id\"))\n        consumers_in[cid] = dict(c)\n        consumers_in[cid]['id'] = cid\n    for e in graph.get(\"edges\", []):\n        if not isinstance(e, (list,tuple)) or len(e) < 4:\n            continue\n        pid, cid, me, uc = str(e[0]), str(e[1]), e[2], e[3]\n        edges_in[(pid,cid)] = [me, uc]\n    for pa in graph.get(\"prev_alloc\", []) or []:\n        if len(pa) >= 3:\n            key = (str(pa[0]), str(pa[1]))\n            prev_alloc[key] = prev_alloc.get(key, 0) + max(0, to_int(pa[2],0))\n    # Normalize numeric fields with coercions\n    def normalize_provider(p):\n        p = dict(p)\n        p['id'] = str(p.get('id'))\n        p['cap'] = max(0, to_int(p.get('cap',0),0))\n        p['em_cap'] = max(0, to_int(p.get('em_cap',0),0))\n        p['priority'] = max(0, to_int(p.get('priority',0),0))\n        state = p.get('state','normal')\n        if state not in ('normal','peak','maintenance'):\n            state = 'normal'\n        p['state'] = state\n        p['layer'] = to_int(p.get('layer',0),0)\n        p['segment'] = str(p.get('segment',''))\n        return p\n    def normalize_consumer(c):\n        c = dict(c)\n        c['id'] = str(c.get('id'))\n        c['dem'] = max(0, to_int(c.get('dem',0),0))\n        tier = c.get('tier','normal')\n        if tier not in ('critical','essential','normal'):\n            tier = 'normal'\n        c['tier'] = tier\n        c['layer'] = to_int(c.get('layer',0),0)\n        c['segment'] = str(c.get('segment',''))\n        return c\n    def normalize_edge(me_uc):\n        me, uc = me_uc\n        me = max(0, to_int(me,0))\n        uc = to_float(uc,1e9)\n        return [me, uc]\n\n    providers = {}\n    for pid,p in providers_in.items():\n        providers[pid] = normalize_provider(p)\n    consumers = {}\n    for cid,c in consumers_in.items():\n        consumers[cid] = normalize_consumer(c)\n    edges = {}\n    for (pid,cid),(me,uc) in edges_in.items():\n        edges[(pid,cid)] = normalize_edge((me,uc))\n\n    # Apply ops; ops can be flattened list or list-of-lists\n    ops_list = []\n    if isinstance(ops, list) and ops and not (isinstance(ops[0], (list,tuple))):\n        # flattened? uncertain; but accept if length matches\n        # try to chunk by first token types; safer: treat as given list-of-lists if elements are lists\n        # If it's flat, ignore (ambiguous). But spec: accept either list-of-lists or single flattened op.\n        ops_list = [ops]\n    else:\n        ops_list = list(ops)\n\n    # Bound checking helpers\n    def bounds_ok(providers_d, consumers_d, edges_d):\n        if not (0 <= len(providers_d) <= 20): return False\n        if not (0 <= len(consumers_d) <= 30): return False\n        if not (0 <= len(edges_d) <= 200): return False\n        s_caps = sum(max(0, to_int(p['cap'],0)) + max(0, to_int(p.get('em_cap',0),0)) for p in providers_d.values())\n        s_dem = sum(max(0, to_int(c['dem'],0)) for c in consumers_d.values())\n        if s_caps > 200 or s_dem > 200: return False\n        return True\n\n    tier_weight = {'critical':3,'essential':2,'normal':1}\n\n    for op in ops_list:\n        if not op or not isinstance(op, (list,tuple)): continue\n        typ = op[0]\n        try:\n            if typ == \"set_state\":\n                _, pid, state = op\n                pid = str(pid)\n                if pid in providers and state in ('normal','peak','maintenance'):\n                    old = dict(providers)\n                    providers[pid]['state'] = state\n                    if not bounds_ok(providers, consumers, edges):\n                        providers = old\n            elif typ == \"set_capacity\":\n                _, pid, cap, em_cap = op\n                pid = str(pid)\n                if pid in providers:\n                    old = dict(providers)\n                    providers[pid]['cap'] = max(0, to_int(cap,0))\n                    providers[pid]['em_cap'] = max(0, to_int(em_cap,0))\n                    if not bounds_ok(providers, consumers, edges):\n                        providers = old\n            elif typ == \"merge_consumers\":\n                _, new_id, ids = op\n                new_id = str(new_id)\n                ids = [str(x) for x in ids]\n                # check all exist and same layer\n                if not ids: continue\n                exist = all(i in consumers for i in ids)\n                if not exist: continue\n                layers = {consumers[i]['layer'] for i in ids}\n                if len(layers)!=1: continue\n                old_providers = dict(providers); old_consumers = dict(consumers); old_edges = dict(edges)\n                total_dem = sum(consumers[i]['dem'] for i in ids)\n                # tier highest numerical weight; tie -> first id in list\n                weights = [(tier_weight[consumers[i]['tier']], i) for i in ids]\n                maxw = max(w for w,i in weights)\n                chosen_tier = None\n                for i in ids:\n                    if tier_weight[consumers[i]['tier']] == maxw:\n                        chosen_tier = consumers[i]['tier']; break\n                newc = {'id':new_id, 'dem': total_dem, 'tier': chosen_tier, 'layer': consumers[ids[0]]['layer'], 'segment': consumers[ids[0]]['segment']}\n                # remove old ids\n                for i in ids:\n                    consumers.pop(i, None)\n                    # remove edges to them\n                    for k in list(edges.keys()):\n                        if k[1] == i:\n                            edges.pop(k,None)\n                consumers[new_id] = normalize_consumer(newc)\n                if not bounds_ok(providers, consumers, edges):\n                    providers = old_providers; consumers = old_consumers; edges = old_edges\n            elif typ == \"split_consumer\":\n                _, old_id, parts = op\n                old_id = str(old_id)\n                if old_id not in consumers: continue\n                # parts is list of dicts\n                old_providers = dict(providers); old_consumers = dict(consumers); old_edges = dict(edges)\n                total_dem_parts = 0\n                new_parts = []\n                ok = True\n                for part in parts:\n                    if not isinstance(part, dict) or 'id' not in part:\n                        ok = False; break\n                    pid = str(part['id'])\n                    p = {'id':pid, 'dem': part.get('dem',0), 'tier': part.get('tier', 'normal'), 'layer': part.get('layer', consumers[old_id]['layer']), 'segment': part.get('segment', consumers[old_id]['segment'])}\n                    p = normalize_consumer(p)\n                    total_dem_parts += p['dem']\n                    new_parts.append(p)\n                if not ok: continue\n                # optionally allow mismatch in demand? Spec: remove old. If op would violate bounds ignore.\n                consumers.pop(old_id, None)\n                # remove edges to old_id\n                for k in list(edges.keys()):\n                    if k[1] == old_id:\n                        edges.pop(k,None)\n                for p in new_parts:\n                    consumers[p['id']] = p\n                if not bounds_ok(providers, consumers, edges):\n                    providers = old_providers; consumers = old_consumers; edges = old_edges\n            elif typ == \"add_edge\":\n                _, pid, cid, me, uc = op\n                pid = str(pid); cid = str(cid)\n                old_edges = dict(edges)\n                edges[(pid,cid)] = normalize_edge((me,uc))\n                if not bounds_ok(providers, consumers, edges):\n                    edges = old_edges\n            elif typ == \"remove_edge\":\n                _, pid, cid = op\n                pid = str(pid); cid = str(cid)\n                if (pid,cid) in edges:\n                    old_edges = dict(edges)\n                    edges.pop((pid,cid),None)\n                    if not bounds_ok(providers, consumers, edges):\n                        edges = old_edges\n        except Exception:\n            continue\n\n    # After ops, re-normalize data structures\n    providers = {pid: normalize_provider(p) for pid,p in providers.items()}\n    consumers = {cid: normalize_consumer(c) for cid,c in consumers.items()}\n    edges = {k: normalize_edge(v) for k,v in edges.items()}\n\n    # Usable edges only when both endpoints exist and layer equal; we'll check per use.\n    # Compute usable capacity per provider by state\n    def usable_cap(p):\n        st = p['state']\n        if st == 'maintenance':\n            return 0\n        if st == 'normal':\n            return p['cap']\n        if st == 'peak':\n            return p['cap'] + p.get('em_cap',0)\n        return p['cap']\n\n    # Initialize remaining capacities and demands, and edge remaining\n    prov_rem = {pid: max(0, usable_cap(p)) for pid,p in providers.items()}\n    cons_rem = {cid: max(0, c['dem']) for cid,c in consumers.items()}\n    edge_rem = {}\n    edge_cost = {}\n    for (pid,cid),(me,uc) in edges.items():\n        # only usable if both endpoints exist and same layer\n        if pid in providers and cid in consumers and providers[pid]['layer'] == consumers[cid]['layer']:\n            edge_rem[(pid,cid)] = max(0, me)\n            edge_cost[(pid,cid)] = uc\n    # prev_alloc map for indicator per pair >0\n    prev_present = {k: (v>0) for k,v in prev_alloc.items()}\n\n    # Allocation result: list of [p,c] pairs each unit\n    allocation = []\n\n    # Precompute list of consumers eligible at all (with at least one provider edge and provider cap>0)\n    # We'll loop unit-by-unit as per rules\n    # For lexicographic weighted max-min we need allocated_i / (weight * dem_i)\n    allocated = {cid:0 for cid in consumers.keys()}\n\n    # Total possible units bounded\n    total_possible = sum(cons_rem.values())\n    # Loop until can't allocate more\n    while True:\n        # Build list of consumers with unmet demand and at least one eligible provider with positive capacity and edge rem\n        candidates = []\n        for cid, rem_dem in cons_rem.items():\n            if rem_dem <= 0: continue\n            # check if any provider eligible\n            has = False\n            for pid in providers.keys():\n                if prov_rem.get(pid,0) <= 0: continue\n                if (pid,cid) not in edge_rem: continue\n                if edge_rem[(pid,cid)] <= 0: continue\n                # layer check already enforced in edge_rem construction\n                has = True; break\n            if has:\n                w = tier_weight.get(consumers[cid]['tier'],1)\n                denom = w * max(1, consumers[cid]['dem'])\n                val = allocated.get(cid,0) / denom\n                candidates.append((val, cid))\n        if not candidates:\n            break\n        # choose consumer minimizing value, tie-break by consumer_id lexicographic\n        candidates.sort(key=lambda x: (x[0], x[1]))\n        chosen_cid = candidates[0][1]\n        # For chosen consumer, pick provider per effective_cost formula among eligible providers\n        prov_list = []\n        for pid in providers.keys():\n            if prov_rem.get(pid,0) <= 0: continue\n            if (pid,chosen_cid) not in edge_rem: continue\n            if edge_rem[(pid,chosen_cid)] <= 0: continue\n            # unit_cost\n            uc = edge_cost.get((pid,chosen_cid), 1e9)\n            prio = providers[pid].get('priority',0)\n            indicator = 0 if prev_present.get((pid,chosen_cid), False) else 1\n            eff = uc - 0.1 * prio + 0.5 * indicator\n            prov_list.append((eff, pid))\n        if not prov_list:\n            # no eligible provider for this consumer anymore; remove consumer from consideration\n            cons_rem[chosen_cid] = 0\n            continue\n        # tie-break by (provider_id, consumer_id) lexicographic when eff equal: include consumer id\n        prov_list.sort(key=lambda x: (round(x[0],12), x[1], chosen_cid))\n        chosen_pid = prov_list[0][1]\n        # allocate one unit\n        allocation.append([chosen_pid, chosen_cid])\n        prov_rem[chosen_pid] -= 1\n        cons_rem[chosen_cid] -= 1\n        edge_rem[(chosen_pid,chosen_cid)] -= 1\n        allocated[chosen_cid] = allocated.get(chosen_cid,0) + 1\n        # loop continues\n        # Stop if allocations exceed 200 units as a safety\n        if len(allocation) >= 200:\n            break\n\n    return allocation"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1494,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 3218,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4712
+  },
+  "user": null,
+  "metadata": {}
+}

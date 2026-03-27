@@ -1,0 +1,137 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Smart-City Multi-Level Resource Allocation — Deterministic, Cost-Aware Matching
+
+### Problem
+Allocate utilities (water, electricity, bandwidth) from provider nodes to consumer nodes on a **multi-level bipartite graph** with integer capacities/demands, layer compatibility, consumer merge/split operations, and provider maintenance/peak states. Output **only** the final allocation.
+
+### Single Entry Function
+```python
+def optimize_resource_allocation(graph: "BipartiteGraph") -> list[list[str]]:
+    ...
+````
+
+### Input (`graph`)
+
+JSON-serializable dict:
+
+* `providers`: list of dicts
+  `id: str`, `cap: int>=0`, `em_cap: int>=0`, `priority: int>=0`, `state: "normal"|"peak"|"maintenance"`, `layer: int`, `segment: str`
+* `consumers`: list of dicts
+  `id: str`, `dem: int>=0`, `tier: "critical"|"essential"|"normal"`, `layer: int`, `segment: str`
+* `edges`: list of `[provider_id: str, consumer_id: str, max_edge: int>=0, unit_cost: float]`
+  Edges **may exist before endpoints**; an edge becomes **usable** only when both endpoints exist **and** `provider.layer == consumer.layer`.
+* `prev_alloc` (optional): list of `[provider_id, consumer_id, amount:int>=0]` describing a previous allocation baseline.
+* `ops`: ordered list of operations applied **before** allocation. Accept either a list-of-lists or a single flattened op:
+
+  1. `["set_state", provider_id, state]`
+  2. `["set_capacity", provider_id, cap, em_cap]`
+  3. `["merge_consumers", new_id, [consumer_ids...]]`
+     Demand = sum of merged consumers; tier = **tier with the highest numerical weight** (weights below); layer = common layer; segment = first consumer’s segment; old IDs removed.
+     *If multiple tiers tie in weight, pick the tier of the first ID in the `consumer_ids` list.*
+  4. `["split_consumer", old_id, [{"id","dem","tier","layer","segment"}, ...]]` (old removed)
+  5. `["add_edge", provider_id, consumer_id, max_edge, unit_cost]` (replaces if exists)
+  6. `["remove_edge", provider_id, consumer_id]`
+
+### Output
+
+A list of `(provider_id, consumer_id)` pairs; **each pair equals one unit** of allocation. Return `[]` if no feasible allocation.
+
+### Deterministic Rules
+
+1. **Normalization**
+
+   * Negative `cap`, `em_cap`, `dem`, `max_edge` → **coerce to `0`**.
+   * Numeric strings are parsed; **non-parsable numeric fields** are coerced to safe defaults (`0` for integers, `1e9` for `unit_cost`).
+   * Provider usable capacity by state:
+     `maintenance → 0`, `normal → cap`, `peak → cap + em_cap`.
+
+2. **Fairness (Lexicographic Weighted Max-Min)**
+
+   * Tier weights: `critical=3`, `essential=2`, `normal=1`.
+   * Repeat until no more feasible units:
+
+     * Among consumers with unmet demand that have at least one eligible provider, choose the consumer minimizing
+       `allocated_i / (weight(tier_i) * dem_i)`.
+       Tie-break by `consumer_id` (lexicographic).
+
+3. **Provider Choice per Unit**
+
+   * For the chosen consumer, among eligible providers (positive remaining capacity, valid usable edge), minimize:
+
+     ```
+     effective_cost = unit_cost
+                      - 0.1 * priority
+                      + 0.5 * I[(provider,consumer) not in prev_alloc with amount>0]
+     ```
+   * **Indicator definition:** `I[condition] = 1` if the condition is true, else `0`.
+   * Tie-break by `(provider_id, consumer_id)` (lexicographic).
+
+4. **Layer & Edge Constraints**
+
+   * Usable only if `provider.layer == consumer.layer`.
+   * Enforce per-edge `max_edge` across all units for `(provider, consumer)`.
+
+5. **Operations & Bounds**
+
+   * Apply `ops` **in order**. If applying an op would violate bounds, **ignore that op**.
+   * Bounds after ops:
+     `0 ≤ len(providers) ≤ 20`, `0 ≤ len(consumers) ≤ 30`, `0 ≤ len(edges) ≤ 200`,
+     `sum(cap)+sum(em_cap) ≤ 200`, `sum(dem) ≤ 200`.
+     IDs are expected unique within their sets; if duplicates appear, later entries **deterministically overwrite** earlier ones.
+
+6. **Determinism**
+
+   * No randomness; all selections use the specified tie-breakers only.
+
+### Complexity Target (verifiable locally)
+
+* With the stated bounds, a unit-by-unit allocator should complete within
+  `O(U * (log C + log P + log E))`, where `U = total allocated units ≤ 200`.
+
+### Example
+
+**Input**
+
+```python
+graph = {
+  "providers": [
+    {"id":"P1","cap":5,"em_cap":2,"priority":3,"state":"normal","layer":0,"segment":"S1"},
+    {"id":"P2","cap":3,"em_cap":1,"priority":1,"state":"maintenance","layer":0,"segment":"S1"}
+  ],
+  "consumers": [
+    {"id":"C1","dem":4,"tier":"critical","layer":0,"segment":"Z1"},
+    {"id":"C2","dem":2,"tier":"normal","layer":0,"segment":"Z1"}
+  ],
+  "edges": [
+    ["P1","C1",5,2.0],
+    ["P1","C2",2,1.0],
+    ["P2","C1",3,1.5]
+  ],
+  "prev_alloc": [["P1","C2",1]],
+  "ops": [
+    ["set_state","P2","normal"]
+  ]
+}
+```
+
+**Output**
+
+```python
+[["P1","C1"], ["P1","C1"], ["P1","C1"], ["P1","C1"], ["P1","C2"]]
+```
+
+Starter Code:
+```python
+# main.py
+from typing import Any, Dict, List, Tuple
+
+def optimize_resource_allocation(graph: "BipartiteGraph") -> List[List[str]]:
+```

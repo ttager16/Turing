@@ -1,0 +1,195 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        {
+          "transaction_id": 201,
+          "branch_id": "R1",
+          "risk_score": 110
+        },
+        {
+          "transaction_id": 202,
+          "branch_id": "HQ",
+          "risk_score": 0
+        },
+        {
+          "transaction_id": 203,
+          "branch_id": "R2",
+          "risk_score": 50.5
+        },
+        {
+          "transaction_id": 204,
+          "branch_id": "R1",
+          "risk_score": 95
+        }
+      ],
+      [
+        {
+          "branch_id": "HQ",
+          "bandwidth": 50,
+          "failure_probability": 0.01
+        },
+        {
+          "branch_id": "R1",
+          "bandwidth": 30,
+          "failure_probability": 0.02
+        },
+        {
+          "branch_id": "R2",
+          "bandwidth": 10,
+          "failure_probability": 0.5
+        }
+      ],
+      {
+        "latency_matrix": {
+          "HQ->R1": 10,
+          "HQ->R2": 20,
+          "R1->R2": 5,
+          "R2->X": 3
+        },
+        "dynamic_risk_adjustments": {
+          "R1": 5
+        }
+      }
+    ],
+    "input_lines": [
+      "[{\"transaction_id\": 201, \"branch_id\": \"R1\", \"risk_score\": 110}, {\"transaction_id\": 202, \"branch_id\": \"HQ\", \"risk_score\": 0}, {\"transaction_id\": 203, \"branch_id\": \"R2\", \"risk_score\": 50.5}, {\"transaction_id\": 204, \"branch_id\": \"R1\", \"risk_score\": 95}]",
+      "[{\"branch_id\": \"HQ\", \"bandwidth\": 50, \"failure_probability\": 0.01}, {\"branch_id\": \"R1\", \"bandwidth\": 30, \"failure_probability\": 0.02}, {\"branch_id\": \"R2\", \"bandwidth\": 10, \"failure_probability\": 0.5}]",
+      "{\"latency_matrix\": {\"HQ->R1\": 10, \"HQ->R2\": 20, \"R1->R2\": 5, \"R2->X\": 3}, \"dynamic_risk_adjustments\": {\"R1\": 5}}"
+    ],
+    "focus": "Bandwith exhaustion, risk_score over 100, missing global_security_alert, and extraneous latency key to undefined branch"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        {
+          "transaction_id": 301,
+          "branch_id": "A",
+          "risk_score": 70
+        },
+        {
+          "transaction_id": 302,
+          "branch_id": "B",
+          "risk_score": 70
+        },
+        {
+          "transaction_id": 303,
+          "branch_id": "A",
+          "risk_score": 90
+        },
+        {
+          "transaction_id": 304,
+          "branch_id": "C",
+          "risk_score": 20
+        }
+      ],
+      [
+        {
+          "branch_id": "HQ",
+          "bandwidth": 40,
+          "failure_probability": 0.005
+        },
+        {
+          "branch_id": "A",
+          "bandwidth": 15,
+          "failure_probability": 0.02
+        },
+        {
+          "branch_id": "B",
+          "bandwidth": 20,
+          "failure_probability": 0.015
+        },
+        {
+          "branch_id": "C",
+          "bandwidth": 5,
+          "failure_probability": 0.2
+        }
+      ],
+      {
+        "latency_matrix": {
+          "HQ->A": 10,
+          "HQ->B": 5,
+          "B->A": 1,
+          "A->C": 2,
+          "B->C": 10
+        },
+        "dynamic_risk_adjustments": {
+          "A": 0,
+          "B": 1,
+          "C": 3
+        },
+        "global_security_alert": false
+      }
+    ],
+    "input_lines": [
+      "[{\"transaction_id\": 301, \"branch_id\": \"A\", \"risk_score\": 70}, {\"transaction_id\": 302, \"branch_id\": \"B\", \"risk_score\": 70}, {\"transaction_id\": 303, \"branch_id\": \"A\", \"risk_score\": 90}, {\"transaction_id\": 304, \"branch_id\": \"C\", \"risk_score\": 20}]",
+      "[{\"branch_id\": \"HQ\", \"bandwidth\": 40, \"failure_probability\": 0.005}, {\"branch_id\": \"A\", \"bandwidth\": 15, \"failure_probability\": 0.02}, {\"branch_id\": \"B\", \"bandwidth\": 20, \"failure_probability\": 0.015}, {\"branch_id\": \"C\", \"bandwidth\": 5, \"failure_probability\": 0.2}]",
+      "{\"latency_matrix\": {\"HQ->A\": 10, \"HQ->B\": 5, \"B->A\": 1, \"A->C\": 2, \"B->C\": 10}, \"dynamic_risk_adjustments\": {\"A\": 0, \"B\": 1, \"C\": 3}, \"global_security_alert\": false}"
+    ],
+    "focus": "Alternative shorter path via intermediate node (Dijkstra validation) and bandwidth competition on small-capacity branch"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        {
+          "transaction_id": 401,
+          "branch_id": "D",
+          "risk_score": 85
+        },
+        {
+          "transaction_id": 402,
+          "branch_id": "E",
+          "risk_score": 30
+        },
+        {
+          "transaction_id": 403,
+          "branch_id": "HQ",
+          "risk_score": 99
+        }
+      ],
+      [
+        {
+          "branch_id": "HQ",
+          "bandwidth": 100,
+          "failure_probability": 0.005
+        },
+        {
+          "branch_id": "F",
+          "bandwidth": 20,
+          "failure_probability": 0.1
+        },
+        {
+          "branch_id": "D",
+          "bandwidth": 5,
+          "failure_probability": 0.9
+        },
+        {
+          "branch_id": "E",
+          "bandwidth": 20,
+          "failure_probability": 0.0
+        }
+      ],
+      {
+        "latency_matrix": {
+          "HQ->F": 10,
+          "F->D": 5,
+          "D->Z": 4
+        },
+        "dynamic_risk_adjustments": {
+          "E": -5,
+          "HQ": 1
+        },
+        "global_security_alert": true
+      }
+    ],
+    "input_lines": [
+      "[{\"transaction_id\": 401, \"branch_id\": \"D\", \"risk_score\": 85}, {\"transaction_id\": 402, \"branch_id\": \"E\", \"risk_score\": 30}, {\"transaction_id\": 403, \"branch_id\": \"HQ\", \"risk_score\": 99}]",
+      "[{\"branch_id\": \"HQ\", \"bandwidth\": 100, \"failure_probability\": 0.005}, {\"branch_id\": \"F\", \"bandwidth\": 20, \"failure_probability\": 0.1}, {\"branch_id\": \"D\", \"bandwidth\": 5, \"failure_probability\": 0.9}, {\"branch_id\": \"E\", \"bandwidth\": 20, \"failure_probability\": 0.0}]",
+      "{\"latency_matrix\": {\"HQ->F\": 10, \"F->D\": 5, \"D->Z\": 4}, \"dynamic_risk_adjustments\": {\"E\": -5, \"HQ\": 1}, \"global_security_alert\": true}"
+    ],
+    "focus": "Disconnected target and chained connectivity, high failure probabilities affecting security threshold, negative risk adjustment and global alert amplification"
+  }
+]

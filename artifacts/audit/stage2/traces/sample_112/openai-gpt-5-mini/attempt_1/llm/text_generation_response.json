@@ -1,0 +1,76 @@
+{
+  "id": "resp_014012e79efa3ad40069c3386d0330819fb9bc7ef4a9ab7143",
+  "object": "response",
+  "created_at": 1774401645,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774401669,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_014012e79efa3ad40069c3386d7d3c819f9bfd957202f423f4",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_014012e79efa3ad40069c3386da2e0819fb0a0414e715f51be",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Set\nfrom collections import defaultdict, deque\nimport threading\nimport re\n\n_account_currency_re = re.compile(r'([A-Za-z]+)(\\d+)')\n\nclass MultiLayerGraph:\n    def __init__(self):\n        # adjacency: src -> list of (dst, amount, original_idx)\n        self.adj = defaultdict(list)\n        # pair stats: (src,dst) -> {'count':int,'total':float}\n        self.pair_stats = defaultdict(lambda: {'count':0, 'total':0.0})\n        # node set\n        self.nodes = set()\n        # lock for concurrent threshold updates / modifications\n        self.lock = threading.RLock()\n        # track edges list for cycles etc\n        self.edges = []  # tuples (src,dst,amount)\n        # per-node outgoing totals per currency layer\n        self.layer_map = defaultdict(set)  # node -> set(layers)\n        # quick map for reverse adjacency\n        self.rev = defaultdict(list)\n\n    def _extract_currency(self, account: str) -> str:\n        # assume prefix letters denote currency (e.g., accountUSD1)\n        m = _account_currency_re.search(account)\n        if m:\n            return m.group(1)\n        # fallback: non-digit suffix\n        letters = ''.join([c for c in account if c.isalpha()])\n        return letters or 'UNK'\n\n    def insert_transaction(self, src: str, dst: str, amount: float):\n        with self.lock:\n            self.nodes.add(src); self.nodes.add(dst)\n            self.adj[src].append((dst, amount))\n            self.rev[dst].append((src, amount))\n            self.edges.append((src, dst, amount))\n            pair = (src, dst)\n            ps = self.pair_stats[pair]\n            ps['count'] += 1\n            ps['total'] += amount\n            # update layer maps\n            self.layer_map[src].add(self._extract_currency(src))\n            self.layer_map[dst].add(self._extract_currency(dst))\n\n    def remove_transaction(self, src: str, dst: str, amount: float):\n        with self.lock:\n            # best effort removal: remove first matching edge\n            lst = self.adj.get(src, [])\n            for i, (d,a) in enumerate(lst):\n                if d==dst and a==amount:\n                    lst.pop(i)\n                    break\n            # remove from rev\n            lst2 = self.rev.get(dst, [])\n            for i,(s,a) in enumerate(lst2):\n                if s==src and a==amount:\n                    lst2.pop(i)\n                    break\n            # remove from edges\n            for i,(s,d,a) in enumerate(self.edges):\n                if s==src and d==dst and a==amount:\n                    self.edges.pop(i); break\n            pair = (src,dst)\n            if pair in self.pair_stats:\n                ps = self.pair_stats[pair]\n                ps['count'] = max(0, ps['count']-1)\n                ps['total'] = max(0.0, ps['total']-amount)\n\n    def neighbors(self, node: str):\n        return [d for (d,a) in self.adj.get(node,[])]\n\n    def get_edges_from(self, node: str):\n        return list(self.adj.get(node,[]))\n\n    def get_pair_stats(self, src: str, dst: str):\n        return self.pair_stats.get((src,dst), {'count':0,'total':0.0})\n\n    def is_cross_currency(self, src: str, dst: str) -> bool:\n        return self._extract_currency(src) != self._extract_currency(dst)\n\ndef detect_anomalies(transaction_data: List[List], thresholds: Dict[str, float]) -> List[Dict[str, Any]]:\n    graph = MultiLayerGraph()\n    # local copy of thresholds with lock for real-time updates\n    thr_lock = threading.RLock()\n    thresholds_local = dict(thresholds)\n\n    def update_thresholds(new_thr: Dict[str, float]):\n        with thr_lock:\n            thresholds_local.update(new_thr)\n\n    # Build graph incrementally\n    for tx in transaction_data:\n        if not tx or len(tx) < 3:\n            continue\n        src, dst, amount = tx[0], tx[1], float(tx[2])\n        graph.insert_transaction(src, dst, amount)\n\n    anomalies = []\n    seen_pairs = set()\n\n    # Helper: detect high volume and frequency\n    with graph.lock, thr_lock:\n        vol_th = float(thresholds_local.get('volume_threshold', 1000.0))\n        freq_th = float(thresholds_local.get('frequency_threshold', 3))\n        cross_sens = float(thresholds_local.get('cross_currency_sensitivity', 1.0))\n        # effective cross threshold: volume_threshold / sensitivity (as in prompt)\n        if cross_sens != 0:\n            cross_th = vol_th / cross_sens\n        else:\n            cross_th = vol_th\n\n        # detect pair-based anomalies\n        for (src,dst), stats in list(graph.pair_stats.items()):\n            if stats['count'] <= 0:\n                continue\n            pair_key = (src,dst)\n            if pair_key in seen_pairs:\n                continue\n            # high frequency and high total volume\n            if stats['count'] >= freq_th and stats['total'] >= vol_th:\n                anomalies.append({\n                    'accounts': [src, dst],\n                    'amount': stats['total'],\n                    'anomaly_type': 'High Volume and Frequency',\n                    'flow_path': [src, dst]\n                })\n                seen_pairs.add(pair_key)\n                continue\n            # single big transaction could be detected via edges\n            # check if any single edge exceeds thresholds\n            for (d, amt) in graph.get_edges_from(src):\n                if d != dst:\n                    continue\n                if graph.is_cross_currency(src, dst):\n                    if amt >= cross_th:\n                        anomalies.append({\n                            'accounts': [src, dst],\n                            'amount': amt,\n                            'anomaly_type': 'Cross-Currency Flow Spike',\n                            'flow_path': [src, dst]\n                        })\n                        seen_pairs.add(pair_key)\n                        break\n                else:\n                    if amt >= vol_th:\n                        anomalies.append({\n                            'accounts': [src, dst],\n                            'amount': amt,\n                            'anomaly_type': 'High Volume Transaction',\n                            'flow_path': [src, dst]\n                        })\n                        seen_pairs.add(pair_key)\n                        break\n\n    # Detect cycles using DFS; capture cycles up to reasonable length to avoid explosion\n    def detect_cycles(limit_length=10):\n        with graph.lock, thr_lock:\n            visited = set()\n            stack = []\n            onstack = set()\n            cycles_found = set()\n\n            def dfs(u):\n                visited.add(u)\n                stack.append(u)\n                onstack.add(u)\n                for (v, amt) in graph.get_edges_from(u):\n                    if v not in visited:\n                        dfs(v)\n                    elif v in onstack:\n                        # cycle from v to u\n                        try:\n                            idx = stack.index(v)\n                        except ValueError:\n                            continue\n                        cycle = stack[idx:] + [v]\n                        if len(cycle)-1 > limit_length:\n                            continue\n                        # build unique representation\n                        key = tuple(cycle)\n                        if key in cycles_found:\n                            continue\n                        cycles_found.add(key)\n                stack.pop()\n                onstack.discard(u)\n\n            for node in list(graph.nodes):\n                if node not in visited:\n                    dfs(node)\n            results = []\n            cycle_threshold = float(thresholds_local.get('cycle_threshold', 2000.0))\n            for cyc in cycles_found:\n                # cyc is like (a,b,c,a)\n                path = list(cyc)\n                # compute total amount along edges in cycle\n                total = 0.0\n                # iterate edges along path\n                for i in range(len(path)-1):\n                    s = path[i]; d = path[i+1]\n                    # sum all amounts for that directed edge\n                    stats = graph.get_pair_stats(s,d)\n                    # approximate by total pair amount\n                    total += stats['total']\n                if total >= cycle_threshold:\n                    # classify cross-currency if any edge crosses\n                    is_cross = False\n                    for i in range(len(path)-1):\n                        if graph.is_cross_currency(path[i], path[i+1]):\n                            is_cross = True; break\n                    results.append((path, total, is_cross))\n            return results\n\n    cycles = detect_cycles()\n    for path, total, is_cross in cycles:\n        # build accounts list as start..end-1 maybe\n        accounts = list(dict.fromkeys(path[:-1]))  # unique seq\n        anomalies.append({\n            'accounts': accounts,\n            'amount': total,\n            'anomaly_type': 'Suspicious Cyclical Flow',\n            'flow_path': path[:-1]\n        })\n\n    # Detect self-loops and rapid back-and-forth cross-currency pairs\n    with graph.lock, thr_lock:\n        for (src,dst), stats in list(graph.pair_stats.items()):\n            if stats['count'] <= 0:\n                continue\n            # self-loop where same logical account across currencies e.g., accountUSD5 and accountEUR5\n            # detect by root id numeric match or identical alphanumeric except currency prefix\n            def base_id(acc):\n                # strip leading letters and return numeric suffix or full string\n                m = _account_currency_re.search(acc)\n                if m:\n                    return m.group(2)\n                digits = ''.join([c for c in acc if c.isdigit()])\n                return digits or acc\n            if base_id(src) and base_id(src) == base_id(dst) and src != dst:\n                # likely same account across currencies\n                # check bidirectional partner total\n                rev_stats = graph.get_pair_stats(dst, src)\n                total = stats['total'] + rev_stats['total']\n                if total >= (thresholds_local.get('volume_threshold',1000.0) / max(0.0001, thresholds_local.get('cross_currency_sensitivity',1.0))):\n                    anomalies.append({\n                        'accounts': [src, dst],\n                        'amount': total,\n                        'anomaly_type': 'Cross-Currency Self-Loop',\n                        'flow_path': [src, dst, src]\n                    })\n\n    # Deduplicate anomalies by unique tuple (accounts tuple, type)\n    uniq = {}\n    final = []\n    for a in anomalies:\n        key = (tuple(a.get('accounts',[])), a.get('anomaly_type'), tuple(a.get('flow_path',[])))\n        if key in uniq:\n            # keep larger amount\n            if a['amount'] > uniq[key]['amount']:\n                uniq[key] = a\n        else:\n            uniq[key] = a\n    for v in uniq.values():\n        final.append(v)\n    # sort for deterministic output\n    final.sort(key=lambda x: (-x['amount'], x['anomaly_type'], x['accounts']))\n    return final"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2143,
+    "input_tokens_details": {
+      "cached_tokens": 2048
+    },
+    "output_tokens": 2338,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4481
+  },
+  "user": null,
+  "metadata": {}
+}

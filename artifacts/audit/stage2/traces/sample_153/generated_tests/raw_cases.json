@@ -1,0 +1,92 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      5,
+      [
+        [
+          0,
+          1,
+          0.0
+        ],
+        [
+          1,
+          2,
+          1e-12
+        ],
+        [
+          2,
+          3,
+          0.5
+        ],
+        [
+          3,
+          4,
+          1e-11
+        ],
+        [
+          5,
+          0,
+          2.0
+        ]
+      ],
+      [
+        1.234567,
+        1.234567,
+        1.234567,
+        1.234567,
+        1.234567
+      ]
+    ],
+    "input_lines": [
+      "5",
+      "[[0, 1, 0.0], [1, 2, 1e-12], [2, 3, 0.5], [3, 4, 1e-11], [5, 0, 2.0]]",
+      "[1.234567, 1.234567, 1.234567, 1.234567, 1.234567]"
+    ],
+    "focus": "Identical boundary conditions (range ~0) causing domain-mapping zeros; tiny capacities near threshold and one invalid edge to test filtering and capacity-threshold logic."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      1,
+      [],
+      [
+        2.5
+      ]
+    ],
+    "input_lines": [
+      "1",
+      "[]",
+      "[2.5]"
+    ],
+    "focus": "Single-node network with no edges to exercise degree clamping, single-coefficient derivative behavior, and empty/degenerate transforms."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      2,
+      [
+        [
+          0,
+          1,
+          10.0
+        ],
+        [
+          1,
+          0,
+          5e-11
+        ]
+      ],
+      [
+        1000.0,
+        -1000.0
+      ]
+    ],
+    "input_lines": [
+      "2",
+      "[[0, 1, 10.0], [1, 0, 5e-11]]",
+      "[1000.0, -1000.0]"
+    ],
+    "focus": "Very small node count (2) forces chebyshev degree clamp > nodes, extreme opposing boundary values to test normalization/interpolation clamping, and a negligible-capacity edge to trigger threshold skipping."
+  }
+]

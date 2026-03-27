@@ -1,0 +1,76 @@
+{
+  "id": "resp_0d6d0e34021b11df0069c327655464819ebc6c0c785cb0afb8",
+  "object": "response",
+  "created_at": 1774397285,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774397319,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0d6d0e34021b11df0069c32765a4d0819ea48120d6ea48cd4a",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0d6d0e34021b11df0069c32765ed78819ea30ae81b1df7f8a8",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import math\n\ndef greedy_portfolio_allocate(\n    prices: list[float],\n    expected_returns: list[float],\n    max_weights: list[float],\n    budget: float,\n    risk_penalty: float,\n    round_decimals: int = 6\n) -> dict:\n    # Prepare result template\n    def empty_result(errors):\n        return {\"weights\": [], \"spent\": 0.0, \"score\": 0.0, \"errors\": errors}\n    # Validate lengths\n    if not (isinstance(prices, list) and isinstance(expected_returns, list) and isinstance(max_weights, list)):\n        return empty_result([\"length mismatch\"])\n    N = len(prices)\n    if len(expected_returns) != N or len(max_weights) != N:\n        return empty_result([\"length mismatch\"])\n    # N==0\n    if N == 0:\n        return {\"weights\": [], \"spent\": 0.0, \"score\": 0.0, \"errors\": [\"no assets\"]}\n    # budget\n    try:\n        if not (isinstance(budget, (int, float))):\n            raise Exception()\n        if not math.isfinite(budget) or budget <= 0:\n            return empty_result([\"invalid budget\"])\n    except Exception:\n        return empty_result([\"invalid budget\"])\n    # risk_penalty\n    errors = []\n    rp = risk_penalty\n    try:\n        if not isinstance(risk_penalty, (int, float)) or not math.isfinite(risk_penalty):\n            raise Exception()\n    except Exception:\n        rp = 0.0\n        errors.append(\"risk_penalty coerced to 0\")\n    # round_decimals\n    rd = round_decimals\n    if not isinstance(rd, int) or rd < 0 or rd > 12:\n        rd = 6\n        errors.append(\"round_decimals coerced to 6\")\n    # Sanitation per asset\n    excluded = [False]*N\n    local_prices = [None]*N\n    local_er = [None]*N\n    local_mw = [0.0]*N\n    per_index_errors = [[] for _ in range(N)]\n    any_valid_asset = False\n    for i in range(N):\n        # price\n        p = prices[i]\n        ok_p = True\n        if not isinstance(p, (int, float)) or not math.isfinite(p) or p <= 0:\n            per_index_errors[i].append(f\"price[{i}] invalid\")\n            excluded[i] = True\n            ok_p = False\n        else:\n            local_prices[i] = float(p)\n        # expected return\n        er = expected_returns[i]\n        ok_er = True\n        if not isinstance(er, (int, float)) or not math.isfinite(er):\n            per_index_errors[i].append(f\"expected_returns[{i}] invalid\")\n            excluded[i] = True\n            ok_er = False\n        else:\n            local_er[i] = float(er)\n        # max_weights: numeric, clip 0..1\n        mw = max_weights[i]\n        clipped = False\n        mw_val = 0.0\n        try:\n            if not isinstance(mw, (int, float)) or not math.isfinite(mw):\n                raise Exception()\n            mw_val = float(mw)\n        except Exception:\n            # treat as 0 then clip log\n            mw_val = 0.0\n        if mw_val < 0.0:\n            mw_val = 0.0\n            clipped = True\n        if mw_val > 1.0:\n            mw_val = 1.0\n            clipped = True\n        local_mw[i] = mw_val\n        if clipped:\n            per_index_errors[i].append(f\"max_weights[{i}] clipped to {mw_val}\")\n        if ok_p and ok_er:\n            any_valid_asset = True\n    # If every asset excluded\n    if not any_valid_asset:\n        errs = []\n        for i in range(N):\n            errs.extend(per_index_errors[i])\n        # append other errors from earlier\n        errs.extend(errors)\n        return {\"weights\": [0.0]*N, \"spent\": 0.0, \"score\": 0.0, \"errors\": errs}\n    # Build sanitized list for assets that are not excluded\n    assets = []\n    for i in range(N):\n        if excluded[i]:\n            continue\n        k = local_er[i] - rp\n        assets.append(( -k, local_prices[i], i, k ))  # store negative k for ascending sort\n    # Sorting keys computed once\n    assets.sort(key=lambda x: (x[0], x[1], x[2]))  # effectively ( -k asc -> k desc ), price asc, index asc\n    # Prepare weights\n    weights = [0.0]*N\n    remaining = float(budget)\n    last_changed_idx = None\n    # Greedy allocation\n    for negk, price, i, k in assets:\n        # cap in absolute currency\n        cap = local_mw[i] * budget\n        # allocate as much as possible up to cap and remaining\n        allocate = cap if cap <= remaining else remaining\n        # allocate cannot be negative\n        if allocate < 0:\n            allocate = 0.0\n        weights[i] = allocate / budget  # store as weight fraction\n        if allocate > 0:\n            last_changed_idx = i\n        remaining -= allocate\n        # guard numerical issues\n        if not math.isfinite(remaining) or math.isnan(remaining):\n            return empty_result([\"numerical failure\"])\n        # stop early if remaining is zero within tolerance\n        if remaining <= 1e-12:\n            remaining = 0.0\n            break\n    # Now rounding weights, spent, score\n    # First round per spec: round each weight to rd\n    rounded_weights = [0.0]*N\n    for i in range(N):\n        try:\n            rw = round(weights[i], rd)\n        except Exception:\n            return empty_result([\"numerical failure\"])\n        # convert negative zero to 0.0\n        if rw == 0.0:\n            rw = 0.0\n        rounded_weights[i] = rw\n    # Recompute spent from rounded weights\n    try:\n        spent = 0.0\n        for i in range(N):\n            spent += rounded_weights[i] * budget\n        if not math.isfinite(spent) or math.isnan(spent):\n            return empty_result([\"numerical failure\"])\n    except Exception:\n        return empty_result([\"numerical failure\"])\n    # Ensure spent <= budget within tolerance; if exceeded after rounding, reduce last changed asset\n    if spent > budget + 1e-9:\n        # find most recently changed asset that had >0 weight; prefer last_changed_idx, else highest index with >0\n        idx = last_changed_idx\n        if idx is None or rounded_weights[idx] <= 0:\n            idx = None\n            for j in range(N-1, -1, -1):\n                if rounded_weights[j] > 0:\n                    idx = j\n                    break\n        if idx is None:\n            # nothing to adjust, numerical failure\n            return empty_result([\"numerical failure\"])\n        # reduce by the excess proportionally in currency on that asset\n        excess = spent - budget\n        reduce_w = excess / budget\n        new_w = rounded_weights[idx] - reduce_w\n        # guard nonnegative\n        if new_w < 0:\n            new_w = 0.0\n        rounded_weights[idx] = round(new_w, rd)\n        # recompute spent\n        spent = 0.0\n        for i in range(N):\n            spent += rounded_weights[i] * budget\n    # Guard negative remaining budget due to rounding: ensure spent <= budget\n    if spent > budget:\n        # tiny numeric residual: clamp\n        spent = budget\n        # adjust last positive weight downward minimally\n        idx = None\n        for j in range(N-1, -1, -1):\n            if rounded_weights[j] > 0:\n                idx = j\n                break\n        if idx is not None:\n            # set so that spent equals budget\n            sum_other = 0.0\n            for m in range(N):\n                if m != idx:\n                    sum_other += rounded_weights[m] * budget\n            needed = (budget - sum_other) / budget\n            if not math.isfinite(needed) or math.isnan(needed):\n                return empty_result([\"numerical failure\"])\n            rounded_weights[idx] = round(max(0.0, needed), rd)\n            # recompute spent\n            spent = 0.0\n            for i in range(N):\n                spent += rounded_weights[i] * budget\n    # Compute score using rounded weights\n    score = 0.0\n    for i in range(N):\n        # if asset excluded, skip since price or er may be None\n        if local_prices[i] is None or local_er[i] is None:\n            continue\n        units = (rounded_weights[i] * budget) / local_prices[i]\n        score += units * (local_er[i] - rp)\n    if not math.isfinite(score) or math.isnan(score):\n        return empty_result([\"numerical failure\"])\n    # Final rounding\n    try:\n        spent = round(spent, rd)\n        score = round(score, rd)\n    except Exception:\n        return empty_result([\"numerical failure\"])\n    # Ensure finite and convert -0.0 to 0.0\n    def fixnum(x):\n        if not math.isfinite(x) or math.isnan(x):\n            raise Exception()\n        if x == 0.0:\n            return 0.0\n        return x\n    try:\n        spent = fixnum(spent)\n        score = fixnum(score)\n        rounded_weights = [fixnum(w) for w in rounded_weights]\n    except Exception:\n        return empty_result([\"numerical failure\"])\n    # Assemble errors: stable per-index ascending, then global\n    all_errors = []\n    for i in range(N):\n        all_errors.extend(per_index_errors[i])\n    all_errors.extend(errors)\n    # Check \"all caps zero\": all sanitized max_weights exactly 0 and no early global exit\n    all_caps_zero = True\n    for i in range(N):\n        if local_mw[i] != 0.0:\n            all_caps_zero = False\n            break\n    if all_caps_zero:\n        all_errors.append(\"all caps zero\")\n    # If assets excluded count equals N then handled earlier; but keep weights length N\n    return {\"weights\": rounded_weights, \"spent\": spent, \"score\": score, \"errors\": all_errors}"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1730,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2266,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3996
+  },
+  "user": null,
+  "metadata": {}
+}

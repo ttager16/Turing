@@ -1,0 +1,164 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+Develop a comprehensive Python-based road network management system for urban infrastructure planning. This system serves as a critical component for city development platforms that require efficient connectivity tracking, capacity management, and dynamic network optimization. The framework must implement a Disjoint-Set (Union-Find) data structure to manage road connectivity through geometric union operations, enabling real-time updates as new roads are constructed, existing roads are modified, and network optimization decisions are made based on priority and proximity metrics.
+
+## Problem Description
+
+The system manages a multi-layer road network using Union-Find with path compression and union by rank. The framework must implement:
+
+### Core Features
+
+1. **Union-Find Structure**: Disjoint-Set with path compression and union by rank for efficient connectivity queries
+2. **Capacity Tracking**: Dynamic capacity management at both node and component levels
+3. **Road Network Management**: Track roads, intersections, and node-to-road mappings
+4. **Priority-Based Operations**: Priority queue for high-priority road management
+5. **Dynamic Updates**: Support reclassification, expansion, partial closures, and proximity-based merging
+6. **Merge History**: Record all union operations for merge count tracking
+7. **Component Analysis**: Retrieve all connected components with size and capacity metrics
+8. **Geometric Proximity Merging**: BFS-style propagation for multi-hop connectivity based on distance thresholds
+9. **Capacity Metrics**: Real-time tracking of total network capacity and deactivated roads count
+10. **Priority-Based Optimization**: Boost capacity of high-priority roads when requested
+
+### Update Operations Supported
+
+The system processes five types of updates:
+- `reclassify`: Change road capacity with metrics tracking
+- `expand`: Extend a road with a new segment, ensuring connectivity
+- `merge_levels`: Merge roads based on proximity threshold using BFS propagation
+- `close_partial`: Partially close a road by reducing lanes, marking inactive if capacity reaches zero
+- `optimize`: Trigger optimization analysis and optionally boost high-priority road capacities
+
+## Function Signature
+
+```python
+def manage_road_network(
+    roads: List[List[int]],
+    intersections: List[List[int]],
+    updates: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """
+    Manage a complex multi-layer road network with dynamic updates.
+    
+    Parameters:
+        roads (List[List[int]]): List of road segments as [node1, node2] lists
+        intersections (List[List[int]]): List of intersection points connecting separate roads as [node1, node2] lists
+        updates (List[Dict[str, Any]]): List of update operations to apply to the network
+    
+    Returns:
+        Dict[str, Any]: Dictionary containing:
+            - 'components': List of connected component lists (List[List[int]]), each sorted in ascending order
+            - 'statistics': Dictionary with network statistics including:
+                * 'total_merge_count': Total number of union operations performed
+                * 'num_components': Number of connected components
+                * 'component_sizes': List of sizes for each component
+                * 'total_network_capacity': Sum of capacities across all components
+                * 'max_tree_depth': Maximum rank value across all union-find trees (upper bound on actual tree depth)
+                * 'fragmentation_index': Ratio of components to total nodes (4 decimal places)
+                * 'deactivated_roads_count': Number of roads that have been deactivated
+                * 'component_capacities': List of union-find capacities for each component
+    """
+    pass
+```
+
+## Constraints
+
+### General Requirements
+1. **Standard Library Only**: Use only Python standard library components.
+
+### Union-Find Implementation
+2. **Data Structure**: Maintain parent pointers, rank values, per-node capacities, component sizes, merge history log, and maximum rank tracker (called max_tree_depth for historical reasons, but stores rank values).
+3. **Union by Rank**: Attach shorter tree to taller tree root. On equal ranks, make second root the child and increment surviving root's rank by 1. After union, update max_tree_depth to the greater of the two root ranks (note: this tracks maximum rank, which is an upper bound on actual tree depth).
+4. **Merge Propagation**: Accumulate capacity and size from child root to parent root. Log merges before structural changes with both nodes. Return boolean indicating if union occurred.
+5. **Singleton Creation**: Initialize new nodes with self-parent, rank 0, specified capacity (default 1), and size 1.
+
+### Road Network Management
+6. **Road Normalization**: Store roads as sorted tuples (smaller node first) for canonical representation.
+7. **Road Priority**: Earlier roads get higher priority. Maintain in a priority queue for efficient retrieval.
+8. **Road Insertion**: Initialize both endpoints with make_set using road capacity. Union the nodes. Store road metadata (capacity, active flag, priority). Add to priority queue, adjacency maps, node set, and update total capacity counter.
+9. **Intersection Creation**: Use default capacity 1. Add to node set only—no road metadata, priority queue, or adjacency updates. Note: Intersections cannot be targeted by reclassify, expand, or close_partial operations since they lack road metadata.
+10. **Dual Capacity Tracking**: Maintain separate capacity systems—union-find tracks component capacities (accumulated during unions), while road map tracks individual road capacities for computing total network capacity.
+
+### Update Operations
+11. **Reclassify**: If the specified road exists in road_map, update its capacity. Adjust total_capacity counter by the difference. If road doesn't exist (e.g., it's an intersection), silently skip the operation.
+12. **Expand**: Add extended road normally. If original and extended roads share nodes, they're automatically connected. Otherwise, union all non-connected node pairs between the two roads.
+13. **Get Neighbors**: Collect all endpoint nodes from roads incident to the given node, excluding the node itself.
+14. **Close Partial**: If the specified road exists in road_map, reduce its capacity by specified lanes. If capacity reaches 0, mark inactive and increment deactivated roads counter. If road doesn't exist, skipt it.
+
+### Optimization and Analysis
+15. **Priority Roads**: Extract k highest-priority roads from the priority queue. Filter for existence and active status.
+16. **Optimize Operation**: Identify priority roads based on k parameter. If boost enabled, increment each priority road's capacity by 1 via reclassify.
+
+### Output Format
+17. **Statistics**: Include merge count (merge history length), component count, component sizes, total capacity (sum of active road capacities from road_map), max_tree_depth (maximum rank value), fragmentation index, deactivation count, and component capacities (from union-find, aligned with sorted components).
+18. **Return Structure**: Dictionary with 'components' (list of sorted lists) and 'statistics' with specified metrics.
+
+## Sample Input
+
+```python
+roads = [[1, 2], [2, 3], [3, 4], [7, 8]]
+intersections = [[2, 5], [4, 6]]
+updates = [
+    {'type': 'reclassify', 'road': [2, 3], 'new_capacity': 2},
+    {'type': 'expand', 'road': [3, 4], 'extended_road': [3, 6]},
+    {'type': 'optimize', 'k': 3, 'boost_priority_roads': True},
+    {'type': 'merge_levels', 'road': [1, 2], 'adjacent_road': [7, 8], 'distance_threshold': 10},
+    {'type': 'close_partial', 'road': [2, 5], 'lanes_closed': 1},
+    {'type': 'optimize', 'k': 5, 'boost_priority_roads': False}
+]
+```
+
+## Sample Output
+
+```python
+{
+    'components': [[1, 2, 3, 4, 5, 6, 7, 8]],
+    'statistics': {
+        'total_merge_count': 7,
+        'num_components': 1,
+        'component_sizes': [8],
+        'total_network_capacity': 9,
+        'max_tree_depth': 2,
+        'fragmentation_index': 0.125,
+        'deactivated_roads_count': 0,
+        'component_capacities': [8]
+    }
+}
+```
+
+## Output Format
+
+- Return value: Dictionary with two keys: 'components' and 'statistics'
+- 'components': List of lists representing connected components
+- 'statistics': Dictionary containing:
+  - 'total_merge_count': Integer count of all union operations performed (from merge_history length)
+  - 'num_components': Integer count of connected components
+  - 'component_sizes': List of integers representing size of each component (using get_component_size())
+  - 'total_network_capacity': Integer sum of active road capacities from road_map
+  - 'max_tree_depth': Integer representing maximum rank value across all union-find trees (upper bound on actual tree depth)
+  - 'fragmentation_index': Float rounded to 4 decimals representing ratio of components to nodes
+  - 'deactivated_roads_count': Integer count of roads that have been deactivated (from deactivation_log length)
+  - 'component_capacities': List of integers representing union-find capacity for each component root
+- Empty network returns {'components': [], 'statistics': {'total_merge_count': 0, 'num_components': 0, 'component_sizes': [], 'total_network_capacity': 0, 'max_tree_depth': 0, 'fragmentation_index': 0.0, 'deactivated_roads_count': 0, 'component_capacities': []}}
+
+Starter Code:
+```python
+from typing import List, Tuple, Dict, Any, Set
+from collections import defaultdict, deque
+from heapq import heappush, heappop
+
+
+def manage_road_network(
+    roads: List[List[int]],
+    intersections: List[List[int]],
+    updates: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+```

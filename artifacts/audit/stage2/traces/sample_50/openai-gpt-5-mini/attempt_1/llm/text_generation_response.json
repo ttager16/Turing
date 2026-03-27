@@ -1,0 +1,76 @@
+{
+  "id": "resp_00a0b9add24bb92e0069c327106480819f867141b6c6dd9e41",
+  "object": "response",
+  "created_at": 1774397200,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774397233,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_00a0b9add24bb92e0069c32710f190819fa6da9dceb1255dd4",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_00a0b9add24bb92e0069c327113c88819f9ed6c011d43520ff",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Tuple\nimport heapq\n\nLATE_PENALTY_PER_MIN = 0.5\nSTALE_PENALTY = 1.0\n\ndef optimize_routes(\n    vehicle_data: List[Dict],\n    traffic_data: List[Dict],\n    road_closures: List[Dict],\n    priority_changes: List[Dict]\n) -> List[Dict]:\n    # Build latest traffic map (last-update-wins per (u,v))\n    traffic_map: Dict[Tuple[str,str], Dict[str, Any]] = {}\n    for t in traffic_data:\n        traffic_map[(t['u'], t['v'])] = t\n    # Build closures map (last entry wins)\n    closures: Dict[Tuple[str,str], bool] = {}\n    for c in road_closures:\n        closures[(c['u'], c['v'])] = bool(c.get('closed', False))\n    # Build priority map (last entry wins)\n    priorities: Dict[str, int] = {}\n    for p in priority_changes:\n        priorities[p['vehicle_id']] = int(p['priority'])\n    results = []\n    # Precompute adjacency\n    adj: Dict[str, List[str]] = {}\n    for (u,v), info in traffic_map.items():\n        if closures.get((u,v), False):\n            continue\n        adj.setdefault(u, []).append(v)\n    # For determinism sort adjacency\n    for k in adj:\n        adj[k].sort()\n    # Helper to get edge info; returns None if closed or missing\n    def edge_info(u,v):\n        if closures.get((u,v), False):\n            return None\n        return traffic_map.get((u,v))\n    # For each vehicle compute route\n    for veh in vehicle_data:\n        vid = veh['vehicle_id']\n        cps = veh.get('checkpoints', [])\n        if not cps:\n            results.append({'vehicle_id': vid, 'optimized_route': [], 'estimated_time': 0, 'fuel_consumption': 0})\n            continue\n        # group checkpoints by group in ascending lex order\n        groups: Dict[str, List[Dict]] = {}\n        for cp in cps:\n            groups.setdefault(cp['group'], []).append(cp.copy())\n        group_keys = sorted(groups.keys())\n        # sort within group not required; greedy chooses order\n        # initial node is first checkpoint's node\n        start_node = cps[0]['node']\n        cur_node = start_node\n        total_time = 0.0\n        total_fuel = 0.0\n        route_nodes = [cur_node]\n        vehicle_priority = priorities.get(vid, 2)  # default medium\n        failed = False\n        # Process groups\n        for gk in group_keys:\n            remaining = groups[gk][:]\n            # While there are checkpoints in this group\n            while remaining:\n                # We need to run Dijkstra-style from cur_node to any of remaining targets,\n                # with score as cumulative score defined over edges.\n                targets = set([r['node'] for r in remaining])\n                # frontier entries: (cum_score, total_time_so_far, total_fuel_so_far, current_node, path_list)\n                # tie-break order uses these fields\n                start_entry = (0.0, total_time, total_fuel, cur_node, tuple([cur_node]))\n                heap = [start_entry]\n                # visited map to store best-known tuple per node for pruning: map node -> best key tuple\n                visited_best: Dict[Tuple[str,float,float], float] = {}\n                found = None  # will be (entry, target_checkpoint_dict, arrival_time, fuel_added, path)\n                # Dijkstra-style expansion\n                while heap:\n                    cum_score, ttime, tfuel, node, path = heapq.heappop(heap)\n                    # prune if we have seen a strictly better for same node\n                    key = (node, round(ttime,6), round(tfuel,6))\n                    prev_best = visited_best.get((node,0,0))\n                    # Note: we don't have a single comparable metric; we use cum_score primary; but using visited_best simplistic\n                    # For determinism and correctness keep minimal cum_score per node\n                    vb = visited_best.get((node,0,0))\n                    if vb is None:\n                        visited_best[(node,0,0)] = cum_score\n                    else:\n                        if cum_score > vb + 1e-9:\n                            continue\n                    # If node is one of targets, pick corresponding checkpoint(s) with that node that are still remaining.\n                    if node in targets:\n                        # find matching checkpoint(s). choose the one with earliest latest window? But spec: arrival later penalized; greedy picks path to checkpoint node; we select first matching cp in remaining with node==node using deterministic order (window then service)\n                        candidates = [r for r in remaining if r['node'] == node]\n                        # choose deterministic one: sort by (window latest, window earliest, service)\n                        candidates.sort(key=lambda x: (x['window'][1], x['window'][0], x['service']))\n                        cpick = candidates[0]\n                        arrival_time = ttime\n                        # compute waiting if early\n                        earliest, latest = cpick['window'][0], cpick['window'][1]\n                        wait = 0.0\n                        if arrival_time < earliest:\n                            wait = earliest - arrival_time\n                            arrival_time = earliest\n                        # Check lateness: arrival_time > latest -> allowed but penalized? Problem says late arrivals are penalized in score; but also failure rule: \"If any required subroute is impossible (respecting closures and windows)\" and \"If any arrival must exceed its latest window, return failure\". So late is not permitted: arrival must not exceed latest.\n                        if arrival_time > latest + 1e-9:\n                            # This path yields late arrival -> treat as invalid; continue search for other paths\n                            # Do not accept; continue expansion\n                            pass\n                        else:\n                            # successful leg found\n                            service = cpick.get('service', 0)\n                            total_arrival_time = arrival_time + service\n                            # fuel added is tfuel - total_fuel\n                            fuel_added = tfuel - total_fuel\n                            found = (cum_score, ttime, tfuel, node, path, cpick, wait, service, fuel_added)\n                            break\n                    # expand neighbors\n                    for nbr in adj.get(node, []):\n                        info = edge_info(node, nbr)\n                        if info is None:\n                            continue\n                        edge_time = float(info['time'])\n                        edge_cong = float(info['congestion'])\n                        edge_fuel = float(info['fuel'])\n                        age_min = int(info.get('age_min', 0))\n                        max_age_min = int(info.get('max_age_min', 0))\n                        stale = STALE_PENALTY if age_min > max_age_min else 0.0\n                        base_score = (0.6 * edge_time) + (0.3 * edge_cong) + (0.1 * edge_fuel)\n                        final_edge_score = (base_score + stale) / max(1, vehicle_priority)\n                        new_cum_score = cum_score + final_edge_score\n                        new_time = ttime + edge_time\n                        new_fuel = tfuel + edge_fuel\n                        new_path = path + (nbr,)\n                        entry = (new_cum_score, new_time, new_fuel, nbr, new_path)\n                        heapq.heappush(heap, entry)\n                if not found:\n                    failed = True\n                    break\n                # apply the found leg to update totals and route\n                _, leg_time_before_service, leg_fuel_before_service, node, path, cpick, wait, service, fuel_added = found\n                # Append path nodes excluding current node duplicate\n                path_list = list(path)\n                # path_list starts with cur_node; append subsequent nodes\n                to_append = path_list[1:]\n                route_nodes.extend(to_append)\n                # Update totals: time increases by travel time to arrival (already in leg_time_before_service - total_time) plus waiting plus service\n                travel_time = leg_time_before_service - total_time\n                if travel_time < 0:\n                    travel_time = 0.0\n                total_time += travel_time\n                # waiting\n                total_time += wait\n                # service\n                total_time += service\n                # fuel increases by fuel_added\n                total_fuel += fuel_added\n                # Move cur_node\n                cur_node = cpick['node']\n                # Remove selected checkpoint from remaining (only one with same node and same parameters)\n                removed = False\n                for i,r in enumerate(remaining):\n                    if r['node'] == cpick['node'] and r['group'] == cpick['group'] and r['window'] == cpick['window'] and r['service'] == cpick['service']:\n                        remaining.pop(i)\n                        removed = True\n                        break\n                if not removed:\n                    # fallback remove first matching node\n                    for i,r in enumerate(remaining):\n                        if r['node'] == cpick['node']:\n                            remaining.pop(i)\n                            break\n            if failed:\n                break\n        if failed:\n            results.append({'vehicle_id': vid, 'optimized_route': [], 'estimated_time': 0, 'fuel_consumption': 0})\n        else:\n            # Round estimated_time and fuel to reasonable numeric (keep as numbers)\n            results.append({'vehicle_id': vid, 'optimized_route': route_nodes, 'estimated_time': total_time, 'fuel_consumption': total_fuel})\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2347,
+    "input_tokens_details": {
+      "cached_tokens": 2304
+    },
+    "output_tokens": 2035,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4382
+  },
+  "user": null,
+  "metadata": {}
+}

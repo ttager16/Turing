@@ -1,0 +1,133 @@
+from typing import List, Dict, Any
+
+def optimize_network_mst(
+    nodes: List[str],
+    edges: List[Dict[str, Any]],
+    bandwidth_threshold: int,
+    latency_threshold: int,
+    reliability_threshold: float
+) -> List[Dict[str, str]]:
+    # Edge-case checks
+    if not nodes or len(nodes) <= 1:
+        return []
+    if not edges:
+        return []
+    tol = 1e-9
+    MAX_LAT = 10**9
+
+    # Normalize nodes to a set for quick lookup and preserve given node names
+    node_set = set(nodes)
+
+    # Helper: normalize unordered pair key
+    def pair_key(a: str, b: str):
+        return (a, b) if a <= b else (b, a)
+
+    # Filter edges according to validation rules and collect lowest-cost valid parallel edge per unordered pair
+    best_edge = {}  # key -> (cost, original_edge)
+    for e in edges:
+        try:
+            a = e.get('start')
+            b = e.get('end')
+            if a is None or b is None:
+                continue
+            if a == b:
+                continue  # self-loop ignore
+            if a not in node_set or b not in node_set:
+                continue  # ignore edges referencing unknown nodes
+            cost = e.get('cost', 0)
+            bw = e.get('bandwidth')
+            lat = e.get('latency')
+            rel = e.get('reliability')
+            # Validate presence
+            if bw is None or lat is None or rel is None:
+                continue
+            # Numeric validations
+            try:
+                bw_v = float(bw)
+                lat_v = float(lat)
+                rel_v = float(rel)
+            except Exception:
+                continue
+            # Reject invalid numeric values
+            if bw_v <= 0:
+                continue
+            if lat_v < 0 or lat_v >= MAX_LAT:
+                continue
+            if bw_v < bandwidth_threshold:
+                continue
+            if lat_v > latency_threshold:
+                continue
+            if rel_v + tol < reliability_threshold:
+                continue
+            # Edge passes filters; consider for parallel-edge reduction
+            key = pair_key(a, b)
+            # For deterministic tie-breaking when costs equal, use lexicographic of start,end
+            existing = best_edge.get(key)
+            if existing is None:
+                best_edge[key] = (float(cost), a, b, e)
+            else:
+                existing_cost = existing[0]
+                if float(cost) < existing_cost:
+                    best_edge[key] = (float(cost), a, b, e)
+                elif float(cost) == existing_cost:
+                    # deterministic: pick one with (min start,end) tuple
+                    # Compare (a,b) normalized vs existing normalized
+                    ex_a, ex_b = existing[1], existing[2]
+                    if (min(a, b), max(a, b)) < (min(ex_a, ex_b), max(ex_a, ex_b)):
+                        best_edge[key] = (float(cost), a, b, e)
+
+        except Exception:
+            continue
+
+    filtered = []
+    for k, v in best_edge.items():
+        cost, a, b, e = v
+        # store normalized endpoints as returned in original orientation (use a,b as in stored)
+        filtered.append((cost, a, b))
+
+    if not filtered:
+        return []
+
+    # Map node names to indices for Union-Find
+    name_to_idx = {name: i for i, name in enumerate(nodes)}
+    parent = list(range(len(nodes)))
+    rank = [0] * len(nodes)
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(x, y):
+        rx = find(x); ry = find(y)
+        if rx == ry:
+            return False
+        if rank[rx] < rank[ry]:
+            parent[rx] = ry
+        else:
+            parent[ry] = rx
+            if rank[rx] == rank[ry]:
+                rank[rx] += 1
+        return True
+
+    # Kruskal: sort by cost, deterministic tie-breaker by node names
+    filtered.sort(key=lambda t: (t[0], min(t[1], t[2]), max(t[1], t[2])))
+    mst = []
+    edges_used = 0
+    for cost, a, b in filtered:
+        ia = name_to_idx.get(a)
+        ib = name_to_idx.get(b)
+        if ia is None or ib is None:
+            continue
+        if union(ia, ib):
+            mst.append({'start': a, 'end': b})
+            edges_used += 1
+            if edges_used == len(nodes) - 1:
+                break
+
+    # Verify connectivity: all nodes that are present in nodes list must be connected via used edges
+    if edges_used != len(nodes) - 1:
+        return []
+
+    return mst

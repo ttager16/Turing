@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5uHj0mEKFLw4MS84AjNa3dmC2EF",
+  "object": "chat.completion",
+  "created": 1774396621,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[{\\\"id\\\": \\\"A\\\", \\\"expected_return\\\": 0.05, \\\"volatility\\\": 0.1}, {\\\"id\\\": \\\"B\\\", \\\"expected_return\\\": 0.05, \\\"volatility\\\": 0.1}, {\\\"id\\\": \\\"C\\\", \\\"expected_return\\\": 0.06, \\\"volatility\\\": 0.2}, {\\\"id\\\": \\\"D\\\", \\\"expected_return\\\": 0.04, \\\"volatility\\\": 0.05}]\",\n        \"{\\\"A\\\": 0.05, \\\"B\\\": 0.05, \\\"C\\\": 0.06, \\\"D\\\": 0.04}\",\n        \"\\\"absolute\\\"\",\n        \"null\",\n        \"0.35\",\n        \"0.4\",\n        \"0.01\",\n        \"0.2\",\n        \"0.2\",\n        \"false\"\n      ],\n      \"focus\": \"Exact-score ties between assets A and B with identical returns and volatilities; tests deterministic lexicographic tie-breaking and disabling diversification penalty (absolute mode).\"\n    },\n    {\n      \"input_lines\": [\n        \"[{\\\"id\\\": \\\"X\\\", \\\"expected_return\\\": 0.02, \\\"volatility\\\": 0.1}, {\\\"id\\\": \\\"Y\\\", \\\"expected_return\\\": 0.08, \\\"volatility\\\": 0.2}]\",\n        \"{\\\"X\\\": 0.01, \\\"Y\\\": 0.09}\",\n        \"\\\"risk_adjusted\\\"\",\n        \"[1.0, 0.0]\",\n        \"1.0\",\n        \"0.1\",\n        \"0.01\",\n        \"0.2\",\n        \"0.2\",\n        \"true\"\n      ],\n      \"focus\": \"Turnover budget too small to move from an all-in previous allocation; should force returning prev_weights unchanged (tests turnover-budget early-exit behavior).\"\n    },\n    {\n      \"input_lines\": [\n        \"[{\\\"id\\\": \\\"AssetA\\\", \\\"expected_return\\\": 0.07, \\\"volatility\\\": 0.15}, {\\\"id\\\": \\\"asset02\\\", \\\"expected_return\\\": 0.07, \\\"volatility\\\": 0.15}, {\\\"id\\\": \\\"mid\\\", \\\"expected_return\\\": 0.06, \\\"volatility\\\": 0.12}, {\\\"id\\\": \\\"zeta\\\", \\\"expected_return\\\": 0.05, \\\"volatility\\\": 0.05}, {\\\"id\\\": \\\"zeroVol\\\", \\\"expected_return\\\": 0.05, \\\"volatility\\\": 0.0}, {\\\"id\\\": \\\"eq1\\\", \\\"expected_return\\\": 0.05, \\\"volatility\\\": 0.05}, {\\\"id\\\": \\\"eq2\\\", \\\"expected_return\\\": 0.05, \\\"volatility\\\": 0.05}]\",\n        \"{\\\"AssetA\\\": 0.08, \\\"asset02\\\": 0.06, \\\"mid\\\": 0.065, \\\"zeta\\\": 0.05, \\\"zeroVol\\\": 0.051, \\\"eq1\\\": 0.05, \\\"eq2\\\": 0.05}\",\n        \"\\\"risk_adjusted\\\"\",\n        \"[0.2, 0.05, 0.15, 0.1, 0.1, 0.2, 0.2]\",\n        \"0.25\",\n        \"0.5\",\n        \"0.01\",\n        \"0.5\",\n        \"0.5\",\n        \"true\"\n      ],\n      \"focus\": \"Many-assets case including a zero-volatility asset and multiple equal scores; tests smoothing with non-default alpha/beta, per-asset caps, diversification penalty, and lexicographic ordering with mixed-case IDs.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1932,
+    "completion_tokens": 3423,
+    "total_tokens": 5355,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2624,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

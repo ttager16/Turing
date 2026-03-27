@@ -1,0 +1,76 @@
+{
+  "id": "resp_0e3221be863654750069c32e6c784081a3a8f996ac161e6ac3",
+  "object": "response",
+  "created_at": 1774399084,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774399114,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0e3221be863654750069c32e6cd31881a3b00497c99acfc80c",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0e3221be863654750069c32e6d061081a3932345d585eecc82",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\n\ndef financial_segment_tree(\n        prices: List[int],\n        weights: List[float],\n        multipliers: List[float],\n        operations: List[List]\n) -> List[float]:\n    n = len(prices)\n    if n == 0:\n        return []\n    size = 1\n    while size < n:\n        size <<= 1\n    # tree arrays\n    tree_sum = [0.0] * (2 * size)\n    tree_sum_sq = [0.0] * (2 * size)\n    tree_wsum = [0.0] * (2 * size)      # sum price*weight\n    tree_w = [0.0] * (2 * size)         # sum weights\n    tree_cw = [0.0] * (2 * size)        # sum price*weight*multiplier\n    tree_cnt = [0] * (2 * size)\n    lazy_add = [0.0] * (2 * size)\n    # build leaves\n    for i in range(size):\n        idx = i + size\n        if i < n:\n            p = float(prices[i])\n            w = float(weights[i])\n            m = float(multipliers[i])\n            tree_sum[idx] = p\n            tree_sum_sq[idx] = p * p\n            tree_wsum[idx] = p * w\n            tree_w[idx] = w\n            tree_cw[idx] = p * w * m\n            tree_cnt[idx] = 1\n        else:\n            tree_sum[idx] = 0.0\n            tree_sum_sq[idx] = 0.0\n            tree_wsum[idx] = 0.0\n            tree_w[idx] = 0.0\n            tree_cw[idx] = 0.0\n            tree_cnt[idx] = 0\n    for i in range(size - 1, 0, -1):\n        left = 2 * i\n        right = left + 1\n        tree_sum[i] = tree_sum[left] + tree_sum[right]\n        tree_sum_sq[i] = tree_sum_sq[left] + tree_sum_sq[right]\n        tree_wsum[i] = tree_wsum[left] + tree_wsum[right]\n        tree_w[i] = tree_w[left] + tree_w[right]\n        tree_cw[i] = tree_cw[left] + tree_cw[right]\n        tree_cnt[i] = tree_cnt[left] + tree_cnt[right]\n\n    def apply_add(node: int, seg_len: int, addv: float):\n        # when adding addv to each price in segment:\n        # sum increases by addv * seg_len\n        # sum_sq increases by 2*addv*sum + seg_len*addv^2 (but sum is pre-change; use current sum)\n        # wsum increases by addv * sum_weights\n        # cw increases by addv * sum_weights * multipliers averaged? Actually multipliers are per-element: sum(price*weight*multiplier) increases by addv * sum(weight*multiplier)\n        # But we don't have sum(weight*multiplier) stored; need to precompute per leaf and tree for that.\n        pass\n\n    # We realize we need sum of weight*multiplier per segment. Add that.\n    tree_wm = [0.0] * (2 * size)\n    # initialize tree_wm leaves and internal\n    for i in range(size):\n        idx = i + size\n        if i < n:\n            tree_wm[idx] = weights[i] * multipliers[i]\n        else:\n            tree_wm[idx] = 0.0\n    for i in range(size - 1, 0, -1):\n        tree_wm[i] = tree_wm[2*i] + tree_wm[2*i+1]\n\n    def apply_add(node: int, seg_len: int, addv: float):\n        # update sums\n        # sum_sq' = sum_sq + 2*addv*sum + seg_len*addv^2\n        s = tree_sum[node]\n        tree_sum_sq[node] += 2.0 * addv * s + seg_len * (addv * addv)\n        tree_sum[node] += addv * seg_len\n        # wsum increases by addv * sum_weights\n        tree_wsum[node] += addv * tree_w[node]\n        # cw increases by addv * sum(weight*multiplier)\n        tree_cw[node] += addv * tree_wm[node]\n        # sum weights, cnt unchanged\n        lazy_add[node] += addv\n\n    def push(node: int, l_len: int, r_len: int):\n        v = lazy_add[node]\n        if v != 0.0:\n            left = node * 2\n            right = left + 1\n            apply_add(left, l_len, v)\n            apply_add(right, r_len, v)\n            lazy_add[node] = 0.0\n\n    def update_range(node: int, nl: int, nr: int, ql: int, qr: int, val: float):\n        if ql > nr or qr < nl:\n            return\n        if ql <= nl and nr <= qr:\n            apply_add(node, nr - nl + 1, val)\n            return\n        mid = (nl + nr) // 2\n        push(node, mid - nl + 1, nr - mid)\n        update_range(node*2, nl, mid, ql, qr, val)\n        update_range(node*2+1, mid+1, nr, ql, qr, val)\n        left = node*2\n        right = left+1\n        tree_sum[node] = tree_sum[left] + tree_sum[right]\n        tree_sum_sq[node] = tree_sum_sq[left] + tree_sum_sq[right]\n        tree_wsum[node] = tree_wsum[left] + tree_wsum[right]\n        tree_w[node] = tree_w[left] + tree_w[right]\n        tree_cw[node] = tree_cw[left] + tree_cw[right]\n        tree_cnt[node] = tree_cnt[left] + tree_cnt[right]\n        tree_wm[node] = tree_wm[left] + tree_wm[right]\n\n    def point_update(node: int, nl: int, nr: int, idx: int, new_price: float):\n        if nl == nr:\n            # set leaf\n            old_cnt = tree_cnt[node]\n            if old_cnt == 0:\n                # outside original n, ignore\n                return\n            w = weights[idx]\n            m = multipliers[idx]\n            tree_sum[node] = new_price\n            tree_sum_sq[node] = new_price * new_price\n            tree_wsum[node] = new_price * w\n            tree_cw[node] = new_price * w * m\n            # weights and wm and cnt unchanged\n            return\n        mid = (nl + nr) // 2\n        push(node, mid - nl + 1, nr - mid)\n        if idx <= mid:\n            point_update(node*2, nl, mid, idx, new_price)\n        else:\n            point_update(node*2+1, mid+1, nr, idx, new_price)\n        left = node*2\n        right = left+1\n        tree_sum[node] = tree_sum[left] + tree_sum[right]\n        tree_sum_sq[node] = tree_sum_sq[left] + tree_sum_sq[right]\n        tree_wsum[node] = tree_wsum[left] + tree_wsum[right]\n        tree_w[node] = tree_w[left] + tree_w[right]\n        tree_cw[node] = tree_cw[left] + tree_cw[right]\n        tree_cnt[node] = tree_cnt[left] + tree_cnt[right]\n        tree_wm[node] = tree_wm[left] + tree_wm[right]\n\n    def query(node: int, nl: int, nr: int, ql: int, qr: int):\n        if ql > nr or qr < nl:\n            return (0.0, 0.0, 0.0, 0.0, 0.0, 0)  # sum, sum_sq, wsum, w, cw, cnt\n        if ql <= nl and nr <= qr:\n            return (tree_sum[node], tree_sum_sq[node], tree_wsum[node], tree_w[node], tree_cw[node], tree_cnt[node])\n        mid = (nl + nr) // 2\n        push(node, mid - nl + 1, nr - mid)\n        L = query(node*2, nl, mid, ql, qr)\n        R = query(node*2+1, mid+1, nr, ql, qr)\n        return (L[0]+R[0], L[1]+R[1], L[2]+R[2], L[3]+R[3], L[4]+R[4], L[5]+R[5])\n\n    results: List[float] = []\n    for op in operations:\n        if not op or len(op) < 4:\n            results.append(0.0)\n            continue\n        name, a, b, val = op[0], op[1], op[2], op[3]\n        # normalize range intersection with [0,n-1]\n        if a is None or b is None:\n            results.append(0.0)\n            continue\n        l = max(0, min(n-1, a))\n        r = max(0, min(n-1, b))\n        if a > b:\n            # empty\n            results.append(0.0)\n            continue\n        if l > r:\n            results.append(0.0)\n            continue\n        if name == \"sum\":\n            s, _, _, _, _, _ = query(1, 0, size-1, l, r)\n            results.append(round(float(s), 2))\n        elif name == \"average\":\n            s, _, _, _, _, cnt = query(1, 0, size-1, l, r)\n            if cnt == 0:\n                results.append(0.0)\n            else:\n                avg = s / cnt\n                results.append(round(float(avg), 2))\n        elif name == \"weighted_avg\":\n            _, _, wsum, wsum_w, _, _ = query(1, 0, size-1, l, r)\n            # here wsum is price*weight sum, wsum_w is sum weights\n            if wsum_w == 0.0:\n                results.append(0.0)\n            else:\n                results.append(round(float(wsum / wsum_w), 2))\n        elif name == \"variance\":\n            s, ssq, _, _, _, cnt = query(1, 0, size-1, l, r)\n            if cnt == 0:\n                results.append(0.0)\n            else:\n                var = (ssq / cnt) - (s / cnt) * (s / cnt)\n                results.append(round(float(var), 2))\n        elif name == \"custom_weighted\":\n            _, _, _, _, cw, _ = query(1, 0, size-1, l, r)\n            results.append(round(float(cw), 2))\n        elif name == \"range_update\":\n            if val is None:\n                results.append(0.0)\n            else:\n                v = float(val)\n                update_range(1, 0, size-1, l, r, v)\n                results.append(0.0)\n        elif name == \"point_update\":\n            if val is None:\n                results.append(0.0)\n            else:\n                if a < 0 or a >= n:\n                    results.append(0.0)\n                else:\n                    point_update(1, 0, size-1, a, float(val))\n                    results.append(0.0)\n        else:\n            results.append(0.0)\n    # ensure floats with two decimals\n    out = [float(f\"{x:.2f}\") for x in results]\n    return out"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1713,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2575,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4288
+  },
+  "user": null,
+  "metadata": {}
+}

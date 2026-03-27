@@ -1,0 +1,184 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        {
+          "device_id": "DEV_A",
+          "ward": "ER-1",
+          "patient_id": "PA1",
+          "metrics": {
+            "heart_rate": 40,
+            "temperature": 36.0
+          },
+          "timestamp": 1620000000,
+          "status": "active"
+        },
+        {
+          "device_id": "BACKUP_A",
+          "ward": "ER-1",
+          "patient_id": "PA1",
+          "metrics": {
+            "heart_rate": 90
+          },
+          "timestamp": 1620000000,
+          "status": "active"
+        },
+        {
+          "device_id": "DEV_X",
+          "ward": "ER-1",
+          "patient_id": "PA2",
+          "metrics": {
+            "heart_rate": 39
+          },
+          "timestamp": 1620000001,
+          "status": "active"
+        }
+      ],
+      {
+        "device_roles": {
+          "BACKUP_A": "backup"
+        },
+        "device_metrics": {
+          "BACKUP_A": [
+            "heart_rate"
+          ]
+        },
+        "ward_requirements": {}
+      },
+      {
+        "heart_rate": [
+          40,
+          100
+        ],
+        "temperature": [
+          36.0,
+          38.0
+        ]
+      }
+    ],
+    "input_lines": [
+      "[{\"device_id\": \"DEV_A\", \"ward\": \"ER-1\", \"patient_id\": \"PA1\", \"metrics\": {\"heart_rate\": 40, \"temperature\": 36.0}, \"timestamp\": 1620000000, \"status\": \"active\"}, {\"device_id\": \"BACKUP_A\", \"ward\": \"ER-1\", \"patient_id\": \"PA1\", \"metrics\": {\"heart_rate\": 90}, \"timestamp\": 1620000000, \"status\": \"active\"}, {\"device_id\": \"DEV_X\", \"ward\": \"ER-1\", \"patient_id\": \"PA2\", \"metrics\": {\"heart_rate\": 39}, \"timestamp\": 1620000001, \"status\": \"active\"}]",
+      "{\"device_roles\": {\"BACKUP_A\": \"backup\"}, \"device_metrics\": {\"BACKUP_A\": [\"heart_rate\"]}, \"ward_requirements\": {}}",
+      "{\"heart_rate\": [40, 100], \"temperature\": [36.0, 38.0]}"
+    ],
+    "focus": "device_not_in_config_defaults_to_primary; boundary values exactly at min/max; out_of_range detection for slightly below min"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        {
+          "device_id": "P1",
+          "ward": "Ward-B",
+          "patient_id": "PB1",
+          "metrics": {
+            "oxygen_saturation": 85
+          },
+          "timestamp": 1620001000,
+          "status": "active"
+        },
+        {
+          "device_id": "B1",
+          "ward": "Ward-B",
+          "patient_id": "PB1",
+          "metrics": {
+            "oxygen_saturation": 95
+          },
+          "timestamp": 1620001000,
+          "status": "offline"
+        },
+        {
+          "device_id": "B2",
+          "ward": "Ward-B",
+          "patient_id": "PB1",
+          "metrics": {},
+          "timestamp": 1620001000,
+          "status": "active"
+        },
+        {
+          "device_id": "P2",
+          "ward": "Ward-B",
+          "patient_id": "PB2",
+          "metrics": {
+            "respiratory_rate": 18
+          },
+          "timestamp": 1620001000,
+          "status": "active"
+        }
+      ],
+      {
+        "device_roles": {
+          "P1": "primary",
+          "B1": "backup",
+          "B2": "backup",
+          "P2": "primary"
+        },
+        "device_metrics": {
+          "P1": [
+            "oxygen_saturation"
+          ],
+          "B1": [
+            "oxygen_saturation"
+          ],
+          "B2": [
+            "oxygen_saturation"
+          ],
+          "P2": [
+            "respiratory_rate"
+          ]
+        },
+        "ward_requirements": {
+          "Ward-B": 2
+        }
+      },
+      {
+        "oxygen_saturation": [
+          90,
+          100
+        ],
+        "respiratory_rate": [
+          12,
+          20
+        ]
+      }
+    ],
+    "input_lines": [
+      "[{\"device_id\": \"P1\", \"ward\": \"Ward-B\", \"patient_id\": \"PB1\", \"metrics\": {\"oxygen_saturation\": 85}, \"timestamp\": 1620001000, \"status\": \"active\"}, {\"device_id\": \"B1\", \"ward\": \"Ward-B\", \"patient_id\": \"PB1\", \"metrics\": {\"oxygen_saturation\": 95}, \"timestamp\": 1620001000, \"status\": \"offline\"}, {\"device_id\": \"B2\", \"ward\": \"Ward-B\", \"patient_id\": \"PB1\", \"metrics\": {}, \"timestamp\": 1620001000, \"status\": \"active\"}, {\"device_id\": \"P2\", \"ward\": \"Ward-B\", \"patient_id\": \"PB2\", \"metrics\": {\"respiratory_rate\": 18}, \"timestamp\": 1620001000, \"status\": \"active\"}]",
+      "{\"device_roles\": {\"P1\": \"primary\", \"B1\": \"backup\", \"B2\": \"backup\", \"P2\": \"primary\"}, \"device_metrics\": {\"P1\": [\"oxygen_saturation\"], \"B1\": [\"oxygen_saturation\"], \"B2\": [\"oxygen_saturation\"], \"P2\": [\"respiratory_rate\"]}, \"ward_requirements\": {\"Ward-B\": 2}}",
+      "{\"oxygen_saturation\": [90, 100], \"respiratory_rate\": [12, 20]}"
+    ],
+    "focus": "multiple_backups where primary is out_of_range, one backup offline, another backup provides no data -> backup selection and critical ward detection when working devices < requirement"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [],
+      {
+        "device_roles": {
+          "D1": "primary"
+        },
+        "device_metrics": {
+          "D1": [
+            "temperature"
+          ]
+        },
+        "ward_requirements": {
+          "ICU-Z": 1
+        }
+      },
+      {
+        "temperature": [
+          35.0,
+          42.0
+        ]
+      }
+    ],
+    "input_lines": [
+      "[]",
+      "{\"device_roles\": {\"D1\": \"primary\"}, \"device_metrics\": {\"D1\": [\"temperature\"]}, \"ward_requirements\": {\"ICU-Z\": 1}}",
+      "{\"temperature\": [35.0, 42.0]}"
+    ],
+    "focus": "empty_device_readings -> should return empty structures except timestamp (tests handling of empty input)"
+  }
+]

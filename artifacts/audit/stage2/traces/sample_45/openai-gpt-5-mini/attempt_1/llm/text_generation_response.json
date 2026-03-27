@@ -1,0 +1,76 @@
+{
+  "id": "resp_08b1eb43ef58c4b00069c324ff1c4c8196bc11f8fd2a61d53b",
+  "object": "response",
+  "created_at": 1774396671,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774396705,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_08b1eb43ef58c4b00069c324ff9e288196b0593fb6283efe53",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_08b1eb43ef58c4b00069c324ffd93881968fc5929d7879c4b8",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Optional\n\ndef optimize_portfolio(\n    asset_data: List[Dict[str, float]],\n    market_update: Dict[str, float],\n    mode: str = \"risk_adjusted\",\n    prev_weights: Optional[List[float]] = None,\n    max_per_asset: float = 0.35,\n    turnover_budget: float = 0.40,\n    step_size: float = 0.01,\n    alpha: float = 0.2,\n    beta: float = 0.2,\n    use_diversification_penalty: bool = True\n) -> List[float]:\n    # Prepare assets in stable order (by id) to ensure reproducibility\n    assets = sorted(asset_data, key=lambda a: a[\"id\"])\n    n = len(assets)\n    # Map ids to index\n    ids = [a[\"id\"] for a in assets]\n    id_to_idx = {id_: i for i, id_ in enumerate(ids)}\n    # Initialize prior expected returns & volatilities from asset_data\n    prior_er = [a.get(\"expected_return\", 0.0) for a in assets]\n    prior_vol = [a.get(\"volatility\", 0.0) for a in assets]\n    # Build smoothed values using market_update; if absent, use prior observed\n    smoothed_er = []\n    smoothed_vol = []\n    for i, id_ in enumerate(ids):\n        new_er = market_update.get(id_, prior_er[i])\n        # volatility update: if market_update provided as volatility? Problem gives market_update only for expected returns;\n        # so we assume volatility stays as prior (no new volatility observations). Use prior_vol as new_vol.\n        new_vol = prior_vol[i]\n        er_s = alpha * new_er + (1 - alpha) * prior_er[i]\n        vol_s = beta * new_vol + (1 - beta) * prior_vol[i]\n        smoothed_er.append(er_s)\n        smoothed_vol.append(vol_s)\n    # Compute base scores\n    scores = []\n    for i in range(n):\n        if mode == \"absolute\":\n            score = smoothed_er[i]\n        else:\n            score = smoothed_er[i] / (smoothed_vol[i] + 1e-6)\n        scores.append(score)\n    # Initialize current weights as zeros or prev_weights if provided\n    if prev_weights is None:\n        prev_weights = [0.0] * n\n    else:\n        # Ensure order aligns with sorted ids: prev_weights assumed given in same order as asset_data param order.\n        # Map prev_weights from original asset_data order to sorted order.\n        # Build mapping from original input order to index positions\n        original_ids = [a[\"id\"] for a in asset_data]\n        if len(prev_weights) == len(asset_data) and original_ids != ids:\n            orig_index = {id_: i for i, id_ in enumerate(original_ids)}\n            reordered = [0.0] * n\n            for i, id_ in enumerate(ids):\n                reordered[i] = prev_weights[orig_index[id_]]\n            prev_weights = reordered\n        else:\n            # if lengths mismatch or already aligned, assume aligned with ids\n            prev_weights = list(prev_weights)\n    # Start from prev_weights as baseline for allocation; we'll greedily add/subtract in steps to reach total 1.0\n    # However problem wants allocate capital in increments to highest-ranked assets until budget distributed, caps reached, or turnover exhausted.\n    # We'll perform allocation starting from zero weights, but turnover constraint compares to prev_weights: total absolute change <= turnover_budget.\n    # The spec: \"If turnover budget is exhausted before achieving total weight of 1.0, return the previous weights unchanged\"\n    # So we must attempt to build new weights starting from prev_weights by incrementally moving weight from cash (or from others)?\n    # Simpler deterministic interpretation: start from zeros and allocate to assets until sum=1.0, then check turnover; if turnover > budget, return prev_weights.\n    # But sample implies different. To adhere to spec: allocate starting from prev_weights by only increasing/decreasing in step_size to reach target weights summing to 1.0.\n    # We'll implement greedy allocation of marginal increments starting from all zeros, then compare turnover and if within budget accept, else return prev_weights.\n    # Build adjusted scores with diversification penalty using current_weight during allocation (current starts at 0)\n    current = [0.0] * n\n    total_alloc = 0.0\n    max_steps_per_asset = int(round(max_per_asset / step_size))\n    max_total_steps = int(round(1.0 / step_size))\n    # Precompute tie-break keys: we'll use (adjusted_score, -volatility, lexicographic id) but sorting descending by score\n    # Greedy loop: at each step choose asset with highest adjusted_score among those not yet at cap\n    steps = 0\n    while steps < max_total_steps and total_alloc + 1e-12 < 1.0:\n        adjusted_scores = []\n        for i in range(n):\n            if current[i] + 1e-12 >= max_per_asset:\n                adjusted_scores.append((float(\"-inf\"), smoothed_vol[i], ids[i], i))\n                continue\n            base = scores[i]\n            if use_diversification_penalty:\n                adj = base * (1.0 - current[i])\n            else:\n                adj = base\n            # For deterministic tie-breaking, we prepare tuple: (-adj, vol, id) so min gives desired pick\n            adjusted_scores.append((adj, smoothed_vol[i], ids[i], i))\n        # Choose best: highest adj; tie-break lower volatility; then lexicographically smaller id\n        # So we sort by (-adj, vol, id)\n        best = max(adjusted_scores, key=lambda x: (x[0], -x[1]*0.0))  # placeholder to keep stable; we'll handle tie-break explicitly\n        # Implement explicit comparisons ensuring tie-breaking rules\n        # Find candidates with max adj\n        max_adj = max(adjusted_scores, key=lambda x: x[0])[0]\n        candidates = [c for c in adjusted_scores if abs(c[0] - max_adj) <= 1e-12]\n        if len(candidates) > 1:\n            # pick lowest volatility among candidates\n            min_vol = min(c[1] for c in candidates)\n            candidates2 = [c for c in candidates if abs(c[1] - min_vol) <= 1e-12]\n            if len(candidates2) > 1:\n                # pick lexicographically smallest id\n                candidates2.sort(key=lambda c: c[2])\n            chosen = candidates2[0]\n        else:\n            chosen = candidates[0]\n        _, _, _, idx = chosen\n        # allocate one step\n        alloc = min(step_size, max_per_asset - current[idx], 1.0 - total_alloc)\n        if alloc < 1e-12:\n            break\n        current[idx] += alloc\n        total_alloc += alloc\n        steps += 1\n    # If total_alloc < 1.0 due to caps, it's acceptable as long as turnover within budget? Spec: total weight must equal 1.0 unless turnover prevents full allocation.\n    # Now compute turnover between prev_weights and current\n    turnover = sum(abs(current[i] - prev_weights[i]) for i in range(n))\n    if total_alloc < 1.0 and turnover > turnover_budget + 1e-12:\n        return prev_weights\n    if turnover > turnover_budget + 1e-12:\n        return prev_weights\n    # Final weights must be within [0, max_per_asset]; ensure numerical rounding to step_size multiples\n    def round_step(x):\n        return round(x / step_size) * step_size\n    final = [round_step(w) for w in current]\n    # Adjust rounding errors to make sum exactly 1.0 if possible by distributing leftover while respecting caps and turnover\n    s = sum(final)\n    # If sum differs from 1.0 by some epsilon, try to fix by adding/subtracting steps where allowed\n    diff = round((1.0 - s) / step_size)  # number of steps to add (+) or remove (-)\n    if diff != 0:\n        # Build list of candidate indices for adding when diff>0: not at cap\n        if diff > 0:\n            for _ in range(diff):\n                cand = []\n                for i in range(n):\n                    if final[i] + step_size <= max_per_asset + 1e-12:\n                        # compute adjusted score for selection\n                        base = scores[i]\n                        adj = base * (1.0 - final[i]) if use_diversification_penalty else base\n                        cand.append((adj, final[i], smoothed_vol[i], ids[i], i))\n                if not cand:\n                    break\n                # pick highest adj, tie-break lower vol, then id\n                max_adj = max(c[0] for c in cand)\n                cands = [c for c in cand if abs(c[0] - max_adj) <= 1e-12]\n                if len(cands) > 1:\n                    min_vol = min(c[2] for c in cands)\n                    cands = [c for c in cands if abs(c[2] - min_vol) <= 1e-12]\n                    cands.sort(key=lambda c: c[3])\n                idx = cands[0][4]\n                final[idx] += step_size\n        else:\n            for _ in range(-diff):\n                # remove from asset with lowest adjusted score among those with weight >= step_size\n                cand = []\n                for i in range(n):\n                    if final[i] - step_size >= -1e-12:\n                        base = scores[i]\n                        adj = base * (1.0 - final[i]) if use_diversification_penalty else base\n                        cand.append((adj, final[i], smoothed_vol[i], ids[i], i))\n                if not cand:\n                    break\n                min_adj = min(c[0] for c in cand)\n                cands = [c for c in cand if abs(c[0] - min_adj) <= 1e-12]\n                if len(cands) > 1:\n                    min_vol = min(c[2] for c in cands)\n                    cands = [c for c in cands if abs(c[2] - min_vol) <= 1e-12]\n                    cands.sort(key=lambda c: c[3])\n                idx = cands[0][4]\n                if final[idx] >= step_size:\n                    final[idx] -= step_size\n    # Final check turnover again after rounding adjustments\n    turnover = sum(abs(final[i] - prev_weights[i]) for i in range(n))\n    if turnover > turnover_budget + 1e-12:\n        return prev_weights\n    # Ensure numeric stability: clip bounds\n    final = [max(0.0, min(max_per_asset, round(w, 10))) for w in final]\n    # If sum is not 1.0 and turnover allowed, try to distribute leftover; else if cannot reach 1.0 return prev_weights per spec\n    s = round(sum(final), 10)\n    if abs(s - 1.0) > 1e-9:\n        # If total_alloc was <1 because of caps: it's allowed unless turnover budget prevented full allocation earlier.\n        # The spec prefers total weight 1.0 when possible. Try small adjustments without exceeding turnover budget\n        # Here, if we cannot reach 1.0 exactly, return prev_weights per spec\n        return prev_weights\n    return final"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1273,
+    "input_tokens_details": {
+      "cached_tokens": 1152
+    },
+    "output_tokens": 2493,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3766
+  },
+  "user": null,
+  "metadata": {}
+}

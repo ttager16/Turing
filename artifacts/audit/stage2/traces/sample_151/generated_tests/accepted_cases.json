@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[[\"A_Anna\", [1, 2, 3]], [\"A_Ann\", [1, 2]], [\"Bert\", [2, 3]], [\"Cathy\", [1, 2, 3]], [\"Dave\", [3]]]\n[{\"scene_id\": \"S1\", \"time_slot\": 1, \"roles\": {\"Lead\": 1, \"Chorus\": 2}}, {\"scene_id\": \"S2\", \"time_slot\": 2, \"roles\": {\"Lead\": 1, \"Chorus\": 2}}, {\"scene_id\": \"S3\", \"time_slot\": 3, \"roles\": {\"Lead\": 1, \"Chorus\": 1}}]\n{\"A_Anna\": [1, 1, 1], \"A_Ann\": [1, 0], \"Bert\": [1, 1], \"Cathy\": [], \"Dave\": [0, 1]}\n{\"A_Anna\": {\"Lead\": 0.95, \"Chorus\": 0.6}, \"A_Ann\": {\"Chorus\": 0.9}, \"Bert\": {\"Lead\": 0.7}, \"Dave\": {\"Chorus\": 0.5}}\n{\"A_Anna-A_Ann\": 1, \"A_Ann-Bert\": 2, \"Bert-Cathy\": 3}\n0\n{\"A_Anna\": 2, \"A_Ann\": 2, \"Bert\": 2, \"Cathy\": 3, \"Dave\": 1}",
+    "output_text": "{\"S1\": {\"Chorus\": [\"A_Anna\", \"A_Ann\"], \"Lead\": [\"Cathy\"]}, \"S2\": {\"Chorus\": [\"Bert\", \"A_Anna\"], \"Lead\": [\"Cathy\"]}, \"S3\": {\"Chorus\": [\"Bert\"], \"Lead\": [\"Dave\"]}}"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[[\"X1\", [1, 2, 3, 4]], [\"X2\", [1, 3]], [\"X3\", [2, 4]], [\"X4\", [3]], [\"X5\", [4]]]\n[{\"scene_id\": \"SceneA\", \"time_slot\": 1, \"roles\": {\"solo\": 1, \"ensemble\": 2}}, {\"scene_id\": \"SceneB\", \"time_slot\": 2, \"roles\": {\"solo\": 1, \"ensemble\": 2}}, {\"scene_id\": \"SceneC\", \"time_slot\": 3, \"roles\": {\"ensemble\": 3}}, {\"scene_id\": \"SceneD\", \"time_slot\": 4, \"roles\": {\"solo\": 1, \"ensemble\": 1}}]\n{\"X1\": [1, 1, 0, 1], \"X2\": [1, 0], \"X3\": [1, 1], \"X4\": [0], \"X5\": [1]}\n{\"X1\": {\"solo\": 0.9, \"ensemble\": 0.7}, \"X2\": {\"solo\": 0.6, \"ensemble\": 0.95}, \"X3\": {\"ensemble\": 0.8}, \"X4\": {\"solo\": 0.85}, \"X5\": {\"ensemble\": 0.6}}\n{\"X1-X2\": 2, \"X2-X1\": 2, \"X1-X3\": 3, \"X3-X1\": 3, \"X2-X3\": 4, \"X3-X2\": 4, \"X4-X5\": 5, \"X5-X4\": 5}\n1\n{\"X1\": 2, \"X2\": 1, \"X3\": 1, \"X4\": 1, \"X5\": 1}",
+    "output_text": "{\"SceneA\": {\"ensemble\": [\"X2\", \"X1\"], \"solo\": []}, \"SceneB\": {\"ensemble\": [\"X3\"], \"solo\": []}, \"SceneC\": {\"ensemble\": [\"X1\", \"X4\"]}, \"SceneD\": {\"ensemble\": [\"X5\"], \"solo\": []}}"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[[\"Ana-Maria\", [10, 20, 30]], [\"Zoë\", [10, 11, 12, 20]], [\"Bob\", [20, 30]], [\"李\", [10, 30]]]\n[{\"scene_id\": \"S1\", \"time_slot\": 10, \"roles\": {\"R1\": 1, \"R2\": 1}}, {\"scene_id\": \"S2\", \"time_slot\": 11, \"roles\": {\"R1\": 1}}, {\"scene_id\": \"S3\", \"time_slot\": 20, \"roles\": {\"R2\": 2}}, {\"scene_id\": \"S4\", \"time_slot\": 30, \"roles\": {\"R1\": 1, \"R2\": 1}}]\n{\"Ana-Maria\": [1, 0, 1], \"Zoë\": [1, 1, 1, 1], \"Bob\": [0, 0], \"李\": [1, 1, 1]}\n{}\n{\"Ana-Maria-Zoë\": 5, \"Zoë-李\": 10, \"Bob-Ana-Maria\": 8}\n5\n{\"Ana-Maria\": 2, \"Zoë\": 3, \"Bob\": 2, \"李\": 2}",
+    "output_text": "{\"S1\": {\"R1\": [\"Zoë\"], \"R2\": [\"李\"]}, \"S2\": {\"R1\": []}, \"S3\": {\"R2\": [\"Zoë\", \"Ana-Maria\"]}, \"S4\": {\"R1\": [\"李\"], \"R2\": [\"Ana-Maria\"]}}"
+  }
+]

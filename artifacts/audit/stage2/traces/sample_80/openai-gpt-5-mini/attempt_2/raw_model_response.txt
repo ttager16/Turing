@@ -1,0 +1,164 @@
+from typing import List, Any
+from collections import defaultdict
+import re
+
+REF_RE = re.compile(r"^REF_([^_]+)_(\d+)$")
+
+def manage_device_logs(device_logs: List[List[Any]]) -> List[List[Any]]:
+    # Δ_stale
+    DELTA = 1
+
+    # Track newest timestamp per device
+    newest = defaultdict(lambda: -10**18)
+    for dev, ts, _ in device_logs:
+        try:
+            t = int(ts)
+        except Exception:
+            continue
+        if t > newest[dev]:
+            newest[dev] = t
+
+    # First pass: apply stale and duplicate rules; preserve order by marking valid candidates
+    candidates = []
+    for entry in device_logs:
+        if not isinstance(entry, list) or len(entry) < 3:
+            continue
+        dev, ts, payload = entry[0], entry[1], entry[2]
+        try:
+            t = int(ts)
+        except Exception:
+            # malformed timestamp -> discard
+            continue
+        # Duplicate payload rule
+        if payload == "duplicate_entry":
+            continue
+        # Stale rule: if there exists newer_timestamp such that newer - ts > DELTA
+        if newest.get(dev, -10**18) - t > DELTA:
+            continue
+        candidates.append([dev, t, payload])
+
+    # Build set of (device, timestamp) present after stale/dup removal for reference validation
+    present = set((dev, ts) for dev, ts, _ in candidates)
+
+    # Second pass: validate references; remove invalid/malformed refs
+    # Also we must ensure no cyclical dependencies: detect simple cycles via graph and remove offending logs
+    # Build reference edges
+    edges = defaultdict(list)  # from index to referenced (device,ts)
+    idx_to_entry = {}
+    for idx, (dev, ts, payload) in enumerate(candidates):
+        idx_to_entry[idx] = (dev, ts, payload)
+        m = REF_RE.match(payload)
+        if m:
+            ref_dev, ref_ts_s = m.group(1), m.group(2)
+            try:
+                ref_ts = int(ref_ts_s)
+            except Exception:
+                continue
+            edges[idx].append((ref_dev, ref_ts))
+
+    # Map referenced (dev,ts) to candidate indices (could be multiple but match existence matters)
+    ref_to_idxs = defaultdict(list)
+    for idx, (dev, ts, payload) in idx_to_entry.items():
+        ref_to_idxs[(dev, ts)].append(idx)
+
+    # Validate references: remove entries whose referenced target doesn't exist in present
+    valid_mask = [True] * len(candidates)
+    for idx, refs in edges.items():
+        for (rdev, rts) in refs:
+            if (rdev, rts) not in present:
+                valid_mask[idx] = False
+                break
+
+    # After removing invalid refs, we must remove cycles. Build index-level graph among valid nodes referencing valid targets.
+    # Build directed graph idx -> idx_target (choose any one matching index if multiple; pick first)
+    graph = {}
+    for idx, refs in edges.items():
+        if not valid_mask[idx]:
+            continue
+        for (rdev, rts) in refs:
+            # find a target index among candidates matching (rdev,rts)
+            targets = ref_to_idxs.get((rdev, rts), [])
+            # filter to those currently considered valid (or will be checked)
+            chosen = None
+            for t_idx in targets:
+                # avoid self-reference unless allowed; treat self-reference as cycle
+                chosen = t_idx
+                break
+            if chosen is not None:
+                graph[idx] = chosen
+
+    # Detect cycles via DFS
+    visited = [0] * len(candidates)  # 0=unseen,1=visiting,2=done
+    def dfs_cycle(u):
+        stack = []
+        while True:
+            if visited[u] == 0:
+                visited[u] = 1
+                stack.append(u)
+                v = graph.get(u)
+                if v is None:
+                    # unwind
+                    while stack:
+                        visited[stack.pop()] = 2
+                    return None
+                u = v
+                if visited[u] == 1:
+                    # found cycle, return cycle nodes
+                    cycle = []
+                    # collect from stack until u
+                    while stack:
+                        n = stack.pop()
+                        cycle.append(n)
+                        if n == u:
+                            break
+                    for n in cycle:
+                        visited[n] = 2
+                    return cycle
+                elif visited[u] == 2:
+                    # reached done node; unwind stack
+                    while stack:
+                        visited[stack.pop()] = 2
+                    return None
+                else:
+                    continue
+            else:
+                return None
+
+    # Collect cycles and invalidate their nodes (rollback)
+    for i in range(len(candidates)):
+        if not valid_mask[i]:
+            continue
+        if visited[i] == 0:
+            cycle = dfs_cycle(i)
+            if cycle:
+                # invalidate all nodes in cycle
+                for n in cycle:
+                    valid_mask[n] = False
+
+    # Recompute present after removals to ensure references now valid; iterate until stable
+    changed = True
+    while changed:
+        changed = False
+        present = set((dev, ts) for (dev, ts, payload), ok in zip(candidates, valid_mask) if ok)
+        for idx, (dev, ts, payload) in enumerate(candidates):
+            if not valid_mask[idx]:
+                continue
+            m = REF_RE.match(payload)
+            if m:
+                rdev, rts_s = m.group(1), m.group(2)
+                try:
+                    rts = int(rts_s)
+                except Exception:
+                    valid_mask[idx] = False
+                    changed = True
+                    continue
+                if (rdev, rts) not in present:
+                    valid_mask[idx] = False
+                    changed = True
+
+    # Final output: preserve original order of valid logs
+    output = []
+    for entry, ok in zip(candidates, valid_mask):
+        if ok:
+            output.append([entry[0], entry[1], entry[2]])
+    return output

@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN82BEqR6RX42cTUTLlXM1fYF3Zxq",
+  "object": "chat.completion",
+  "created": 1774404799,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"3\",\"[1, 1, 1, 1]\"],\"focus\":\"4 successive 90° rotations on a 3x3 grid (points at -2,0,2) to exercise 4-cycle merging and rotational symmetry detection.\"},{\"input_lines\":[\"4\",\"[3]\"],\"focus\":\"Projection to the real axis on a 4x4 grid (non-integer step) to stress snapping behavior and deduplication when imaginary parts collapse to nearest grid rows.\"},{\"input_lines\":[\"6\",\"[99, 0, 4, 1]\"],\"focus\":\"Mixed sequence with an invalid code leading the list, then conjugation, negation, and a rotation on a 6x6 grid to test ignoring invalid codes and nontrivial multi-step invariant clusters.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2308,
+    "completion_tokens": 1658,
+    "total_tokens": 3966,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1472,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

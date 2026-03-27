@@ -1,0 +1,379 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+In a rapidly transforming global logistics ecosystem, a company seeks to orchestrate concurrent deliveries across an expansive network of multimodal routes that interconnect cities, hubs, and warehouses. Moreover, real-time inputs such as congestion spikes, infrastructure downtime, and emergency shipments must be seamlessly integrated into routing decisions. To achieve this, the system requires a sophisticated decomposition framework, potentially leveraging advanced graph data structures (e.g., Heavy-Light Decomposition) to break down, analyze, and reassemble the network for continuous optimization. As part of this initiative, the solution must remain highly modular by adhering to Python’s Abstract Base Classes (ABCs), allowing future expansions and specialized routing strategies to be integrated without disrupting the overall architecture.
+
+### Objectives:
+
+1. **Design an Advanced Abstract Base Class**  
+    Create a Python ABC that prescribes the interface for multi-level route decomposition, capacity verification, and on-demand state recalculations. This includes methods to dynamically segment large route networks, compute inter-segment flow constraints, manage concurrency locks, and merge partial solutions in real time.
+   ``
+2. **Implement Multi-Phase Decomposition and Concurrency**  
+   Develop a multi-step algorithm, harnessing divide-and-conquer principles on a graph partitioned using advanced techniques (e.g. Heavy-Light Decomposition). Ensure concurrency compatibility such that partial route computations and updates can be processed in parallel, while safeguarding shared resources through appropriate synchronization.
+
+3. **Utilize Dynamic Programming on Subnetworks with Backtracking**  
+   Combine DP and backtracking:  
+   • DP for calculating feasible capacities, transit times, and cost distributions across subgraphs.  
+   • Backtracking for re-routing or dropping infeasible edges when unexpected updates (e.g., partial closures, severe congestion) invalidate previous assumptions or capacities.
+
+4. **Real-Time Adapting Mechanism with State Tracking**  
+   Introduce robust tracking of each city’s current throughput, each route’s remaining capacity, and potential future demands. The algorithm must react to discrete events—such as traffic incidents or urgent orders—by recalculating relevant subnetworks, updating cost heuristics, and refining final routes without resorting to a full restart.
+
+5. **Emphasize Standard Library Solutions**  
+   Avoid the use of external Python libraries; instead, implement concurrency, data structures, and synchronization mechanisms using standard features such as `threading` or `multiprocessing` wherever possible.
+
+### Constraints:
+
+- Treat routes as bidirectional; create adjacency and capacities in both directions for each input edge.
+- Look up traffic multipliers by "src-dst" or "dst-src"; default multiplier to 1.0 if missing.
+- If both "src-dst" and "dst-src" multipliers exist, the direction-specific key "src-dst" MUST take precedence; "dst-src" is fallback only.
+- Fix path stitching and validation endpoints to start = `cities[0]` and end = `cities[-1]`.
+- Treat all shipments as a single commodity; no per-cargo-class rules or delivery time windows are required.
+- Only consider nodes that appear in `cities` when selecting the final path; edges to nodes not in `cities` may exist in the graph for decomposition/flow, but must not appear in the returned route.
+- Duplicates in `cities` are allowed. Routing considers the unique set of nodes for traversal while keeping endpoints fixed to `cities[0]` and `cities[-1]`.
+- Ignore self-loops `(u, u)` during path computation; they must not appear in the returned route.
+- If duplicate edges are provided (same `(src, dst)` multiple times), the last definition takes precedence; explicitly provided reverse edges can override inferred reverse weights.
+
+### Function Signatures and Scaffolding:
+
+```python
+from abc import ABC, abstractmethod
+from typing import List, Tuple, Dict, Set, Any, Optional
+
+
+class RouteDecompositionBase(ABC):
+    """ABC for multi-level route decomposition and concurrency control.
+
+    Defines the required interface for decomposing the network, validating
+    capacity, reacting to events, computing cross-segment flow, merging
+    partial paths, and coordinating access with locks.
+    """
+
+    @abstractmethod
+    def decompose_network(self, graph: Dict[str, List[Tuple[str, float]]]) -> List[Any]:
+        """Segment the network graph into subgraphs for parallel processing.
+
+        Args:
+            graph: Adjacency list mapping a node to a list of (neighbor, weight).
+
+        Returns:
+            A list of segment descriptors representing
+            disjoint or partially overlapping subnetworks.
+        """
+        ...
+
+    @abstractmethod
+    def verify_capacity(self, segment: Any, constraints: Dict[str, float]) -> bool:
+        """Check if a segment satisfies provided capacity constraints.
+
+        Args:
+            segment: A segment descriptor returned by decompose_network.
+            constraints: Mapping of "src-dst" edge keys to minimum capacity.
+
+        Returns:
+            True if all relevant edges meet or exceed required capacity.
+        """
+        ...
+
+    @abstractmethod
+    def recalculate_state(self, event: Dict[str, Any]) -> None:
+        """Update internal network state in response to a real-time event.
+
+        Args:
+            event: Event payload. Expected keys include:
+                - type: str in {"closure", "congestion", "new_shipment"}
+                - edge, multiplier, from, to, volume (as applicable)
+
+        Returns:
+            None
+        """
+        ...
+
+    @abstractmethod
+    def compute_inter_segment_flow(self, segments: List[Any]) -> Dict[str, float]:
+        """Compute flow constraints at boundaries between segments.
+
+        Args:
+            segments: List of segment descriptors from decompose_network.
+
+        Returns:
+            Mapping of segment-pair identifiers to total available flow.
+        """
+        ...
+
+    @abstractmethod
+    def merge_partial_solutions(self, solutions: List[Any]) -> Any:
+        """Merge multiple partial route solutions into a single path.
+
+        Args:
+            solutions: List of per-segment partial solutions (e.g., path edges).
+
+        Returns:
+            A merged solution, typically a list of (src, dst) edges.
+        """
+        ...
+
+    @abstractmethod
+    def acquire_resource_lock(self) -> None:
+        """Acquire a lock to protect shared resources during concurrency."""
+        ...
+
+    @abstractmethod
+    def release_resource_lock(self) -> None:
+        """Release a previously acquired shared-resource lock."""
+        ...
+
+
+class HeavyLightDecomposition:
+    """Scaffold for heavy-light decomposition over an adjacency-list graph."""
+    def __init__(self, graph: Dict[str, List[Tuple[str, float]]]) -> None:
+        """Initialize with a bidirectional weighted adjacency list.
+
+        Args:
+            graph: Mapping node -> list of (neighbor, weight).
+        """
+        ...
+
+    def decompose(self, root: str) -> Dict[int, List[str]]:
+        """Partition the graph into chains rooted at the given node.
+
+        Args:
+            root: Start node for building chains.
+
+        Returns:
+            Mapping from chain id to ordered list of nodes in that chain.
+        """
+        ...
+
+
+class NetworkState:
+    """Thread-safe network state for throughput, capacities, and demands."""
+    def __init__(self) -> None:
+        """Create empty state containers for nodes, edges, and pending demand."""
+        self.node_throughput: Dict[str, float] = {}  # Current throughput per node
+        self.edge_capacity: Dict[Tuple[str, str], float] = {}  # Available capacity per edge
+        self.future_demands: List[Dict[str, Any]] = []  # Pending shipment requests
+        ...
+
+    def update_throughput(self, node: str, value: float) -> None:
+        """Set the current throughput value for a node.
+
+        Args:
+            node: Node identifier.
+            value: Throughput value (e.g., units/time).
+        """
+        ...
+
+    def update_capacity(self, edge: Tuple[str, str], capacity: float) -> None:
+        """Set the absolute capacity available on a directed edge.
+
+        Args:
+            edge: (src, dst) edge key.
+            capacity: Maximum allowed flow on the edge.
+        """
+        ...
+
+    def get_available_capacity(self, edge: Tuple[str, str]) -> float:
+        """Return remaining capacity for a given edge.
+
+        Args:
+            edge: (src, dst) edge key.
+
+        Returns:
+            Residual capacity after current reservations.
+        """
+        ...
+
+    def reserve_capacity(self, edge: Tuple[str, str], amount: float) -> bool:
+        """Attempt to reserve capacity on an edge.
+
+        Args:
+            edge: (src, dst) edge key.
+            amount: Capacity to reserve.
+
+        Returns:
+            True if reservation succeeded; otherwise False.
+        """
+        ...
+
+
+class AdvancedRouteOptimizer(RouteDecompositionBase):
+    def __init__(self, cities: List[str], routes: List[Tuple[str, str, float]],
+                 traffic_data: Dict[str, float]) -> None:
+        """Initialize optimizer with cities, routes, and traffic multipliers.
+
+        Args:
+            cities: Ordered list of city/hub identifiers.
+            routes: List of (src, dst, base_weight) edges.
+            traffic_data: Mapping "src-dst" -> multiplier applied to base_weight.
+        """
+        self.cities = cities  # List of city/hub identifiers
+        self.routes = routes  # List of (src, dst, weight) edges
+        self.traffic_data = traffic_data  # Traffic multipliers for edges
+        self.graph: Dict[str, List[Tuple[str, float]]] = {}  # Adjacency list representation
+        self.state = NetworkState()  # Thread-safe network state tracker
+        self.dp_cache: Dict[Tuple[str, str], Tuple[float, List[Tuple[str, str]]]] = {}  # DP memoization cache
+        ...
+
+    def decompose_network(self, graph: Dict[str, List[Tuple[str, float]]]) -> List[Any]:
+        """See base class. Segment network for parallel subproblem solving."""
+        ...
+
+    def verify_capacity(self, segment: Any, constraints: Dict[str, float]) -> bool:
+        """See base class. Validate segment against capacity constraints."""
+        ...
+
+    def recalculate_state(self, event: Dict[str, Any]) -> None:
+        """See base class. Apply closure, congestion, or demand events."""
+        ...
+
+    def compute_inter_segment_flow(self, segments: List[Any]) -> Dict[str, float]:
+        """See base class. Compute flow availability across segment boundaries."""
+        ...
+
+    def merge_partial_solutions(self, solutions: List[Any]) -> Any:
+        """See base class. Stitch partial paths into a unified route."""
+        ...
+
+    def acquire_resource_lock(self) -> None:
+        """See base class. Acquire concurrency lock."""
+        ...
+
+    def release_resource_lock(self) -> None:
+        """See base class. Release concurrency lock."""
+        ...
+
+    def optimize_with_concurrency(self, start: str, end: str) -> List[Tuple[str, str]]:
+        """Compute an end-to-end route using parallel subnetwork processing.
+
+        Args:
+            start: Start node id.
+            end: End node id.
+
+        Returns:
+            A list of (src, dst) edges forming a continuous path, or [].
+        """
+        ...
+
+    def adaptive_route_optimization(self, start: str, end: str,
+                                    events: Optional[List[Dict[str, Any]]] = None) -> List[Tuple[str, str]]:
+        """Optimize with optional real-time events applied before routing.
+
+        Args:
+            start: Start node id.
+            end: End node id.
+            events: Optional list of event payloads to apply.
+
+        Returns:
+            A list of (src, dst) edges for the final route, or [].
+        """
+        ...
+
+    def _dynamic_programming_route(self, start: str, end: str) -> Tuple[float, List[Tuple[str, str]]]:
+        """Return shortest-path cost and path under current capacities.
+
+        Args:
+            start: Start node id.
+            end: End node id.
+
+        Returns:
+            (total_cost, path_edges) where path_edges is a list of (src, dst).
+        """
+        ...
+
+    def _backtracking_route(self, start: str, end: str,
+                             forbidden_edges: Set[Tuple[str, str]]) -> List[Tuple[str, str]]:
+        """Find an alternative path avoiding forbidden edges via backtracking.
+
+        Args:
+            start: Start node id.
+            end: End node id.
+            forbidden_edges: Set of (src, dst) edges to avoid.
+
+        Returns:
+            A feasible list of (src, dst) edges if found, else [].
+        """
+        ...
+
+    def _is_valid_path(self, path: List[Tuple[str, str]], start: str, end: str) -> bool:
+        """Validate continuity and endpoints for a path edge list.
+
+        Args:
+            path: List of (src, dst) edges.
+            start: Expected first node.
+            end: Expected last node.
+
+        Returns:
+            True if edges form a continuous path from start to end.
+        """
+        ...
+
+# Main function
+def optimize_delivery_routes(
+    cities: List[str],
+    routes: List[List[Union[str, float]]],
+    traffic_data: Dict[str, float]
+) -> List[List[str]]:
+    """
+    Optimize delivery routes using HLD decomposition and DP.
+
+    Args:
+        cities: List of cities from start to end
+        routes: List[List[Union[str, float]]]
+        traffic_data: Traffic multipliers for "src-dst" keys
+
+    Returns:
+        List of route segments forming optimal path
+    """
+    ...
+```
+
+### Sample Input/Output:
+
+#### Sample Input:
+
+```python
+cities = ["A", "B", "C", "D", "E"]
+routes = [
+    ["A", "B", 12.0], ["B", "C", 7.5], ["A", "C", 25.0],
+    ["C", "D", 3.0],  ["B", "D", 16.0], ["D", "E", 6.0]
+]
+traffic_data = {
+    "A-B": 0.9, "B-C": 1.1, "A-C": 1.3,
+    "C-D": 0.5, "B-D": 1.2, "D-E": 0.8
+}
+```
+
+#### Expected Output:
+
+```python
+[["A", "B"], ["B", "C"], ["C", "D"], ["D", "E"]]
+```
+
+### Output Format:
+
+The output should be a list of consecutive lists delineating the optimal route segments from the initial source to the final destination, factoring in real-time congestion multipliers, subnetwork capacity, and partial rerouting decisions. Each list is in the form [start_city, end_city].
+
+Starter Code:
+```python
+from abc import ABC, abstractmethod
+from typing import List, Tuple, Dict, Set, Any, Union
+from collections import defaultdict
+from threading import Lock, Thread
+import heapq
+
+def optimize_delivery_routes(
+    cities: List[str],
+    routes: List[List[Union[str, float]]],
+    traffic_data: Dict[str, float]
+) -> List[List[str]]:
+    pass
+```

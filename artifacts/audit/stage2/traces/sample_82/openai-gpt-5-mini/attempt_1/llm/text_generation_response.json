@@ -1,0 +1,76 @@
+{
+  "id": "resp_0994a9b912db197c0069c32e2c93508191803b74588964a4b1",
+  "object": "response",
+  "created_at": 1774399020,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774399035,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0994a9b912db197c0069c32e2ce5c08191814416a54536b3d2",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0994a9b912db197c0069c32e2d1bc8819191387888a6b7456a",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Any, Dict, List\nimport threading\n\ndef build_adaptive_sensor_list(\n    data_stream: List[Dict[str, Any]],\n    invalidations: List[int] = []\n) -> Dict[str, Any]:\n    lock = threading.Lock()\n    # Structures\n    zones = {}  # zone_name -> dict of types -> list of (idx, value)\n    path_index = {}  # sensor key -> base type node id\n    # For tracking insertion order per zone/type\n    for idx, ev in enumerate(data_stream):\n        sensor = ev.get(\"sensor\", \"\")\n        value = float(ev.get(\"value\", 0.0))\n        # parse type_zone\n        if \"_\" not in sensor:\n            continue\n        typ, zone = sensor.split(\"_\", 1)\n        with lock:\n            if zone not in zones:\n                zones[zone] = {}\n            if typ not in zones[zone]:\n                zones[zone][typ] = []  # list of (idx, value)\n            zones[zone][typ].append((idx, value))\n            path_index[sensor] = f\"zone:{zone}/type:{typ}\"\n    # Apply invalidations: remove readings by idx\n    invalid_set = set(invalidations)\n    # Build leaf_values: per base type node, list of values in original order minus invalids\n    leaf_values = {}\n    # For computing stats, need valid readings after invalidation\n    for zone in list(zones.keys()):\n        for typ in list(zones[zone].keys()):\n            readings = zones[zone][typ]\n            valid = [v for (i, v) in readings if i not in invalid_set]\n            node_id = f\"zone:{zone}/type:{typ}\"\n            leaf_values[node_id] = valid\n    # Hot segment promotion: for each (zone, type) when its event count (original arrivals) >=2,\n    # create hot node duplicating the most recently inserted reading that is valid (after invalidation).\n    hot_nodes = {}  # node_id* -> latest_value\n    for zone in zones:\n        for typ in zones[zone]:\n            readings = zones[zone][typ]\n            if len(readings) >= 2:\n                # most recently inserted reading is last in readings; if it's invalid, hot should reflect latest valid after rollbacks\n                # Rule: promote the most recently inserted reading into a hot segment when count reaches >=2.\n                # But after invalidation, hot should reflect latest valid reading (or be deleted).\n                # So we check valid readings and set hot to last valid if exists.\n                valid = [v for (i, v) in readings if i not in invalid_set]\n                if valid:\n                    hot_nodes[f\"zone:{zone}/type:{typ}*\"] = valid[-1]\n                else:\n                    # no hot node\n                    pass\n    # Build traversal order: root -> zones sorted lex -> for each zone types sorted lex -> hot immediately after base if exists\n    linked_order = [\"root\"]\n    zone_names = sorted(zones.keys())\n    for zone in zone_names:\n        zone_id = f\"zone:{zone}\"\n        linked_order.append(zone_id)\n        type_names = sorted(zones[zone].keys())\n        for typ in type_names:\n            base_id = f\"zone:{zone}/type:{typ}\"\n            linked_order.append(base_id)\n            hot_id = f\"{base_id}*\"\n            if hot_id in hot_nodes:\n                linked_order.append(hot_id)\n    # Build next_pointer_of\n    next_pointer_of = {}\n    for i, nid in enumerate(linked_order):\n        if i + 1 < len(linked_order):\n            next_pointer_of[nid] = linked_order[i + 1]\n        else:\n            next_pointer_of[nid] = None\n    # segment_stats\n    segment_stats = {}\n    for zone in zones:\n        for typ in zones[zone]:\n            node_id = f\"zone:{zone}/type:{typ}\"\n            vals = leaf_values.get(node_id, [])\n            if vals:\n                cnt = len(vals)\n                s = sum(vals)\n                mn = min(vals)\n                mx = max(vals)\n                avg = round(s / cnt + 1e-12, 3)\n                # Ensure avg has 3 decimal places as float (e.g., 180.000)\n                # Keep as float with rounding\n                segment_stats[node_id] = {\n                    \"count\": cnt,\n                    \"sum\": s,\n                    \"min\": mn,\n                    \"max\": mx,\n                    \"avg\": float(f\"{avg:.3f}\")\n                }\n            else:\n                # zero readings: per spec, base type nodes exist only when first needed; if exist but no valid readings, produce zeroed stats?\n                # The spec implies types exist only when needed and stats computed over valid readings; if none, we skip stats (not present).\n                pass\n    for hid, latest in hot_nodes.items():\n        segment_stats[hid] = {\"latest_value\": latest}\n    # path_index should map each sensor key to its base type node id; ensure unique keys present mapping for seen sensors\n    # Already built path_index, but ensure keys sorted? Not necessary.\n    # Ensure leaf_values includes only base type nodes that exist (already)\n    result = {\n        \"linked_order\": linked_order,\n        \"next_pointer_of\": next_pointer_of,\n        \"segment_stats\": segment_stats,\n        \"path_index\": path_index,\n        \"leaf_values\": leaf_values\n    }\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2476,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1167,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3643
+  },
+  "user": null,
+  "metadata": {}
+}

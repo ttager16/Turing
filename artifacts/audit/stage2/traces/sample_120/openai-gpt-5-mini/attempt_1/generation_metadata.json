@@ -1,0 +1,18 @@
+{
+  "provider": "openai",
+  "model": "gpt-5-mini-2025-08-07",
+  "timestamp_utc": "2026-03-25T01:30:08.861941+00:00",
+  "finish_reason": "completed",
+  "usage": {
+    "input_tokens": 2653,
+    "input_tokens_details": {
+      "cached_tokens": 2560
+    },
+    "output_tokens": 1072,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3725
+  },
+  "model_label": "openai:gpt-5-mini"
+}

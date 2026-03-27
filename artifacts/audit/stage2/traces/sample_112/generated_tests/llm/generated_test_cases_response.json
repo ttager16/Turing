@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN7Co41allMqFeMSJwtUGAyWZR5jZ",
+  "object": "chat.completion",
+  "created": 1774401614,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[[\\\"acct_USD_A\\\", \\\"acct_USD_B\\\", 1000.0], [\\\"acct1_EUR\\\", \\\"acct2_USD\\\", 1250.0], [\\\"acct_USD_A\\\", \\\"acct_USD_B\\\", 0.0], [\\\"a_USD\\\", \\\"b_USD\\\", 600.0], [\\\"a_USD\\\", \\\"b_USD\\\", 600.0], [\\\"client123_USD\\\", \\\"client123_EUR\\\", 1300.0], [\\\"client123_EUR\\\", \\\"client123_USD\\\", 1200.0]\",\"{\\\"volume_threshold\\\": 1000.0, \\\"frequency_threshold\\\": 2, \\\"cross_currency_sensitivity\\\": 0.8, \\\"cycle_threshold\\\": 2000.0}\"],\"focus\":\"Boundary volumes (exactly at thresholds), zero-amount transaction, repeated pair hitting frequency threshold, and rapid cross-currency self-loop for the same logical account (currency-suffixed names). Tests strict comparisons and currency-parsing assumptions.\"},{\"input_lines\":[\"[[\\\"A_USD\\\", \\\"B_EUR\\\", 700.0], [\\\"B_EUR\\\", \\\"C_GBP\\\", 800.0], [\\\"C_GBP\\\", \\\"D_USD\\\", 600.0], [\\\"D_USD\\\", \\\"A_USD\\\", 100.0], [\\\"X_USD\\\", \\\"Y_EUR\\\", 1200.0], [\\\"r1_USD\\\", \\\"r2_USD\\\", 300.0], [\\\"r1_USD\\\", \\\"r2_USD\\\", 300.0], [\\\"r1_USD\\\", \\\"r2_USD\\\", 300.0], [\\\"r1_USD\\\", \\\"r2_USD\\\", 300.0]]\",\"{\\\"volume_threshold\\\": 1000.0, \\\"frequency_threshold\\\": 3, \\\"cross_currency_sensitivity\\\": 0.9, \\\"cycle_threshold\\\": 2200.0}\"],\"focus\":\"Multi-hop cycle spanning four nodes (sum near/at cycle threshold), a clear cross-currency spike, and a repeated small-pair appearing enough times to exceed both aggregated volume and frequency thresholds. Stresses cycle detection and aggregation logic.\"},{\"input_lines\":[\"[[\\\"same_USD\\\", \\\"same_USD\\\", 1500.0], [\\\"weirdAcct\\\", \\\"weirdAcct\\\", 500.0], [\\\"alphaEUR\\\", \\\"betaEUR\\\", 999.9999999], [\\\"alphaEUR\\\", \\\"betaEUR\\\", 0.0000002], [\\\"companyA\\\", \\\"companyB\\\", 2000.0], [\\\"lonely_USD\\\", \\\"other_USD\\\", 1000.0000001]]\",\"{\\\"volume_threshold\\\": 1000.0, \\\"frequency_threshold\\\": 2, \\\"cycle_threshold\\\": 3000.0}\"],\"focus\":\"Format-sensitive account names (no explicit currency suffix), floating-point precision around thresholds, true same-account self-loop, and missing cross_currency_sensitivity key to test default/missing-parameter handling.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3013,
+    "completion_tokens": 3348,
+    "total_tokens": 6361,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2688,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

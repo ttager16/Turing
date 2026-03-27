@@ -1,0 +1,76 @@
+{
+  "id": "resp_0a092c0ed71ac3d20069c32b83622081a3a5bcdda14092a060",
+  "object": "response",
+  "created_at": 1774398339,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398360,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0a092c0ed71ac3d20069c32b83ab9081a39618115292ec9bc5",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0a092c0ed71ac3d20069c32b83d40881a3addef7d931fab6f2",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from decimal import Decimal, ROUND_HALF_UP\nfrom typing import Dict, List, Any\nimport math\n\ndef _round_half_up(n: float) -> int:\n    return int(Decimal(n).quantize(0, ROUND_HALF_UP))\n\ndef optimize_traffic_signals(\n    graph: Dict[str, List[str]],\n    traffic_data: List[Dict[str, Any]]\n) -> Dict[str, Any]:\n    # Validation\n    if not isinstance(graph, dict) or len(graph) == 0:\n        return {}\n    for k, v in graph.items():\n        if not isinstance(k, str) or k == \"\":\n            return {}\n        if not isinstance(v, list) or not all(isinstance(x, str) for x in v):\n            return {}\n    if not isinstance(traffic_data, list):\n        return {}\n    for rec in traffic_data:\n        if not isinstance(rec, dict) or \"intersection\" not in rec:\n            return {}\n\n    # Copy graph and ensure intersections from traffic_data exist\n    G = {k: list(v) for k, v in graph.items()}\n    # Prepare processed records per intersection following rules\n    per_inter_records = {}  # intersection -> selected record dict with metadata\n    # Helper to validate a record; returns normalized record or None\n    def validate_record(rec):\n        inter = rec.get(\"intersection\")\n        if not isinstance(inter, str) or inter == \"\":\n            return None\n        # traffic_density optional\n        td = rec.get(\"traffic_density\", None)\n        if td is not None:\n            if not (isinstance(td, (int, float))):\n                return None\n            tdf = float(td)\n            if not (0.0 <= tdf <= 1.0):\n                return None\n        else:\n            tdf = None\n        acc = rec.get(\"accidents\", [])\n        if acc is None:\n            acc = []\n        if not isinstance(acc, list) or not all(isinstance(x, str) for x in acc):\n            return None\n        pr = rec.get(\"priority_requests\", [])\n        if pr is None:\n            pr = []\n        if not isinstance(pr, list) or not all(isinstance(x, str) for x in pr):\n            return None\n        return {\"intersection\": inter, \"traffic_density\": tdf, \"accidents\": list(acc), \"priority_requests\": list(pr)}\n\n    # Iterate traffic_data in order, selecting per rules (keep lowest preliminary later)\n    # But preliminary depends on traffic_density and lists; compute preliminary per record now\n    def preliminary_from_record(rec):\n        # rec is validated normalized record\n        base = 20\n        td = rec[\"traffic_density\"]\n        if td is None:\n            return None  # indicates no direct data\n        total = base + 70 * td\n        total = float(Decimal(total).quantize(Decimal('0.0000001')))  # keep float\n        if \"EMERGENCY\" in rec[\"priority_requests\"]:\n            total += 10\n        # rounding half-up of the addition 70*td is applied by rounding the added term per instruction:\n        # The instruction: Add \"70 × traffic_density\", rounded half-up. So we should round that component.\n        add = _round_half_up(70 * td)\n        total = 20 + add\n        if \"EMERGENCY\" in rec[\"priority_requests\"]:\n            total += 10\n        if td > 0.7 and \"LANE_OUTAGE\" in rec[\"accidents\"]:\n            total = total // 2\n        return float(total)\n\n    # Process records\n    for raw in traffic_data:\n        rec = validate_record(raw)\n        if rec is None:\n            continue\n        inter = rec[\"intersection\"]\n        if inter not in G:\n            G[inter] = []\n        prelim = preliminary_from_record(rec)\n        # For selection among multiple records: keep one with lowest preliminary value.\n        # If ties, prefer one containing EMERGENCY, if still tied, use last record.\n        existing = per_inter_records.get(inter)\n        if existing is None:\n            per_inter_records[inter] = {\"rec\": rec, \"prelim\": prelim}\n        else:\n            ex_pre = existing[\"prelim\"]\n            # None prelim means no traffic_density; per rules, such records count as \"without traffic data\"\n            # and selection rule applies comparing preliminary; treat None as special: a record with real prelim is considered lower? \n            # The spec: \"If multiple records exist for the same intersection, compute each record’s preliminary timing and keep the one with the lowest value.\"\n            # Records without traffic_density don't have preliminary; treat them as not comparable: ignore them unless all are without data.\n            if ex_pre is None and prelim is None:\n                # tie: prefer one with EMERGENCY, then last -> so current overrides if has EMERGENCY or if previous lacks it; else override due to last\n                ex_em = \"EMERGENCY\" in existing[\"rec\"][\"priority_requests\"]\n                cur_em = \"EMERGENCY\" in rec[\"priority_requests\"]\n                if cur_em and not ex_em:\n                    per_inter_records[inter] = {\"rec\": rec, \"prelim\": prelim}\n                elif cur_em == ex_em:\n                    per_inter_records[inter] = {\"rec\": rec, \"prelim\": prelim}\n            elif ex_pre is None and prelim is not None:\n                # current has prelim numeric, previous didn't -> choose the numeric (has a concrete value)\n                per_inter_records[inter] = {\"rec\": rec, \"prelim\": prelim}\n            elif ex_pre is not None and prelim is None:\n                # keep existing\n                continue\n            else:\n                # both numeric: choose lower; if tie prefer EMERGENCY; if still tie keep last (current)\n                if prelim < ex_pre:\n                    per_inter_records[inter] = {\"rec\": rec, \"prelim\": prelim}\n                elif prelim == ex_pre:\n                    ex_em = \"EMERGENCY\" in existing[\"rec\"][\"priority_requests\"]\n                    cur_em = \"EMERGENCY\" in rec[\"priority_requests\"]\n                    if cur_em and not ex_em:\n                        per_inter_records[inter] = {\"rec\": rec, \"prelim\": prelim}\n                    else:\n                        # if tie and either both have same EMERGENCY status, prefer last => current\n                        per_inter_records[inter] = {\"rec\": rec, \"prelim\": prelim}\n\n    # Now compute preliminary durations per intersection:\n    prelim_map = {}  # intersection -> preliminary float (before normalization)\n    # First set for those with selected records having traffic_density defined\n    for inter, data in per_inter_records.items():\n        rec = data[\"rec\"]\n        prelim = data[\"prelim\"]\n        if prelim is not None:\n            prelim_map[inter] = float(prelim)\n    # We'll need to compute for intersections with no traffic data using neighbor-average rule (half-up average of already-computed outgoing neighbors). \n    # Iteratively fill until no change or all assigned. Start by adding intersections from G keys union traffic_data intersections\n    all_keys = set(G.keys()) | set(per_inter_records.keys())\n    # Ensure keys for any traffic_data entries that had only invalid records? They were ignored. But spec said intersections mentioned in traffic_data but not present in graph are added; we did that when validated records.\n    # For intersections that had selected record but traffic_density None, they count as \"without traffic data\".\n    # Initialize set of unassigned\n    assigned = set(prelim_map.keys())\n    unassigned = set(all_keys) - assigned\n    # For those unassigned that had selected record but no traffic_density, they still treated as without traffic data.\n    # Iteratively compute neighbor averages using outgoing neighbors' already-computed preliminary durations\n    changed = True\n    while changed:\n        changed = False\n        to_remove = set()\n        for inter in list(unassigned):\n            outs = G.get(inter, [])\n            # only consider outgoing neighbors that already have preliminary in prelim_map\n            neigh_values = [prelim_map[n] for n in outs if n in prelim_map]\n            if neigh_values:\n                avg = sum(neigh_values) / len(neigh_values)\n                val = float(_round_half_up(avg))\n                prelim_map[inter] = float(val)\n                to_remove.add(inter)\n                changed = True\n        unassigned -= to_remove\n    # For any remaining unassigned, set to 45\n    for inter in list(unassigned):\n        prelim_map[inter] = 45.0\n\n    # Now ensure all keys present\n    for inter in all_keys:\n        if inter not in prelim_map:\n            prelim_map[inter] = 45.0\n\n    # Normalization: scale all durations so their mean (before rounding) equals 45\n    values = list(prelim_map.values())\n    if len(values) == 0:\n        return {}\n    current_mean = sum(values) / len(values)\n    if current_mean == 0:\n        scale = 1.0\n    else:\n        scale = 45.0 / current_mean\n    scaled = {}\n    for k, v in prelim_map.items():\n        scaled_val = v * scale\n        scaled[k] = scaled_val\n\n    # Then round half-up and clamp 20-90\n    final = {}\n    for k, v in scaled.items():\n        rv = _round_half_up(v)\n        if rv < 20:\n            rv = 20\n        if rv > 90:\n            rv = 90\n        final[k] = rv\n\n    # Determine overflow per rules\n    result = {}\n    # Need traffic_density per intersection if available\n    traffic_density_map = {}\n    for inter, data in per_inter_records.items():\n        td = data[\"rec\"][\"traffic_density\"]\n        traffic_density_map[inter] = td  # may be None\n\n    for inter in sorted(final.keys()):\n        timing = final[inter]\n        td = traffic_density_map.get(inter, None)\n        overflow = False\n        if timing < 30:\n            overflow = True\n        else:\n            if td is not None:\n                if td > 0.75:\n                    # need to check EMERGENCY presence in selected record\n                    rec = per_inter_records.get(inter, {}).get(\"rec\")\n                    has_em = False\n                    if rec:\n                        has_em = \"EMERGENCY\" in rec.get(\"priority_requests\", [])\n                    if not has_em:\n                        overflow = True\n        result[inter] = {\"signal_timing\": timing, \"overflow_indicator\": overflow}\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1276,
+    "input_tokens_details": {
+      "cached_tokens": 1152
+    },
+    "output_tokens": 2224,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3500
+  },
+  "user": null,
+  "metadata": {}
+}

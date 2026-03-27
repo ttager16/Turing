@@ -1,0 +1,126 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+A logistics company manages a network of directed roads connecting multiple cities. Each road has a base travel cost and several operational constraints, such as traffic congestion, maintenance level, capacity tier, and time-of-day availability. Over time, these constraints change as the company receives updates reflecting new road conditions or policy adjustments. The company must continually determine, for every city in the network, the most cost-effective route to any reachable destination city with no outgoing roads (a terminal).
+
+Your task is to build a deterministic system that maintains the directed graph of roads, applies constraint updates correctly, and computes the most efficient travel routes according to a precise cost formula. The system must handle overlapping updates, missing constraints, time-window restrictions, zero-cost edges, asymmetric links, and tie situations, always producing consistent and reproducible routes.
+
+
+### Objectives
+
+1. Dynamic Graph Management
+   * Represent the road network as a directed graph where each edge stores [base_cost, constraints_dict].
+   * Apply each update by merging its constraint keys into the existing edge’s dictionary (key-wise override, unmentioned keys persist).
+   * Do not create new edges for unknown pairs, such updates are ignored.
+2. Compound Edge Cost Evaluation
+   * Compute effective_cost for each available edge:
+     - effective_cost = base_cost × traffic(default=1.0) × maintenance(default=1.0) × (1 + 0.25 × max(capacity_tier(default=1) − 1, 0))
+   * Time windows control availability: an edge is usable only if time_window_start <= time_of_day <= time_window_end (inclusive).
+     * If either bound is missing, treat the edge as always available.
+     * If unavailable, treat it as having infinite cost (effectively absent).
+   * All edge costs are non-negative, zero is allowed.
+3. Efficient Route Computation
+   After applying all updates, compute the shortest path from every city to its nearest reachable terminal.
+   The process must yield deterministic results for identical inputs.
+4. Deterministic Route Output
+   For each origin city, return a list of city names representing its optimal route to a terminal.
+   * If no terminal is reachable, return [origin].
+   * Tie-breaking (strict):
+     1. Lowest total cost (within precision tolerance).
+     2. Lexicographically smallest full path.
+     3. Fewer hops.
+     4. Lexicographically smaller next hop.
+
+
+### Constraints
+
+- The solution must be implemented in pure Python, with no external libraries allowed.
+- The graph must be represented as a dictionary mapping each city (a nonempty string) to a list of outgoing edges. If the graph is not a dictionary, the function must return {}.
+- Each edge must be a list containing exactly three elements: the destination city (string), the base cost (integer), and a constraints dictionary. If any edge deviates from this structure, the function must return {}
+- The base cost for every edge must be a non-negative integer (base_cost >= 0). If any edge has a negative base cost, the function must return {}
+- Allowed constraint keys are strictly limited to traffic, maintenance, capacity_tier, time_window_start, and time_window_end. If a constraint dictionary contains invalid data types for these keys, the function must return {}.
+- The traffic and maintenance values must be positive floats, and capacity_tier must be an integer greater than or equal to 1. Any violation of these conditions must result in returning {}.
+- The time_window_start and time_window_end values must be integers representing valid hour boundaries (0 to 24). Invalid or non-integer time window values must cause the function to return {}.
+- time_of_day must be an integer 0 ≤ time_of_day < 24, otherwise return {}
+- Any unknown or unsupported constraint keys must be ignored silently and must not trigger an error.
+- The value 24 represents the end of the day and is valid only as an end bound for a time window. If used elsewhere, the function must return {}.
+- Any edge that connects a city to itself (a self-loop) must be ignored completely during computation. Encountering malformed self-loop definitions must result in {}.
+- Any edge that is unavailable due to its time window at the given time_of_day must be treated as having infinite cost and excluded from path calculations.
+- Edges with a zero cost must be supported correctly and must not cause infinite traversal loops.
+- If both the graph and the updates list are empty, the function must return an empty dictionary {} immediately.
+
+### Function Signature
+
+```python
+def compute_dynamic_shortest_paths(
+    graph: Dict[str, List[List[Any]]],
+    updates: List[List[Any]],
+    time_of_day: int
+) -> Dict[str, List[str]]:
+    """
+    Return a dict mapping each city to a list representing its optimal route to a terminal.
+    """
+```
+
+### Sample Input
+
+```python
+graph = {
+    "A": [
+        ["B", 10, {"traffic": 1.0, "capacity_tier": 1}],
+        ["C", 15, {"traffic": 1.5, "time_window_start": 8, "time_window_end": 20}]
+    ],
+    "B": [
+        ["C", 5, {"traffic": 1.0, "maintenance": 0.9}],
+        ["D", 20, {"traffic": 1.2, "capacity_tier": 2}]
+    ],
+    "C": [
+        ["D", 10, {"traffic": 1.1, "maintenance": 0.95}]
+    ],
+    "D": []
+}
+time_of_day = 12
+updates = [
+    ["A", "B", {"capacity_tier": 3}],
+    ["B", "D", {"maintenance": 0.7, "time_window_start": 10, "time_window_end": 18}]
+]
+```
+
+
+#### Sample Output
+
+```python
+{
+    "A": ["A", "B", "C", "D"],
+    "B": ["B", "C", "D"],
+    "C": ["C", "D"],
+    "D": ["D"]
+}
+```
+
+### Output
+
+- A dictionary mapping each city to its route (list of city names).
+- Every city appears once.
+- If a city cannot reach any terminal, output [city].
+
+Starter Code:
+```python
+from typing import Any, Dict, List
+import heapq
+
+def compute_dynamic_shortest_paths(
+    graph: Dict[str, List[List[Any]]],
+    updates: List[List[Any]],
+    time_of_day: int
+) -> Dict[str, List[str]]:
+    pass
+```

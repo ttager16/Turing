@@ -1,0 +1,147 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+A logistics company is now tasked with deploying a sophisticated, Python-based multi-constraint routing engine for a fleet of electric vehicles assigned to serve numerous storage hubs and delivery locations across a sprawling network of urban and suburban regions. Unlike a standard shortest path finder, this system must consider time-varying, node-specific energy consumption factors, dynamically adjustable charging rates constrained by station capacity, and strategic recharging decisions that factor into both route selection and vehicle utilization.
+
+In this elevated scenario, the road network is divided into multiple overlapping segments, each governed by complex rules such as changing traffic conditions, restricted passage windows, and limited resource availability for recharging. The system must reconcile all of these constraints by mapping each delivery vehicle's journey through a series of checkpoints, while minimizing the total travel time subject to energy feasibility constraints, including partial charging and potential detours. The multi-layer design of this network, along with the interdependencies between routes, demands an advanced approach that rules out naive shortest path algorithms.
+
+### Objectives:
+1. Construct a mutable, layered graph representation in native Python, where each node contains time-dependent energy usage parameters, station occupancy limits, and scheduled access windows.  
+2. Devise an algorithm that integrates real-time data and uses advanced data structures (e.g., Segment Trees or a Heavy-Light Decomposition of the graph) to efficiently update and recompute viable routes when node-based constraints fluctuate.  
+3. Guarantee feasible paths by dynamically tracking not only a vehicle’s remaining energy but also real-time station capacities, queue lengths, and intermediate wait times—ensuring routes remain optimal under sudden changes (e.g., unexpected closures, partial station outages).  
+4. Provide a simulation layer that can inject disruptions such as congested roads or depleted stations, prompting the algorithm to rapidly rebalance vehicle routes through iterative, multi-phase computations.
+
+### Constraints:
+- The solution must handle large-scale, multi-layer graphs with thousands of nodes, each possessing unique and evolving charging station constraints.  
+- Segment capacities and energy demands can vary frequently, favoring an algorithmic technique robust to high-frequency updates (e.g., advanced tree or graph decompositions).  
+- The model must detect when rerouting is impossible due to station conflicts or complete energy depletion, in which case an adaptive fallback strategy must be applied (e.g., splitting the journey across multiple partial recharge stops).  
+- All functionalities must rely solely on native Python constructs; no external libraries are allowed for data structure or graph processing.
+- The algorithm must gracefully handle edge cases such as disconnected graphs where no path exists from start to end, returning an empty list in such scenarios.
+- Support for graphs containing cycles, ensuring no infinite loops occur during path computation by implementing cycle detection or depth limits.
+- Manage scenarios with zero or negative travel times/energy costs (though invalid, treat as errors or clamp to minimum positive values to prevent algorithmic failures).
+- Account for floating-point precision issues in energy and time calculations, using epsilon comparisons to avoid erroneous infeasibility declarations.
+- Handle nodes with overlapping or disjoint time windows that require precise wait time optimization, including cases where waiting exceeds a maximum threshold (e.g., 24 hours).
+- Incorporate rare disruptions like temporary node inaccessibility (modeled as dynamic capacity drops to zero) or non-linear charging curves (e.g., charge rate diminishing as battery approaches full capacity).
+- Ensure robustness to start and end nodes being identical, immediately returning [start] if energy constraints are satisfied without travel.
+- Address advanced interdependencies, such as energy consumption varying with travel speed or external factors (e.g., simulate variable edge costs based on time of day, even if not explicitly in input).
+- Detect and mitigate queue overflow at high-occupancy stations, factoring in probabilistic wait times for multi-vehicle extensions (though function is single-route, design for future fleet scalability).
+- Manage ultra-rare cases like graphs with isolated nodes or edges with infinite costs (represented as very large floats), ensuring termination and correct infeasibility reporting.
+- Handle battery degradation patterns where energy consumption increases non-linearly based on cumulative usage (e.g., after traveling X distance, subsequent edges cost 10% more energy due to battery efficiency loss), requiring dynamic recalculation of remaining feasible paths.
+- Support time-dependent energy costs with multiple overlapping time zones (e.g., rush hour 7-9am costs 1.5x energy, off-peak 10pm-6am costs 0.8x energy, with smooth transitions), where the optimal path may require intentional waiting to enter more favorable time periods.
+- Manage cascading station failures where a station going offline (capacity=0) triggers delayed failures in dependent downstream stations (e.g., station B fails 5 time units after station A fails), requiring predictive rerouting before failures materialize.
+- Handle reservation conflicts where stations have hidden capacity reservations (e.g., station shows capacity=3 but 2 slots are pre-reserved for other vehicles arriving at specific future times), requiring temporal conflict detection and optimal time-slicing for charging access.
+- Support energy regeneration zones (negative energy costs) with diminishing returns (e.g., first regeneration on a downhill edge recovers 5 units, but subsequent regenerations in the same path recover progressively less due to battery charging limits), including detection of infinite energy exploitation loops.
+
+### Function Signature:
+```python
+def optimize_delivery_route(graph: dict, start: str, end: str, initial_energy: float) -> list:
+    pass
+```
+
+### Sample Input/Output:
+- **Input:**
+```python
+graph = {
+    'H1': {
+        'neighbors': [
+            {'node': 'C2', 'energy_cost': 6.0, 'travel_time': 2.0},
+            {'node': 'C3', 'energy_cost': 5.0, 'travel_time': 1.5}
+        ],
+        'station_constraints': {
+            'charge_rate': 5.0,
+            'capacity': 2,
+            'open_windows': [[0, 10], [12, 24]]
+        }
+    },
+    'C2': {
+        'neighbors': [
+            {'node': 'C3', 'energy_cost': 2.0, 'travel_time': 1.0},
+            {'node': 'D4', 'energy_cost': 7.0, 'travel_time': 3.0}
+        ],
+        'station_constraints': {
+            'charge_rate': 3.0,
+            'capacity': 1,
+            'open_windows': [[0, 8], [15, 22]]
+        }
+    },
+    'C3': {
+        'neighbors': [
+            {'node': 'D4', 'energy_cost': 4.0, 'travel_time': 2.0}
+        ],
+        'station_constraints': {
+            'charge_rate': 7.0,
+            'capacity': 2,
+            'open_windows': [[0, 24]]
+        }
+    },
+    'D4': {
+        'neighbors': [],
+        'station_constraints': {
+            'charge_rate': 0.0,
+            'capacity': 0,
+            'open_windows': [[0, 24]]
+        }
+    }
+}
+start = 'H1'
+end = 'D4'
+initial_energy = 10.0
+```
+
+- **Output:**
+```python
+['H1', 'C3', 'D4']
+```
+
+**Note:** The algorithm finds the optimal path that minimizes travel time while maintaining energy feasibility:
+- Returned path: H1→C3→D4 = 3.5 time units (1.5 + 2.0), 9.0 energy consumed (5.0 + 4.0)
+- Alternative path: H1→C2→C3→D4 = 6.0 time units (2.0 + 1.0 + 3.0), 12.0 energy consumed (6.0 + 2.0 + 4.0)
+
+The direct route via C3 is faster and requires no charging with the initial energy of 10.0.
+
+### Expected Output Format:
+The function should return a Python list of string identifiers representing the feasible route. Each node in the list must comply with the dynamic charging and scheduling constraints stored in the graph.
+
+---
+
+## Solution Implementation
+
+### Algorithm Overview
+The implementation uses a **modified Dijkstra's algorithm** with state-space search that tracks `(node, time, energy)` tuples to find optimal routes while respecting all constraints.
+
+**Optimizations:**
+- Pruning dominated states (better energy at same node/time)
+- Early termination on reaching destination
+- Iteration limit prevents runaway computation
+- State key rounding (6 decimals) reduces state space
+
+### Constants and Configuration
+
+```python
+EPSILON = 1e-9           # Float comparison tolerance
+MAX_WAIT_TIME = 24.0     # Maximum allowed wait (hours)
+MAX_ENERGY = 1000.0      # Battery capacity cap
+iteration_limit = 1000000 # Prevents infinite loops
+```
+
+### Sample Output Analysis
+For the provided test case, the algorithm returns `['H1', 'C3', 'D4']` by finding the time-optimal route:
+- **Optimal path (H1→C3→D4):** 3.5 time units, 9.0 energy consumed, no charging required
+- **Alternative (H1→C2→C3→D4):** 6.0 time units, 12.0 energy consumed
+
+The algorithm correctly prioritizes minimum travel time while ensuring energy feasibility. With initial_energy = 10.0, the direct route is both faster and more energy-efficient
+
+Starter Code:
+```python
+import heapq
+from typing import List, Dict
+
+def optimize_delivery_route(graph: dict, start: str, end: str, initial_energy: float) -> list:
+```

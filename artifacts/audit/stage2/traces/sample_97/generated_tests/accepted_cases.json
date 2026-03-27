@@ -1,0 +1,12 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[{\"user_id\": \"u1\", \"operation\": \"insert\", \"data\": \"segment_1:alpha\"}, {\"user_id\": \"u2\", \"operation\": \"insert\", \"data\": \"segment_1:alphabet\"}, {\"user_id\": \"u3\", \"operation\": \"delete\", \"data\": \"segment_1:beta\"}, {\"user_id\": \"u4\", \"operation\": \"merge_offline\", \"data\": \"segment_1:alpha_offline\"}, {\"user_id\": \"u5\", \"operation\": \"insert\", \"data\": \"segment_2:beta\"}, {\"user_id\": \"u6\", \"operation\": \"merge_offline\", \"data\": \"segment_1:alphabet\"}, {\"user_id\": \"u7\", \"operation\": \"search\", \"data\": \"segment_1:al\"}]",
+    "output_text": "{\"matches\": [\"alpha\", \"alphabet\"]}"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[{\"user_id\": \"a\", \"operation\": \"insert\", \"data\": \"segment_4:one\"}, {\"user_id\": \"b\", \"operation\": \"insert\", \"data\": \"segment_4:two\"}, {\"user_id\": \"c\", \"operation\": \"insert\", \"data\": \"segment_4:three\"}, {\"user_id\": \"d\", \"operation\": \"delete\", \"data\": \"segment_4:two\"}, {\"user_id\": \"e\", \"operation\": \"insert\", \"data\": \"segment_4:\"}, {\"user_id\": \"f\", \"operation\": \"search\", \"data\": \"segment_4:\"}]",
+    "output_text": "{\"matches\": [\"one\", \"three\", \"\"]}"
+  }
+]

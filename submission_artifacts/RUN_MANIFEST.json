@@ -1,0 +1,39 @@
+{
+  "project": "Turing Take-Home Audit Workflow",
+  "dataset_path": "artifacts/provided/Samples.jsonl",
+  "dataset_sha256": "6a12f3318de8220054e06c50dadd380b12db1be6bed74a3349ae8f6bfdfcc15d",
+  "canonical_combined_report": {
+    "workbook": "outputs/dataset_analysis.xlsx",
+    "json": "outputs/dataset_analysis.json"
+  },
+  "reviewer_entrypoint": "README.md",
+  "audit_bundle": "artifacts/audit/",
+  "stages": {
+    "stage1": {
+      "status": "implemented",
+      "canonical_workbook": "outputs/sample_requirements_analysis/guideline_audit.xlsx",
+      "canonical_json": "",
+      "notes": "Stage 1 remains workbook-first because it preserves the original section-based audit layout."
+    },
+    "stage2": {
+      "status": "implemented",
+      "canonical_dir": "outputs/sample_efficacy_analysis",
+      "run_manifest": "outputs/sample_efficacy_analysis/run_manifest.json",
+      "model_targets": [
+        "openai-gpt-5-mini"
+      ]
+    },
+    "stage3": {
+      "status": "implemented",
+      "canonical_dir": "outputs/dataset_analysis",
+      "run_manifest": "outputs/dataset_analysis/run_manifest.json",
+      "embedding_model": "text-embedding-nomic-embed-text-v1.5"
+    },
+    "stage4": {
+      "status": "implemented",
+      "canonical_dir": "outputs/manual_audit",
+      "run_manifest": "outputs/manual_audit/run_manifest.json",
+      "notes": "Stage 4 is human-in-the-loop; rerun with a real completed review input before final submission."
+    }
+  }
+}

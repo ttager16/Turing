@@ -1,0 +1,30 @@
+{
+  "model": "gpt-5-mini",
+  "input": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are a careful coding assistant. Return the best possible answer for the task."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Solve the following Python coding task.\n\nRequirements:\n- Return only Python code.\n- Implement the requested entry function exactly.\n- Do not include explanations before or after the code.\n- Use only the Python standard library unless the prompt explicitly permits otherwise.\n\nProblem Statement:\n### Problem Statement\n\nIn a critical phase of Martian colonization, two specialized rovers—a heavy-duty **Builder** and a nimble **Scout**—are deployed to finalize a habitat construction site. The rovers operate on a 5x5 grid of varied elevation and must contend with structurally unsound terrain.\n\nThe rovers draw power from a shared, limited supply. Your primary objective is to find the sequence of actions that allows the **Builder** to reach a designated target cell and perform a \"Finalize Site\" action, all while consuming the **minimum possible total power**.\n\nThe terrain contains some **unstable cells**, which are initially impassable. The Scout is equipped with ground-penetrating radar and must first perform a **Scan** action on an adjacent unstable cell to analyze and certify it as stable, making it traversable for both rovers.\n\n### Rover Specifications & Actions\n\nThe mission's success depends on the unique capabilities of each rover:\n\n#### **Rover 1: The Builder**\n\n  * **Move:** Can move to any single adjacent square (including diagonals).\n      * **Power Cost:** `1 + max(0, h_new - h_old)`\n  * **Build:** After moving, it needs to deposit reinforced regolith on a square adjacent to its new position, increasing that square's elevation by one.\n      * **Power Cost:** `2` units.\n  * **Finalize Site:** A special action that can only be performed when the Builder is at the `target_pos`. This action completes the mission.\n      * **Power Cost:** `10` units.\n\n#### **Rover 2: The Scout**\n\n  * **Move:** Can move 1 or 2 squares in a single, straight line (horizontally, vertically, or diagonally). The path must be clear of obstacles (the other rover, unstable cells, or max-height cells).\n      * **Power Cost:** `(1 + max(0, h_final - h_initial)) * distance`\n  * **Scan:** Makes an adjacent unstable cell permanently stable and traversable for both rovers. The Scout does not move when scanning.\n      * **Power Cost:** `3` units.\n  * The Scout **cannot** perform the Build or Finalize Site actions.\n\n### Objectives:\n\n1.  **State Space Modeling:** Define a state representation that captures the positions of the Builder and Scout, the dynamic elevation map, and the set of remaining unstable cells.\n\n2.  **Action Generation Logic:** Implement functions to generate all valid actions for each rover type based on its unique movement, abilities, and associated power costs. The logic must enforce all constraints.\n\n3.  **Optimal Path Search:** Utilize a shortest-path algorithm for **weighted graphs** (e.g., Dijkstra's Algorithm) to find the path that minimizes total power consumption. The search must correctly prioritize states with lower accumulated power usage.\n\n4.  **Termination and Impossibility Handling:** The algorithm must terminate when the Builder successfully executes the \"Finalize Site\" action. If this is impossible, the algorithm must return infinity.\n\n### Constraints:\n\n  * The terrain grid is a 5x5 matrix with initial heights between 0 and 4.\n  * Rovers cannot move to or build on a cell if its height is 4.\n  * Rovers cannot move onto unstable cells.\n  * Rovers cannot occupy the same cell. The Scout cannot move *through* the Builder's cell.\n  * The algorithm must find the solution using only the standard Python library.\n\n### Function Signature\n\n```python\ndef calculate_min_power(grid: list[list[int]], builder_pos: list[int], scout_pos: list[int], unstable_cells: list[list[int]], target_pos: list[int]) -> float:\n    pass\n```\n\n### Sample Input/Output\n\n  * **Input:**\n      * `grid`: A 5x5 list of lists for the terrain map.\n      * `builder_pos`: Starting `[row, col]` for the Builder.\n      * `scout_pos`: Starting `[row, col]` for the Scout.\n      * `unstable_cells`: A list of `[row, col]` lists for unstable cells.\n      * `target_pos`: The `[row, col]` for the target destination.\n  * **Output:**\n      * A float representing the minimum total power required, or `float('inf')`.\n\n### Sample Case\n\n  * **Input:**\n    ```python\n    grid = [[0] * 5 for _ in range(5)]\n    builder_start = [2, 1]\n    scout_start = [2, 3]\n    unstable = [[2, 2]]\n    target = [2, 0]\n    ```\n  * **Output:**\n    ```python\n    13.0\n    ```\n\nStarter Code:\n```python\nimport heapq\n\ndef calculate_min_power(grid: list[list[int]], builder_pos: list[int], scout_pos: list[int],\n                        unstable_cells: list[list[int]], target_pos: list[int]) -> float:\n    pass\n```\n"
+        }
+      ]
+    }
+  ],
+  "reasoning": {
+    "effort": "minimal"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 4096
+}

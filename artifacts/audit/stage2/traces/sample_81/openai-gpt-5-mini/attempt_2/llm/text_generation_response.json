@@ -1,0 +1,76 @@
+{
+  "id": "resp_095f01984e24a0ce0069c32df040708196a23bcbfd6abf827b",
+  "object": "response",
+  "created_at": 1774398960,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398989,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_095f01984e24a0ce0069c32df0cb448196817ea19e2eed8cc0",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_095f01984e24a0ce0069c32df103b4819680796b421388e020",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Tuple, Any, Dict, Optional\nfrom threading import RLock\nfrom collections import defaultdict\nimport bisect\nimport time\n\n# Lightweight balanced-like structure using sorted lists per ward keyed by (priority, emergency_flag, arrival_seq)\n# Global registry for patients to support transfers and mass updates.\n# Concurrency via RLock to ensure atomic compound operations.\n\nclass Patient:\n    __slots__ = (\"id\", \"ward\", \"priority\", \"emergency\", \"duration\", \"seq\")\n    def __init__(self, id: int, ward: str, priority: int, emergency: bool, duration: int, seq: int):\n        self.id = id\n        self.ward = ward\n        self.priority = priority\n        self.emergency = emergency\n        self.duration = duration\n        self.seq = seq  # insertion order to stabilize sorting\n\n    def key(self):\n        # Lower priority value means higher priority; emergencies should come first\n        return (0 if self.emergency else 1, self.priority, self.seq)\n\nclass WardQueue:\n    def __init__(self):\n        self.lock = RLock()\n        # list of keys and parallel list of patient ids for bisect operations\n        self.keys = []\n        self.pids = []\n\n    def insert(self, patient: Patient):\n        with self.lock:\n            k = patient.key()\n            i = bisect.bisect_left(self.keys, k)\n            self.keys.insert(i, k)\n            self.pids.insert(i, patient.id)\n\n    def remove(self, patient: Patient):\n        with self.lock:\n            k = patient.key()\n            i = bisect.bisect_left(self.keys, k)\n            # find exact id near i\n            # scan neighbors with same key to find id\n            found = False\n            # scan left\n            j = i\n            while j >= 0 and j < len(self.keys) and self.keys[j] == k:\n                if self.pids[j] == patient.id:\n                    del self.keys[j]\n                    del self.pids[j]\n                    found = True\n                    break\n                j -= 1\n            if not found:\n                j = i + 1\n                while j < len(self.keys) and self.keys[j] == k:\n                    if self.pids[j] == patient.id:\n                        del self.keys[j]\n                        del self.pids[j]\n                        found = True\n                        break\n                    j += 1\n            # if not found, fallback full scan (safe)\n            if not found:\n                for idx, pid in enumerate(self.pids):\n                    if pid == patient.id:\n                        del self.keys[idx]\n                        del self.pids[idx]\n                        break\n\n    def reprioritize_patient(self, patient: Patient, new_priority: int):\n        # remove and re-insert with new priority (caller should have updated patient)\n        self.remove(patient)\n        self.insert(patient)\n\n    def pop_all_matching(self, predicate):\n        # remove and return list of patient ids matching predicate\n        with self.lock:\n            removed = []\n            idx = 0\n            while idx < len(self.pids):\n                pid = self.pids[idx]\n                # predicate takes pid and key\n                if predicate(pid, self.keys[idx]):\n                    removed.append(pid)\n                    del self.keys[idx]\n                    del self.pids[idx]\n                else:\n                    idx += 1\n            return removed\n\nclass HospitalScheduler:\n    def __init__(self):\n        self.global_lock = RLock()\n        self.wards: Dict[str, WardQueue] = defaultdict(WardQueue)\n        self.patients: Dict[int, Patient] = {}\n        self.seq_counter = 0\n        # simple resource usage mapping: resource -> set(patient ids)\n        self.resources: Dict[str, set] = defaultdict(set)\n\n    def insert(self, info: dict) -> str:\n        with self.global_lock:\n            pid = info['id']\n            if pid in self.patients:\n                return f\"Patient {pid} already exists\"\n            ward = info['ward']\n            pr = info.get('priority', 5)\n            em = bool(info.get('emergency', False))\n            dur = info.get('duration', 0)\n            self.seq_counter += 1\n            p = Patient(pid, ward, pr, em, dur, self.seq_counter)\n            self.patients[pid] = p\n            self.wards[ward].insert(p)\n            # placeholder resource assignment simulation: reserve a pseudo-resource named by ward\n            self.resources[ward].add(pid)\n            return f\"Patient {pid} added to ward {ward}\"\n\n    def delete(self, info: dict) -> str:\n        with self.global_lock:\n            pid = info['id']\n            p = self.patients.get(pid)\n            if not p:\n                return f\"Patient {pid} not found\"\n            # remove from ward queue\n            self.wards[p.ward].remove(p)\n            # remove resource reservations\n            if p.ward in self.resources and pid in self.resources[p.ward]:\n                self.resources[p.ward].remove(pid)\n            del self.patients[pid]\n            return f\"Patient {pid} removed from system\"\n\n    def transfer(self, info: dict) -> str:\n        with self.global_lock:\n            pid = info['id']\n            new_ward = info['new_ward']\n            p = self.patients.get(pid)\n            if not p:\n                return f\"Patient {pid} not found\"\n            old_ward = p.ward\n            if old_ward == new_ward:\n                return f\"Patient {pid} already in ward {new_ward}\"\n            # remove from old, update ward, insert into new\n            self.wards[old_ward].remove(p)\n            # update resources: release old ward reservation, acquire new\n            if old_ward in self.resources and pid in self.resources[old_ward]:\n                self.resources[old_ward].remove(pid)\n            p.ward = new_ward\n            # new seq to move to back of same priority group minimally disruptive\n            self.seq_counter += 1\n            p.seq = self.seq_counter\n            self.wards[new_ward].insert(p)\n            self.resources[new_ward].add(pid)\n            return f\"Patient {pid} transferred to ward {new_ward}\"\n\n    def reorder(self, info: dict) -> str:\n        with self.global_lock:\n            pid = info['id']\n            new_pr = info.get('new_priority')\n            simulate_mass = bool(info.get('simulate_mass_update', False))\n            p = self.patients.get(pid)\n            if not p:\n                return f\"Patient {pid} not found\"\n            if simulate_mass:\n                # Example mass update: bump all non-emergency patients in same ward to new_pr if their priority > new_pr\n                ward = p.ward\n                affected = []\n                def pred(match_pid, key):\n                    return False  # not used here\n                # collect affected ids\n                with self.wards[ward].lock:\n                    for pid2 in list(self.wards[ward].pids):\n                        pat = self.patients.get(pid2)\n                        if pat and (not pat.emergency) and pat.priority > new_pr:\n                            affected.append(pat)\n                # apply updates with minimal disruption: adjust seq slightly\n                for pat in affected:\n                    pat.priority = new_pr\n                    self.seq_counter += 1\n                    pat.seq = self.seq_counter\n                    # reposition in ward queue\n                    self.wards[pat.ward].reprioritize_patient(pat, new_pr)\n                # also update the original target patient if included\n                if p not in affected:\n                    p.priority = new_pr\n                    self.seq_counter += 1\n                    p.seq = self.seq_counter\n                    self.wards[p.ward].reprioritize_patient(p, new_pr)\n                return f\"Patient {pid} updated to priority {new_pr} with mass update simulation\"\n            else:\n                old_pr = p.priority\n                p.priority = new_pr\n                self.seq_counter += 1\n                p.seq = self.seq_counter\n                self.wards[p.ward].reprioritize_patient(p, new_pr)\n                return f\"Patient {pid} updated to priority {new_pr}\"\n\n    def bulk_transfer(self, info: dict) -> str:\n        # move multiple patients by ids to a new ward atomically\n        with self.global_lock:\n            ids = info.get('ids', [])\n            new_ward = info.get('new_ward')\n            moved = []\n            for pid in ids:\n                p = self.patients.get(pid)\n                if not p:\n                    continue\n                old = p.ward\n                self.wards[old].remove(p)\n                if old in self.resources and pid in self.resources[old]:\n                    self.resources[old].remove(pid)\n                p.ward = new_ward\n                self.seq_counter += 1\n                p.seq = self.seq_counter\n                self.wards[new_ward].insert(p)\n                self.resources[new_ward].add(pid)\n                moved.append(pid)\n            return f\"Patients {moved} transferred to ward {new_ward}\"\n\n    def handle(self, cmd: Tuple[str, dict]) -> str:\n        op, info = cmd[0], cmd[1] if len(cmd) > 1 else {}\n        if op == 'insert':\n            return self.insert(info)\n        elif op == 'delete':\n            return self.delete(info)\n        elif op == 'transfer':\n            return self.transfer(info)\n        elif op == 'reorder':\n            return self.reorder(info)\n        elif op == 'bulk_transfer':\n            return self.bulk_transfer(info)\n        else:\n            return f\"Unknown command {op}\"\n\ndef manage_patient_queue(commands: List[List]) -> List[str]:\n    scheduler = HospitalScheduler()\n    results: List[str] = []\n    start = time.time()\n    for cmd in commands:\n        # accept either tuple/list with op and dict or variable forms\n        if not cmd:\n            continue\n        op = cmd[0]\n        info = cmd[1] if len(cmd) > 1 else {}\n        res = scheduler.handle((op, info))\n        results.append(res)\n        # lightweight check to simulate propagation deadlines (no-op here)\n        if (time.time() - start) > 0.5:\n            # in a realistic system we'd push updates; here we just note time passed\n            pass\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 938,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2205,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3143
+  },
+  "user": null,
+  "metadata": {}
+}

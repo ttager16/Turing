@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6Iei975L5khTFx0FtfH8SyR20XB",
+  "object": "chat.completion",
+  "created": 1774398132,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[]\",\n        \"[]\"\n      ],\n      \"focus\": \"Both participants and operations empty — immediate [] return; tests empty-input short-circuit handling.\"\n    },\n    {\n      \"input_lines\": [\n        \"[\\\"zara\\\", \\\"amy\\\", \\\"bob\\\", \\\"carl\\\"]\",\n        \"[[\\\"union\\\", \\\"zara\\\", \\\"amy\\\"], [\\\"union\\\", \\\"amy\\\", \\\"bob\\\"], [\\\"union\\\", \\\"bob\\\", \\\"zara\\\"], [\\\"split\\\", \\\"zara\\\", \\\"amy\\\"], [\\\"rekey\\\", \\\"bob\\\", \\\"carl\\\"], [\\\"find\\\", \\\"zara\\\", \\\"amy\\\"], [\\\"find\\\", \\\"amy\\\", \\\"carl\\\"], [\\\"union\\\", \\\"carl\\\", \\\"amy\\\"], [\\\"find\\\", \\\"carl\\\", \\\"zara\\\"]]\"\n      ],\n      \"focus\": \"Cycle (triangle) created then one direct edge removed — ensures split removes only direct edge and connectivity checks account for alternate paths; participants deliberately unsorted to verify deterministic lexicographic handling.\"\n    },\n    {\n      \"input_lines\": [\n        \"[\\\"a\\\", \\\"b\\\", \\\"c\\\", \\\"d\\\"]\",\n        \"[[\\\"union\\\", \\\"a\\\", \\\"b\\\"], [\\\"union\\\", \\\"b\\\", \\\"c\\\"], [\\\"union\\\", \\\"c\\\", \\\"d\\\"], [\\\"find\\\", \\\"a\\\", \\\"d\\\"], [\\\"split\\\", \\\"b\\\", \\\"c\\\"], [\\\"find\\\", \\\"a\\\", \\\"d\\\"], [\\\"find\\\", \\\"a\\\", \\\"b\\\"], [\\\"find\\\", \\\"c\\\", \\\"d\\\"]]\"\n      ],\n      \"focus\": \"Linear chain unions then a middle split — tests that splitting a bridge disconnects components and find queries reflect that; multiple finds before and after split.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1559,
+    "completion_tokens": 1935,
+    "total_tokens": 3494,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1536,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

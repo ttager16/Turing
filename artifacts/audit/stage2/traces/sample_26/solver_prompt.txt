@@ -1,0 +1,186 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+A leading financial institution aims to establish a multi-layered fraud detection framework that handles intricate, interdependent transaction flows across various financial networks. Beyond iterating through large volumes of transactional data, the institution must construct a dynamic graph of account relationships, track multi-level state transitions, and identify hidden anomalies that emerge under compound conditions. Instead of solely focusing on direct transaction patterns, the system must exploit advanced graph algorithms and multi-step reasoning to expose subtle fraud rings, circular money flows, and coordinated account takeovers that occur within a specified timeframe.
+
+#### Objectives
+
+1. **Data Structure Simulation:**
+   - Implement a graph data structure to represent transaction relationships. Each transaction node should store contextual details (e.g., account relationships, transaction states, and anomaly scores). Use adjacency lists to enable efficient graph traversal and queries.
+
+2. **Pattern Recognition and Anomaly Detection:**
+   - Develop algorithms to detect correlated anomalies and fraud patterns. The system should identify abnormal subgraphs—where repeated cyclic flows, deeply nested transaction chains, or inconsistent source-destination pathways indicate potential fraud. Anomalies are not limited to single transactions; they may span multiple hops across intermediate accounts.
+
+3. **Fraud Scenario Simulation:**
+   - Implement detection modules for various fraud behaviors, including multi-account infiltration and money laundering patterns. The system should identify suspicious transaction patterns and flag potential fraud scenarios based on predefined rules and patterns.
+
+4. **Scalability and Performance:**
+   - The solution should efficiently process transaction data and detect fraud patterns using optimized algorithms and data structures.
+
+#### Constraints
+
+- The solution must be implemented purely in Python without relying on any external libraries.
+- Fraud scenarios like multi-jurisdictional laundering and colluding accounts—must be covered in simulations.
+- The system output must detail each flagged chain of suspicious transactions alongside a consolidated report that enumerates every explored or partially explored fraud pattern.
+- All transaction amounts must be validated against configurable thresholds (minimum $1, maximum $10,000,000) with automatic flagging of out-of-range values.
+- The system must maintain transaction integrity by detecting and flagging any circular references or self-loops in the transaction graph.
+- Fraud detection must account for time-based patterns, flagging transactions that occur outside normal business hours (9 AM - 5 PM) with frequency analysis.
+- The solution must be deterministic, producing identical results for identical inputs across multiple runs, with no random number generation in the core algorithm.
+
+#### Specific Fraud Detection Rules
+
+**1. Invalid Amount Transactions:**
+- Flag transactions with amounts < $1 or > $10,000,000
+- Reason: "Invalid amount transaction"
+
+**2. After-Hours Transactions:**
+- Flag transactions occurring outside business hours (9 AM - 5 PM)
+- Business hours: 9:00 AM to 5:00 PM (exclusive of 5 PM)
+- Reason: "After-hours transaction"
+
+**3. Large Amount Transactions:**
+- Flag transactions exceeding $100,000
+- Only flag if amount is within valid range (not invalid)
+- Reason: "Large amount transaction"
+
+**4. Cyclic Transfer Patterns:**
+- Detect circular transaction flows using DFS cycle detection
+- Flag cycles with greater than or equal to 2 transactions (len(cycle) >= 2)
+- Include the complete cycle in the chain
+- Reason: "Cyclic transfer pattern detected"
+
+**5. Multi-Account Infiltration:**
+- Detect transaction chains with 5+ hops from same source using DFS traversal
+- Flag first 5 transactions in the chain (flow[:5])
+- Reason: "Multi-account infiltration pattern"
+
+**6. High Frequency Account Activity:**
+- Detect accounts with 10+ outgoing transactions
+- Order transactions by timestamp (ascending)
+- Include ALL outgoing transactions from the account in a single chain
+- Reason: "High frequency account activity"
+
+**7. Nested Money Laundering:**
+- Only check accounts already flagged as high-frequency (10+ outgoing transactions)
+- For each high-frequency account, collect all transactions where account is source OR destination
+- If the account has 8+ total transactions (incoming OR outgoing), flag first 8 transactions
+- Reason: "Nested money laundering pattern"
+
+**8. Rapid Sequential Transactions:**
+- Detect 2+ transactions from same source within 5 minutes
+- Flag consecutive transaction pairs
+- Reason: "Rapid sequential transactions"
+
+#### Key Subgraphs Definition
+
+The `key_subgraphs` field in the summary report should contain:
+- **nodes_involved**: List of all account IDs involved in high-activity clusters (up to 5 clusters)
+- **description**: Human-readable description of the subgraph (e.g., "High activity cluster around account A001")
+- Generated only for high-frequency accounts (10+ transactions)
+- Each subgraph includes all accounts that have transactions with the high-frequency account
+
+#### Edge Case Handling
+
+**Empty Transaction List:**
+- Return empty flagged transactions list
+- Return summary with all fraud scenarios set to 0
+- Return empty key_subgraphs list
+
+**Time-based Frequency Analysis:**
+- Analyze transaction frequency within the specified timeframe
+- Use 5-minute windows for rapid sequential detection
+- Use 10+ transaction threshold for high-frequency accounts
+
+#### Function Signature
+
+```python
+def detect_fraudulent_transactions(transactions: List[Dict[str, Any]], timeframe: List[str]) -> List[Union[List[Dict[str, Any]], Dict[str, Any]]]:
+    """Detect fraudulent transaction patterns in given timeframe."""
+```
+
+#### Sample Input
+
+```python
+transactions = [
+    {
+        'transaction_id': 'G101',
+        'timestamp': '2023-11-01T08:30:00',
+        'amount': 2000,
+        'source_account': 'AC987',
+        'destination_account': 'AC123',
+        'transaction_type': 'transfer'
+    },
+    {
+        'transaction_id': 'G102',
+        'timestamp': '2023-11-01T08:31:00',
+        'amount': 1500,
+        'source_account': 'AC123',
+        'destination_account': 'AC456',
+        'transaction_type': 'transfer'
+    },
+    {
+        'transaction_id': 'G103',
+        'timestamp': '2023-11-01T08:35:00',
+        'amount': 100000,
+        'source_account': 'AC999',
+        'destination_account': 'AC123',
+        'transaction_type': 'deposit'
+    }
+]
+timeframe = ['2023-11-01T00:00:00', '2023-11-02T00:00:00']
+```
+
+#### Sample Output
+
+```python
+flagged_transactions = [
+    {
+        'chain': ['G101'],
+        'reason': 'After-hours transaction'
+    },
+    {
+        'chain': ['G102'],
+        'reason': 'After-hours transaction'
+    },
+    {
+        'chain': ['G103'],
+        'reason': 'After-hours transaction'
+    }
+]
+summary_report = {
+    'total_anomalies': 3,
+    'fraud_scenarios': {
+        'cyclic_transfers': 0,
+        'multi_account_infiltration': 0,
+        'nested_money_laundering': 0,
+        'high_frequency_accounts': 0,
+        'large_amount_transactions': 0,
+        'rapid_sequential_transactions': 0,
+        'after_hours_transactions': 3,
+        'invalid_amount_transactions': 0
+    },
+    'key_subgraphs': []
+}
+```
+
+The output should be returned as a list:  
+[flagged_transactions, summary_report]
+
+Starter Code:
+```python
+from typing import List, Dict, Any, Union
+from datetime import datetime
+from collections import defaultdict, deque
+
+def detect_fraudulent_transactions(transactions: List[Dict[str, Any]], timeframe: List[str]) -> List[Union[List[Dict[str, Any]], Dict[str, Any]]]:
+    """Detect fraudulent transaction patterns in given timeframe."""
+    pass
+```

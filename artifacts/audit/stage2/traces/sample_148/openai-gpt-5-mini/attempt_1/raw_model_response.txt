@@ -1,0 +1,169 @@
+from typing import List, Dict, Any
+import math
+
+def analyze_mandelbrot_invariants(
+    grid_resolution: int,
+    transformation_codes: List[int]
+) -> Dict[str, Any]:
+    # Build grid
+    N = max(1, int(grid_resolution))
+    if N == 1:
+        xs = [0.0]
+        ys = [0.0]
+        step = 0.0
+    else:
+        step = 4.0 / (N - 1)
+        xs = [i * step - 2.0 for i in range(N)]
+        ys = [j * step - 2.0 for j in range(N)]
+    points = []
+    for y in ys:
+        for x in xs:
+            points.append(complex(x, y))
+    total_points = len(points)
+    # Map point to ID
+    point_to_id = {points[i]: i for i in range(total_points)}
+    id_to_point = {i: points[i] for i in range(total_points)}
+    # Union-find
+    parent = list(range(total_points))
+    rank = [0] * total_points
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+    def union(a, b):
+        ra = find(a); rb = find(b)
+        if ra == rb: return
+        if rank[ra] < rank[rb]:
+            parent[ra] = rb
+        else:
+            parent[rb] = ra
+            if rank[ra] == rank[rb]:
+                rank[ra] += 1
+    # Transformation functions map
+    def T_apply(code, z):
+        if code == 0:
+            return complex(z.real, -z.imag)
+        if code == 1:
+            # multiply by i: (x+iy)*i = -y + ix
+            return complex(-z.imag, z.real)
+        if code == 2:
+            return complex(0.5 * z.real, 0.5 * z.imag)
+        if code == 3:
+            return complex(z.real, 0.0)
+        if code == 4:
+            return complex(-z.real, -z.imag)
+        return None
+    # Current layer: set of point IDs present
+    current_ids = set(range(total_points))
+    # Process each code
+    valid_codes = set([0,1,2,3,4])
+    for code in transformation_codes:
+        if code not in valid_codes:
+            continue
+        next_ids = set()
+        for pid in list(current_ids):
+            z = id_to_point[pid]
+            w = T_apply(code, z)
+            if w is None:
+                continue
+            # Skip invalid numeric
+            if not (math.isfinite(w.real) and math.isfinite(w.imag)):
+                continue
+            # Check bounds
+            if w.real < -2.0 - 1e-12 or w.real > 2.0 + 1e-12 or w.imag < -2.0 - 1e-12 or w.imag > 2.0 + 1e-12:
+                # point left bounds; do not include in next layer
+                continue
+            # If N==1 special snap to 0.0
+            if N == 1:
+                rx = 0.0
+                ry = 0.0
+            else:
+                rx = round((w.real + 2.0) / step) * step - 2.0
+                ry = round((w.imag + 2.0) / step) * step - 2.0
+                # Fix negative zero
+                if abs(rx) == 0.0:
+                    rx = 0.0
+                if abs(ry) == 0.0:
+                    ry = 0.0
+            rw = complex(rx, ry)
+            if rw in point_to_id:
+                other_id = point_to_id[rw]
+                union(pid, other_id)
+                next_ids.add(other_id)
+        # Surviving points are deduplicated next_ids
+        # Also include any points that map to themselves but weren't added? Spec says update to surviving points (deduplicated)
+        current_ids = next_ids
+    # Extract clusters
+    clusters = {}
+    for pid in range(total_points):
+        root = find(pid)
+        clusters.setdefault(root, []).append(pid)
+    # Convert clusters to list of point lists
+    cluster_lists = []
+    for comp in clusters.values():
+        pts = []
+        for pid in comp:
+            c = id_to_point[pid]
+            pts.append([float(c.real), float(c.imag)])
+        # sort points lexicographically (real, imag)
+        pts.sort(key=lambda p: (p[0], p[1]))
+        cluster_lists.append(pts)
+    # Sort clusters: largest first, then by first point lex
+    cluster_lists.sort(key=lambda cl: (-len(cl), cl[0] if cl else [0.0,0.0]))
+    num_components = len(cluster_lists)
+    largest_size = max((len(cl) for cl in cluster_lists), default=0)
+    # Heuristic symmetry detection
+    detected = []
+    # origin fixed?
+    origin = complex(0.0, 0.0)
+    origin_fixed = False
+    if origin in point_to_id:
+        oid = point_to_id[origin]
+        if find(oid) == find(oid):
+            # check if origin maps to itself under full chain: apply chain to origin and see snapped result equals origin
+            z = origin
+            step_local = step
+            survives = True
+            for code in transformation_codes:
+                if code not in valid_codes:
+                    continue
+                w = T_apply(code, z)
+                if w is None or not (math.isfinite(w.real) and math.isfinite(w.imag)):
+                    survives = False
+                    break
+                if w.real < -2.0 - 1e-12 or w.real > 2.0 + 1e-12 or w.imag < -2.0 - 1e-12 or w.imag > 2.0 + 1e-12:
+                    survives = False
+                    break
+                if N == 1:
+                    rx = 0.0; ry = 0.0
+                else:
+                    rx = round((w.real + 2.0) / step_local) * step_local - 2.0
+                    ry = round((w.imag + 2.0) / step_local) * step_local - 2.0
+                z = complex(rx, ry)
+            if survives and z == origin:
+                origin_fixed = True
+    if origin_fixed:
+        detected.append('origin_fixed')
+    # Detect 4-fold rotational symmetry: simple heuristic - check that for axis points their cluster sizes reflect 4-fold mapping
+    # Check points on axes at distance 1.0 if present: (1,0),(0,1),(-1,0),(0,-1) in same-sized clusters
+    def has_point(x,y):
+        return complex(x,y) in point_to_id
+    axis_pts = [complex(1.0,0.0), complex(0.0,1.0), complex(-1.0,0.0), complex(0.0,-1.0)]
+    if all(p in point_to_id for p in axis_pts):
+        ids = [point_to_id[p] for p in axis_pts]
+        roots = [find(i) for i in ids]
+        if len(set(roots)) <= 4:
+            detected.append('4-fold_rotational_symmetry_on_axes')
+    # Prepare output
+    out = {
+        'invariant_subgraphs': cluster_lists,
+        'analysis_summary': {
+            'total_points': total_points,
+            'num_layers': len([c for c in transformation_codes if c in valid_codes]) + 1,
+            'num_invariant_components': num_components,
+            'largest_component_size': largest_size,
+            'detected_symmetries': detected
+        }
+    }
+    return out

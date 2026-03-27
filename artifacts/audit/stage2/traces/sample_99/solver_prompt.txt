@@ -1,0 +1,149 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+In a cybersecurity firm, a team of engineers is tasked with analyzing a network of interconnected systems to detect potential vulnerabilities. The network consists of interconnected systems where each system has a vulnerability score, trust level, and system type, and connections represent communication channels with different security levels.
+
+The engineers must implement both recursive and iterative versions of Depth-First Search (DFS) to analyze the network topology and identify critical attack paths. The analysis requires finding paths from a starting system to target systems, calculating cumulative vulnerability scores along each path, and determining critical paths that attackers could exploit.
+
+### Objectives:
+1. Implement a recursive DFS that traverses the network and identifies paths from source to target systems.
+2. Implement an iterative DFS using explicit stack management.
+3. Calculate cumulative vulnerability scores for each discovered path using threat-model-specific formulas.
+4. Identify paths with vulnerability scores exceeding threshold values.
+5. Handle cycles in the network graph during traversal.
+6. Return only paths that meet vulnerability threshold and length constraints.
+7. Implement system type compatibility checking to prevent invalid attack paths.
+8. Support multiple threat models with different vulnerability calculation methods.
+9. Validate privilege escalation requirements along attack paths.
+
+### Constraints:
+- Connection security levels: Integers from 1 (most secure) to 5 (least secure).
+- Trust levels: Integers from 1 (lowest trust) to 10 (highest trust).
+- System type compatibility rules: server(1) connects to all types, workstation(2) connects only to server(1) and database(3), database(3) connects only to server(1) and workstation(2), network_device(4) connects to all types, security_appliance(5) connects only to server(1) and network_device(4).
+- Privilege escalation rules: user(1) can escalate to admin(2), admin(2) can escalate to root(3), root(3) can escalate to system(4). Same privilege level transitions are allowed. Higher privilege levels can access lower privilege levels.
+- Cannot use external graph libraries - implement DFS from scratch.
+- Cannot use tuples or tuple data structures
+- Both implementations must return identical results for the same input.
+- Handle disconnected components - return empty paths for unreachable targets.
+- Must detect and handle cycles - paths must not contain repeated system IDs.
+- Paths must be returned as lists of system IDs in traversal order.
+- Only return paths that meet the vulnerability threshold requirement.
+- Paths must respect system type compatibility constraints.
+- Paths must satisfy privilege escalation requirements (each step must be valid according to privilege escalation rules).
+- Output dictionary keys must be strings.
+- Malformed edges (lists with fewer than 3 elements) must be skipped without raising errors; they do not contribute to traversal or scoring.
+
+### Input Specifications:
+- network: Dictionary where keys are system ID strings "0" to "9999" and values are lists of lists [connected_system_id, connection_security_level, trust_level].
+- vulnerability_scores: Dictionary mapping system ID strings to vulnerability scores (0.0 to 10.0).
+- system_types: Dictionary mapping system ID strings to system types (1=server, 2=workstation, 3=database, 4=network_device, 5=security_appliance).
+- privilege_levels: Dictionary mapping system ID strings to privilege levels (1=user, 2=admin, 3=root, 4=system).
+- source_system: Integer representing the starting system ID for DFS traversal.
+- target_systems: List of integers representing target system IDs to find paths to.
+- vulnerability_threshold: Non-negative float (0.0+) representing minimum vulnerability score for critical paths. No upper bound.
+- max_path_length: Integer (1 to 50) representing maximum allowed path length.
+- threat_model: String indicating threat type ("insider", "external", "apt") affecting vulnerability calculation.
+
+### Vulnerability Calculation Formulas:
+- Insider threat: sum(vulnerability_scores[v] * connection_security_level / trust_level * 1.5) for each edge
+- External threat: sum(vulnerability_scores[v] * connection_security_level / trust_level * 0.8) for each edge  
+- APT threat: sum(vulnerability_scores[v] * connection_security_level / trust_level * 2.0) for each edge
+Note: Cumulative vulnerability scores are not normalized or clamped; they can exceed 10.0 depending on path length and factors. Choose thresholds accordingly.
+
+
+### Error handling:
+Return a dictionary with key 'error' and one of the following exact string messages when inputs are invalid (do not raise exceptions):
+- Format: {"error": "<message>"}
+- Messages:
+  - If source_system is not in network: "Source system not found in network"
+  - If any target_system is not in network: "Target system not found in network"
+  - If threat_model is not "insider", "external", or "apt": "Invalid threat model"
+  - If max_path_length < 1 or max_path_length > 50: "Invalid max_path_length"
+  - If vulnerability_threshold < 0: "Invalid vulnerability_threshold"
+  - If any system_type is not in range 1-5: "Invalid system_type"
+  - If any privilege_level is not in range 1-4: "Invalid privilege_level"
+  - If any connection_security_level is not in range 1-5: "Invalid connection_security_level"
+  - If any trust_level is not in range 1-10: "Invalid trust_level"
+  - If source_system is not in vulnerability_scores: "Source system not found in vulnerability_scores"
+  - If source_system is not in system_types: "Source system not found in system_types"
+  - If source_system is not in privilege_levels: "Source system not found in privilege_levels"
+  - If any target_system is not in vulnerability_scores: "Target system not found in vulnerability_scores"
+  - If any target_system is not in system_types: "Target system not found in system_types"
+  - If any target_system is not in privilege_levels: "Target system not found in privilege_levels"
+  - If any connected_system_id in network is not in vulnerability_scores: "Connected system not found in vulnerability_scores"
+  - If any connected_system_id in network is not in system_types: "Connected system not found in system_types"
+  - If any connected_system_id in network is not in privilege_levels: "Connected system not found in privilege_levels"
+
+Note: Validate connected systems before target systems — if a node is both, return the “Connected system …” error first.
+
+### Function Signature
+```python
+def analyze_network_vulnerability(
+    network: Dict[str, List[List[int]]],
+    vulnerability_scores: Dict[str, float],
+    system_types: Dict[str, int],
+    privilege_levels: Dict[str, int],
+    source_system: int,
+    target_systems: List[int],
+    vulnerability_threshold: float,
+    max_path_length: int,
+    threat_model: str,
+    use_recursive: bool
+) -> Dict[str, List[List[int]]]:
+    pass
+```
+
+#### Sample Input
+```python
+network = {
+    '0': [[1, 2, 5], [2, 3, 4]],
+    '1': [[3, 1, 8], [4, 4, 3]],
+    '2': [[4, 2, 6]],
+    '3': [[4, 3, 7]],
+    '4': []
+}
+vulnerability_scores = {'0': 2.5, '1': 4.0, '2': 3.2, '3': 5.1, '4': 1.8}
+system_types = {'0': 1, '1': 2, '2': 1, '3': 3, '4': 1}
+privilege_levels = {'0': 2, '1': 1, '2': 2, '3': 3, '4': 2}
+source_system = 0
+target_systems = [4]
+vulnerability_threshold = 3.0
+max_path_length = 5
+threat_model = "insider"
+use_recursive = True
+```
+
+#### Sample Output
+```python
+{'4': [[0, 1, 4], [0, 2, 4]]}
+```
+
+#### Expected Output Format
+The output should be a dictionary where keys are target system IDs as strings and values are lists of critical paths (ordered by vulnerability score, highest first). Each path is a list of system IDs in traversal order. Return only the paths - vulnerability scores are used for sorting and filtering but not included in the output.
+
+Starter Code:
+```python
+from typing import Dict, List
+
+def analyze_network_vulnerability(
+    network: Dict[str, List[List[int]]],
+    vulnerability_scores: Dict[str, float],
+    system_types: Dict[str, int],
+    privilege_levels: Dict[str, int],
+    source_system: int,
+    target_systems: List[int],
+    vulnerability_threshold: float,
+    max_path_length: int,
+    threat_model: str,
+    use_recursive: bool,
+) -> Dict[str, List[List[int]]]:
+
+    pass
+```

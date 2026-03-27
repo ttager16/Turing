@@ -1,0 +1,30 @@
+{
+  "model": "gpt-5-mini",
+  "input": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are a careful coding assistant. Return the best possible answer for the task."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Solve the following Python coding task.\n\nRequirements:\n- Return only Python code.\n- Implement the requested entry function exactly.\n- Do not include explanations before or after the code.\n- Use only the Python standard library unless the prompt explicitly permits otherwise.\n\nProblem Statement:\n## Problem Statement\n\nThe task is to manage a hospital’s **emergency department queue**.\nEach patient has a **unique ID** and an **initial severity score**, which dynamically changes after each treatment.\nThe goal is to produce a **treatment order** that updates severities after each patient is treated.\n\n### Rules\n\n* **Treatment Priority:**\n  Patients with higher severity are treated first.\n\n* **Aging Adjustment:**\n  After each patient is treated, the remaining patients’ severities are updated as follows:\n\n  * Odd patient IDs -> severity + `aging_interval`\n  * Even patient IDs -> severity - `aging_interval`\n\n* **Arrival Order (Tie-Breaker):**\n  If two patients have the same severity, the one who appeared earlier in the input list is treated first.\n\n* The aging adjustment happens **after** each treatment, not before the first one.\n\n\n## Function Signature\n\n```python\nfrom typing import List\n\ndef manage_patient_queue(patients: List[List[int]], aging_interval: int) -> dict:\n    pass\n```\n\n\n## Input\n\n* `patients` — a list of lists, where each inner list contains two integers:\n  `[patient_id, initial_severity]`\n  Example: `[[101, 5], [102, 6], [103, 4], [104, 4]]`\n* `aging_interval` - an positive integer that represents how much the severity changes after each treatment.\n\n\n\n## Output\n\n* A dictionary containing:\n  `{\"treatment_order\": [patient_ids_in_order]}`\n\nExample:\n\n```python\n{\n  \"treatment_order\": [102, 101, 103, 104]\n}\n```\n\n\n\n## Example Walkthrough\n\n* Input:\n\n  ```python\n  patients = [[101, 5], [102, 6], [103, 4], [104, 4]]\n  aging_interval = 2\n  ```\n\n* Step 1: Initial severities\n\n  * 101 -> 5\n  * 102 -> 6\n  * 103 -> 4\n  * 104 -> 4\n    Treat 102 first (highest severity).\n\n* Step 2: Apply aging adjustment\n\n  * 101 (odd) -> 5 + 2 = 7\n  * 103 (odd) -> 4 + 2 = 6\n  * 104 (even) -> 4 - 2 = 2\n    Treat 101 next.\n\n* Step 3: Apply aging adjustment\n\n  * 103 (odd) -> 6 + 2 = 8\n  * 104 (even) -> 2 - 2 = 0\n    Treat 103 next.\n\n* Step 4: Remaining\n\n  * 104 -> 0\n    Treat 104 last.\n\n* Final treatment order: `[102, 101, 103, 104]`\n\n\n\n## Tie-Breakers\n\n* If two patients have the same severity, treat the one who appeared earlier in the input list first.\n\n\n\n## Error Handling\n\nThe function must return **error dictionaries** instead of raising exceptions.\n\n* `{'error': 'Invalid input type'}` — if `patients` and `aging_interval` does not follow the input type\n* `{'error': 'Empty patient list'}` — if `patients` is empty\n* `{'error': 'Invalid patient format'}` — if any patient entry is not follwoing the input\n\nStarter Code:\n```python\nfrom typing import List\nimport heapq\n\ndef manage_patient_queue(patients: List[List[int]], aging_interval: int) -> dict:\n```\n"
+        }
+      ]
+    }
+  ],
+  "reasoning": {
+    "effort": "minimal"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 4096
+}

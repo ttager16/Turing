@@ -1,0 +1,274 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+In the dynamic ecosystem of a large-scale e-commerce platform, a data scientist is tasked with designing a **multi-stage recommendation pipeline**. The system should personalize product listings for users while also managing updates to multiple user segments at once.
+
+The core challenge is to build a **structured ordering mechanism** that combines user preference data, product-category hierarchies, and product interaction metrics. The algorithm should compute priority-based sorting across various categories while supporting updates efficiently.
+
+The pipeline must use **deterministic logic** that produces consistent outputs for the same inputs, allowing for easy correctness and performance verification.
+
+---
+
+### Objectives
+
+1. **Hierarchical Graph Construction**
+
+   * Build a graph-based representation of the product space.
+   * Each **node** represents a product or a product category.
+   * Each **edge** represents a meaningful relationship between two nodes, derived from user browsing patterns, co-purchases, or shared session interactions.
+   * The graph should allow the addition or removal of nodes (for new or discontinued products) and support re-weighting of edges (for changing user behavior).
+   * This ensures that relationships between products can be dynamically updated without reconstructing the entire graph.
+
+2. **Segment Tree for Range Queries**
+
+   * Implement a **segment tree** or an equivalent native data structure (using lists or dictionaries).
+   * This tree should allow efficient **range-based retrieval and updates** of product scores within specific categories or user segments.
+   * When new data (like user interactions or product updates) is added, only the affected segments should be recomputed — not the whole dataset.
+   * The expected time complexity should be logarithmic for updates and queries (`O(log n)` per operation).
+
+3. **Deterministic Scoring Integration**
+
+   * Combine data from the graph (relationships), segment tree (range updates), and user interactions into a single numerical priority score as defined above.
+   * The computation should be deterministic — repeated runs with the same inputs must yield identical sorted outputs.
+
+4. **Concurrent Update Handling**
+
+   * The algorithm should conceptually support concurrent operations (e.g., multiple user sessions updating data).
+   * For testing purposes, **no actual parallel or multithreading code is required**.
+   * Instead, simulate this behavior by processing updates sequentially in an order that mimics concurrency.
+   * The goal is to ensure no overlapping data modifications (e.g., updating the same product twice in the same transaction).
+
+---
+
+### Priority Score Computation Formula
+### **Priority Score Computation Formula**
+
+To ensure deterministic and reproducible sorting, each product’s **Priority Score** must be calculated numerically based on multiple measurable factors derived from user interactions, popularity, graph relationships, and category relevance.
+
+The system should use the following formula for each product:
+
+---
+
+#### **Priority Score = Interaction Score + Popularity Score + Category Score + Community Score + Flow Score + Category Boost**
+
+Where each component is defined as follows:
+
+---
+
+#### **1. Interaction Score**
+
+```
+interaction_score = 10.0 × (normalized_weight / (1.0 + normalized_weight))
+where normalized_weight = raw_interaction_weight / (max_weight + 0.1)
+```
+
+---
+
+#### **2. Popularity Score**
+
+```
+popularity_score = 2.0 × (normalized_popularity^0.6)
+where normalized_popularity = popularity / (max_popularity + 1.0)
+```
+
+---
+
+#### **3. Category Score**
+
+```
+category_score = category_affinity × 30.0
+```
+
+---
+
+#### **4. Community Score**
+
+```
+community_score = size_score + density_score + weight_score
+where:
+  size_score = min(community_size / 5.0, 3.0)
+  density_score = community_density × 2.0
+  weight_score = min(total_community_weight / 10.0, 2.0)
+```
+
+---
+
+#### **5. Flow Score**
+
+```
+flow_score = (normalized_flow × 5.0)
+where normalized_flow = raw_flow_score / (max_flow + 0.1)
+```
+
+---
+
+#### **6. Category Boost (via Segment Tree)**
+
+```
+category_boost = category_affinity × 5.0
+```
+
+---
+
+#### **Final Priority Score**
+
+```
+Priority Score = sum(all_component_scores) + segment_tree_range_updates
+```
+
+---
+
+### Constraints
+
+* Only **native Python data structures** are allowed — lists, dictionaries, sets, and tuples.
+* The solution should be **logically efficient** (avoid brute force) but must remain **testable in a normal environment** — no hardware-specific or real-time constraints.
+* Every function must produce **deterministic and reproducible outputs**.
+* Handle **edge cases** such as:
+
+  * Products with no related items
+  * Categories with few or no interactions
+  * Users with incomplete preference histories
+* The algorithm must still return a meaningful sorted list in these cases, based on available data.
+
+---
+
+### Function Signature
+
+```python
+from typing import List, Dict, Any
+
+def custom_sort(products: List[Dict[str, Any]], user_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Returns a list of products sorted by their dynamically computed priority score.
+
+    Args:
+        products: A list of product dictionaries, each containing attributes such as:
+            - id (int): Unique product identifier
+            - name (str): Product name
+            - category (str): Product category
+            - related_products (List[int]): IDs of related products
+            - popularity (int): Interaction or purchase-based popularity metric
+        user_data: A dictionary containing:
+            - sessions (List[Dict]): Each session includes browsing and purchase history
+            - preferences (Dict): Includes preferred categories and other preferences
+
+    Returns:
+        A sorted list of product dictionaries ordered by relevance score.
+    """
+    pass
+```
+
+---
+
+### Sample Input
+
+```python
+products = [
+    {
+        'id': 101,
+        'name': 'Laptop',
+        'category': 'Electronics',
+        'related_products': [103, 202],
+        'popularity': 8
+    },
+    {
+        'id': 202,
+        'name': 'Smartphone',
+        'category': 'Electronics',
+        'related_products': [101],
+        'popularity': 9
+    },
+    {
+        'id': 303,
+        'name': 'Espresso Machine',
+        'category': 'Home Appliances',
+        'related_products': [],
+        'popularity': 3
+    },
+    {
+        'id': 103,
+        'name': 'Wireless Mouse',
+        'category': 'Electronics',
+        'related_products': [101],
+        'popularity': 5
+    }
+]
+
+user_data = {
+    'sessions': [
+        {
+            'browse_history': [101, 202],
+            'purchase_history': [101],
+            'time_spent': {'Electronics': 240, 'Home Appliances': 15}
+        },
+        {
+            'browse_history': [303],
+            'purchase_history': [],
+            'time_spent': {'Home Appliances': 55}
+        }
+    ],
+    'preferences': {
+        'categories': ['Electronics', 'Home Appliances'],
+        'preferred_brands': []
+    }
+}
+```
+
+---
+
+### Sample Output
+
+```python
+[
+    {'id': 101, 'name': 'Laptop', 'category': 'Electronics'},
+    {'id': 103, 'name': 'Wireless Mouse', 'category': 'Electronics'},
+    {'id': 202, 'name': 'Smartphone', 'category': 'Electronics'},
+    {'id': 303, 'name': 'Espresso Machine', 'category': 'Home Appliances'}
+]
+```
+
+---
+
+
+
+### Explanation of the Sample
+
+1. **Laptop (ID 101)**
+
+   * Appears frequently in browsing and purchase history.
+   * Strongly connected to other popular products (IDs 103, 202).
+   * High relevance to user’s preferred category *Electronics*.
+
+2. **Wireless Mouse (ID 103)**
+
+   * Related to Laptop and benefits from shared interactions.
+   * Moderate popularity and falls under a highly preferred category.
+
+3. **Smartphone (ID 202)**
+
+   * High popularity but fewer direct interactions from the user.
+   * Still ranked high due to its category importance.
+
+4. **Espresso Machine (ID 303)**
+
+   * Belongs to *Home Appliances* — less time spent and fewer interactions.
+   * Ranked last due to low engagement and weaker graph connections.
+
+The system thus produces a **stable and deterministic order** reflecting user engagement strength, product interconnections, and category relevance.
+
+Starter Code:
+```python
+from typing import List, Dict, Any, Set, Tuple, Optional
+from collections import defaultdict
+
+def custom_sort(products: List[Dict[str, Any]], user_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    pass
+```

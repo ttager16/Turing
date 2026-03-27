@@ -1,0 +1,76 @@
+{
+  "id": "resp_0cfe8bd75fd575080069c325bd4ff08193a2e52b25bb312d69",
+  "object": "response",
+  "created_at": 1774396862,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774396900,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0cfe8bd75fd575080069c325bf01e88193b859efca6dc36eb1",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0cfe8bd75fd575080069c325bf51ac8193859b89b85731b05e",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import logging\nimport math\nimport time\nfrom typing import List, Dict, Tuple\n\ndef multi_stage_adaptive_filter(  \n    channels: List[float],  \n    edges: List[List[int]],  \n    threshold_updates: List[List[float]],  \n    max_latency_ms: float  \n) -> List[float]:\n    start_time = time.time()\n    n = len(channels)\n    # Defensive copy\n    ch = [float(x) if x is not None else float('nan') for x in channels]\n    # Normalize invalid readings\n    for i in range(n):\n        v = ch[i]\n        if v is None or (isinstance(v, float) and math.isnan(v)):\n            ch[i] = 0.0\n        elif v == float('inf') or v == float('-inf'):\n            # saturate to a large finite value\n            ch[i] = 1e6 if v > 0 else 0.0\n        elif v < 0:\n            ch[i] = 0.0\n\n    # Build initial thresholds default to 1.0 if not set\n    thresholds = [1.0] * n\n\n    # Segment tree for range updates (stores latest timestamped threshold)\n    size = 1\n    while size < n:\n        size <<= 1\n    seg_val = [None] * (2 * size)  # store threshold\n    seg_time = [ -1.0 ] * (2 * size)  # store timestamp order\n\n    def seg_apply(pos: int, val: float, t: float):\n        if seg_time[pos] <= t:\n            seg_time[pos] = t\n            seg_val[pos] = val\n\n    def seg_push(pos: int):\n        for h in range((size).bit_length(), 0, -1):\n            i = pos >> h\n            if i <= 0:\n                continue\n            if seg_val[i] is not None:\n                seg_apply(i*2, seg_val[i], seg_time[i])\n                seg_apply(i*2+1, seg_val[i], seg_time[i])\n                seg_val[i] = None\n\n    def seg_range_update(l: int, r: int, val: float, t: float):\n        if l > r:\n            l, r = r, l\n        l = max(0, l)\n        r = min(n-1, r)\n        if l > r:\n            return\n        l += size\n        r += size\n        l0, r0 = l, r\n        while l <= r:\n            if (l & 1) == 1:\n                seg_apply(l, val, t)\n                l += 1\n            if (r & 1) == 0:\n                seg_apply(r, val, t)\n                r -= 1\n            l >>= 1; r >>= 1\n        # no immediate push for lazy propagation\n\n    def seg_point_update(idx: int, val: float, t: float):\n        if idx < 0 or idx >= n:\n            return\n        i = idx + size\n        seg_apply(i, val, t)\n        # propagate up: update parents' time if newer\n        i >>= 1\n        while i:\n            # parent holds no aggregated value; keep as None\n            i >>= 1\n\n    # Apply threshold updates in sequence; most recent wins -> timestamp order\n    t_counter = 0.0\n    for upd in threshold_updates:\n        t_counter += 1.0\n        if not isinstance(upd, list) or len(upd) < 2:\n            logging.warning(\"Malformed update ignored: %s\", upd)\n            continue\n        try:\n            if len(upd) == 2:\n                idx = int(upd[0])\n                thr = float(upd[1])\n                if 0 <= idx < n:\n                    seg_point_update(idx, thr, t_counter)\n                else:\n                    # out-of-bounds ignored\n                    continue\n            elif len(upd) >= 3:\n                a = int(upd[0]); b = int(upd[1]); thr = float(upd[2])\n                seg_range_update(a, b, thr, t_counter)\n            else:\n                logging.warning(\"Malformed update ignored: %s\", upd)\n        except Exception:\n            logging.warning(\"Malformed update ignored: %s\", upd)\n            continue\n\n    # Materialize thresholds from segment tree\n    for i in range(n):\n        pos = i + size\n        # push all from root to leaf\n        seg_push(pos)\n        if seg_val[pos] is not None:\n            thresholds[i] = float(seg_val[pos])\n\n    # Build directed graph\n    adj_out: List[List[int]] = [[] for _ in range(n)]\n    adj_in: List[List[int]] = [[] for _ in range(n)]\n    for e in edges:\n        if not isinstance(e, (list, tuple)) or len(e) < 2:\n            continue\n        try:\n            u = int(e[0]); v = int(e[1])\n        except Exception:\n            continue\n        if 0 <= u < n and 0 <= v < n:\n            adj_out[u].append(v)\n            adj_in[v].append(u)\n        else:\n            # silently ignore out-of-bounds\n            continue\n\n    # Active mask initial: those meeting or exceeding threshold are kept\n    active = [False] * n\n    ratio = [0.0] * n\n    for i in range(n):\n        thr = thresholds[i]\n        mq = ch[i]\n        if thr == 0.0:\n            # avoid divide by zero: if measured > 0 keep large ratio\n            r = float('inf') if mq > 0 else 0.0\n        else:\n            r = mq / thr\n        ratio[i] = r\n        if r >= 1.0:\n            active[i] = True\n\n    # Helper: compute SCCs using Kosaraju\n    visited = [False]*n\n    order = []\n    def dfs1(u):\n        visited[u]=True\n        for v in adj_out[u]:\n            if 0<=v<n and not visited[v]:\n                dfs1(v)\n        order.append(u)\n    for i in range(n):\n        if not visited[i]:\n            dfs1(i)\n    comp = [-1]*n\n    visited2 = [False]*n\n    radj = adj_in\n    def dfs2(u, cid):\n        comp[u]=cid\n        visited2[u]=True\n        for v in radj[u]:\n            if 0<=v<n and not visited2[v]:\n                dfs2(v, cid)\n    cid=0\n    for u in reversed(order):\n        if not visited2[u]:\n            dfs2(u, cid)\n            cid+=1\n\n    # Bridge detection on undirected representation for node-bridge effect:\n    # We'll treat removal of a node and see if component count increases.\n    # For efficiency, compute articulation points using undirected graph\n    und = [[] for _ in range(n)]\n    for u in range(n):\n        for v in adj_out[u]:\n            if 0<=v<n:\n                und[u].append(v)\n                und[v].append(u)\n    disc = [-1]*n\n    low = [0]*n\n    time_dfs = 0\n    ap = [False]*n\n\n    def ap_dfs(u, parent):\n        nonlocal time_dfs\n        children = 0\n        disc[u] = time_dfs\n        low[u] = time_dfs\n        time_dfs += 1\n        for v in und[u]:\n            if disc[v] == -1:\n                children += 1\n                ap_dfs(v, u)\n                low[u] = min(low[u], low[v])\n                if parent != -1 and low[v] >= disc[u]:\n                    ap[u] = True\n            elif v != parent:\n                low[u] = min(low[u], disc[v])\n        if parent == -1 and children > 1:\n            ap[u] = True\n\n    for i in range(n):\n        if disc[i] == -1:\n            ap_dfs(i, -1)\n\n    # Detect cycles (ring topologies) using simple DFS to flag nodes in any cycle\n    in_cycle = [False]*n\n    color = [0]*n\n    def cycle_dfs(u):\n        color[u]=1\n        for v in adj_out[u]:\n            if not (0<=v<n): continue\n            if color[v]==0:\n                cycle_dfs(v)\n            elif color[v]==1:\n                # back edge found -> mark cycle nodes by traversal (simple marking)\n                in_cycle[v]=True\n                # propagate mark up current path\n        color[u]=2\n    for i in range(n):\n        if color[i]==0:\n            cycle_dfs(i)\n    # Also mark nodes with indegree>0 and outdegree>0 in strongly connected comps size>1 as ring-like\n    comp_size = [0]*cid\n    for i in range(n):\n        if comp[i]>=0:\n            comp_size[comp[i]]+=1\n    for i in range(n):\n        if comp_size[comp[i]]>1 and len(adj_in[i])>0 and len(adj_out[i])>0:\n            in_cycle[i]=True\n\n    # Now evaluate rules in priority order for each node not already active\n    result = [0.0]*n\n    # Precompute neighbor active counts (use active initial set of >=1.0)\n    for i in range(n):\n        if active[i]:\n            result[i] = ch[i]\n    def count_active_out(u):\n        return sum(1 for v in adj_out[u] if 0<=v<n and active[v])\n    def count_active_in(u):\n        return sum(1 for v in adj_in[u] if 0<=v<n and active[v])\n\n    for i in range(n):\n        if active[i]:\n            continue\n        r = ratio[i]\n        thr = thresholds[i]\n        # Bridge channels preserved if ratio between 0.81 and 0.82 and is articulation point\n        if 0.81 <= r <= 0.82 and ap[i]:\n            active[i]=True\n            result[i]=ch[i]\n            continue\n        # Critical junction channels: in_cycle and ratio between 0.79 and 0.81 AND connecting to >=2 active neighbors\n        if 0.79 <= r <= 0.81 and in_cycle[i]:\n            neigh = 0\n            neigh += count_active_in(i)\n            neigh += count_active_out(i)\n            if neigh >= 2:\n                active[i]=True\n                result[i]=ch[i]\n                continue\n        # Source channels: no incoming connections with ratio >0.85 and feeding at least 1 active downstream\n        if len(adj_in[i])==0 and r > 0.85:\n            if count_active_out(i) >= 1:\n                active[i]=True\n                result[i]=ch[i]\n                continue\n        # Sink channels: no outgoing connections, ratio between 0.75 and 0.78 and receiving from at least 3 active sources\n        if len(adj_out[i])==0 and 0.75 <= r <= 0.78:\n            if count_active_in(i) >= 3:\n                active[i]=True\n                result[i]=ch[i]\n                continue\n        # Otherwise suppressed\n        result[i]=0.0\n\n    # Final pass: ensure channels meeting/exceeding threshold are preserved (already handled), but ensure bridge rules may rely on status\n    for i in range(n):\n        if ratio[i] >= 1.0:\n            result[i]=ch[i]\n\n    # Performance logging\n    elapsed_ms = (time.time() - start_time)*1000.0\n    if elapsed_ms > max_latency_ms:\n        logging.warning(\"Processing time %.2fms exceeded budget %.2fms\", elapsed_ms, max_latency_ms)\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1397,
+    "input_tokens_details": {
+      "cached_tokens": 1280
+    },
+    "output_tokens": 2552,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3949
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: manage_trie_concurrently\n\nProblem Statement:\n### Problem Statement\n\nIn a real-time collaborative text editing environment, a concurrency-aware Trie system is required to efficiently handle continuous insertions, deletions, and prefix-based searches as multiple users type, erase, and modify shared content simultaneously. The system must maintain a consistent and logically correct structure at all times, ensuring that words sharing common prefixes remain stable even during overlapping edits. Unlike a simple single-threaded Trie, this design must gracefully handle interleaved operations that reflect concurrent behavior, such as deleting a word while another user is extending it, or re-inserting a previously deleted term, without corrupting shared nodes or losing valid prefixes. The challenge lies in implementing robust prefix management and conflict-free updates so that autocomplete and prefix-search functionality remain accurate, consistent, and responsive under heavy, rapid, user-driven modifications.\n\n### Objectives\n\n1. Implement a Trie that supports the following operations:\n   * 'insert' <word>,  adds a word to the Trie.\n   * 'delete' <word>,  removes a word from the Trie while keeping other words with the same prefix intact.\n   * 'search' <prefix>,  returns the longest valid prefix currently present in the Trie.\n     - search(p) returns the longest prefix of p that exists as a node path in the Trie.\n     - If no characters match, or if p == \"\", return an empty string \"\".\n2. Preserve data consistency under rapid (concurrent) edits:\n   * Re-inserting a previously deleted word must restore it fully.\n   * Deleting a prefix word must not delete its longer extensions.\n   * Deleting a longer word must not remove its shorter prefix.\n3. Focus purely on correctness and data-structure logic.\n\n\n### Constraints\n- The solution must be implemented in pure Python (no external libraries allowed).\n- Each word is a lowercase English string (a–z), length <= 50.\n- The Trie must satisfy the following edge-case rules (these will be tested individually):\n  1. Shared-prefix preservation:\n     After inserting \"hell\" and \"hello\", deleting \"hell\" must not remove \"hello\".\n  2. Prefix-disappearance correctness:\n     After inserting \"hell\" and \"hello\", deleting \"hello\" must not remove \"hell\".\n  3. Re-insertion consistency:\n     A word re-inserted after deletion must behave exactly as a new insertion.\n  4. Empty-string and single-letter safety:\n     The empty string (\"\") should have no effect.\n     Single-character words (e.g., \"a\") must be inserted, searched, and deleted correctly.\n  5. Idempotent deletion:\n     Deleting the same word multiple times must not corrupt the Trie or throw errors.\n  6. Nonexistent deletion safety:\n     Deleting a word never inserted must have no impact on existing data.\n  7. Prefix overlap under mixed operations:\n     If \"he\" and \"hello\" both exist, deleting \"he\" and then searching \"hell\" must still return \"hell\".\n- Inserting the same word multiple times increases its count, deleting it decreases the count by one.\n- If the operations list is empty ([]), the function must immediately return an empty list [].\n- Each element of operations must itself be a list of exactly two elements, e.g., ['insert', <word>] or ['search', <prefix>], If any operation does not follow this structure, return [].\n- The first element (operation name) must be a valid string in (\"insert\", \"delete\", \"search\"), If any other operation name appears, return [].\n- For ['insert', word] and ['delete', word], the second element must be a string of lowercase English letters (a–z) with length between 0 and 50 (inclusive), if it violates these rules, return [].\n- For ['search', prefix], the second element must be a string of lowercase English letters (a–z) with length between 0 and 50 (inclusive), if invalid, return [].\n- If the operations list or any of its elements contain invalid data types (e.g., not a list of strings, or containing non-string data such as dicts, or integers), the function must immediately return []\n\n\n### Function Signature\n\n```python\ndef manage_trie_concurrently(operations: List[List[str]]) -> List[str]:\n```\n\n\n### Sample Input\n\n```python\noperations = [\n    ['insert', 'hello'],\n    ['insert', 'world'],\n    ['search', 'hell'],\n    ['delete', 'hello'],\n    ['search', 'hello']\n]\n```\n\n\n### Sample Output\n\n```python\n['hell', '']\n```\n\n\n### Expected Output Format\n\n* Return a list of strings corresponding to all 'search' operations, in order.\n* Each string represents the longest valid prefix found at that time.\n* If no valid prefix exists, return an empty string \"\".\n\nStarter Code:\n```python\nfrom typing import List\n\ndef manage_trie_concurrently(operations: List[List[str]]) -> List[str]:\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[[\\\"insert\\\", \\\"hello\\\"], [\\\"insert\\\", \\\"world\\\"], [\\\"search\\\", \\\"hell\\\"], [\\\"delete\\\", \\\"hello\\\"], [\\\"search\\\", \\\"hello\\\"]]\",\n    \"output\": \"[\\\"hell\\\", \\\"\\\"]\"\n  },\n  {\n    \"input\": \"[[\\\"insert\\\", \\\"he\\\"], [\\\"insert\\\", \\\"hello\\\"], [\\\"delete\\\", \\\"he\\\"], [\\\"search\\\", \\\"hell\\\"]]\",\n    \"output\": \"[\\\"hell\\\"]\"\n  },\n  {\n    \"input\": \"[[\\\"insert\\\", \\\"hell\\\"], [\\\"insert\\\", \\\"hello\\\"], [\\\"delete\\\", \\\"hell\\\"], [\\\"search\\\", \\\"hello\\\"]]\",\n    \"output\": \"[\\\"hello\\\"]\"\n  }\n]\n"
+    }
+  ]
+}

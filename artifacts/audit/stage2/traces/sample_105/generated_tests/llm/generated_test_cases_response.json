@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN73h7upht74ngbpcFfFTyBRZOmwA",
+  "object": "chat.completion",
+  "created": 1774401049,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[[0, 1, 0], [0, 2, 0], [1, 3, 0], [0, 1, 1], [0, 4, 1], [1, 5, 1], [2, 6, 0], [4, 7, 1]]\"],\"focus\":\"Physical road present in multiple layers that is a bridge in each layer (road [0,1] should be layer-bridging); tests multi-layer bridge detection and per-layer articulation identification across small disjoint components.\"},{\"input_lines\":[\"[[-1, 0, 0], [0, 1, 0], [-1, 1, 1], [-1, -1, 2], [1, 2, 2], [2, 3, 2], [1, 3, 2], [1, 2, 2]]\"],\"focus\":\"Negative node ids, self-loop, and duplicate edge entries in the same layer; checks handling of signed ids, self-loops that should not affect connectivity, and duplicate instances.\"},{\"input_lines\":[\"[[0, 1, 0], [1, 2, 0], [2, 0, 0], [2, 3, 0], [0, 1, 1], [1, 2, 2], [2, 3, 2], [3, 4, 2], [4, 5, 2], [2, 3, 3]]\"],\"focus\":\"Multi-layer chain where the same physical road ([2,3]) appears in three layers and is a bridge in multiple layers; verifies aggregation of affected layers per physical road and canonical sorting of outputs.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2778,
+    "completion_tokens": 3275,
+    "total_tokens": 6053,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2880,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

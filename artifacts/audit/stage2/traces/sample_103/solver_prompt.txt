@@ -1,0 +1,136 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### **Problem Statement: Cerberus Heuristic Optimization**
+
+You are a senior systems engineer at **Aegis Dynamics**, a global leader in cybersecurity. Your task is to design the core decision-making logic for **"Cerberus,"** a next-generation, automated threat response platform. When Cerberus detects system vulnerabilities, it must deploy a set of software countermeasures (patches) to neutralize them.
+
+The challenge lies in selecting a valid set of patches from a massive pool of options, each with a specific **resource cost** and a set of vulnerabilities it can fix.
+
+Vulnerabilities are classified into two types with unique deployment rules:
+
+1.  **Standard Exploits**: Common vulnerabilities that must be patched by **exactly one** countermeasure. Applying multiple patches for the same standard exploit can cause system instability and is strictly forbidden.
+2.  **Zero-Day Threats**: Critical, high-risk vulnerabilities that must be patched by **at least one** countermeasure. To ensure system resilience, Cerberus favors redundancy. For each *additional* time a Zero-Day Threat is patched (beyond the first), a significant `hardening_bonus` is awarded, reducing the total resource cost.
+
+Your function is the brain of Cerberus—it must rapidly determine if a viable patching solution exists within a given resource budget.
+
+-----
+
+### **The Scalability Imperative: Nanosecond Decisions**
+
+Cerberus operates on a global scale, processing billions of security events in real-time. The patch-selection algorithm is the bottleneck in the critical response path. With up to **200 vulnerabilities** and **5,000 available patches**, the combinatorial search space is astronomically large.
+
+This scale renders any exact algorithm—including brute-force, backtracking, or dynamic programming—computationally impossible. **A slow solution is a security failure. Only a highly efficient heuristic or approximation algorithm can succeed.**
+
+-----
+
+### **Mission Objectives**
+
+  * **Ensure System Integrity:** Select a set of patches that covers every Standard Exploit exactly once and every Zero-Day Threat at least once.
+  * **Meet the Security Budget:** Your function's goal is to find *any* valid combination of patches whose net cost is **less than or equal to** a given `cost_threshold`.
+  * **Return Feasibility:** Return `True` if a valid deployment under the cost threshold is found. If no such solution can be found by your heuristic, return `False`.
+
+The `cost_threshold` is designed to be conservative. A well-designed heuristic, even if not globally optimal, should be able to find a qualifying solution. The goal is **"good enough, fast enough,"** not perfection.
+
+-----
+
+### **Contingency Planning & Edge Cases**
+
+  * **Unsolvable Configuration:** If no combination of patches can satisfy the deployment rules, regardless of cost, your function should return `False`.
+  * **No Vulnerabilities:** If the initial scan finds no vulnerabilities, the cost is 0. Your function should return `True` for any non-negative `cost_threshold`.
+
+### **Constraints**
+
+  * The total number of vulnerabilities (`standard_exploits` + `zero_day_threats`) will be **up to 200**.
+  * The number of available `patches` will be **up to 5,000**.
+  * Costs and bonuses will be non-negative integers.
+  * **No external libraries** are permitted.
+  * Exhaustive methods with high branching factors are not encouraged, as the input can be large
+
+### **Function Signature**
+
+```python
+from typing import List, Tuple
+
+def can_secure_within_budget(
+    standard_exploits: List[str],
+    zero_day_threats: List[str],
+    patches: List[Tuple[int, List[str]]],
+    hardening_bonus: int,
+    cost_threshold: int
+) -> bool:
+    """
+    Determines if a valid set of patches can be deployed at or below a
+    given cost threshold.
+
+    Args:
+        standard_exploits: Vulnerabilities that must be patched exactly once.
+        zero_day_threats: Vulnerabilities that must be patched at least once.
+        patches: A list of available (cost, [vulnerabilities_fixed]) tuples.
+        hardening_bonus: The cost reduction for each extra patch on a
+                         zero-day threat.
+        cost_threshold: The maximum acceptable net resource cost.
+
+    Returns:
+        True if a valid deployment costing <= cost_threshold is found,
+        otherwise False.
+    """
+    pass
+```
+
+### **Sample Input/Output**
+
+**Input:**
+
+```python
+standard_exploits = ["S1", "S2"]
+zero_day_threats = ["C1"]
+patches = [
+    (100, ["S1", "S2"]),    # Patch A
+    (70, ["S1", "C1"]),     # Patch B
+    (40, ["S2"]),           # Patch C
+    (30, ["C1"])            # Patch D
+]
+hardening_bonus = 40
+cost_threshold = 110
+```
+
+**Output:**
+
+```python
+True
+```
+
+**Reasoning:**
+
+The goal is to determine if we can patch S1 and S2 exactly once, and C1 at least once, for a net cost of **110 or less**.
+
+  * **Consider deploying Patches B, C, and D:**
+      * **Coverage**: Patch B covers `S1`, `C1`. Patch C covers `S2`. Patch D covers `C1`.
+      * **Rules**: `S1` is covered once (by B). `S2` is covered once (by C). `C1` is covered twice (by B and D). All rules are met.
+      * **Cost**: `cost(B) + cost(C) + cost(D) = 70 + 40 + 30 = 140`.
+      * **Bonuses**: `C1` is covered one extra time. Bonus = `1 * hardening_bonus = 40`.
+      * **Net Cost**: `140 - 40 = 100`.
+
+Since a valid configuration with a net cost of 100 was found, and `100 <= 110`, the function returns **`True`**. It does not need to continue searching for other options or prove that 100 is the absolute minimum cost.
+
+Starter Code:
+```python
+from typing import List, Tuple
+
+
+def can_secure_within_budget(
+        standard_exploits: List[str],
+        zero_day_threats: List[str],
+        patches: List[Tuple[int, List[str]]],
+        hardening_bonus: int,
+        cost_threshold: int
+) -> bool:
+    pass
+```

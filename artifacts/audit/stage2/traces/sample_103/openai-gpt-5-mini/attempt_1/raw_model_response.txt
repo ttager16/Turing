@@ -1,0 +1,282 @@
+from typing import List, Tuple
+import random
+import time
+import math
+from collections import defaultdict
+
+def can_secure_within_budget(
+        standard_exploits: List[str],
+        zero_day_threats: List[str],
+        patches: List[Tuple[int, List[str]]],
+        hardening_bonus: int,
+        cost_threshold: int
+) -> bool:
+    # Quick edge cases
+    if cost_threshold < 0:
+        return False
+    if not standard_exploits and not zero_day_threats:
+        return True
+
+    # Map vuln -> index and types
+    std_set = set(standard_exploits)
+    zd_set = set(zero_day_threats)
+    all_vulns = list(std_set | zd_set)
+
+    # Build patch data: cost, sets of std and zd indices
+    patch_objs = []
+    vuln_to_patches = defaultdict(list)
+    for idx, (cost, fixes) in enumerate(patches):
+        fixes_set = set(fixes)
+        std_hits = fixes_set & std_set
+        zd_hits = fixes_set & zd_set
+        if not std_hits and not zd_hits:
+            continue
+        patch_objs.append((idx, cost, frozenset(std_hits), frozenset(zd_hits)))
+    if not patch_objs:
+        return False
+
+    # Pre-check: every standard exploit must be coverable by at least one patch
+    for s in std_set:
+        found = any(s in p[2] for p in patch_objs)
+        if not found:
+            return False
+    # Zero-days need at least one coverable
+    for z in zd_set:
+        found = any(z in p[3] for p in patch_objs)
+        if not found:
+            return False
+
+    # Heuristic search: greedy + randomized iterations
+    start = time.time()
+    TIME_LIMIT = 0.09  # keep very small for nanosecond-style environment; adjust as needed
+    # Deterministic initial ordering: cost-effectiveness
+    def score_patch(p):
+        _, cost, std_hits, zd_hits = p
+        benefit = len(std_hits) * 100 + len(zd_hits) * 60  # weight std higher to ensure exact coverage
+        return - (benefit / (1 + cost))
+    patch_objs.sort(key=score_patch)
+
+    # Try several randomized greedy attempts
+    MAX_ITERS = 300
+    iter_count = 0
+    rng = random.Random(0xC0FFEE)
+    while iter_count < MAX_ITERS and (time.time() - start) < TIME_LIMIT:
+        iter_count += 1
+        # state trackers
+        std_covered = dict()
+        for s in std_set:
+            std_covered[s] = 0
+        zd_covered = defaultdict(int)
+        chosen = []
+        total_cost = 0
+
+        # Randomize order a bit
+        skew = rng.random()
+        if skew < 0.3:
+            order = patch_objs[:]  # deterministic best-first
+        else:
+            order = patch_objs[:]
+            # introduce bias shuffle: keep top portion stable, shuffle rest
+            k = max(1, int(len(order) * (0.2 + 0.6 * rng.random())))
+            head = order[:k]
+            tail = order[k:]
+            rng.shuffle(tail)
+            order = head + tail
+
+        # First pass: ensure every standard exploit exactly once by selecting one patch for each
+        # For each standard exploit, choose cheapest patch that doesn't conflict with already assigned stds
+        # We'll try greedy per exploit ordering
+        std_list = list(std_set)
+        rng.shuffle(std_list)
+        for s in std_list:
+            # find candidate patches that include s and do not include any other standard exploit already assigned
+            best = None
+            best_score = float('inf')
+            for p in order:
+                _, cost, std_hits, zd_hits = p
+                if s not in std_hits:
+                    continue
+                conflict = False
+                for other in std_hits:
+                    if other != s and std_covered.get(other, 0) > 0:
+                        conflict = True
+                        break
+                if conflict:
+                    continue
+                # score: cost minus expected bonus from zd hits (optimistic)
+                est_bonus = sum(hardening_bonus for z in zd_hits if zd_covered[z] > 0)
+                sc = cost - est_bonus
+                if sc < best_score:
+                    best_score = sc
+                    best = p
+            if best is None:
+                # fallback: allow choosing patch that may cover other stds but hope to adjust later
+                for p in order:
+                    _, cost, std_hits, zd_hits = p
+                    if s in std_hits:
+                        best = p
+                        break
+                if best is None:
+                    # impossible
+                    best = None
+            if best is None:
+                break
+            # pick best
+            pid, cost, std_hits, zd_hits = best
+            chosen.append(best)
+            total_cost += cost
+            for ss in std_hits:
+                std_covered[ss] += 1
+            for zz in zd_hits:
+                zd_covered[zz] += 1
+
+        # Verify all standard exploits exactly once; if some are covered >1, try to remove extra patches
+        if any(std_covered[s] == 0 for s in std_set):
+            continue  # invalid attempt
+
+        # If any std covered >1, try to prune patches that cause duplicates: remove patches that have poor zd benefit/cost
+        def prune_duplicates():
+            nonlocal total_cost
+            changed = True
+            while changed:
+                changed = False
+                for i in range(len(chosen)-1, -1, -1):
+                    pid, cost, std_hits, zd_hits = chosen[i]
+                    # if removing this patch still keeps all stds covered at least once, remove if it improves net cost
+                    can_remove = True
+                    for s in std_hits:
+                        if std_covered[s] <= 1:
+                            can_remove = False
+                            break
+                    if not can_remove:
+                        continue
+                    # compute net cost change if removed: cost saved minus lost bonuses (if any) and minus lost extra coverage on zd
+                    # Removing reduces zd_covered; bonus lost equals number of zero-day extra covers lost * hardening_bonus
+                    lost_bonus = 0
+                    for z in zd_hits:
+                        if zd_covered[z] - 1 >= 1:
+                            lost_bonus += hardening_bonus
+                    net_if_removed = total_cost - cost + lost_bonus
+                    # remove if net improves (or non-worse) and doesn't violate std exactly-once requirement
+                    if net_if_removed <= total_cost:
+                        # remove
+                        total_cost -= cost
+                        for s in std_hits:
+                            std_covered[s] -= 1
+                        for z in zd_hits:
+                            zd_covered[z] -= 1
+                        chosen.pop(i)
+                        changed = True
+            return
+
+        prune_duplicates()
+        if any(std_covered[s] != 1 for s in std_set):
+            continue
+
+        # Now ensure each zero-day is covered at least once. For uncovered zd, pick best patch (low effective cost)
+        for z in zd_set:
+            if zd_covered[z] > 0:
+                continue
+            # choose patch from order that covers z and doesn't break std exactness (i.e., doesn't introduce extra std coverage)
+            best = None
+            best_eff = float('inf')
+            for p in order:
+                _, cost, std_hits, zd_hits = p
+                if z not in zd_hits:
+                    continue
+                # cannot choose if it would make any std covered >1
+                conflict = False
+                for s in std_hits:
+                    if std_covered.get(s, 0) >= 1 and s in std_hits:
+                        # if patch covers any std that is already covered, it would make >1
+                        # but we may allow and later prune; penalize heavily
+                        conflict = True
+                        break
+                eff = cost - hardening_bonus  # optimistic: at least one extra zd may give bonus
+                if conflict:
+                    eff += 10000
+                if eff < best_eff:
+                    best_eff = eff
+                    best = p
+            if best is None:
+                # no patch can cover this zd without touching stds; try any patch
+                for p in order:
+                    if z in p[3]:
+                        best = p
+                        break
+            if best is None:
+                zd_covered[z] = 0
+                break
+            pid, cost, std_hits, zd_hits = best
+            chosen.append(best)
+            total_cost += cost
+            for s in std_hits:
+                std_covered[s] = std_covered.get(s, 0) + 1
+            for zz in zd_hits:
+                zd_covered[zz] += 1
+
+        if any(zd_covered[z] <= 0 for z in zd_set):
+            continue
+
+        # Compute net cost with bonuses: for each zero-day, extra covers = max(0, count-1)
+        bonus = sum(max(0, zd_covered[z] - 1) * hardening_bonus for z in zd_set)
+        net = total_cost - bonus
+        if net <= cost_threshold:
+            return True
+
+        # Try augmenting with extra cheap zd-only patches to gain bonuses if beneficial
+        # Build list of candidate patches that add extra zd coverage without touching stds
+        zd_only = []
+        for p in patch_objs:
+            _, cost, std_hits, zd_hits = p
+            if len(std_hits) == 0 and len(zd_hits) > 0:
+                zd_only.append(p)
+        zd_only.sort(key=lambda p: (p[1] - len(p[3]) * hardening_bonus, p[1]))
+        # Add up to a few zd-only patches if they reduce net cost
+        for p in zd_only[:10]:
+            pid, cost, std_hits, zd_hits = p
+            added_bonus = 0
+            for z in zd_hits:
+                if zd_covered[z] >= 1:
+                    added_bonus += hardening_bonus
+            if added_bonus <= 0:
+                # may still be useful if covers new zd (shouldn't happen) or combined value — skip
+                continue
+            # if cost - added_bonus < 0 or reduces net:
+            if cost - added_bonus < 1 or (total_cost - bonus) + (cost - added_bonus) <= cost_threshold:
+                chosen.append(p)
+                total_cost += cost
+                for z in zd_hits:
+                    zd_covered[z] += 1
+                bonus = sum(max(0, zd_covered[z] - 1) * hardening_bonus for z in zd_set)
+                net = total_cost - bonus
+                if net <= cost_threshold:
+                    return True
+
+        # small random perturbation: try removing a random patch that covers no std or only redundant stds
+        for _ in range(3):
+            removable_indices = [i for i, p in enumerate(chosen) if all(std_covered[s] > 1 for s in p[2])]
+            if not removable_indices:
+                break
+            i = rng.choice(removable_indices)
+            pid, cost, std_hits, zd_hits = chosen.pop(i)
+            total_cost -= cost
+            for s in std_hits:
+                std_covered[s] -= 1
+            for z in zd_hits:
+                zd_covered[z] -= 1
+            bonus = sum(max(0, zd_covered[z] - 1) * hardening_bonus for z in zd_set)
+            if any(std_covered[s] != 1 for s in std_set) or any(zd_covered[z] <= 0 for z in zd_set):
+                # revert
+                chosen.insert(i, (pid, cost, std_hits, zd_hits))
+                total_cost += cost
+                for s in std_hits:
+                    std_covered[s] += 1
+                for z in zd_hits:
+                    zd_covered[z] += 1
+            else:
+                net = total_cost - bonus
+                if net <= cost_threshold:
+                    return True
+
+    return False

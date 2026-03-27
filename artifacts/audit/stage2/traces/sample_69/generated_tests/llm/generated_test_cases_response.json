@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6LISREfkCLZBw1L9ppim88X10Zk",
+  "object": "chat.completion",
+  "created": 1774398296,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"{\\\"X\\\": [\\\"Y\\\", \\\"Z\\\"], \\\"Y\\\": [\\\"Z\\\"], \\\"Z\\\": []}\",\"[{\\\"intersection\\\": \\\"X\\\", \\\"traffic_density\\\": 0.5, \\\"accidents\\\": [], \\\"priority_requests\\\": []}, {\\\"intersection\\\": \\\"X\\\", \\\"traffic_density\\\": 0.5, \\\"accidents\\\": [], \\\"priority_requests\\\": []}, {\\\"intersection\\\": \\\"Y\\\", \\\"traffic_density\\\": 1.0, \\\"accidents\\\": [\\\"LANE_OUTAGE\\\"], \\\"priority_requests\\\": []}, {\\\"intersection\\\": \\\"W\\\", \\\"priority_requests\\\": [\\\"EMERGENCY\\\"]}, {\\\"intersection\\\": \\\"Z\\\", \\\"traffic_density\\\": \\\"high\\\", \\\"accidents\\\": [], \\\"priority_requests\\\": []}]\"], \"focus\":\"duplicate records (same preliminary -> keep last), missing fields (neighbor-average / added intersection), malformed record ignored, LANE_OUTAGE halving at density=1.0\"}, {\"input_lines\":[\"{\\\"A\\\": [\\\"B\\\"], \\\"B\\\": [], \\\"C\\\": [\\\"A\\\", \\\"B\\\"]}\",\"[{\\\"intersection\\\": \\\"A\\\", \\\"traffic_density\\\": 0.8, \\\"accidents\\\": [\\\"LANE_OUTAGE\\\"], \\\"priority_requests\\\": []}, {\\\"intersection\\\": \\\"A\\\", \\\"traffic_density\\\": 0.6, \\\"accidents\\\": [], \\\"priority_requests\\\": []}, {\\\"intersection\\\": \\\"B\\\", \\\"traffic_density\\\": 0.76, \\\"accidents\\\": [], \\\"priority_requests\\\": []}, {\\\"intersection\\\": \\\"C\\\"}]\"], \"focus\":\"multiple records for same node keep lowest preliminary; neighbor-average uses already-computed outgoing neighbors; density >0.75 overflow candidate\"}, {\"input_lines\":[\"{\\\"n-1\\\": [\\\"n_2\\\"], \\\"n_2\\\": [], \\\"LONG NAME\\\": [\\\"n-1\\\", \\\"n_2\\\"]}\",\"[{\\\"intersection\\\": \\\"n-1\\\", \\\"traffic_density\\\": 0.25, \\\"accidents\\\": [], \\\"priority_requests\\\": []}, {\\\"intersection\\\": \\\"n_1_extra\\\", \\\"traffic_density\\\": 0.0, \\\"accidents\\\": [], \\\"priority_requests\\\": []}, {\\\"intersection\\\": \\\"LONG NAME\\\", \\\"traffic_density\\\": 0.7, \\\"accidents\\\": [], \\\"priority_requests\\\": []}, {\\\"intersection\\\": \\\"n_2\\\", \\\"traffic_density\\\": 0.75, \\\"accidents\\\": [], \\\"priority_requests\\\": [\\\"EMERGENCY\\\"]}, {\\\"intersection\\\": \\\"n-2\\\", \\\"traffic_density\\\": 0.751, \\\"accidents\\\": [], \\\"priority_requests\\\": []}]\"], \"focus\":\"format-sensitive names and additions to graph, boundary densities (0.0, 0.25, 0.7, 0.75, >0.75), half-up rounding cases and EMERGENCY handling\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1756,
+    "completion_tokens": 4321,
+    "total_tokens": 6077,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3712,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

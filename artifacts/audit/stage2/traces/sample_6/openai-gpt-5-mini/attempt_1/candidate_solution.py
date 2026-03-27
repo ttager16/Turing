@@ -1,0 +1,193 @@
+def advanced_multi_commodity_flow_solver(
+    base_graph: List[List[List[Union[int, float]]]],
+    commodities: List[Dict[str, Any]],
+    time_windows: List[List[Union[int, int]]],
+    node_storage_caps: List[float]
+) -> List[Union[List[List[float]], float]]:
+    # Build edge list and adjacency with edge indices
+    n = len(base_graph)
+    edges = []  # (u,v,cost)
+    adj = [[] for _ in range(n)]
+    for u, nbrs in enumerate(base_graph):
+        for v_cost in nbrs:
+            v, cost = int(v_cost[0]), float(v_cost[1])
+            idx = len(edges)
+            edges.append((u, v, cost))
+            adj[u].append((v, cost, idx))
+    m = len(edges)
+
+    # Commodity priority order
+    priority_order = {"electronics": 0, "pharmaceuticals": 1, "perishables": 2, "textiles": 3, "chemicals": 4}
+    # incompatibilities mapping
+    incompatible = {
+        "chemicals": set(["perishables", "pharmaceuticals"]),
+        "perishables": set(["chemicals"]),
+        "pharmaceuticals": set(["chemicals"])
+    }
+
+    K = len(commodities)
+    # initialize flows per commodity per edge
+    flow_matrix = [[0.0 for _ in range(m)] for _ in range(K)]
+    total_cost = 0.0
+
+    # track which commodity types occupy nodes (set of types) and their adjacency reservations
+    node_types = [set() for _ in range(n)]
+    node_reserved_adj = [set() for _ in range(n)]  # set of types that cannot use this node due to adjacent occupation
+
+    # helper: check if commodity type can use node (respecting adjacent rule)
+    def can_use_node(node: int, ctype: str) -> bool:
+        # direct incompatible present?
+        for t in node_types[node]:
+            if t in incompatible.get(ctype, set()) or ctype in incompatible.get(t, set()):
+                return False
+        # adjacent restriction: if any adjacent node has incompatible type, can't use this node
+        for t in node_reserved_adj[node]:
+            if t in incompatible.get(ctype, set()) or ctype in incompatible.get(t, set()):
+                return False
+        return True
+
+    # helper to reserve node for a type (update adjacency reservations)
+    def reserve_path_nodes(path_nodes: List[int], ctype: str):
+        for node in path_nodes:
+            node_types[node].add(ctype)
+        # For each node used, mark neighbors as reserved for adjacency
+        for node in path_nodes:
+            for v,_,_ in adj[node]:
+                node_reserved_adj[v].add(ctype)
+
+    # Simple shortest path respecting capacities and node constraints using Dijkstra, returns path nodes and edge indices
+    def shortest_path_with_constraints(src:int, dst:int, ctype:str, edge_caps: List[float], edge_costs: List[float], time_penalty_factor: float):
+        dist = [float('inf')]*n
+        prev = [(-1,-1)]*n  # (prev_node, edge_idx)
+        dist[src]=0
+        pq=[(0,src)]
+        while pq:
+            d,u = heapq.heappop(pq)
+            if d!=dist[u]: continue
+            if u==dst: break
+            for v,cost,idx in adj[u]:
+                if edge_caps[idx] <= 0: continue
+                if not can_use_node(v, ctype) and v!=dst:
+                    continue
+                # cost adjusted
+                nd = d + (cost*time_penalty_factor)
+                if nd < dist[v]:
+                    dist[v]=nd
+                    prev[v]=(u,idx)
+                    heapq.heappush(pq,(nd,v))
+        if dist[dst]==float('inf'):
+            return None
+        # reconstruct path
+        path_nodes=[]
+        path_edges=[]
+        cur=dst
+        while cur!=src:
+            pu, eidx = prev[cur]
+            if pu==-1:
+                return None
+            path_nodes.append(cur)
+            path_edges.append(eidx)
+            cur=pu
+        path_nodes.append(src)
+        path_nodes.reverse()
+        path_edges.reverse()
+        return path_nodes, path_edges
+
+    # process commodities in priority order
+    order = sorted(list(range(K)), key=lambda i: priority_order.get(commodities[i].get("type_of_good",""), 100))
+    # Precompute original edge costs
+    base_edge_costs = [c for (_,_,c) in edges]
+
+    for i in order:
+        com = commodities[i]
+        src = int(com["source"])
+        dst = int(com["sink"])
+        demand = float(com["demand"])
+        ctype = com.get("type_of_good","")
+        daily_changes = com.get("daily_capacity_changes", [])
+        tstart, tend = time_windows[i] if i < len(time_windows) else (0,0)
+        # Apply time window urgency adjustments
+        time_penalty = 1.0
+        cap_time_factor = 1.0
+        days_allowed = max(0, tend - tstart + 1)
+        if ctype=="perishables" and days_allowed < 2:
+            cap_time_factor *= 0.5
+            time_penalty *= 1.5  # cost increase
+        if ctype=="pharmaceuticals" and days_allowed < 3:
+            cap_time_factor *= 0.8
+            time_penalty *= 1.2
+        # Build day-by-day cumulative capacity multipliers for edges
+        # Start with 1.0, for each day apply daily_changes and degradation
+        edge_caps = [float('inf')]*m  # start as infinite unless daily caps restrict
+        # We'll interpret daily_capacity_changes as available capacity amounts on source per day for commodity
+        # For simplicity, compute total available capacity as sum of daily_changes * degradation
+        total_available = 0.0
+        deg_cum = 1.0
+        for day, val in enumerate(daily_changes):
+            deg = max(0.1, 1.0 - ((day)*0.1))
+            deg_cum *= deg
+            total_available += float(val)*deg_cum
+        # apply time window cap factor
+        total_available *= cap_time_factor
+        # Also cap by demand
+        available = min(total_available if total_available>0 else demand, demand)
+        # Minimum flow threshold check
+        if available < 0.2 * demand:
+            # set flow zero and continue
+            continue
+        # For routing, we greedily find shortest path and push as much as possible up to available and edge capacities.
+        # Edge capacities initially set to available for edges outgoing from source, large elsewhere
+        # For simplicity, set all edges cap to available (simulate free edges), but respect node storage caps later
+        edge_caps = [available for _ in range(m)]
+        edge_costs = base_edge_costs[:]
+        # Try to find path and assign flow
+        remaining = available
+        # Reserve source and sink nodes for this com type
+        if not can_use_node(src, ctype):
+            # cannot start, skip
+            continue
+        if not can_use_node(dst, ctype):
+            continue
+        reserve_path_nodes([src, dst], ctype)
+        # Iteratively find shortest path and push flows until remaining exhausted
+        attempts = 0
+        while remaining > 1e-9 and attempts <  n*2:
+            res = shortest_path_with_constraints(src, dst, ctype, edge_caps, edge_costs, time_penalty)
+            if not res:
+                break
+            path_nodes, path_edges = res
+            # Determine bottleneck
+            bottleneck = min(edge_caps[e] for e in path_edges)
+            push = min(bottleneck, remaining)
+            if push <= 0:
+                break
+            # Check node storage caps for intermediate nodes
+            intermediates = [node for node in path_nodes if node!=src and node!=dst]
+            ok = True
+            for node in intermediates:
+                if node_storage_caps[node] < push:
+                    ok = False
+                    break
+            if not ok:
+                # try to push smaller amount: reduce to min storage cap
+                mincap = min((node_storage_caps[node] for node in intermediates), default=push)
+                if mincap < 1e-9:
+                    break
+                push = min(push, mincap)
+            # assign flow
+            for e in path_edges:
+                flow_matrix[i][e] += push
+                edge_caps[e] -= push
+            # reserve nodes used by this path (including intermediates)
+            reserve_path_nodes(path_nodes, ctype)
+            # compute costs: transportation + storage for intermediates
+            trans_cost = sum(push * base_edge_costs[e] for e in path_edges)
+            storage_cost = 0.1 * push * max(0, len(intermediates))
+            total_cost += trans_cost + storage_cost
+            remaining -= push
+            attempts += 1
+
+    # After all commodities processed, return flow matrix and total cost
+    # Ensure flows are floats
+    flow_matrix = [[float(x) for x in row] for row in flow_matrix]
+    return [flow_matrix, float(total_cost)]

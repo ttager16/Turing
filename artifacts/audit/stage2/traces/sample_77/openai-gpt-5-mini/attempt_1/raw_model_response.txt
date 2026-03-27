@@ -1,0 +1,138 @@
+from typing import List, Any
+
+def schedule_tasks(tasks: List[List[Any]], operations: List[List[Any]]) -> List[str]:
+    # Validate initial tasks
+    clusters = {}
+    if not isinstance(tasks, list):
+        return []
+    for item in tasks:
+        if (not isinstance(item, list)) or len(item) != 2:
+            return []
+        cap, name = item
+        if not isinstance(cap, int) or cap < 0:
+            return []
+        if not isinstance(name, str):
+            return []
+        if name in clusters:
+            return []
+        clusters[name] = cap
+
+    MERGE_LIMIT = 100
+
+    # helper validators
+    def valid_op_structure(op):
+        return isinstance(op, list) and len(op) == 2 and isinstance(op[0], str)
+
+    for op in operations:
+        if not valid_op_structure(op):
+            return []
+        typ, payload = op[0], op[1]
+        if typ not in ("link", "split", "merge", "adjust", "balance"):
+            return []
+        # link: payload must be list [a:str, b:str] where a!=b (clusters must exist)
+        if typ == "link":
+            if not (isinstance(payload, list) and len(payload) == 2):
+                return []
+            a, b = payload
+            if not (isinstance(a, str) and isinstance(b, str)) or a == b:
+                return []
+            if a not in clusters or b not in clusters:
+                return []
+            # For this model, link just records relationship; no structural change required.
+            # We'll represent links as adjacency but they do not affect capacities directly.
+            # Use an adjacency dict lazily
+            # initialize adjacency on first use
+            if "_adj" not in clusters:
+                clusters["_adj"] = {}
+            adj = clusters["_adj"]
+            adj.setdefault(a, set()).add(b)
+            adj.setdefault(b, set()).add(a)
+
+        elif typ == "split":
+            # payload must be a single string referencing existing cluster
+            if not isinstance(payload, str):
+                return []
+            a = payload
+            if a not in clusters:
+                return []
+            # perform split: capacity halved rounded down, discard half
+            cap = clusters[a]
+            new_cap = cap // 2
+            clusters[a] = new_cap
+
+        elif typ == "merge":
+            # payload must be list [a:str, b:str], both exist, a!=b, combined capacity <= MERGE_LIMIT
+            if not (isinstance(payload, list) and len(payload) == 2):
+                return []
+            a, b = payload
+            if not (isinstance(a, str) and isinstance(b, str)) or a == b:
+                return []
+            if a not in clusters or b not in clusters:
+                return []
+            cap_a = clusters[a]
+            cap_b = clusters[b]
+            if cap_a + cap_b > MERGE_LIMIT:
+                return []
+            # merge b into a, remove b
+            clusters[a] = cap_a + cap_b
+            # remove b and any adjacency references
+            if "_adj" in clusters:
+                adj = clusters["_adj"]
+                if b in adj:
+                    for nbr in list(adj[b]):
+                        adj[nbr].discard(b)
+                    del adj[b]
+                if b in adj:
+                    del adj[b]
+                # remove b from adjacency keys if present
+                if b in adj:
+                    del adj[b]
+            del clusters[b]
+
+        elif typ == "adjust":
+            # payload must be [value:int, a:str] where a exists
+            if not (isinstance(payload, list) and len(payload) == 2):
+                return []
+            value, a = payload
+            if not isinstance(value, int) or not isinstance(a, str):
+                return []
+            if a not in clusters:
+                return []
+            new = clusters[a] + value
+            if new < 0:
+                new = 0
+            clusters[a] = new
+
+        elif typ == "balance":
+            # payload must be [a:str, b:str], both exist and a!=b
+            if not (isinstance(payload, list) and len(payload) == 2):
+                return []
+            a, b = payload
+            if not (isinstance(a, str) and isinstance(b, str)) or a == b:
+                return []
+            if a not in clusters or b not in clusters:
+                return []
+            ca = clusters[a]
+            cb = clusters[b]
+            # If one > 1.5 times the other, transfer half the difference from larger to smaller
+            # Avoid division by zero: if both zero or smaller zero handled
+            if ca > 1.5 * cb:
+                diff = ca - cb
+                transfer = diff // 2
+                transfer = max(0, transfer)
+                clusters[a] = ca - transfer
+                clusters[b] = cb + transfer
+            elif cb > 1.5 * ca:
+                diff = cb - ca
+                transfer = diff // 2
+                transfer = max(0, transfer)
+                clusters[b] = cb - transfer
+                clusters[a] = ca + transfer
+        else:
+            return []
+
+    # prepare final list of active cluster identifiers (exclude internal keys)
+    final = [(name, cap) for name, cap in clusters.items() if not name.startswith("_")]
+    # sort by capacity desc, then name asc
+    final.sort(key=lambda x: (-x[1], x[0]))
+    return [name for name, _ in final]

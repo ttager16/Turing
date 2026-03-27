@@ -1,0 +1,76 @@
+{
+  "id": "resp_0d84c3b76f3f71b20069c32e2c934081a3a773c95b7f425b89",
+  "object": "response",
+  "created_at": 1774399020,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774399036,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0d84c3b76f3f71b20069c32e2ce81481a3a86d89df0988d643",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0d84c3b76f3f71b20069c32e2d1d8c81a3bcb3461815112680",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Any, Dict, List\nimport threading\n\ndef build_adaptive_sensor_list(\n    data_stream: List[Dict[str, Any]],\n    invalidations: List[int] = []\n) -> Dict[str, Any]:\n    lock = threading.Lock()\n    # storage\n    zones = {}  # zone -> {types: {type: {'values': [(idx,val,valid)], 'hot': (idx,val) or None}}}\n    path_index = {}  # sensor key -> base type node id\n    # process inserts\n    with lock:\n        for idx, ev in enumerate(data_stream):\n            sensor = ev.get(\"sensor\")\n            val = float(ev.get(\"value\"))\n            if not sensor or \"_\" not in sensor:\n                continue\n            typ, zone = sensor.split(\"_\", 1)\n            zone_id = f\"zone:{zone}\"\n            type_id = f\"{zone_id}/type:{typ}\"\n            path_index[sensor] = type_id\n            if zone not in zones:\n                zones[zone] = {'types': {}}\n            types = zones[zone]['types']\n            if typ not in types:\n                types[typ] = {'values': [], 'hot': None}\n            entry = types[typ]\n            entry['values'].append([idx, val, True])\n            # promotion rule: when count reaches >=2, promote most recently inserted reading\n            # count of valid readings (before invalidations) - but promotions happen online as events arrive\n            valid_count = sum(1 for _i, _v, ok in entry['values'] if ok)\n            if valid_count >= 2:\n                # most recent inserted reading is last in list\n                last_idx, last_val, last_ok = entry['values'][-1]\n                entry['hot'] = (last_idx, last_val)\n    # apply invalidations (partial rollback)\n    inv_set = set(invalidations)\n    with lock:\n        for zone, zdata in zones.items():\n            for typ, entry in zdata['types'].items():\n                # mark invalids\n                for rec in entry['values']:\n                    if rec[0] in inv_set:\n                        rec[2] = False\n                # recompute hot: it's the latest valid reading if any and if count>=2 originally would have created hot\n                # Rule: hot segment duplicates only the latest reading when event count reaches >=2.\n                # After invalidation, hot should be latest valid or deleted.\n                # Determine latest valid by max idx among valid recs\n                valid_recs = [r for r in entry['values'] if r[2]]\n                if valid_recs:\n                    latest = max(valid_recs, key=lambda r: r[0])\n                    # hot exists only if at any point there were >=2 valid insertions? The spec: hot deleted if none.\n                    # We'll create hot if there is at least one valid and original promotion condition met:\n                    # But sample shows hot exists after rollback if still has at least one valid and previous count>=2.\n                    # Simpler: if there exists at least one valid and total historical valid count >=2 at some time.\n                    # We don't track historical; but promotion is triggered when valid_count reached >=2 during insertion.\n                    # We can infer: if entry ever had length >=2 (including invalidated ones) then hot was created.\n                    if len(entry['values']) >= 2:\n                        entry['hot'] = (latest[0], latest[1])\n                    else:\n                        entry['hot'] = None\n                else:\n                    entry['hot'] = None\n    # build traversal order: root -> zones lex -> types lex -> hot immediately after base\n    linked_order = [\"root\"]\n    zone_names = sorted(zones.keys())\n    for zn in zone_names:\n        zid = f\"zone:{zn}\"\n        linked_order.append(zid)\n        type_names = sorted(zones[zn]['types'].keys())\n        for tn in type_names:\n            tid = f\"{zid}/type:{tn}\"\n            linked_order.append(tid)\n            if zones[zn]['types'][tn].get('hot') is not None:\n                linked_order.append(f\"{tid}*\")\n    # next pointers\n    next_pointer_of = {}\n    for i, node in enumerate(linked_order):\n        next_pointer_of[node] = linked_order[i+1] if i+1 < len(linked_order) else None\n    # segment_stats and leaf_values\n    segment_stats = {}\n    leaf_values = {}\n    for zn in zone_names:\n        zid = f\"zone:{zn}\"\n        for tn in sorted(zones[zn]['types'].keys()):\n            tid = f\"{zid}/type:{tn}\"\n            entry = zones[zn]['types'][tn]\n            vals = [r[1] for r in entry['values'] if r[2]]\n            leaf_values[tid] = vals.copy()\n            if vals:\n                cnt = len(vals)\n                s = sum(vals)\n                mn = min(vals)\n                mx = max(vals)\n                avg = round(s / cnt + 1e-12, 3)\n                segment_stats[tid] = {\"count\": cnt, \"sum\": s, \"min\": mn, \"max\": mx, \"avg\": float(f\"{avg:.3f}\")}\n            # hot\n            if entry.get('hot') is not None:\n                hv = entry['hot'][1]\n                segment_stats[f\"{tid}*\"] = {\"latest_value\": hv}\n    # path_index should map each sensor key to its base type node id (only unique keys present)\n    # Ensure path_index only contains unique sensor keys (latest mapping is fine)\n    return {\n        \"linked_order\": linked_order,\n        \"next_pointer_of\": next_pointer_of,\n        \"segment_stats\": segment_stats,\n        \"path_index\": path_index,\n        \"leaf_values\": leaf_values\n    }"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2476,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1245,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3721
+  },
+  "user": null,
+  "metadata": {}
+}

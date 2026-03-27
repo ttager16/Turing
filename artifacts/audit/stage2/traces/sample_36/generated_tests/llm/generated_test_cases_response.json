@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5gTCXDNnD1Fu1gFkAnHA9llUzat",
+  "object": "chat.completion",
+  "created": 1774395765,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[\\\"S\\\", \\\"M\\\", \\\"M\\\", \\\"T\\\"]\",\"[[\\\"S\\\", \\\"M\\\", 10.0], [\\\"S\\\", \\\"M\\\", 5.0], [\\\"M\\\", \\\"M\\\", 0.1], [\\\"M\\\", \\\"Z\\\", 2.0], [\\\"Z\\\", \\\"T\\\", 2.0], [\\\"M\\\", \\\"T\\\", 20.0], [\\\"T\\\", \\\"M\\\", 1.0]]\",\"{\\\"S-M\\\": 0.5, \\\"M-S\\\": 2.0, \\\"M-T\\\": 0.9, \\\"Z-T\\\": 0.7, \\\"T-M\\\": 0.8}\"],\"focus\":\"duplicate_edges_and_reverse_override_with_non_city_node_and_duplicate_cities\"},{\"input_lines\":[\"[\\\"A\\\", \\\"D\\\"]\",\"[[\\\"A\\\", \\\"X\\\", 1.0], [\\\"X\\\", \\\"D\\\", 1.0], [\\\"B\\\", \\\"C\\\", 2.0]]\",\"{}\"],\"focus\":\"path_requires_non_city_nodes_should_return_empty_when_no_city-only_path_exists\"},{\"input_lines\":[\"[\\\"A\\\", \\\"A\\\"]\",\"[[\\\"A\\\", \\\"A\\\", 0.1], [\\\"A\\\", \\\"B\\\", 3.0], [\\\"B\\\", \\\"A\\\", 2.0], [\\\"B\\\", \\\"C\\\", 1.0]]\",\"{\\\"A-B\\\": 0.5, \\\"B-A\\\": 2.0}\"],\"focus\":\"start_equals_end_selfloop_ignored_and_directional_multiplier_precedence\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3633,
+    "completion_tokens": 2716,
+    "total_tokens": 6349,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2368,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

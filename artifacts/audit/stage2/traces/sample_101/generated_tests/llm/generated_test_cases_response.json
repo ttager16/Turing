@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6wgEfYYzyZAQRH4rTvAn11QjB9P",
+  "object": "chat.completion",
+  "created": 1774400614,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"{\\\"city_graph\\\": {}, \\\"capacity_map\\\": {}, \\\"demand_map\\\": {}}\"],\"focus\":\"Empty graph — edge case: no nodes, expect fallback/default handling (hub 0) and safe defaults for metrics.\"},{\"input_lines\":[\"{\\\"city_graph\\\": {\\\"0\\\": [1, 3], \\\"1\\\": [0, 2], \\\"2\\\": [1, 3], \\\"3\\\": [0, 2]}, \\\"capacity_map\\\": {\\\"0,1\\\": 3, \\\"2,1\\\": 1, \\\"2,3\\\": 2, \\\"0,3\\\": 2}, \\\"demand_map\\\": {\\\"0\\\": \\\"2\\\", \\\"1\\\": \\\"1\\\", \\\"2\\\": \\\"2\\\", \\\"3\\\": \\\"1\\\"}}\"],\"focus\":\"Format-sensitive case: mixed capacity key direction (\\\"2,1\\\"), demand values as strings; tests parsing, normalization, and capacity-aware path selection.\"},{\"input_lines\":[\"{\\\"city_graph\\\": {\\\"0\\\": [1], \\\"1\\\": [0, 2], \\\"2\\\": [1, 3], \\\"3\\\": [2]}, \\\"capacity_map\\\": {\\\"0,1\\\": 5}, \\\"demand_map\\\": {\\\"0\\\": 1, \\\"1\\\": 2, \\\"2\\\": 2, \\\"3\\\": 1}}\"],\"focus\":\"Missing capacity entries for some adjacency edges (treated as zero capacity) causing no capacity-feasible hub — tests fallback to first node and unreachable handling.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2680,
+    "completion_tokens": 2699,
+    "total_tokens": 5379,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2368,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

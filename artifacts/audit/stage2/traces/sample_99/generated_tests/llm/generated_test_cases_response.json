@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6u5oThqB9RMceh89O7glSTtYJvI",
+  "object": "chat.completion",
+  "created": 1774400453,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"{\\\"0\\\": [[1, 2, 5], [2, 3, 4]], \\\"1\\\": [[2, 1, 7], [3, 5, 2], [2]], \\\"2\\\": [[0, 4, 6], [3, 2, 1]], \\\"3\\\": []}\",\"{\\\"0\\\": 1.0, \\\"1\\\": 4.0, \\\"2\\\": 2.5, \\\"3\\\": 6.0}\",\"{\\\"0\\\": 1, \\\"1\\\": 2, \\\"2\\\": 3, \\\"3\\\": 1}\",\"{\\\"0\\\": 1, \\\"1\\\": 1, \\\"2\\\": 2, \\\"3\\\": 3}\",\"0\",\"[3]\",\"30.0\",\"4\",\"\\\"apt\\\"\",\"true\"],\"focus\":\"cycle detection and malformed-edge skipping; threshold that separates similar paths\"},{\"input_lines\":[\"{\\\"0\\\": [[1, 3, 11]], \\\"1\\\": []}\",\"{\\\"0\\\": 0.5, \\\"1\\\": 1.0}\",\"{\\\"0\\\": 1, \\\"1\\\": 1}\",\"{\\\"0\\\": 1, \\\"1\\\": 2}\",\"0\",\"[1]\",\"0.0\",\"5\",\"\\\"external\\\"\",\"false\"],\"focus\":\"validation error: trust_level out of valid range should trigger \\\"Invalid trust_level\\\"\"},{\"input_lines\":[\"{\\\"0\\\": [[1, 1, 5], [2, 5, 5]], \\\"1\\\": [[3, 2, 5]], \\\"2\\\": [[3, 1, 5]], \\\"3\\\": [], \\\"4\\\": [[0, 2, 4]]}\",\"{\\\"0\\\": 0.0, \\\"1\\\": 9.0, \\\"2\\\": 1.0, \\\"3\\\": 2.0, \\\"4\\\": 5.0}\",\"{\\\"0\\\": 1, \\\"1\\\": 2, \\\"2\\\": 3, \\\"3\\\": 5, \\\"4\\\": 4}\",\"{\\\"0\\\": 3, \\\"1\\\": 1, \\\"2\\\": 2, \\\"3\\\": 2, \\\"4\\\": 4}\",\"0\",\"[0, 3, 4, 2]\",\"1.0\",\"2\",\"\\\"external\\\"\",\"false\"],\"focus\":\"system-type compatibility, self-target handling, threshold filtering, and disconnected components\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2680,
+    "completion_tokens": 3984,
+    "total_tokens": 6664,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3456,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

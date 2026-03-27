@@ -1,0 +1,242 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+A renowned theater consortium is organizing a **multi-production drama festival** where several plays are staged **simultaneously** across different venues. Each play consists of **multiple scenes**, and each scene requires **specific roles** to be filled by available actors. Actors may participate in **different plays**, but cannot perform in **overlapping or consecutive scenes** without enough buffer time between them.
+
+Due to **dynamic script changes**, **varying travel times** between rehearsal venues, and **uncertain actor availability**, the organizers must build a **smart rehearsal scheduling system** that assigns actors to scenes efficiently, ensuring no conflicts, minimizing travel fatigue, and adapting to unexpected changes.
+
+Your task is to **design a scheduling optimization function** that generates the most feasible rehearsal plan by analyzing role requirements, actor-role suitability, availability probabilities, and travel distances — while ensuring the overall schedule remains conflict-free and balanced.
+
+---
+
+### Objectives
+
+1. **Integrated Availability and Overlap Mapping:**
+   Construct a **bipartite mapping** between **actors** and **scenes/roles** based on rehearsal slots, ensuring no actor is double-booked or scheduled in overlapping or consecutive scenes without buffer time.
+
+   * Build adjacency connections: **actors <--> (scene, role)** considering both **time feasibility** and **role eligibility**.
+   * Enforce **buffer intervals** between any two scenes involving the same actor.
+
+2. **Probability-Backed Role Allocation:**
+   Use **probabilistic availability modeling** based on historical attendance, travel fatigue, and role preference to compute each actor’s likelihood of being available for a scene.
+
+3. **Compound Scheduling Optimization:**
+   Merge **availability**, **role suitability**, and **travel times** into a **cost optimization framework** that produces the best-balanced rehearsal plan.
+
+   * Minimize **travel exhaustion** using transport times between actor rehearsal locations.
+   * Balance workloads so that no actor is overloaded with consecutive scenes.
+   * Ensure all **role requirements** per scene are fulfilled within available rehearsal slots.
+
+---
+
+### Optimization Metric Definition
+
+The optimization score for assigning an actor to a specific scene-role pair is defined as:
+
+[
+\text{Score(actor, scene, role)} = 2.0 \times P_{\text{available}} + 1.5 \times W_{\text{role-fit}} - 0.3 \times U_{\text{workload}} - 0.1 \times C_{\text{travel}} - P_{\text{name}}
+]
+
+Where:
+
+| Symbol                 | Definition                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| (P_{\text{available}}) | Probability of the actor being available at that time slot, derived from historical attendance.                    |
+| (W_{\text{role-fit}})  | Role suitability weight between actor and role (from `role_mapping` input). Defaults to `1.0` if not provided.     |
+| (U_{\text{workload}})  | Current workload = (assigned scenes ÷ max rehearsal capacity).                                                     |
+| (C_{\text{travel}})    | Average travel cost among all actors assigned to the same scene.                                                   |
+| (P_{\text{name}})      | Tie-breaker penalty defined as `0.001 × index_of_actor_in_sorted_list_by_name`. Used only for consistent ordering. |
+
+The algorithm **maximizes this score** for all valid `(actor, scene, role)` assignments.
+
+---
+
+### Constraints
+
+1. Each scene requires one or more **roles** to be filled; an actor can fill **only one role per scene**.
+2. An actor cannot appear in **two concurrent** or **back-to-back** scenes without a **minimum buffer interval**.
+3. Each actor has a **rehearsal capacity limit** (maximum number of scenes they can handle).
+4. **Availability probability** must be computed from historical attendance records.
+5. Only **affected scenes** should be recalculated if any scene is merged, split, or changed.
+6. Input and output must use **lists** and **dictionaries** only.
+7. Every scene must include **time slot information** to verify overlap and buffer feasibility.
+
+---
+
+### Key Definitions
+
+* **Actor Availability:**
+  A list of integer time slots during which an actor can rehearse.
+
+* **Scene Requirements:**
+  A list of dictionaries where each entry defines:
+
+  * Scene ID
+  * Time slot of the scene
+  * Dictionary of roles and number of actors needed per role.
+
+* **Historical Data:**
+  Maps each actor to their attendance history (1 for attended, 0 for missed).
+
+* **Role Mapping (W_role-fit):**
+  Defines how suitable each actor is for each role, with values between 0 and 1.
+  If not provided, all roles are assumed equally suitable (weight = 1.0).
+
+* **Transport Times:**
+  Travel times between rehearsal locations of different actors.
+
+* **Buffer Interval:**
+  Minimum time gap required between any two scenes involving the same actor.
+
+* **Rehearsal Capacity:**
+  Maximum number of scenes an actor can participate in.
+
+---
+
+### Function Signature
+
+```python
+def optimize_rehearsal_schedule(
+    actor_availability: List[List],
+    scene_requirements: List[Dict[str, any]],
+    historical_data: Dict[str, List[int]],
+    role_mapping: Dict[str, Dict[str, float]],
+    transport_times: Dict[str, int],
+    buffer_intervals: int,
+    rehearsal_capacity: Dict[str, int]
+) -> Dict[str, Dict[str, str]]:
+    pass
+```
+
+---
+
+### Input Format
+
+1. **actor_availability** – List of lists, where each sub-list contains `[actor_name, [available_time_slots]]`.
+   Example: `[['Actor1', [1, 2, 3, 5]], ['Actor2', [1, 3, 4, 6]]]`
+
+2. **scene_requirements** – List of dictionaries, where each dictionary specifies:
+
+   * `"scene_id"`: Unique string ID (e.g., `"Scene1"`)
+   * `"time_slot"`: Integer rehearsal time slot
+   * `"roles"`: Dictionary with roles and number of required actors
+     Example: `{"scene_id": "Scene1", "time_slot": 2, "roles": {"role1": 2, "role2": 1}}`
+
+3. **historical_data** – Dictionary mapping actors to lists of integers (1 = attended, 0 = missed).
+   Example: `{'Actor1': [1, 0, 1], 'Actor2': [1, 1, 1]}`
+
+4. **role_mapping** – Dictionary mapping each actor to another dictionary of role suitability scores.
+   Example: `{'Actor1': {'role1': 0.9, 'role2': 0.6}, 'Actor2': {'role1': 0.7, 'role2': 1.0}}`
+
+5. **transport_times** – Dictionary defining travel times between actors’ rehearsal locations.
+   Example: `{'Actor1-Actor2': 3, 'Actor2-Actor3': 4}`
+
+6. **buffer_intervals** – Integer defining the minimum time slot gap between two scenes involving the same actor.
+
+7. **rehearsal_capacity** – Dictionary mapping each actor to their maximum number of scenes.
+   Example: `{'Actor1': 3, 'Actor2': 2, 'Actor3': 3}`
+
+---
+
+### Sample Input
+
+```python
+actor_availability = [
+    ['Actor1', [1, 2, 3, 5]],
+    ['Actor2', [1, 3, 4, 6]],
+    ['Actor3', [2, 4, 5, 7]],
+    ['Actor4', [1, 2, 7, 8]]
+]
+
+scene_requirements = [
+    {'scene_id': 'Scene1', 'time_slot': 2, 'roles': {'role1': 2, 'role2': 1}},
+    {'scene_id': 'Scene2', 'time_slot': 4, 'roles': {'role1': 1, 'role2': 1, 'role3': 1}},
+    {'scene_id': 'Scene3', 'time_slot': 6, 'roles': {'role2': 2}}
+]
+
+historical_data = {
+    'Actor1': [1, 1, 0, 1, 1],
+    'Actor2': [1, 0, 1, 0, 1],
+    'Actor3': [0, 1, 1, 1, 0],
+    'Actor4': [1, 1, 1, 0, 1]
+}
+
+role_mapping = {
+    'Actor1': {'role1': 0.9, 'role2': 0.8, 'role3': 0.6},
+    'Actor2': {'role1': 0.7, 'role2': 1.0, 'role3': 0.5},
+    'Actor3': {'role1': 0.8, 'role2': 0.9, 'role3': 0.7},
+    'Actor4': {'role1': 0.6, 'role2': 0.8, 'role3': 1.0}
+}
+
+transport_times = {
+    'Actor1-Actor2': 3,
+    'Actor2-Actor4': 2,
+    'Actor3-Actor2': 4,
+    'Actor1-Actor4': 2
+}
+
+buffer_intervals = 1
+
+rehearsal_capacity = {
+    'Actor1': 3,
+    'Actor2': 2,
+    'Actor3': 3,
+    'Actor4': 3
+}
+```
+
+---
+
+### Output Format
+
+The function must return a dictionary where:
+
+* Each key is a **scene ID**.
+* Each value is a dictionary mapping each **role** to a list of **assigned actors** for that scene.
+* If a role remains unfilled, its list may be empty (`[]`).
+
+Example:
+
+```python
+{
+    'Scene1': {'role1': ['Actor1', 'Actor3'], 'role2': ['Actor4']},
+    'Scene2': {'role1': ['Actor2'], 'role2': ['Actor3'], 'role3': []},
+    'Scene3': {'role2': ['Actor2']}
+}
+```
+
+---
+
+### Explanation of the Sample
+
+* **Scene 1:** Needs two `role1` and one `role2` performers. `Actor1` and `Actor3` are assigned to `role1` due to their strong suitability and overlapping availability at time slot 2, while `Actor4` fills `role2`.
+* **Scene 2:** Occurs at time slot 4 and requires three roles. `Actor2` fits `role1` well, `Actor3` is chosen for `role2`, and `role3` remains unfilled due to limited qualified or available actors.
+* **Scene 3:** Requires two `role2` actors at time slot 6, but only `Actor2` remains eligible and available after applying buffer and capacity constraints.
+* The final schedule maximizes overall optimization scores while satisfying actor availability, travel, and workload balance, ensuring no buffer violations.
+
+Starter Code:
+```python
+from typing import List, Dict, Optional, Tuple, Set, Any
+from collections import defaultdict
+from dataclasses import dataclass, field
+from enum import Enum
+
+def optimize_rehearsal_schedule(
+    actor_availability: List[List],
+    scene_requirements: List[Dict[str, Any]],
+    historical_data: Dict[str, List[int]],
+    role_mapping: Dict[str, Dict[str, float]],
+    transport_times: Dict[str, int],
+    buffer_intervals: int,
+    rehearsal_capacity: Dict[str, int]
+) -> Dict[str, Dict[str, List[str]]]:
+    pass
+```

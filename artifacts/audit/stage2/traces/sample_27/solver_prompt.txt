@@ -1,0 +1,288 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+Develop a comprehensive Python-based battlefield strategy simulator for real-time strategy (RTS) game development. This simulator serves as a critical component for game AI that requires rapid evaluation of thousands of unit deployment configurations across dynamic battlefield conditions. The system must implement brute force enumeration with optimization heuristics to achieve strategic advantage analysis while considering unit synergies, terrain effects, enemy strategies, and resource flow constraints essential for creating intelligent and adaptive game AI behavior.
+
+## Problem Description
+
+The system evaluates unit deployment configurations across battlefield sectors using brute force simulation with strategic scoring. The framework must implement:
+
+### Core Features
+
+1. **Unit Deployment Analysis**: Evaluate combinations of unit types across multiple battlefield sectors
+2. **Synergy Calculation**: Calculate combat effectiveness bonuses for compatible unit pairs in same sector
+3. **Terrain Effects**: Apply terrain transformation multipliers to resource flow capacities
+4. **Enemy Strategy Response**: Adjust battlefield conditions based on enemy tactical approaches
+5. **Resource Flow Optimization**: Calculate optimal resource distribution across sectors proportionally
+6. **Multi-Scenario Evaluation**: Test configurations against multiple enemy/terrain combinations
+7. **Configuration Generation**: Generate diverse unit placement combinations with strategic variety
+8. **Score Aggregation**: Average performance scores across all scenarios for robustness
+9. **Top Configuration Selection**: Return best 10 configurations ranked by average effectiveness
+10. **Efficiency Metrics**: Calculate resource efficiency (power/cost) and flow efficiency ratios
+
+### Required Dictionary Keys
+
+Each result configuration must contain:
+- `configuration`: Dictionary with `allocations` (list of unit placements) and `flows` (resource distribution)
+- `score`: Integer representing average effectiveness across all scenarios
+
+Each allocation must contain:
+- `unit`: String unit type identifier
+- `sector`: String sector identifier
+- `count`: Integer number of units deployed
+
+Each flow entry uses key format:
+- `"from_sector->to_sector"`: Integer flow value
+
+## Function Signature
+
+```python
+def simulate_optimal_strategy(units: List[Dict[str, Any]], 
+                              terrain_graph: Dict[str, Any], 
+                              scenarios: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+    """
+    Computes optimal unit deployment and resource flow configurations for RTS battlefield.
+    
+    Parameters:
+        units (List[Dict[str, Any]]): Unit types with properties (type, synergy, base_cost, power)
+        terrain_graph (Dict[str, Any]): Battlefield graph with nodes, edges, resources
+        scenarios (List[Dict[str, str]]): Combat scenarios with enemy_strat and terrain_change
+    
+    Returns:
+        List[Dict[str, Any]]: Top 10 configurations with allocations, flows, and scores
+    """
+    pass
+```
+
+## Constraints
+
+1. **Libraries**: Only standard Python libraries allowed: collections, itertools, copy, typing
+2. **Input Structures**: Units have 'type' (str), 'synergy' (list of str), 'base_cost' (int), 'power' (int); terrain_graph has 'nodes' (list of str), 'edges' (list of dict with 'from', 'to', 'capacity'), 'resources' (dict); scenarios have 'enemy_strat' and 'terrain_change' (both str)
+3. **Synergy System**: Build a bidirectional lookup structure mapping unit type pairs to their compatibility multiplier of 1.2 when units are in each other's synergy lists
+4. **Synergy Score Mechanics**: Expand allocated units by their counts to create full unit lists per sector; for sectors with multiple units, evaluate all unique pairs; compatible pairs contribute based on their combined power multiplied by a synergy coefficient of 0.2
+5. **Terrain Change Effects**: Environmental transformations modify edge transport capacities - forest_to_desert reduces by 20%, desert_to_mountain reduces by 40%, mountain_to_forest increases by 10%
+6. **Enemy Strategy Impact**: Opponent tactics affect logistics - aggressive reduces capacity by 30%, flanking reduces by 10%, turtling has no effect
+7. **Capacity Modification Pipeline**: Environmental effects must be applied before tactical effects; all capacity adjustments require integer truncation; modifications require deep copies to preserve original data
+8. **Flow Calculation Boundaries**: Handle degenerate cases by returning empty structures when no sectors/edges exist, or zero-valued flow mappings when resources or adjusted capacities are exhausted
+9. **Flow Distribution Algorithm**: Calculate total available resources from all sectors; determine distributable flow as minimum of total resources and adjusted capacity; allocate flow proportionally to each edge based on its capacity ratio; ensure flows don't exceed individual edge limits; use edge key format "source->destination"
+10. **Resource Efficiency Metric**: Ratio of aggregate combat power to total deployment cost; handle zero-cost edge case
+11. **Flow Efficiency Metric**: Ratio of achieved flow to theoretical maximum using original unmodified edge capacities; handle zero-capacity edge case
+12. **Score Calculation Formula**: Base score combines total power with both efficiency metrics scaled by 1/100; synergy bonus doubles the calculated synergy score
+13. **Environmental Score Penalties**: Terrain changes incur fixed penalties - forest_to_desert: 20 points, desert_to_mountain: 40 points, mountain_to_forest: -10 points (bonus)
+14. **Tactical Score Penalties**: Enemy strategies incur fixed penalties - aggressive: 30 points, flanking: 10 points, turtling: 0 points
+15. **Score Bounds and Conversion**: Final score is clamped between 0 and 1000, then converted to integer
+16. **Single-Sector Configuration Generation**: Generate all combinations of individual unit types deployed to each sector with varying counts from 1 to 10 units
+17. **Multi-Sector Configuration Generation**: Generate configurations placing different unit types across distinct sector pairs with all count combinations from 1 to 10 per sector
+18. **Synergy-Focused Configuration Generation**: For compatible unit pairs (those with mutual synergy), generate co-located deployments in same sector with all count combinations from 1 to 10
+19. **Configuration Space Reduction**: Rank all generated configurations by a heuristic combining raw power and synergy potential; retain only top 100 candidates to limit computational complexity
+20. **Multi-Scenario Evaluation**: Test each configuration against complete scenario set; accumulate scores and flow values independently across scenarios
+21. **Score Aggregation**: Compute average score using integer division across all evaluated scenarios
+22. **Flow Aggregation**: Accumulate flow values across scenarios using additive aggregation structure; compute average using integer division per edge
+23. **Result Structure**: Each result contains nested 'configuration' with 'allocations' and 'flows', plus top-level 'score'
+24. **Allocation Schema**: Each allocation specifies 'unit' type, 'sector' location, and 'count' quantity
+25. **Result Selection and Ordering**: Sort complete result set by score in descending order; select top 10 configurations
+26. **Degenerate Input Handling**: Return empty result list when units or scenarios are absent
+27. **Aggregate Power Computation**: Sum the product of unit power and allocation count across all deployments
+28. **Flow Efficiency Reference**: Use original unmodified edge capacities from terrain_graph for maximum flow calculation
+29. **Configuration Data Structure**: Generated configurations contain 'allocations' list and 'flows' dictionary (initially empty before evaluation)
+30. **Synergy Qualification**: Only apply synergy bonuses for unit pairs with compatibility multiplier exceeding 1.0
+
+## Sample Input
+
+```python
+units = [
+    {'type': 'infantry', 'synergy': ['engineer'], 'base_cost': 10, 'power': 5},
+    {'type': 'engineer', 'synergy': ['infantry'], 'base_cost': 8, 'power': 3},
+    {'type': 'tank', 'synergy': [], 'base_cost': 50, 'power': 20}
+]
+
+terrain_graph = {
+    'nodes': ['sector_A', 'sector_B', 'sector_C'],
+    'edges': [
+        {'from': 'sector_A', 'to': 'sector_B', 'capacity': 40},
+        {'from': 'sector_B', 'to': 'sector_C', 'capacity': 30},
+        {'from': 'sector_A', 'to': 'sector_C', 'capacity': 10}
+    ],
+    'resources': {'sector_A': 50, 'sector_B': 70, 'sector_C': 30}
+}
+
+scenarios = [
+    {'enemy_strat': 'aggressive', 'terrain_change': 'forest_to_desert'},
+    {'enemy_strat': 'flanking', 'terrain_change': 'desert_to_mountain'}
+]
+```
+
+## Sample Output
+
+```python
+[
+    {
+        "configuration": {
+            "allocations": [
+                { "unit": "infantry", "sector": "sector_A", "count": 10 },
+                { "unit": "engineer", "sector": "sector_A", "count": 10 }
+            ],
+            "flows": {
+                "sector_A->sector_B": 21,
+                "sector_B->sector_C": 16,
+                "sector_A->sector_C": 5
+            }
+        },
+        "score": 550
+    },
+    {
+        "configuration": {
+            "allocations": [
+                { "unit": "infantry", "sector": "sector_B", "count": 10 },
+                { "unit": "engineer", "sector": "sector_B", "count": 10 }
+            ],
+            "flows": {
+                "sector_A->sector_B": 21,
+                "sector_B->sector_C": 16,
+                "sector_A->sector_C": 5
+            }
+        },
+        "score": 550
+    },
+    {
+        "configuration": {
+            "allocations": [
+                { "unit": "infantry", "sector": "sector_C", "count": 10 },
+                { "unit": "engineer", "sector": "sector_C", "count": 10 }
+            ],
+            "flows": {
+                "sector_A->sector_B": 21,
+                "sector_B->sector_C": 16,
+                "sector_A->sector_C": 5
+            }
+        },
+        "score": 550
+    },
+    {
+        "configuration": {
+            "allocations": [
+                { "unit": "infantry", "sector": "sector_A", "count": 10 },
+                { "unit": "engineer", "sector": "sector_A", "count": 9 }
+            ],
+            "flows": {
+                "sector_A->sector_B": 21,
+                "sector_B->sector_C": 16,
+                "sector_A->sector_C": 5
+            }
+        },
+        "score": 490
+    },
+    {
+        "configuration": {
+            "allocations": [
+                { "unit": "infantry", "sector": "sector_B", "count": 10 },
+                { "unit": "engineer", "sector": "sector_B", "count": 9 }
+            ],
+            "flows": {
+                "sector_A->sector_B": 21,
+                "sector_B->sector_C": 16,
+                "sector_A->sector_C": 5
+            }
+        },
+        "score": 490
+    },
+    {
+        "configuration": {
+            "allocations": [
+                { "unit": "infantry", "sector": "sector_C", "count": 10 },
+                { "unit": "engineer", "sector": "sector_C", "count": 9 }
+            ],
+            "flows": {
+                "sector_A->sector_B": 21,
+                "sector_B->sector_C": 16,
+                "sector_A->sector_C": 5
+            }
+        },
+        "score": 490
+    },
+    {
+        "configuration": {
+            "allocations": [
+                { "unit": "infantry", "sector": "sector_A", "count": 9 },
+                { "unit": "engineer", "sector": "sector_A", "count": 10 }
+            ],
+            "flows": {
+                "sector_A->sector_B": 21,
+                "sector_B->sector_C": 16,
+                "sector_A->sector_C": 5
+            }
+        },
+        "score": 490
+    },
+    {
+        "configuration": {
+            "allocations": [
+                { "unit": "infantry", "sector": "sector_B", "count": 9 },
+                { "unit": "engineer", "sector": "sector_B", "count": 10 }
+            ],
+            "flows": {
+                "sector_A->sector_B": 21,
+                "sector_B->sector_C": 16,
+                "sector_A->sector_C": 5
+            }
+        },
+        "score": 490
+    },
+    {
+        "configuration": {
+            "allocations": [
+                { "unit": "infantry", "sector": "sector_C", "count": 9 },
+                { "unit": "engineer", "sector": "sector_C", "count": 10 }
+            ],
+            "flows": {
+                "sector_A->sector_B": 21,
+                "sector_B->sector_C": 16,
+                "sector_A->sector_C": 5
+            }
+        },
+        "score": 490
+    },
+    {
+        "configuration": {
+            "allocations": [
+                { "unit": "infantry", "sector": "sector_A", "count": 9 },
+                { "unit": "engineer", "sector": "sector_A", "count": 9 }
+            ],
+            "flows": {
+                "sector_A->sector_B": 21,
+                "sector_B->sector_C": 16,
+                "sector_A->sector_C": 5
+            }
+        },
+        "score": 436
+    }
+]
+```
+
+## Output Format
+
+- Return value: List of dictionaries, each containing 'configuration' and 'score'
+- `configuration`: Dictionary with 'allocations' (list) and 'flows' (dict)
+- `allocations`: List of dictionaries with 'unit' (str), 'sector' (str), 'count' (int)
+- `flows`: Dictionary mapping "from->to" strings to integer flow values
+- `score`: Integer representing average scenario score
+- List sorted by score descending, limited to top 10 results
+
+Starter Code:
+```python
+from collections import defaultdict
+from itertools import combinations, product
+import copy
+from typing import List, Dict, Any, Tuple
+
+
+def simulate_optimal_strategy(units: List[Dict[str, Any]], terrain_graph: Dict[str, Any], scenarios: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+```

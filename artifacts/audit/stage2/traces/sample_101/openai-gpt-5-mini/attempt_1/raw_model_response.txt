@@ -1,0 +1,174 @@
+from typing import Dict, List, Tuple, Optional
+from collections import deque, defaultdict
+
+
+class CapacityConstrainedGraph:
+    def __init__(self, city_graph: Dict, capacity_map: Dict, demand_map: Dict):
+        # normalize city_graph keys and neighbor lists to ints
+        first_key = next(iter(city_graph)) if city_graph else None
+        self.node_is_str = isinstance(first_key, str)
+        self.adj = {}
+        for k, neigh in city_graph.items():
+            nk = int(k) if isinstance(k, str) else int(k)
+            self.adj[nk] = [int(x) for x in neigh]
+        self.nodes = sorted(self.adj.keys())
+        # parse capacity_map: input edges as "u,v" (one direction), normalize to tuple (u,v) ints and store once
+        self.capacity_input = {}
+        for k, v in (capacity_map.items() if capacity_map else []):
+            parts = k.split(",")
+            if len(parts) != 2:
+                continue
+            u = int(parts[0]); w = int(parts[1])
+            self.capacity_input[(u, w)] = int(v)
+        # normalized bidirectional capacity map: store both directions with same capacity
+        self.capacity = {}
+        for (u, v), cap in self.capacity_input.items():
+            self.capacity[(u, v)] = cap
+            self.capacity[(v, u)] = cap
+        # parse demand_map: keys might be strings
+        self.demand = {}
+        for k, v in (demand_map.items() if demand_map else []):
+            nk = int(k) if isinstance(k, str) else int(k)
+            self.demand[nk] = int(v)
+        # defaults: missing demands zero
+        for n in self.nodes:
+            if n not in self.demand:
+                self.demand[n] = 0
+
+
+class CapacityAwarePathfinder:
+    def __init__(self, graph: CapacityConstrainedGraph):
+        self.g = graph
+
+    def bfs_distances(self, source: int) -> Dict[int, int]:
+        dist = {}
+        q = deque()
+        q.append(source)
+        dist[source] = 0
+        while q:
+            u = q.popleft()
+            for v in self.g.adj.get(u, []):
+                if v not in dist:
+                    dist[v] = dist[u] + 1
+                    q.append(v)
+        return dist
+
+    def capacity_bfs_path(self, source: int, target: int, demand: int, residual: Dict[Tuple[int, int], int]) -> Optional[List[int]]:
+        if source == target:
+            return [source]
+        q = deque()
+        q.append((source, [source]))
+        visited = {source}
+        while q:
+            u, path = q.popleft()
+            for v in self.g.adj.get(u, []):
+                if v in visited:
+                    continue
+                # check residual capacity on edge (u,v)
+                if residual.get((u, v), 0) < demand:
+                    continue
+                visited.add(v)
+                new_path = path + [v]
+                if v == target:
+                    return new_path
+                q.append((v, new_path))
+        return None
+
+
+class GraphMedianFinder:
+    def __init__(self, graph: CapacityConstrainedGraph):
+        self.g = graph
+        self.pathfinder = CapacityAwarePathfinder(graph)
+
+    def compute_weighted_distance(self, hub: int) -> Optional[int]:
+        # distances ignoring capacity
+        dist = self.pathfinder.bfs_distances(hub)
+        total = 0
+        for n in self.g.nodes:
+            if n == hub:
+                continue
+            d = dist.get(n)
+            if d is None:
+                return None  # unreachable -> infinite
+            total += d * int(self.g.demand.get(n, 0))
+        return int(total)
+
+    def check_feasible_with_flow(self, hub: int) -> bool:
+        # simulate routing each node's entire demand along single shortest capacity-respecting path
+        # initialize residual capacities as mutable copy of normalized capacity map
+        residual = dict(self.g.capacity)
+        # process nodes in sorted order excluding hub
+        for n in self.g.nodes:
+            if n == hub:
+                continue
+            demand = int(self.g.demand.get(n, 0))
+            if demand <= 0:
+                continue
+            path = self.pathfinder.capacity_bfs_path(hub, n, demand, residual)
+            if path is None:
+                return False
+            # decrement along path edges in both directions
+            for i in range(len(path) - 1):
+                a, b = path[i], path[i + 1]
+                residual[(a, b)] = residual.get((a, b), 0) - demand
+                residual[(b, a)] = residual.get((b, a), 0) - demand
+                # allow negative to reflect failure in subsequent checks; but capacity checks prevent this
+        return True
+
+    def graph_connected_from(self, hub: int) -> bool:
+        dist = self.pathfinder.bfs_distances(hub)
+        return len(dist) == len(self.g.nodes)
+
+
+def solve_transportation_hub_problem(input_data: Dict) -> Dict:
+    # input validation
+    if not isinstance(input_data, dict):
+        return {"error": "Invalid input format"}
+    for name in ("city_graph", "capacity_map", "demand_map"):
+        if name not in input_data or not isinstance(input_data[name], dict):
+            return {"error": f"Invalid {name} format"}
+    city_graph = input_data["city_graph"]
+    capacity_map = input_data["capacity_map"]
+    demand_map = input_data["demand_map"]
+    graph = CapacityConstrainedGraph(city_graph, capacity_map, demand_map)
+    num_nodes = len(graph.nodes)
+    # num_edges is size of capacity_map input (each undirected edge appears once)
+    num_edges = len(graph.capacity_input)
+    finder = GraphMedianFinder(graph)
+    feasible_hubs = []
+    best_cost = float("inf")
+    best_hub = None
+    # test each node for feasibility
+    for n in graph.nodes:
+        feasible = finder.check_feasible_with_flow(n)
+        if feasible:
+            # ensure reachability ignoring capacity
+            wd = finder.compute_weighted_distance(n)
+            if wd is not None:
+                feasible_hubs.append(n)
+                if wd < best_cost:
+                    best_cost = wd
+                    best_hub = n
+    # fallback behavior
+    if best_hub is None:
+        best_hub = graph.nodes[0] if graph.nodes else 0
+        # compute metrics for fallback hub
+        total_weighted = finder.compute_weighted_distance(best_hub)
+        graph_connected = finder.graph_connected_from(best_hub) if graph.nodes else False
+    else:
+        total_weighted = int(best_cost) if best_cost != float("inf") else None
+        graph_connected = finder.graph_connected_from(best_hub)
+    # convert None for infinite cost to None, else int
+    if total_weighted is None:
+        twd = None
+    else:
+        twd = int(total_weighted)
+    result = {
+        "optimal_hub": int(best_hub),
+        "total_weighted_distance": twd,
+        "feasible_hubs": feasible_hubs,
+        "graph_connected": bool(graph_connected),
+        "num_nodes": num_nodes,
+        "num_edges": num_edges,
+    }
+    return result

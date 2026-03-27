@@ -1,0 +1,203 @@
+def hft_bitmask_framework(trading_signals: List[int], market_conditions: List[int]) -> List[str]:
+    # Deterministic hybrid structure simulation with fine-grained locks behaviour emulated
+    n = min(len(trading_signals), len(market_conditions))
+    if n == 0:
+        return []
+    signals = trading_signals[:n]
+    markets = market_conditions[:n]
+
+    # Bit width per constraint
+    max_val = 0
+    for v in signals + markets:
+        if v > max_val:
+            max_val = v
+    bit_width = max(1, max_val.bit_length())
+
+    # Helpers
+    def bitcount(x: int) -> int:
+        return x.bit_count()
+
+    def overlap(a: int, b: int) -> int:
+        return bitcount(a & b)
+
+    def breadth_mask(x: int) -> int:
+        # breadth: number of contiguous blocks of ones as proxy
+        if x == 0:
+            return 0
+        prev = 0
+        blocks = 0
+        for i in range(bit_width):
+            bit = (x >> i) & 1
+            if bit == 1 and prev == 0:
+                blocks += 1
+            prev = bit
+        return blocks
+
+    # Build segment tree storing OR and AND aggregates; thread-safety modeled with per-node lock
+    size = 1
+    while size < n:
+        size <<= 1
+    or_tree = [0] * (2 * size)
+    and_tree = [(1 << bit_width) - 1] * (2 * size)
+    locks = [threading.Lock() for _ in range(2 * size)]
+
+    for i in range(n):
+        or_tree[size + i] = signals[i] | markets[i]
+        and_tree[size + i] = signals[i] & markets[i]
+    for i in range(size - 1, 0, -1):
+        or_tree[i] = or_tree[2 * i] | or_tree[2 * i + 1]
+        and_tree[i] = and_tree[2 * i] & and_tree[2 * i + 1]
+
+    # Simple Trie for bitsets (most-significant-bit first)
+    class TrieNode:
+        __slots__ = ("children", "count", "lock", "value")
+        def __init__(self):
+            self.children = [None, None]
+            self.count = 0
+            self.lock = threading.Lock()
+            self.value = 0
+
+    root = TrieNode()
+
+    def trie_insert(mask: int):
+        node = root
+        for i in range(bit_width - 1, -1, -1):
+            b = (mask >> i) & 1
+            # hand-over-hand locking (modeled deterministically)
+            nxt = node.children[b]
+            if nxt is None:
+                nxt = TrieNode()
+                node.children[b] = nxt
+            node = nxt
+            node.count += 1
+        node.value = mask
+
+    def trie_best_match(target: int) -> int:
+        node = root
+        best = 0
+        for i in range(bit_width - 1, -1, -1):
+            b = (target >> i) & 1
+            if node is None:
+                break
+            # greedy: prefer matching bit if possible
+            preferred = node.children[b]
+            other = node.children[1 - b]
+            if preferred is not None:
+                node = preferred
+                best = (best << 1) | b
+            elif other is not None:
+                node = other
+                best = (best << 1) | (1 - b)
+            else:
+                break
+        return best
+
+    # Insert combined masks into trie deterministically
+    combined_masks = []
+    for i in range(n):
+        combined = (signals[i] << bit_width) | markets[i]
+        combined_masks.append(combined)
+    for mask in combined_masks:
+        trie_insert(mask)
+
+    # Evaluate each index: compute scoring components
+    scores = [0.0] * n
+    components = [None] * n  # store (overlap_s, overlap_m, match_overlap_m, breadth, consensus)
+    for i in range(n):
+        s = signals[i]
+        m = markets[i]
+        overlap_s = overlap(s, m) / bit_width  # normalized
+        overlap_m = overlap(m, s) / bit_width
+        match_overlap_m = overlap(s & m, m) / bit_width
+        breadth = breadth_mask(s | m) / max(1, bit_width)
+        # consensus: how many other combined masks share top bits (use trie_best_match)
+        target = ((s << bit_width) | m)
+        best = trie_best_match(target)
+        # consensus as fraction of matching prefix length
+        # count common leading bits between target and best
+        common = 0
+        for k in range(bit_width * 2 - 1, -1, -1):
+            tb = (target >> k) & 1
+            bb = (best >> k) & 1
+            if tb == bb:
+                common += 1
+            else:
+                break
+        consensus = common / (bit_width * 2)
+        components[i] = (overlap_s, overlap_m, match_overlap_m, breadth, consensus)
+        score = (overlap_s * 0.45 + overlap_m * 0.20 + match_overlap_m * 0.20 +
+                 breadth * 0.10 + consensus * 0.05)
+        scores[i] = score
+
+    # Immediate-feedback crowding penalty based on current open positions (simulate by high scores count)
+    # initial open positions = count of scores >= BUY threshold (purely deterministic)
+    BUY_THRESH = 0.75
+    BUY_PARTIAL_THRESH = 0.55
+    SELL_THRESH = 0.15
+    SELL_PARTIAL_THRESH = 0.30
+
+    # Apply crowding penalty: penalty up to 0.20 based on open positions count
+    def apply_crowding(scores_list: List[float]) -> List[float]:
+        open_count = sum(1 for sc in scores_list if sc >= BUY_PARTIAL_THRESH)
+        # penalty scales min(0.20, 0.20 * open_count / n)
+        penalty = 0.20 * (open_count / n)
+        if penalty > 0.20:
+            penalty = 0.20
+        return [max(0.0, sc - penalty) for sc in scores_list]
+
+    scores = apply_crowding(scores)
+
+    # Make preliminary actions
+    actions = ['HOLD'] * n
+    for i, sc in enumerate(scores):
+        if sc >= BUY_THRESH:
+            actions[i] = 'BUY'
+        elif sc >= BUY_PARTIAL_THRESH:
+            actions[i] = 'BUY_PARTIAL'
+        elif sc <= SELL_THRESH:
+            actions[i] = 'SELL'
+        elif sc <= SELL_PARTIAL_THRESH:
+            actions[i] = 'SELL_PARTIAL'
+        else:
+            actions[i] = 'HOLD'
+
+    # Post-pass moderation: when BUYs exceed n/2, downgrade half with lowest overlap_s to BUY_PARTIAL
+    buys = [i for i, a in enumerate(actions) if a == 'BUY']
+    if len(buys) > n // 2:
+        # sort by overlap_s increasing, deterministic tie by index
+        buys_sorted = sorted(buys, key=lambda idx: (components[idx][0], idx))
+        to_downgrade = len(buys_sorted) // 2
+        for idx in buys_sorted[:to_downgrade]:
+            actions[idx] = 'BUY_PARTIAL'
+
+    # Final deterministic tie-break and ensure stability: for equal scores favor lower index (already stable)
+    # Return actions
+    return actions
+
+# If executed as main, run sample test deterministically
+if __name__ == "__main__":
+    trading_signals = [
+        0b11111111,
+        0b11111110,
+        0b11110000,
+        0b11111100,
+        0b11111111,
+        0b00001111,
+        0b11001100,
+        0b10101010,
+        0b11110000,
+        0b10000000,
+    ]
+    market_conditions = [
+        0b11111111,
+        0b11111100,
+        0b01111000,
+        0b00000001,
+        0b00000000,
+        0b00001100,
+        0b10101010,
+        0b01010101,
+        0b00110000,
+        0b00000001,
+    ]
+    print(hft_bitmask_framework(trading_signals, market_conditions))

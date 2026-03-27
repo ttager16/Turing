@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN56XQKT3ID0zK1Ad296B6HI9UCxv",
+  "object": "chat.completion",
+  "created": 1774393537,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[[0, 1, 10.0, 5.0, 2.0], [1, 3, 10.0, 5.0, 2.0], [0, 2, 10.0, 5.0, 2.0], [2, 3, 10.0, 5.0, 2.0], [0, 3, 50.0, 12.0, 4.5]]\",\n        \"[{\\\"src\\\": 0, \\\"dst\\\": 3, \\\"type\\\": \\\"STANDARD\\\", \\\"amount\\\": 8.0}, {\\\"src\\\": 0, \\\"dst\\\": 3, \\\"type\\\": \\\"STANDARD\\\", \\\"amount\\\": 2.0}]\",\n        \"[{\\\"type\\\": \\\"URGENT\\\", \\\"src\\\": 0, \\\"dst\\\": 3, \\\"deadline\\\": 8.0, \\\"required\\\": 3.0}]\",\n        \"{\\\"0-1\\\": 0.2, \\\"1-3\\\": 0.2, \\\"0-2\\\": 0.2, \\\"2-3\\\": 0.2, \\\"0-3\\\": 0.05}\",\n        \"{\\\"VAN\\\": 10.0, \\\"TRUCK\\\": 10.0}\",\n        \"{\\\"VAN\\\": 10.0, \\\"TRUCK\\\": 10.0}\",\n        \"1.0\",\n        \"123\",\n        \"0.9\"\n      ],\n      \"focus\": \"Equal-cost alternative two-hop paths from 0→3; vehicles have identical budgets — tests path tie-breaking, deterministic lexicographic selection, and handling of a direct higher-cost shortcut.\"\n    },\n    {\n      \"input_lines\": [\n        \"[[0, 1, 5.0, 10.0, 3.0]]\",\n        \"[{\\\"src\\\": 0, \\\"dst\\\": 1, \\\"type\\\": \\\"STANDARD\\\", \\\"amount\\\": 8.0}]\",\n        \"[{\\\"type\\\": \\\"URGENT\\\", \\\"src\\\": 0, \\\"dst\\\": 1, \\\"deadline\\\": 6.0, \\\"required\\\": 4.0}]\",\n        \"{\\\"0-1\\\": 0.0}\",\n        \"{\\\"VAN\\\": 10.0}\",\n        \"{\\\"VAN\\\": 3.0}\",\n        \"2.0\",\n        \"7\",\n        \"1.0\"\n      ],\n      \"focus\": \"Single-edge deterministic travel time (variance=0) with deadline equal to μ (congestion_factor>1). Priority is processed first and consumes capacity, leaving only partial capacity for a larger non-priority request.\"\n    },\n    {\n      \"input_lines\": [\n        \"[[0, 1, 10.0, 4.0, 1.0], [1, 2, 5.0, 2.0, 0.5], [0, 2, 5.0, 7.0, 2.0], [2, 3, 10.0, 3.0, 1.5]]\",\n        \"[{\\\"src\\\": 0, \\\"dst\\\": 3, \\\"type\\\": \\\"STANDARD\\\", \\\"amount\\\": 6.0}, {\\\"src\\\": 1, \\\"dst\\\": 3, \\\"type\\\": \\\"EXPRESS\\\", \\\"amount\\\": 4.0}]\",\n        \"[{\\\"type\\\": \\\"URGENT\\\", \\\"src\\\": 0, \\\"dst\\\": 3, \\\"deadline\\\": 100.0, \\\"required\\\": 5.0}]\",\n        \"{\\\"0-1\\\": 0.1, \\\"1-2\\\": 0.05, \\\"0-2\\\": 0.2, \\\"2-3\\\": 0.1}\",\n        \"{\\\"BIKE\\\": 2.0, \\\"TRUCK\\\": 10.0}\",\n        \"{\\\"BIKE\\\": 0.0, \\\"TRUCK\\\": 5.0}\",\n        \"1.0\",\n        \"42\",\n        \"0.0\"\n      ],\n      \"focus\": \"Multiple-path network where an URGENT delivery should saturate a narrow bottleneck (1→2 capacity), BIKE has zero driver-hours (unusable), and probabilistic_threshold=0 ensures any feasible path is acceptable — tests capacity boundaries and vehicle exclusion.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 4148,
+    "completion_tokens": 4127,
+    "total_tokens": 8275,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3200,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

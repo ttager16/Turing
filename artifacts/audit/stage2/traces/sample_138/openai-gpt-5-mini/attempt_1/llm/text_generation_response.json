@@ -1,0 +1,76 @@
+{
+  "id": "resp_019c396d9c1c7c660069c3404d1bd481a2b79503cd9f3e373a",
+  "object": "response",
+  "created_at": 1774403661,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774403690,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_019c396d9c1c7c660069c3404d6ea881a290787b1764e7e740",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_019c396d9c1c7c660069c3404da74c81a2b443e98fde79d4d9",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "```python\ndef process_network_operations(n: int, operations: list[list[str]]) -> list[int]:\n    from collections import defaultdict\n    results = []\n    # State history: list of tuples (edges_dict, valid)\n    # edges_dict: mapping (u,v) with u<=v -> (cost, priority)\n    # We'll store edges as frozenset({u,v}) key as tuple (min,max)\n    history_edges = []\n    history_valid = []\n    # initial state\n    history_edges.append(dict())\n    history_valid.append(True)\n    op_count = 0  # operations processed\n    for op in operations:\n        op_count += 1\n        typ = op[0]\n        if typ == \"ADD\":\n            # parse\n            try:\n                u = int(op[1])\n                v = int(op[2])\n                c = int(op[3])\n                p = int(op[4])\n            except:\n                # malformed -> become invalid\n                prev_edges = history_edges[-1].copy()\n                history_edges.append(prev_edges)\n                history_valid.append(False)\n                continue\n            prev_edges = history_edges[-1].copy()\n            prev_valid = history_valid[-1]\n            if u == v:\n                # invalidates\n                prev_edges = prev_edges\n                history_edges.append(prev_edges)\n                history_valid.append(False)\n                continue\n            a, b = (u, v) if u <= v else (v, u)\n            prev_edges[(a, b)] = (c, 1 if p else 0)\n            # adding/updating is valid\n            history_edges.append(prev_edges)\n            history_valid.append(True)\n        elif typ == \"REMOVE\":\n            try:\n                u = int(op[1])\n                v = int(op[2])\n            except:\n                prev_edges = history_edges[-1].copy()\n                history_edges.append(prev_edges)\n                history_valid.append(False)\n                continue\n            prev_edges = history_edges[-1].copy()\n            prev_valid = history_valid[-1]\n            a, b = (u, v) if u <= v else (v, u)\n            if (a, b) in prev_edges:\n                del prev_edges[(a, b)]\n                history_edges.append(prev_edges)\n                history_valid.append(True)\n            else:\n                # becomes invalid until next successful modification\n                history_edges.append(prev_edges)\n                history_valid.append(False)\n        elif typ == \"ROLLBACK\":\n            try:\n                k = int(op[1])\n            except:\n                history_edges.append(history_edges[-1].copy())\n                history_valid.append(False)\n                continue\n            if 0 <= k <= len(operations):\n                # restore state immediately after k-th operation\n                # which corresponds to history index k\n                # but our history has initial state at index 0, op1 at 1, ...\n                if k <= len(history_edges)-1:\n                    edges_copy = history_edges[k].copy()\n                    valid_flag = history_valid[k]\n                    history_edges.append(edges_copy)\n                    history_valid.append(valid_flag)\n                else:\n                    # out of range\n                    history_edges.append(history_edges[-1].copy())\n                    history_valid.append(False)\n            else:\n                history_edges.append(history_edges[-1].copy())\n                history_valid.append(False)\n        elif typ == \"QUERY\":\n            curr_edges = history_edges[-1]\n            curr_valid = history_valid[-1]\n            if not curr_valid:\n                results.append(-1)\n                history_edges.append(curr_edges.copy())\n                history_valid.append(curr_valid)\n                continue\n            if not curr_edges:\n                results.append(0)\n                history_edges.append(curr_edges.copy())\n                history_valid.append(curr_valid)\n                continue\n            # Build edge index and adjacency\n            edges_list = list(curr_edges.items())  # [((u,v),(cost,pri)), ...]\n            m = len(edges_list)\n            # Map edge idx\n            idx_of = {}\n            for i, (uv, cp) in enumerate(edges_list):\n                idx_of[uv] = i\n            # adjacency: which edges are dominated by selecting edge i (itself and those sharing endpoint)\n            adj = [0]*m  # bitmask of edges covered\n            endpoints = []\n            for i, (uv, (cost, pri)) in enumerate(edges_list):\n                u,v = uv\n                endpoints.append((u,v))\n            for i in range(m):\n                u1,v1 = endpoints[i]\n                mask = 0\n                for j in range(m):\n                    u2,v2 = endpoints[j]\n                    if i==j or u1==u2 or u1==v2 or v1==u2 or v1==v2:\n                        mask |= (1<<j)\n                adj[i] = mask\n            # forced picks: priority edges must be selected\n            forced = 0\n            forced_cost = 0\n            costs = [cp[0] for (_,cp) in edges_list]\n            pri_flags = [cp[1] for (_,cp) in edges_list]\n            for i in range(m):\n                if pri_flags[i]:\n                    forced |= (1<<i)\n                    forced_cost += costs[i]\n            covered = 0\n            for i in range(m):\n                if (forced>>i)&1:\n                    covered |= adj[i]\n            full = (1<<m)-1\n            if covered == full:\n                results.append(forced_cost)\n                history_edges.append(curr_edges.copy())\n                history_valid.append(curr_valid)\n                continue\n            remaining = full & (~covered)\n            rem_count = remaining.bit_count()\n            # If small (<=20 edges), compute exact via DP over subsets of edges to pick\n            if m <= 20:\n                # Try selecting subset S that includes all forced bits and covers all edges, minimize cost\n                best = None\n                # enumerate subsets superset of forced: iterate over subsets of non-forced edges\n                nonforced_indices = [i for i in range(m) if not ((forced>>i)&1)]\n                nf = len(nonforced_indices)\n                # Precompute adj for selection of forced + subset\n                best_cost = None\n                for s in range(1<<nf):\n                    sel_mask = forced\n                    cost = forced_cost\n                    for j in range(nf):\n                        if (s>>j)&1:\n                            i = nonforced_indices[j]\n                            sel_mask |= (1<<i)\n                            cost += costs[i]\n                    # compute coverage\n                    cov = 0\n                    for i in range(m):\n                        if (sel_mask>>i)&1:\n                            cov |= adj[i]\n                    if cov == full:\n                        if best_cost is None or cost < best_cost:\n                            best_cost = cost\n                results.append(best_cost if best_cost is not None else -1)\n                history_edges.append(curr_edges.copy())\n                history_valid.append(curr_valid)\n                continue\n            # For larger graphs use greedy deterministic heuristic:\n            # Start with forced picks, then greedily pick edge with best (new_covered_cost_ratio),\n            # tie-breaker by lower cost, then by smaller index to be deterministic.\n            sel = 0\n            sel_cost = 0\n            sel |= forced\n            sel_cost += forced_cost\n            covered = 0\n            for i in range(m):\n                if (sel>>i)&1:\n                    covered |= adj[i]\n            while covered != full:\n                best_i = None\n                best_new = -1\n                best_ratio = None\n                for i in range(m):\n                    if (sel>>i)&1:\n                        continue\n                    new_cov = adj[i] & (~covered)\n                    new_cnt = new_cov.bit_count()\n                    if new_cnt == 0:\n                        continue\n                    ratio = costs[i] / new_cnt\n                    if best_i is None or ratio < best_ratio or (abs(ratio - best_ratio) < 1e-12 and costs[i] < costs[best_i]) or (abs(ratio - best_ratio) < 1e-12 and costs[i]==costs[best_i] and i < best_i):\n                        best_i = i\n                        best_ratio = ratio\n                        best_new = new_cnt\n                if best_i is None:\n                    # cannot cover remaining edges\n                    sel_cost = -1\n                    break\n                sel |= (1<<best_i)\n                sel_cost += costs[best_i]\n                covered |= adj[best_i]\n            results.append(sel_cost if sel_cost >= 0 else -1)\n            history_edges.append(curr_edges.copy())\n            history_valid.append(curr_valid)\n        else:\n            # unknown op -> state unchanged but invalid\n            history_edges.append(history_edges[-1].copy())\n            history_valid.append(False)\n    return results\n```"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1216,
+    "input_tokens_details": {
+      "cached_tokens": 1152
+    },
+    "output_tokens": 1828,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3044
+  },
+  "user": null,
+  "metadata": {}
+}

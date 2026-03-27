@@ -1,0 +1,30 @@
+{
+  "model": "gpt-5-mini",
+  "input": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are a careful coding assistant. Return the best possible answer for the task."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Solve the following Python coding task.\n\nRequirements:\n- Return only Python code.\n- Implement the requested entry function exactly.\n- Do not include explanations before or after the code.\n- Use only the Python standard library unless the prompt explicitly permits otherwise.\n\nProblem Statement:\n### Problem Statement\n\nIn the field of financial risk management, a hedge fund is building an automated portfolio optimizer that reallocates investments based on live market data. The system maximizes expected returns while controlling volatility exposure using a greedy allocation strategy. At each update, the algorithm ranks assets by a deterministic risk-adjusted score, then allocates capital in fixed-size increments to the highest-ranked assets, subject to strict constraints on per-asset caps, diversification, and turnover. Deterministic tie-breaking, fixed smoothing, and a stable normalization procedure ensure repeatable outcomes.\n\n### Objectives\n\n1. Greedy, Incremental Allocation\n   Rank assets by a deterministic score and allocate weight in fixed increments of 0.01 to the highest-ranked assets until the capital budget is fully distributed, caps are reached, or the turnover budget is exhausted.\n\n2. Deterministic Updates\n   Use fixed smoothing parameters, a small constant in scoring, and a stable sort order with explicit tie-breaking to produce identical results for identical inputs.\n\n3. Constraint Compliance\n   Enforce the following rules:\n\n   * Each asset's weight must stay within 0 and a fixed maximum limit.\n   * Total portfolio weight must equal 1.0, unless turnover budget prevents full allocation.\n   * Turnover between consecutive updates cannot exceed a defined limit.\n   * No short selling is allowed.\n\n4. Real-Time Efficiency\n   Support rebalancing operations using only standard Python libraries.\n\n### Scoring Methodology\n\nAll scoring and allocation are performed deterministically, with smoothing applied to avoid sensitivity to transient market fluctuations.\n\nSmoothing Step:\nFor each asset, calculate smoothed expected return and volatility using exponential weighting:\n\n```\nexpected_return_smooth = alpha * new_expected_return + (1 - alpha) * prior_expected_return\nvolatility_smooth = beta * new_volatility + (1 - beta) * prior_volatility\n```\n\nUse alpha = 0.2 and beta = 0.2.\nIf no prior values exist, use the initial observed values.\n\nScoring Modes:\n\n* Absolute Mode:\n  `score = expected_return_smooth`\n* Risk-Adjusted Mode (default):\n  `score = expected_return_smooth / (volatility_smooth + 1e-6)`\n\nDiversification Penalty (optional, default on):\nReduces the score for heavily weighted assets:\n\n```\nadjusted_score = score * (1 - current_weight)\n```\n\nTie-Breaking Rules:\nWhen two or more assets have equal scores:\n\n1. Choose the one with lower volatility.\n2. If still tied, choose the one with the lexicographically smaller asset ID.\n   All sorting must be stable to ensure reproducibility.\n\n### Constraints\n\n* Weight bounds: 0 <= weight_i <= max_per_asset\n* Default max_per_asset: 0.35\n* Turnover budget per rebalance: total change in weights <= turnover_budget\n* Default turnover_budget: 0.40\n* Allocation step size: 0.01\n* Total weight must equal 1.0 when possible\n* If turnover budget is exhausted before achieving total weight of 1.0, return the previous weights unchanged\n* Implementation must use only built-in Python modules\n\n### Function Signature\n\n```python\ndef optimize_portfolio(\n    asset_data: List[Dict[str, float]],\n    market_update: Dict[str, float],\n    mode: str = \"risk_adjusted\",\n    prev_weights: Optional[List[float]] = None,\n    max_per_asset: float = 0.35,\n    turnover_budget: float = 0.40,\n    step_size: float = 0.01,\n    alpha: float = 0.2,\n    beta: float = 0.2,\n    use_diversification_penalty: bool = True\n) -> List[float]:\n```\n\n### Sample Input/Output\n\nInput:\n\n```python\nasset_data = [\n    {\"id\": \"AAPL\", \"expected_return\": 0.12, \"volatility\": 0.25},\n    {\"id\": \"MSFT\", \"expected_return\": 0.10, \"volatility\": 0.20},\n    {\"id\": \"TLT\",  \"expected_return\": 0.05, \"volatility\": 0.10},\n    {\"id\": \"GLD\",  \"expected_return\": 0.04, \"volatility\": 0.08}\n]\n\nmarket_update = {\n    \"AAPL\": 0.11,\n    \"MSFT\": 0.09,\n    \"TLT\": 0.06,\n    \"GLD\": 0.045\n}\n\nprev_weights = [0.25, 0.25, 0.25, 0.25]\n```\n\nParameters:\n\n* mode = \"risk_adjusted\"\n* max_per_asset = 0.35\n* turnover_budget = 0.40\n* step_size = 0.01\n* alpha = 0.2, beta = 0.2\n* use_diversification_penalty = True\n\nExpected Output:\n\n```python\n[0.21, 0.23, 0.29, 0.27]\n```\n\nStarter Code:\n```python\nfrom typing import List, Dict, Optional\n\ndef optimize_portfolio(\n    asset_data: List[Dict[str, float]],\n    market_update: Dict[str, float],\n    mode: str = \"risk_adjusted\",\n    prev_weights: Optional[List[float]] = None,\n    max_per_asset: float = 0.35,\n    turnover_budget: float = 0.40,\n    step_size: float = 0.01,\n    alpha: float = 0.2,\n    beta: float = 0.2,\n    use_diversification_penalty: bool = True\n) -> List[float]:\n```\n"
+        }
+      ]
+    }
+  ],
+  "reasoning": {
+    "effort": "minimal"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 4096
+}

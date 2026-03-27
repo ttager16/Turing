@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[[0, 1, 2, 3, 4]]\n[[0, 0, 0, 0, 0]]\n0",
+    "output_text": "5"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[[1, 2, 9], [2, 3, 8], [1, 4, 7]]\n[[5, 1, 1], [1, 5, 1], [1, 1, 1]]\n12",
+    "output_text": "7"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[[10]]\n[[11]]\n10",
+    "output_text": "0"
+  }
+]

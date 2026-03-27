@@ -1,0 +1,43 @@
+def manage_patient_queue(patients: List[List[int]], aging_interval: int) -> dict:
+    # Validate types
+    if not isinstance(patients, list) or not isinstance(aging_interval, int):
+        return {'error': 'Invalid input type'}
+    if len(patients) == 0:
+        return {'error': 'Empty patient list'}
+    # Validate patient entries and prepare list with arrival index
+    processed = []
+    for idx, entry in enumerate(patients):
+        if (not isinstance(entry, list) and not isinstance(entry, tuple)) or len(entry) != 2:
+            return {'error': 'Invalid patient format'}
+        pid, sev = entry
+        if not isinstance(pid, int) or not isinstance(sev, int):
+            return {'error': 'Invalid patient format'}
+        processed.append([pid, sev, idx])  # [id, severity, arrival_index]
+    # Use list to simulate remaining patients
+    remaining = processed[:]  # shallow copy of lists
+    treatment_order = []
+    # Repeat until none left
+    while remaining:
+        # find patient with max severity, tie-breaker by smallest arrival_index
+        # Use linear scan (n small enough) to find index
+        best_idx = 0
+        best_sev = remaining[0][1]
+        best_arr = remaining[0][2]
+        for i in range(1, len(remaining)):
+            sev = remaining[i][1]
+            arr = remaining[i][2]
+            if sev > best_sev or (sev == best_sev and arr < best_arr):
+                best_idx = i
+                best_sev = sev
+                best_arr = arr
+        # treat patient
+        pid_treated = remaining.pop(best_idx)[0]
+        treatment_order.append(pid_treated)
+        # apply aging to remaining
+        for p in remaining:
+            pid = p[0]
+            if pid % 2 != 0:
+                p[1] += aging_interval
+            else:
+                p[1] -= aging_interval
+    return {'treatment_order': treatment_order}

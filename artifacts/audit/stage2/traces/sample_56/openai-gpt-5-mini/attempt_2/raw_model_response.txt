@@ -1,0 +1,123 @@
+from typing import Dict, List
+import math
+
+def custom_sort_markets(data: Dict[str, List[float]]) -> Dict[str, List[float]]:
+    # Validate top-level
+    if not isinstance(data, dict) or not data:
+        return {}
+    # Validate keys and prepare sorted key order
+    for k in data.keys():
+        if not isinstance(k, str) or not k:
+            return {}
+        # keys must consist of english alphabets only
+        if not all(('a' <= ch <= 'z') or ('A' <= ch <= 'Z') for ch in k):
+            return {}
+    # Lexicographic order of market identifiers
+    keys = sorted(data.keys())
+    # Validate values and elements, ensure no mutation by copying lists
+    market_lists = {}
+    total_count = 0
+    for k in keys:
+        v = data.get(k)
+        if not isinstance(v, list):
+            return {}
+        # Elements must be exactly float and finite
+        copied = []
+        for elem in v:
+            if not isinstance(elem, float):
+                return {}
+            if not math.isfinite(elem):
+                return {}
+            copied.append(elem)
+        market_lists[k] = copied
+        total_count += len(copied)
+    # Implement iterative bottom-up merge sort for each market list
+    def merge_two(left: List[float], right: List[float]) -> List[float]:
+        # stable linear merge
+        i = j = 0
+        nl = len(left)
+        nr = len(right)
+        out = []
+        out_extend = out.append
+        while i < nl and j < nr:
+            if left[i] <= right[j]:
+                out_extend(left[i]); i += 1
+            else:
+                out_extend(right[j]); j += 1
+        while i < nl:
+            out_extend(left[i]); i += 1
+        while j < nr:
+            out_extend(right[j]); j += 1
+        return out
+
+    def bottom_up_merge_sort(arr: List[float]) -> List[float]:
+        n = len(arr)
+        if n <= 1:
+            return arr[:]  # copy to avoid mutating original
+        width = 1
+        src = arr[:]  # work on copies
+        dest = [0.0] * n
+        # iterative bottom-up
+        while width < n:
+            i = 0
+            di = 0
+            while i < n:
+                left = i
+                mid = min(i + width, n)
+                right = min(i + 2 * width, n)
+                # merge src[left:mid] and src[mid:right] into dest[di:...]
+                l = left
+                r = mid
+                while l < mid and r < right:
+                    if src[l] <= src[r]:
+                        dest[di] = src[l]; l += 1; di += 1
+                    else:
+                        dest[di] = src[r]; r += 1; di += 1
+                while l < mid:
+                    dest[di] = src[l]; l += 1; di += 1
+                while r < right:
+                    dest[di] = src[r]; r += 1; di += 1
+                i += 2 * width
+            # copy any remaining tail if di < n (shouldn't be necessary)
+            if di < n:
+                for k2 in range(di, n):
+                    dest[k2] = src[k2]
+            # swap src and dest
+            src, dest = dest, src
+            width *= 2
+        return src
+
+    # Sort each market
+    sorted_markets: Dict[str, List[float]] = {}
+    for k in keys:
+        arr = market_lists[k]
+        sorted_arr = bottom_up_merge_sort(arr)
+        sorted_markets[k] = sorted_arr
+
+    # Multi-round deterministic pairwise merge based on lexicographic order
+    round_lists = [sorted_markets[k] for k in keys]
+    if not round_lists:
+        combined = []
+    else:
+        while len(round_lists) > 1:
+            next_round = []
+            i = 0
+            L = len(round_lists)
+            while i < L:
+                if i + 1 < L:
+                    merged = merge_two(round_lists[i], round_lists[i+1])
+                    next_round.append(merged)
+                    i += 2
+                else:
+                    # odd one passes to next round unchanged (copy to avoid mutation)
+                    next_round.append(round_lists[i][:])
+                    i += 1
+            round_lists = next_round
+        combined = round_lists[0][:]  # final combined copy
+
+    # Build result dict with markets in lexicographic order and combined last
+    result: Dict[str, List[float]] = {}
+    for k in keys:
+        result[k] = sorted_markets[k][:]
+    result['combined'] = combined
+    return result

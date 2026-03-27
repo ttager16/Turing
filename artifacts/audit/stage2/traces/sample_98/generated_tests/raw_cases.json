@@ -1,0 +1,100 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      ],
+      [
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      0
+    ],
+    "input_lines": [
+      "[[0, 1, 2, 3, 4]]",
+      "[[0, 0, 0, 0, 0]]",
+      "0"
+    ],
+    "focus": "Single-row (1xN) increasing fertility with all zero water costs and zero budget — tests handling of budget=0 and linear movement."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        [
+          1,
+          2,
+          9
+        ],
+        [
+          2,
+          3,
+          8
+        ],
+        [
+          1,
+          4,
+          7
+        ]
+      ],
+      [
+        [
+          5,
+          1,
+          1
+        ],
+        [
+          1,
+          5,
+          1
+        ],
+        [
+          1,
+          1,
+          1
+        ]
+      ],
+      12
+    ],
+    "input_lines": [
+      "[[1, 2, 9], [2, 3, 8], [1, 4, 7]]",
+      "[[5, 1, 1], [1, 5, 1], [1, 1, 1]]",
+      "12"
+    ],
+    "focus": "Small 3x3 with multiple competing increasing paths and differing water costs — checks deterministic tie-breaking and correct budget-feasible selection among equal-length paths."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        [
+          10
+        ]
+      ],
+      [
+        [
+          11
+        ]
+      ],
+      10
+    ],
+    "input_lines": [
+      "[[10]]",
+      "[[11]]",
+      "10"
+    ],
+    "focus": "Single-cell where the only cell's water cost exceeds the budget — tests that the function returns 0 when no feasible start exists."
+  }
+]

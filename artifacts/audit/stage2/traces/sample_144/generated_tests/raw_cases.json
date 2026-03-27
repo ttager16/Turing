@@ -1,0 +1,229 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "1": {
+          "2": 5,
+          "10": 1
+        },
+        "2": {
+          "3": 5
+        },
+        "3": {
+          "4": 5
+        },
+        "4": {
+          "5": 5
+        },
+        "5": {
+          "6": 5
+        },
+        "6": {
+          "7": 5
+        },
+        "7": {
+          "8": 5
+        },
+        "8": {
+          "9": 5
+        },
+        "9": {
+          "10": 5
+        },
+        "10": {}
+      },
+      {
+        "1": {
+          "priority": 1,
+          "emergency": false,
+          "phases": [
+            1
+          ]
+        },
+        "2": {
+          "priority": 1,
+          "emergency": false,
+          "phases": [
+            1
+          ]
+        },
+        "3": {
+          "priority": 2,
+          "emergency": false,
+          "phases": [
+            1
+          ]
+        },
+        "4": {
+          "priority": 1,
+          "emergency": false,
+          "phases": [
+            1
+          ]
+        },
+        "5": {
+          "priority": 1,
+          "emergency": false,
+          "phases": [
+            1
+          ]
+        },
+        "6": {
+          "priority": 3,
+          "emergency": false,
+          "phases": [
+            1
+          ]
+        },
+        "7": {
+          "priority": 1,
+          "emergency": false,
+          "phases": [
+            1
+          ]
+        },
+        "8": {
+          "priority": 1,
+          "emergency": false,
+          "phases": [
+            1
+          ]
+        },
+        "9": {
+          "priority": 2,
+          "emergency": false,
+          "phases": [
+            1
+          ]
+        },
+        "10": {
+          "priority": 1,
+          "emergency": false,
+          "phases": [
+            1
+          ]
+        }
+      },
+      [
+        {
+          "op": "capacity_change",
+          "src": "1",
+          "dst": "2",
+          "value": 10,
+          "ts": 162507.5
+        },
+        {
+          "op": "change_state",
+          "src": "5",
+          "value": {
+            "priority": 0
+          },
+          "ts": 162508
+        },
+        {
+          "op": "change_state",
+          "src": "3",
+          "value": {
+            "emergency": true
+          },
+          "ts": 162509.75
+        }
+      ],
+      "abort_on_conflict"
+    ],
+    "input_lines": [
+      "{\"1\": {\"2\": 5, \"10\": 1}, \"2\": {\"3\": 5}, \"3\": {\"4\": 5}, \"4\": {\"5\": 5}, \"5\": {\"6\": 5}, \"6\": {\"7\": 5}, \"7\": {\"8\": 5}, \"8\": {\"9\": 5}, \"9\": {\"10\": 5}, \"10\": {}}",
+      "{\"1\": {\"priority\": 1, \"emergency\": false, \"phases\": [1]}, \"2\": {\"priority\": 1, \"emergency\": false, \"phases\": [1]}, \"3\": {\"priority\": 2, \"emergency\": false, \"phases\": [1]}, \"4\": {\"priority\": 1, \"emergency\": false, \"phases\": [1]}, \"5\": {\"priority\": 1, \"emergency\": false, \"phases\": [1]}, \"6\": {\"priority\": 3, \"emergency\": false, \"phases\": [1]}, \"7\": {\"priority\": 1, \"emergency\": false, \"phases\": [1]}, \"8\": {\"priority\": 1, \"emergency\": false, \"phases\": [1]}, \"9\": {\"priority\": 2, \"emergency\": false, \"phases\": [1]}, \"10\": {\"priority\": 1, \"emergency\": false, \"phases\": [1]}}",
+      "[{\"op\": \"capacity_change\", \"src\": \"1\", \"dst\": \"2\", \"value\": 10, \"ts\": 162507.5}, {\"op\": \"change_state\", \"src\": \"5\", \"value\": {\"priority\": 0}, \"ts\": 162508}, {\"op\": \"change_state\", \"src\": \"3\", \"value\": {\"emergency\": true}, \"ts\": 162509.75}]",
+      "\"abort_on_conflict\""
+    ],
+    "focus": "Max-size graph (10 nodes, 10 edges) + mixed updates including emergency flag change; ensure no implicit precedence edges added and deterministic tie-break by priority then id"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "A": {
+          "B": 1
+        },
+        "B": {
+          "C": 1
+        },
+        "C": {}
+      },
+      {
+        "A": {
+          "priority": 1
+        },
+        "B": {
+          "priority": 1
+        },
+        "C": {
+          "priority": 1
+        }
+      },
+      [
+        {
+          "op": "capacity_change",
+          "src": "A",
+          "dst": "B",
+          "value": 2
+        },
+        {
+          "op": "add_edge",
+          "src": "C",
+          "dst": "A",
+          "value": 1
+        },
+        {
+          "op": "change_state",
+          "src": "B",
+          "value": {
+            "priority": 0
+          }
+        }
+      ],
+      "abort_on_conflict"
+    ],
+    "input_lines": [
+      "{\"A\": {\"B\": 1}, \"B\": {\"C\": 1}, \"C\": {}}",
+      "{\"A\": {\"priority\": 1}, \"B\": {\"priority\": 1}, \"C\": {\"priority\": 1}}",
+      "[{\"op\": \"capacity_change\", \"src\": \"A\", \"dst\": \"B\", \"value\": 2}, {\"op\": \"add_edge\", \"src\": \"C\", \"dst\": \"A\", \"value\": 1}, {\"op\": \"change_state\", \"src\": \"B\", \"value\": {\"priority\": 0}}]",
+      "\"abort_on_conflict\""
+    ],
+    "focus": "Batch that introduces a cycle on the second update; must abort entire batch and return CycleDetectedError with failed_update_index=1"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "x": {
+          "y": 3
+        },
+        "y": {}
+      },
+      {
+        "x": {
+          "priority": 1
+        },
+        "y": {
+          "priority": 1
+        }
+      },
+      {
+        "op": "remove_edge",
+        "src": "x",
+        "dst": "y"
+      },
+      "ignore_with_skip"
+    ],
+    "input_lines": [
+      "{\"x\": {\"y\": 3}, \"y\": {}}",
+      "{\"x\": {\"priority\": 1}, \"y\": {\"priority\": 1}}",
+      "{\"op\": \"remove_edge\", \"src\": \"x\", \"dst\": \"y\"}",
+      "\"ignore_with_skip\""
+    ],
+    "focus": "Format-sensitive validation: 'updates' is not a list (it's a dict) -> should return exact TypeError input error string"
+  }
+]

@@ -1,0 +1,76 @@
+{
+  "id": "resp_0f34f3be087ce31f0069c33fea47608191aa990d5957bdd907",
+  "object": "response",
+  "created_at": 1774403562,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774403598,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0f34f3be087ce31f0069c33fea8ee881918eaca64457f41287",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0f34f3be087ce31f0069c33feae170819194543f725329fe4e",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import heapq\nfrom typing import List, Dict, Tuple\nimport math\nimport time\n\nEPSILON = 1e-9\nMAX_WAIT_TIME = 24.0\nMAX_ENERGY = 1e6\nITERATION_LIMIT = 500000\n\ndef _clamp_positive(x: float, minv: float = 1e-6) -> float:\n    if x <= 0.0:\n        return minv\n    return x\n\ndef _time_in_windows(t: float, windows: List[List[float]]) -> bool:\n    for a, b in windows:\n        if a - EPSILON <= t <= b + EPSILON:\n            return True\n    return False\n\ndef _next_open_time(t: float, windows: List[List[float]]) -> float:\n    # returns t if already open, else earliest open >= t, or inf\n    best = math.inf\n    for a, b in windows:\n        if a - EPSILON <= t <= b + EPSILON:\n            return t\n        if a > t and a < best:\n            best = a\n    return best\n\ndef _energy_multiplier_time_of_day(t: float) -> float:\n    # simple smooth transitions for rush/off-peak:\n    # rush 7-9 cost 1.5x, off-peak 22-6 cost 0.8x, linear ramps 1 hour\n    day_t = t % 24.0\n    def ramp(center, width, low, high):\n        # triangular ramp centered at center, total width\n        half = width / 2.0\n        d = abs((day_t - center + 12) % 24 - 12)\n        if d >= half:\n            return low\n        return low + (high - low) * (1 - d / half)\n    mult = 1.0\n    mult = max(mult, ramp(8.0, 2.0, 1.0, 1.5))   # rush 7-9\n    # off-peak centered at 2 (22-6)\n    mult = min(mult, ramp(2.0, 8.0, 0.8, 1.0))\n    return mult\n\ndef optimize_delivery_route(graph: dict, start: str, end: str, initial_energy: float) -> list:\n    # Basic validation\n    if start not in graph or end not in graph:\n        return []\n    if start == end:\n        # If same node, check if station_constraints require anything (none for travel)\n        return [start]\n    # Normalize graph entries\n    for n, v in graph.items():\n        if 'neighbors' not in v:\n            v['neighbors'] = []\n        if 'station_constraints' not in v:\n            v['station_constraints'] = {'charge_rate': 0.0, 'capacity': 0, 'open_windows': [[0, 24]]}\n        sc = v['station_constraints']\n        sc.setdefault('charge_rate', 0.0)\n        sc.setdefault('capacity', 0)\n        sc.setdefault('open_windows', [[0, 24]])\n    initial_energy = min(max(initial_energy, 0.0), MAX_ENERGY)\n\n    # State: (time_so_far, node, energy_remaining, path_list, battery_degradation_factor)\n    # Use priority queue by time\n    heap = []\n    start_state = (0.0, start, float(initial_energy), tuple([start]), 1.0, 0.0)  # last: cumulative_distance or usage proxy\n    heapq.heappush(heap, (0.0, start_state))\n    # visited: dict of node -> list of (rounded_time, energy, degr) best known to prune\n    visited = dict()\n    iterations = 0\n\n    while heap and iterations < ITERATION_LIMIT:\n        iterations += 1\n        _, (cur_time, node, energy, path, degr, usage) = heapq.heappop(heap)\n        # prune by visited\n        key = (node)\n        tkey = round(cur_time, 6)\n        recs = visited.setdefault(key, {})\n        prev_e = recs.get(tkey)\n        if prev_e is not None and prev_e + EPSILON >= energy:\n            continue\n        recs[tkey] = energy\n\n        if node == end:\n            return list(path)\n\n        node_data = graph.get(node, {})\n        sc = node_data.get('station_constraints', {})\n        windows = sc.get('open_windows', [[0,24]])\n        charge_rate = sc.get('charge_rate', 0.0)\n        capacity = sc.get('capacity', 0)\n\n        # Option 1: try to depart immediately along neighbors if energy allows\n        for nb in node_data.get('neighbors', []):\n            nnode = nb['node']\n            # validate values\n            ecost = float(nb.get('energy_cost', 0.0))\n            tcost = float(nb.get('travel_time', 0.0))\n            ecost = _clamp_positive(ecost)\n            tcost = _clamp_positive(tcost)\n            # dynamic multipliers\n            mult = _energy_multiplier_time_of_day(cur_time)\n            ecost_adj = ecost * mult * degr\n            # battery degradation rule: increase degr after usage threshold (simulate)\n            new_usage = usage + ecost_adj\n            new_degr = degr\n            if new_usage > 100.0:\n                # degrade by 10% after each 100 units\n                steps = int(new_usage // 100)\n                new_degr = degr * (1.0 + 0.10 * steps)\n            # check if energy suffices\n            if energy + EPSILON >= ecost_adj:\n                arrive_time = cur_time + tcost\n                arrive_energy = energy - ecost_adj\n                # check arrival node windows and capacity (we assume capacity affects charging, not entry)\n                # push state\n                new_path = path + (nnode,)\n                heapq.heappush(heap, (arrive_time, (arrive_time, nnode, arrive_energy, new_path, new_degr, new_usage)))\n            else:\n                # need to consider charging here before departing\n                # can we charge at this node? must be within open window and capacity>0\n                if capacity <= 0 or charge_rate <= EPSILON:\n                    # cannot charge here, skip this neighbor via charging\n                    continue\n                # compute earliest time charging can occur (station open)\n                open_t = _next_open_time(cur_time, windows)\n                if open_t == math.inf or open_t - cur_time > MAX_WAIT_TIME + EPSILON:\n                    continue\n                wait_time = max(0.0, open_t - cur_time)\n                # try charging enough energy to make ecost_adj reachable\n                needed = ecost_adj - energy\n                # clamp\n                needed = max(0.0, needed)\n                # account for non-linear charging curve: diminishing when near max battery\n                # simple model: effective_charge_rate = charge_rate * (1 - energy/MAX_ENERGY)^2\n                def charge_time_for(amount, start_energy):\n                    if amount <= EPSILON:\n                        return 0.0\n                    # integrate approximate diminishing returns by incremental approach\n                    e = start_energy\n                    rem = amount\n                    dt = 0.0\n                    steps = 0\n                    while rem > EPSILON and steps < 1000:\n                        eff = charge_rate * max(0.0, (1.0 - e / MAX_ENERGY))**2\n                        eff = max(eff, 1e-6)\n                        take = min(rem, eff * 0.1)\n                        dt += take / eff\n                        e += take\n                        rem -= take\n                        steps += 1\n                    return dt\n                # limit charging to MAX_WAIT_TIME\n                charge_t = charge_time_for(needed, energy)\n                if wait_time + charge_t > MAX_WAIT_TIME + EPSILON:\n                    # maybe partial charge to reach minimal viable (clamp)\n                    # skip if cannot reach\n                    continue\n                depart_time = cur_time + wait_time + charge_t\n                depart_energy = min(MAX_ENERGY, energy + needed)\n                # consume edge\n                arrive_time = depart_time + tcost\n                arrive_energy = depart_energy - ecost_adj\n                new_path = path + (nnode,)\n                heapq.heappush(heap, (arrive_time, (arrive_time, nnode, arrive_energy, new_path, new_degr, new_usage)))\n\n        # Option 2: optionally wait/charge at current node without moving, to improve future options\n        if capacity > 0 and charge_rate > EPSILON:\n            # attempt discrete waits: small increments up to MAX_WAIT_TIME\n            increments = [0.25, 0.5, 1.0, 2.0, 4.0]  # hours\n            for inc in increments:\n                if inc > MAX_WAIT_TIME + EPSILON:\n                    continue\n                new_time = cur_time + inc\n                if new_time - cur_time > MAX_WAIT_TIME + EPSILON:\n                    continue\n                # check windows: must be in open window for charging during interval midpoint\n                mid = (cur_time + new_time) / 2.0\n                if not _time_in_windows(mid, windows):\n                    # can only wait until next open\n                    next_open = _next_open_time(cur_time, windows)\n                    if next_open == math.inf or next_open - cur_time > MAX_WAIT_TIME + EPSILON:\n                        continue\n                    # schedule to next_open then small charge\n                    new_time = next_open + inc\n                    mid = (cur_time + new_time) / 2.0\n                    if not _time_in_windows(mid, windows):\n                        continue\n                # approximate charged energy over inc with non-linear curve\n                e = energy\n                gained = 0.0\n                dt = inc\n                # simple numeric approx: split into 10 steps\n                steps = 10\n                for i in range(steps):\n                    eff = charge_rate * max(0.0, (1.0 - e / MAX_ENERGY))**2\n                    eff = max(eff, 1e-6)\n                    de = eff * (dt / steps)\n                    gained += de\n                    e += de\n                    if e >= MAX_ENERGY:\n                        e = MAX_ENERGY\n                        break\n                new_energy = min(MAX_ENERGY, energy + gained)\n                if new_energy > energy + EPSILON:\n                    heapq.heappush(heap, (new_time, (new_time, node, new_energy, path, degr, usage)))\n        else:\n            # Option: wait for station to open if it's currently closed and waiting may help due to time-of-day costs\n            next_open = _next_open_time(cur_time, windows)\n            if next_open != math.inf and 0.0 < next_open - cur_time <= MAX_WAIT_TIME + EPSILON:\n                heapq.heappush(heap, (next_open, (next_open, node, energy, path, degr, usage)))\n\n    return []"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2103,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2358,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4461
+  },
+  "user": null,
+  "metadata": {}
+}

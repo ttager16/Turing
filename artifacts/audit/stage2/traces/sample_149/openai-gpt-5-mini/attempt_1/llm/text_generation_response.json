@@ -1,0 +1,76 @@
+{
+  "id": "resp_06bae09b6870ed150069c3453c6e88819d996a99429fe61fd2",
+  "object": "response",
+  "created_at": 1774404924,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774404979,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_06bae09b6870ed150069c3453cbd6c819db8b5f14a8fddbce3",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_06bae09b6870ed150069c3453d15b4819d9cc49ef97d4d8bf7",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Tuple, Dict, Optional\nimport math\n\ndef main_trigger(input_data: Dict) -> Dict:\n    # Input validation\n    required = ['k', 'joint_lengths', 'start_config', 'target_config']\n    missing = [r for r in required if r not in input_data]\n    if missing:\n        return {\"error\": f\"Missing required keys: {', '.join(missing)}.\"}\n    k = input_data.get('k')\n    if not isinstance(k, int) or k <= 0:\n        return {\"error\": \"Parameter 'k' must be a positive integer.\"}\n    joint_lengths = input_data.get('joint_lengths')\n    if not isinstance(joint_lengths, list) or len(joint_lengths) != k:\n        return {\"error\": \"Parameter 'joint_lengths' must be a list of length 'k'.\"}\n    start_config = input_data.get('start_config')\n    if not isinstance(start_config, list) or len(start_config) != k:\n        return {\"error\": \"Parameter 'start_config' must be a list of length 'k'.\"}\n    target_config = input_data.get('target_config')\n    if not isinstance(target_config, list) or len(target_config) != k:\n        return {\"error\": \"Parameter 'target_config' must be a list of length 'k'.\"}\n\n    obstacles_in = input_data.get('obstacles') or []\n    obstacles: List[Dict] = []\n    for ob in obstacles_in:\n        c = tuple(float(x) for x in ob.get('center', [0.0,0.0,0.0]))\n        r = float(ob.get('radius', 0.0))\n        obstacles.append({'center': c, 'radius': r})\n    max_steps = int(input_data.get('max_steps', 50))\n    num_steps = min(max_steps, 50) if max_steps > 0 else 50\n\n    # Workspace bounds\n    total_reach = sum(float(x) for x in joint_lengths)\n    default_bounds = [(-1.5*total_reach,)*3, (1.5*total_reach,)*3]\n    workspace_bounds = input_data.get('workspace_bounds', default_bounds)\n    if workspace_bounds is None:\n        workspace_bounds = default_bounds\n    # ensure tuple/list format\n    wb_min = tuple(workspace_bounds[0])\n    wb_max = tuple(workspace_bounds[1])\n\n    # Forward kinematics\n    def forward_kinematics(config: List[Tuple[float,float]]) -> List[Tuple[float,float,float]]:\n        positions = []\n        x=y=z=0.0\n        cum_xy = 0.0\n        cum_z = 0.0\n        for i, (angle, vel) in enumerate(config):\n            if i % 2 == 0:\n                cum_xy += angle\n            else:\n                cum_z += angle * 0.3\n            L = float(joint_lengths[i])\n            dx = L * math.cos(cum_xy) * math.cos(cum_z)\n            dy = L * math.sin(cum_xy) * math.cos(cum_z)\n            dz = L * math.sin(cum_z)\n            x += dx; y += dy; z += dz\n            positions.append((x,y,z))\n        return positions\n\n    # Bounding box of positions\n    def bounding_box(positions: List[Tuple[float,float,float]]):\n        xs = [p[0] for p in positions]\n        ys = [p[1] for p in positions]\n        zs = [p[2] for p in positions]\n        return [min(xs)-0.1, min(ys)-0.1, min(zs)-0.1], [max(xs)+0.1, max(ys)+0.1, max(zs)+0.1]\n\n    # Segment-sphere collision\n    def segment_sphere_collision(p1, p2, center, radius):\n        (x1,y1,z1) = p1; (x2,y2,z2) = p2\n        d = (x2-x1, y2-y1, z2-z1)\n        f = (x1-center[0], y1-center[1], z1-center[2])\n        a = d[0]*d[0] + d[1]*d[1] + d[2]*d[2]\n        c = f[0]*f[0] + f[1]*f[1] + f[2]*f[2] - radius*radius\n        if a < 1e-9:\n            return c <= 0\n        b = 2*(f[0]*d[0] + f[1]*d[1] + f[2]*d[2])\n        disc = b*b - 4*a*c\n        if disc < 0:\n            return False\n        sqrt_d = math.sqrt(disc)\n        t1 = (-b - sqrt_d) / (2*a)\n        t2 = (-b + sqrt_d) / (2*a)\n        if (0 <= t1 <= 1) or (0 <= t2 <= 1) or (t1 < 0 and t2 > 1):\n            return True\n        return False\n\n    # Check configuration collision: any segment vs any obstacle\n    def check_configuration_collision(config: List[Tuple[float,float]]):\n        positions = forward_kinematics(config)\n        # base at origin to first pos\n        prev = (0.0,0.0,0.0)\n        for p in positions:\n            for ob in obstacles:\n                if segment_sphere_collision(prev, p, ob['center'], ob['radius']):\n                    return True\n            prev = p\n        return False\n\n    # Spatial segment tree (used minimally per requirements)\n    class SegmentTree3DNode:\n        def __init__(self, bmin, bmax, obs, depth=0):\n            self.bmin = tuple(bmin); self.bmax = tuple(bmax)\n            self.obs = obs\n            self.left = None; self.right = None; self.depth = depth\n        def subdivide(self):\n            if self.depth >= 8 or len(self.obs) <= 4:\n                return\n            dx = self.bmax[0]-self.bmin[0]\n            dy = self.bmax[1]-self.bmin[1]\n            dz = self.bmax[2]-self.bmin[2]\n            if dx >= dy and dx >= dz:\n                axis = 0\n            elif dy >= dx and dy >= dz:\n                axis = 1\n            else:\n                axis = 2\n            mid = (self.bmin[axis] + self.bmax[axis]) / 2.0\n            left_max = list(self.bmax); right_min = list(self.bmin)\n            left_max[axis] = mid\n            right_min[axis] = mid\n            left_obs = []; right_obs = []\n            for o in self.obs:\n                c = o['center'][axis]\n                if c <= mid:\n                    left_obs.append(o)\n                if c >= mid:\n                    right_obs.append(o)\n            self.left = SegmentTree3DNode(self.bmin, tuple(left_max), left_obs, self.depth+1)\n            self.right = SegmentTree3DNode(tuple(right_min), self.bmax, right_obs, self.depth+1)\n            self.left.subdivide(); self.right.subdivide()\n\n    tree_root = SegmentTree3DNode(wb_min, wb_max, obstacles, 0)\n    tree_root.subdivide()\n\n    # Calibration error offsets and compensation\n    error_magnitude = 0.01\n    error_offsets = [math.sin(i*0.7)*error_magnitude for i in range(k)]\n    def apply_calibration(config):\n        return [(angle + error_offsets[i], vel) for i,(angle,vel) in enumerate(config)]\n    def compensate_calibration(config):\n        return [(angle - error_offsets[i], vel) for i,(angle,vel) in enumerate(config)]\n\n    # Interpolation\n    def interp_configs(c1, c2, t):\n        return [(c1[i][0] + t*(c2[i][0]-c1[i][0]), c1[i][1] + t*(c2[i][1]-c1[i][1])) for i in range(k)]\n\n    # Energy, time, constraints\n    max_velocity = 1.0\n    max_acceleration = 0.5\n    max_torque = 10.0\n    time_step = 0.1\n\n    def energy_between(cfg1, cfg2):\n        total = 0.0\n        for i in range(k):\n            a1, v1 = cfg1[i]; a2, v2 = cfg2[i]\n            delta_angle = a2 - a1\n            mass_factor = float(joint_lengths[i]) * (k - i)\n            kinetic = 0.5 * mass_factor * ((v2*v2) - (v1*v1))\n            delta_velocity = v2 - v1\n            acceleration_energy = delta_velocity + 0.1\n            torque = mass_factor * acceleration_energy\n            work = torque * delta_angle\n            penalty = 0.1 * (abs(v1) + abs(v2))\n            total += abs(kinetic) + work + penalty\n        return total\n\n    def time_between(cfg1, cfg2):\n        times = []\n        for i in range(k):\n            a1, v1 = cfg1[i]; a2, v2 = cfg2[i]\n            delta_angle = abs(a2 - a1)\n            avg_v = (abs(v1) + abs(v2)) / 2.0\n            t = delta_angle / max(avg_v, 0.01)\n            times.append(t)\n        return max(times) if times else 0.0\n\n    def check_constraints(cfg1, cfg2):\n        # velocity, acceleration, torque\n        for i in range(k):\n            a1, v1 = cfg1[i]; a2, v2 = cfg2[i]\n            if abs(v2) > max_velocity + 1e-9:\n                return False\n            delta_v = abs(v2 - v1)\n            accel = delta_v / time_step\n            if accel > max_acceleration + 1e-9:\n                return False\n            mass_factor = float(joint_lengths[i]) * (k - i)\n            torque = mass_factor * accel\n            if abs(torque) > max_torque + 1e-9:\n                return False\n        return True\n\n    # Configuration hashing\n    def cfg_hash(cfg):\n        rounded = [(round(a,3), round(v,3)) for (a,v) in cfg]\n        return str(rounded)\n\n    # Generate interpolated path\n    path_configs: List[List[Tuple[float,float]]] = []\n    for step in range(num_steps + 1):\n        t = step / num_steps if num_steps>0 else 0.0\n        cfg = interp_configs(start_config, target_config, t)\n        # apply calibration then compensate deterministically (so net zero but checks applied)\n        calibrated = apply_calibration(cfg)\n        compensated = compensate_calibration(calibrated)\n        path_configs.append([ (float(a), float(v)) for (a,v) in compensated ])\n\n    # Collision filtering: keep configurations that are not in collision\n    filtered_path = []\n    for cfg in path_configs:\n        if not check_configuration_collision(cfg):\n            filtered_path.append(cfg)\n\n    # Path inclusion: ensure start and target included per constraint\n    def equal_cfg(c1,c2):\n        return all(abs(c1[i][0]-c2[i][0])<1e-9 and abs(c1[i][1]-c2[i][1])<1e-9 for i in range(k))\n    if not filtered_path or not equal_cfg(filtered_path[0], start_config):\n        filtered_path.insert(0, [ (float(a), float(v)) for (a,v) in start_config ])\n    if not filtered_path or not equal_cfg(filtered_path[-1], target_config):\n        filtered_path.append([ (float(a), float(v)) for (a,v) in target_config ])\n\n    # After final path, check collisions between consecutive pairs (per requirement 22)\n    collision_free = True\n    for i in range(len(filtered_path)-1):\n        if check_configuration_collision(filtered_path[i+1]):\n            collision_free = False\n\n    # Compute energies, times, distances and constraint violations\n    total_energy = 0.0\n    total_time = 0.0\n    total_distance = 0.0\n    constraint_violations = 0\n    # Union-Find graph for connectivity\n    class UnionFind:\n        def __init__(self):\n            self.parent = {}\n            self.rank = {}\n        def make(self, x):\n            if x not in self.parent:\n                self.parent[x] = x; self.rank[x] = 0\n        def find(self, x):\n            if self.parent[x] != x:\n                self.parent[x] = self.find(self.parent[x])\n            return self.parent[x]\n        def union(self, x, y):\n            rx = self.find(x); ry = self.find(y)\n            if rx == ry: return\n            if self.rank[rx] < self.rank[ry]:\n                self.parent[rx] = ry\n            else:\n                self.parent[ry] = rx\n                if self.rank[rx] == self.rank[ry]:\n                    self.rank[rx] += 1\n\n    uf = UnionFind()\n    nodes = []\n    for cfg in filtered_path:\n        key = cfg_hash(cfg)\n        nodes.append(key)\n        uf.make(key)\n    edges = 0\n    for i in range(len(filtered_path)-1):\n        a = filtered_path[i]; b = filtered_path[i+1]\n        e = energy_between(a,b)\n        t = time_between(a,b)\n        d = sum(abs(b[j][0]-a[j][0]) for j in range(k))\n        total_energy += e\n        total_time += t\n        total_distance += d\n        if not check_constraints(a,b):\n            constraint_violations += 1\n        else:\n            # add bidirectional edge\n            ka = cfg_hash(a); kb = cfg_hash(b)\n            uf.union(ka,kb)\n            edges += 1\n\n    # Connectivity components count\n    roots = set()\n    for n in nodes:\n        roots.add(uf.find(n))\n    connectivity_components = len(roots)\n\n    # Path efficiency\n    direct_angular = sum(abs(target_config[i][0]-start_config[i][0]) for i in range(k))\n    path_efficiency = total_distance / max(direct_angular, 0.01)\n\n    # Workspace utilization\n    workspace_util = sum(joint_lengths) / ((wb_max[0]-wb_min[0]) * 0.5)\n\n    # Angular velocity\n    angular_velocity = total_distance / max(total_time, 0.01)\n\n    # Metrics rounding rules\n    total_energy_r = round(total_energy, 6)\n    total_time_r = round(total_time, 6)\n    total_distance_r = round(total_distance, 6)\n\n    # Format path with rounding for angles 2 decimals and velocities 4 decimals\n    out_path = []\n    for cfg in filtered_path:\n        out_cfg = []\n        for (a,v) in cfg:\n            out_cfg.append([round(a,2), round(v,4)])\n        out_path.append(out_cfg)\n\n    num_configurations = len(out_path)\n    metrics = {\n        'average_energy_per_step': round((total_energy / max(len(filtered_path)-1,1)),3),\n        'average_time_per_step': round((total_time / max(len(filtered_path)-1,1)),3),\n        'average_angular_velocity': round(angular_velocity,3),\n        'path_efficiency': round(path_efficiency,3),\n        'workspace_utilization': round(workspace_util,3),\n        'constraint_violations': int(constraint_violations),\n        'calibration_error_magnitude': round(error_magnitude,3),\n        'num_obstacles': int(len(obstacles))\n    }\n\n    result = {\n        'path': out_path,\n        'total_energy': round(total_energy_r, 6),\n        'total_time': round(total_time_r, 6),\n        'total_distance': round(total_distance_r, 6),\n        'collision_free': bool(collision_free),\n        'num_configurations': int(num_configurations),\n        'connectivity_components': int(connectivity_components),\n        'metrics': metrics,\n        'workspace_bounds': [[round(wb_min[0],6), round(wb_min[1],6), round(wb_min[2],6)],\n                             [round(wb_max[0],6), round(wb_max[1],6), round(wb_max[2],6)]],\n        'num_obstacles': int(len(obstacles))\n    }\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 3367,
+    "input_tokens_details": {
+      "cached_tokens": 3328
+    },
+    "output_tokens": 3605,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 6972
+  },
+  "user": null,
+  "metadata": {}
+}

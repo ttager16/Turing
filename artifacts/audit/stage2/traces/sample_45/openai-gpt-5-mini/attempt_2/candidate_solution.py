@@ -1,0 +1,185 @@
+def optimize_portfolio(
+    asset_data: List[Dict[str, float]],
+    market_update: Dict[str, float],
+    mode: str = "risk_adjusted",
+    prev_weights: Optional[List[float]] = None,
+    max_per_asset: float = 0.35,
+    turnover_budget: float = 0.40,
+    step_size: float = 0.01,
+    alpha: float = 0.2,
+    beta: float = 0.2,
+    use_diversification_penalty: bool = True
+) -> List[float]:
+    # Prepare assets: preserve input order for stable mapping
+    n = len(asset_data)
+    ids = [a["id"] for a in asset_data]
+    # Build maps for prior expected and vol from asset_data if present, otherwise use market_update/new
+    prior_expected = {}
+    prior_vol = {}
+    for a in asset_data:
+        prior_expected[a["id"]] = a.get("expected_return", 0.0)
+        prior_vol[a["id"]] = a.get("volatility", 0.0)
+    # Prev weights default equal allocation
+    if prev_weights is None:
+        prev_weights = [0.0] * n
+    # Compute smoothed stats
+    expected_smooth = {}
+    vol_smooth = {}
+    for i, aid in enumerate(ids):
+        new_er = market_update.get(aid, prior_expected.get(aid, 0.0))
+        new_vol = market_update.get(aid + "_vol", None)
+        # if vol update not provided in market_update, use prior volatility
+        if new_vol is None:
+            new_vol = prior_vol.get(aid, 0.0)
+        er_prior = prior_expected.get(aid, new_er)
+        vol_prior = prior_vol.get(aid, new_vol)
+        expected_smooth[aid] = alpha * new_er + (1 - alpha) * er_prior
+        vol_smooth[aid] = beta * new_vol + (1 - beta) * vol_prior
+    # compute base scores
+    scores = {}
+    for aid in ids:
+        if mode == "absolute":
+            s = expected_smooth[aid]
+        else:
+            s = expected_smooth[aid] / (vol_smooth[aid] + 1e-6)
+        scores[aid] = s
+    # Initialize current allocation with prev_weights clipped to [0, max_per_asset]
+    curr = [max(0.0, min(w, max_per_asset)) for w in prev_weights]
+    # Compute initial total weight and remaining budget to reach 1.0
+    total = sum(curr)
+    # Determine available steps to add
+    # Greedy allocate in steps of step_size to highest adjusted score until total==1.0 or limits
+    # But must not exceed turnover_budget: total turnover = sum(abs(curr - prev_weights))
+    initial_turnover = sum(abs(curr[i] - prev_weights[i]) for i in range(n))
+    remaining_turnover = max(0.0, turnover_budget - initial_turnover)
+    # If remaining_turnover <= 0 and total < 1.0, cannot allocate further -> return prev_weights unchanged
+    if remaining_turnover <= 1e-12 and abs(total - 1.0) > 1e-12:
+        return prev_weights[:]
+    # Number of possible incremental steps to add weight (each step increases total by step_size)
+    # But also each increment changes turnover: for an asset i, if we increase by step_size, turnover increases by step_size (if prev_weights contribution was lower)
+    # We'll attempt greedy increments, computing adjusted_score each time using current weight
+    # Prepare tie-breaking: when equal scores, prefer lower volatility, then lexicographic id
+    # We'll perform iterations up to a safe cap to avoid infinite loops
+    max_steps = int((1.0 - total) / step_size + 0.5) if total < 1.0 else 0
+    # If total already > 1.0 due to prev clipping, try to reduce weights? Requirement says total must equal 1.0 unless turnover prevents full allocation.
+    # We will only add weight (no shorting), so if total >1.0, scale down proportionally within bounds to 1.0 without exceeding turnover_budget. Simpler: if total >1.0, reduce largest weights in steps.
+    if total > 1.0 + 1e-12:
+        # need to remove weight until total==1.0
+        # Each decrement by step_size increases turnover by step_size (if prev weight was greater)
+        # Compute allowed removal budget
+        # Removing decreases turnover if prev_weights were higher; but to be conservative, treat as increasing turnover by step_size when curr < prev? Simpler: compute new turnover after candidate change explicitly.
+        steps_removed = 0
+        safe_iter = 0
+        while total > 1.0 + 1e-12 and safe_iter < 10000:
+            # choose asset to remove: one with lowest (score adjusted) maybe to keep best assets. Remove from asset with lowest adjusted score that has curr > 0
+            adjusted = []
+            for i, aid in enumerate(ids):
+                if curr[i] >= step_size - 1e-12:
+                    s = scores[aid]
+                    if use_diversification_penalty:
+                        s = s * (1 - curr[i])
+                    adjusted.append((s, vol_smooth[aid], aid, i))
+            if not adjusted:
+                break
+            # sort by (s ascending, vol ascending, id lex) to remove lowest scoring
+            adjusted.sort(key=lambda x: (x[0], x[1], x[2]))
+            _, _, _, idx = adjusted[0]
+            # simulate turnover if we decrement
+            new_curr = curr[:]
+            new_curr[idx] = round(max(0.0, new_curr[idx] - step_size), 10)
+            new_turnover = sum(abs(new_curr[i] - prev_weights[i]) for i in range(n))
+            if new_turnover - initial_turnover > turnover_budget + 1e-12:
+                # can't remove due to turnover limit; abort and return prev_weights unchanged
+                return prev_weights[:]
+            curr = new_curr
+            total = sum(curr)
+            safe_iter += 1
+        # after loop, if not equal to 1.0 due to turnover constraints, return prev
+        if abs(total - 1.0) > 1e-8:
+            return prev_weights[:]
+        return curr
+    # Greedy addition loop
+    safe_iter = 0
+    while total < 1.0 - 1e-12 and safe_iter < 10000:
+        # build list of candidates that can accept another step (curr < max_per_asset - eps)
+        candidates = []
+        for i, aid in enumerate(ids):
+            if curr[i] + step_size <= max_per_asset + 1e-12:
+                s = scores[aid]
+                if use_diversification_penalty:
+                    s = s * (1 - curr[i])
+                candidates.append(( -s, vol_smooth[aid], aid, i))  # negative for descending by score
+        if not candidates:
+            break
+        # stable sort: Python sort is stable; we first sort by lex id and vol then by score negative to ensure tie-breaks
+        # But using tuple keys with (-score, vol, id) gives desired order: higher score first, lower vol first, lex id
+        candidates.sort()
+        # choose top candidate
+        _, _, _, idx = candidates[0]
+        # simulate adding step_size
+        new_curr = curr[:]
+        new_curr[idx] = round(new_curr[idx] + step_size, 10)
+        if new_curr[idx] > max_per_asset + 1e-12:
+            # cannot add here, continue
+            safe_iter += 1
+            continue
+        # compute new turnover
+        new_turnover = sum(abs(new_curr[i] - prev_weights[i]) for i in range(n))
+        if new_turnover - initial_turnover > turnover_budget + 1e-12:
+            # cannot add due to turnover; stop and if total not 1.0 return prev_weights unchanged
+            return prev_weights[:]
+        # apply change
+        curr = new_curr
+        total = sum(curr)
+        safe_iter += 1
+    # After loop, if total not exactly 1.0 due to rounding, attempt to fill with smaller adjustments if possible
+    if abs(total - 1.0) > 1e-8:
+        # try to adjust last candidate partially? But step granularity fixed; if cannot reach 1.0, return prev_weights unchanged per rule
+        return prev_weights[:]
+    # Final safety: ensure within bounds and rounding to 2 decimals as step_size implies cents of 0.01
+    final = [round(max(0.0, min(w, max_per_asset)), 2) for w in curr]
+    # ensure sum equals 1.0 (adjust small rounding diff by distributing)
+    s_final = sum(final)
+    diff = round(1.0 - s_final, 2)
+    if abs(diff) >= 0.01:
+        # cannot fix large diff; return prev
+        return prev_weights[:]
+    # distribute diff by adding/subtracting 0.01 to assets according to ranking while respecting bounds and turnover
+    if abs(diff) >= 0.01:
+        steps = int(round(abs(diff) / 0.01))
+        for _ in range(steps):
+            if diff > 0:
+                # need to add 0.01: choose best candidate that can accept
+                candidates = []
+                for i, aid in enumerate(ids):
+                    if final[i] + 0.01 <= max_per_asset + 1e-12:
+                        s = scores[aid]
+                        if use_diversification_penalty:
+                            s = s * (1 - final[i])
+                        candidates.append(( -s, vol_smooth[aid], aid, i))
+                if not candidates:
+                    return prev_weights[:]
+                candidates.sort()
+                idx = candidates[0][3]
+                final[idx] = round(final[idx] + 0.01, 2)
+            else:
+                # need to remove 0.01: choose worst candidate that can be reduced
+                candidates = []
+                for i, aid in enumerate(ids):
+                    if final[i] - 0.01 >= 0.0 - 1e-12:
+                        s = scores[aid]
+                        if use_diversification_penalty:
+                            s = s * (1 - final[i])
+                        candidates.append(( s, vol_smooth[aid], aid, i))
+                if not candidates:
+                    return prev_weights[:]
+                candidates.sort()
+                idx = candidates[0][3]
+                final[idx] = round(final[idx] - 0.01, 2)
+    # final turnover check
+    final_turnover = sum(abs(final[i] - prev_weights[i]) for i in range(n))
+    if final_turnover - initial_turnover > turnover_budget + 1e-12:
+        return prev_weights[:]
+    # ensure no negative due to rounding
+    final = [max(0.0, round(w, 2)) for w in final]
+    return final

@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[\"Stable\"]\n[\"Risky\", \"Safe\"]\n{\"Stable\": {\"Risky\": {\"Stable\": 1.0}, \"Safe\": {\"Stable\": 1.0}}}\n{\"Stable\": {\"Risky\": 5, \"Safe\": 5}}\n0.95\n1e-06",
+    "output_text": "{\"value_function\": {\"Stable\": 100.0}, \"policy\": {\"Stable\": \"Risky\"}}"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[\"Active\", \"Dormant\", \"Exit\"]\n[\"Invest\", \"Divest\"]\n{\"Active\": {\"Invest\": {\"Dormant\": 1.0}, \"Divest\": {\"Active\": 1.0}}, \"Dormant\": {\"Invest\": {\"Exit\": 1.0}, \"Divest\": {\"Dormant\": 1.0}}, \"Exit\": {\"Invest\": {\"Exit\": 1.0}, \"Divest\": {\"Exit\": 1.0}}}\n{\"Active\": {\"Invest\": 10, \"Divest\": 2}, \"Dormant\": {\"Invest\": -1, \"Divest\": 0}, \"Exit\": {\"Invest\": 0, \"Divest\": 0}}\n0.99\n0.0001",
+    "output_text": "{\"value_function\": {\"Active\": 199.99, \"Dormant\": 0.0, \"Exit\": 0.0}, \"policy\": {\"Active\": \"Divest\", \"Dormant\": \"Divest\", \"Exit\": \"Invest\"}}"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[\"S1\", \"S2\", \"S3\"]\n[\"Hold\"]\n{\"S1\": {\"Hold\": {\"S1\": 0.3333333, \"S2\": 0.3333333, \"S3\": 0.3333333}}, \"S2\": {\"Hold\": {\"S1\": 0.3333333, \"S2\": 0.3333333, \"S3\": 0.3333333}}, \"S3\": {\"Hold\": {\"S1\": 0.3333333, \"S2\": 0.3333333, \"S3\": 0.3333333}}}\n{\"S1\": {\"Hold\": 0}, \"S2\": {\"Hold\": 5}, \"S3\": {\"Hold\": -2}}\n0.5\n1e-08",
+    "output_text": "{\"value_function\": {\"S1\": 1.0, \"S2\": 6.0, \"S3\": -1.0}, \"policy\": {\"S1\": \"Hold\", \"S2\": \"Hold\", \"S3\": \"Hold\"}}"
+  }
+]

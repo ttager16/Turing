@@ -1,0 +1,454 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        {
+          "vehicle_id": "V1",
+          "checkpoints": [
+            {
+              "node": "A",
+              "group": "G1",
+              "window": [
+                0,
+                100
+              ],
+              "service": 0
+            },
+            {
+              "node": "C",
+              "group": "G1",
+              "window": [
+                0,
+                5
+              ],
+              "service": 0
+            }
+          ]
+        },
+        {
+          "vehicle_id": "V2",
+          "checkpoints": [
+            {
+              "node": "A",
+              "group": "G1",
+              "window": [
+                0,
+                100
+              ],
+              "service": 0
+            },
+            {
+              "node": "B",
+              "group": "G1",
+              "window": [
+                10,
+                100
+              ],
+              "service": 0
+            }
+          ]
+        }
+      ],
+      [
+        {
+          "u": "A",
+          "v": "B",
+          "time": 3,
+          "congestion": 0.1,
+          "fuel": 1,
+          "age_min": 0,
+          "max_age_min": 10
+        },
+        {
+          "u": "B",
+          "v": "C",
+          "time": 3,
+          "congestion": 0.1,
+          "fuel": 1,
+          "age_min": 0,
+          "max_age_min": 10
+        },
+        {
+          "u": "A",
+          "v": "C",
+          "time": 6,
+          "congestion": 0.1,
+          "fuel": 2,
+          "age_min": 0,
+          "max_age_min": 10
+        },
+        {
+          "u": "A",
+          "v": "C",
+          "time": 100,
+          "congestion": 0.9,
+          "fuel": 10,
+          "age_min": 20,
+          "max_age_min": 10
+        }
+      ],
+      [
+        {
+          "u": "A",
+          "v": "C",
+          "closed": true
+        },
+        {
+          "u": "A",
+          "v": "C",
+          "closed": false
+        }
+      ],
+      [
+        {
+          "vehicle_id": "V1",
+          "priority": 1
+        },
+        {
+          "vehicle_id": "V1",
+          "priority": 3
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"vehicle_id\":\"V1\",\"checkpoints\":[{\"node\":\"A\",\"group\":\"G1\",\"window\":[0,100],\"service\":0},{\"node\":\"C\",\"group\":\"G1\",\"window\":[0,5],\"service\":0}]},{\"vehicle_id\":\"V2\",\"checkpoints\":[{\"node\":\"A\",\"group\":\"G1\",\"window\":[0,100],\"service\":0},{\"node\":\"B\",\"group\":\"G1\",\"window\":[10,100],\"service\":0}]}]",
+      "[{\"u\":\"A\",\"v\":\"B\",\"time\":3,\"congestion\":0.1,\"fuel\":1,\"age_min\":0,\"max_age_min\":10},{\"u\":\"B\",\"v\":\"C\",\"time\":3,\"congestion\":0.1,\"fuel\":1,\"age_min\":0,\"max_age_min\":10},{\"u\":\"A\",\"v\":\"C\",\"time\":6,\"congestion\":0.1,\"fuel\":2,\"age_min\":0,\"max_age_min\":10},{\"u\":\"A\",\"v\":\"C\",\"time\":100,\"congestion\":0.9,\"fuel\":10,\"age_min\":20,\"max_age_min\":10}]",
+      "[{\"u\":\"A\",\"v\":\"C\",\"closed\":true},{\"u\":\"A\",\"v\":\"C\",\"closed\":false}]",
+      "[{\"vehicle_id\":\"V1\",\"priority\":1},{\"vehicle_id\":\"V1\",\"priority\":3}]"
+    ],
+    "focus": "unreachable_due_to_tight_time_window_and_last-update-wins_on_duplicate_segment_entries"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        {
+          "vehicle_id": "VG",
+          "checkpoints": [
+            {
+              "node": "S",
+              "group": "G1",
+              "window": [
+                0,
+                100
+              ],
+              "service": 0
+            },
+            {
+              "node": "X",
+              "group": "G1",
+              "window": [
+                0,
+                100
+              ],
+              "service": 0
+            },
+            {
+              "node": "Y",
+              "group": "G1",
+              "window": [
+                0,
+                100
+              ],
+              "service": 0
+            }
+          ]
+        }
+      ],
+      [
+        {
+          "u": "S",
+          "v": "X",
+          "time": 5,
+          "congestion": 0.2,
+          "fuel": 2,
+          "age_min": 0,
+          "max_age_min": 10
+        },
+        {
+          "u": "S",
+          "v": "Y",
+          "time": 5,
+          "congestion": 0.2,
+          "fuel": 2,
+          "age_min": 0,
+          "max_age_min": 10
+        },
+        {
+          "u": "X",
+          "v": "Y",
+          "time": 4,
+          "congestion": 0.1,
+          "fuel": 1,
+          "age_min": 0,
+          "max_age_min": 10
+        },
+        {
+          "u": "Y",
+          "v": "X",
+          "time": 6,
+          "congestion": 0.0,
+          "fuel": 1,
+          "age_min": 0,
+          "max_age_min": 10
+        }
+      ],
+      [],
+      [
+        {
+          "vehicle_id": "VG",
+          "priority": 2
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"vehicle_id\":\"VG\",\"checkpoints\":[{\"node\":\"S\",\"group\":\"G1\",\"window\":[0,100],\"service\":0},{\"node\":\"X\",\"group\":\"G1\",\"window\":[0,100],\"service\":0},{\"node\":\"Y\",\"group\":\"G1\",\"window\":[0,100],\"service\":0}]}]",
+      "[{\"u\":\"S\",\"v\":\"X\",\"time\":5,\"congestion\":0.2,\"fuel\":2,\"age_min\":0,\"max_age_min\":10},{\"u\":\"S\",\"v\":\"Y\",\"time\":5,\"congestion\":0.2,\"fuel\":2,\"age_min\":0,\"max_age_min\":10},{\"u\":\"X\",\"v\":\"Y\",\"time\":4,\"congestion\":0.1,\"fuel\":1,\"age_min\":0,\"max_age_min\":10},{\"u\":\"Y\",\"v\":\"X\",\"time\":6,\"congestion\":0.0,\"fuel\":1,\"age_min\":0,\"max_age_min\":10}]",
+      "[]",
+      "[{\"vehicle_id\":\"VG\",\"priority\":2}]"
+    ],
+    "focus": "equal_edge_scores_require_deterministic_tie-breaks_for_order_within_group"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        {
+          "vehicle_id": "Vmax",
+          "checkpoints": [
+            {
+              "node": "N0",
+              "group": "G1",
+              "window": [
+                0,
+                1000
+              ],
+              "service": 1
+            },
+            {
+              "node": "N1",
+              "group": "G1",
+              "window": [
+                10,
+                1000
+              ],
+              "service": 2
+            },
+            {
+              "node": "N2",
+              "group": "G2",
+              "window": [
+                0,
+                1000
+              ],
+              "service": 1
+            },
+            {
+              "node": "N3",
+              "group": "G2",
+              "window": [
+                5,
+                1000
+              ],
+              "service": 3
+            },
+            {
+              "node": "N4",
+              "group": "G3",
+              "window": [
+                0,
+                1000
+              ],
+              "service": 2
+            },
+            {
+              "node": "N5",
+              "group": "G3",
+              "window": [
+                0,
+                1000
+              ],
+              "service": 1
+            },
+            {
+              "node": "N6",
+              "group": "G4",
+              "window": [
+                20,
+                1000
+              ],
+              "service": 2
+            },
+            {
+              "node": "N7",
+              "group": "G4",
+              "window": [
+                0,
+                1000
+              ],
+              "service": 2
+            },
+            {
+              "node": "N8",
+              "group": "G5",
+              "window": [
+                0,
+                1000
+              ],
+              "service": 1
+            },
+            {
+              "node": "N9",
+              "group": "G5",
+              "window": [
+                0,
+                1000
+              ],
+              "service": 2
+            }
+          ]
+        }
+      ],
+      [
+        {
+          "u": "N0",
+          "v": "N1",
+          "time": 4,
+          "congestion": 0.2,
+          "fuel": 1,
+          "age_min": 0,
+          "max_age_min": 10
+        },
+        {
+          "u": "N1",
+          "v": "N2",
+          "time": 3,
+          "congestion": 0.1,
+          "fuel": 1,
+          "age_min": 0,
+          "max_age_min": 10
+        },
+        {
+          "u": "N1",
+          "v": "N2",
+          "time": 30,
+          "congestion": 0.5,
+          "fuel": 3,
+          "age_min": 20,
+          "max_age_min": 10
+        },
+        {
+          "u": "N2",
+          "v": "N3",
+          "time": 6,
+          "congestion": 0.2,
+          "fuel": 2,
+          "age_min": 0,
+          "max_age_min": 10
+        },
+        {
+          "u": "N3",
+          "v": "N4",
+          "time": 5,
+          "congestion": 0.3,
+          "fuel": 2,
+          "age_min": 0,
+          "max_age_min": 10
+        },
+        {
+          "u": "N4",
+          "v": "N5",
+          "time": 4,
+          "congestion": 0.0,
+          "fuel": 1,
+          "age_min": 0,
+          "max_age_min": 10
+        },
+        {
+          "u": "N5",
+          "v": "N6",
+          "time": 8,
+          "congestion": 0.4,
+          "fuel": 3,
+          "age_min": 15,
+          "max_age_min": 10
+        },
+        {
+          "u": "N5",
+          "v": "N6",
+          "time": 8,
+          "congestion": 0.4,
+          "fuel": 3,
+          "age_min": 1,
+          "max_age_min": 10
+        },
+        {
+          "u": "N6",
+          "v": "N7",
+          "time": 2,
+          "congestion": 0.0,
+          "fuel": 1,
+          "age_min": 0,
+          "max_age_min": 10
+        },
+        {
+          "u": "N7",
+          "v": "N8",
+          "time": 3,
+          "congestion": 0.2,
+          "fuel": 1,
+          "age_min": 0,
+          "max_age_min": 10
+        },
+        {
+          "u": "N8",
+          "v": "N9",
+          "time": 4,
+          "congestion": 0.1,
+          "fuel": 2,
+          "age_min": 0,
+          "max_age_min": 10
+        },
+        {
+          "u": "N0",
+          "v": "N2",
+          "time": 10,
+          "congestion": 0.6,
+          "fuel": 4,
+          "age_min": 0,
+          "max_age_min": 10
+        }
+      ],
+      [
+        {
+          "u": "N5",
+          "v": "N6",
+          "closed": true
+        },
+        {
+          "u": "N5",
+          "v": "N6",
+          "closed": false
+        }
+      ],
+      [
+        {
+          "vehicle_id": "Vmax",
+          "priority": 3
+        },
+        {
+          "vehicle_id": "Vmax",
+          "priority": 2
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"vehicle_id\":\"Vmax\",\"checkpoints\":[{\"node\":\"N0\",\"group\":\"G1\",\"window\":[0,1000],\"service\":1},{\"node\":\"N1\",\"group\":\"G1\",\"window\":[10,1000],\"service\":2},{\"node\":\"N2\",\"group\":\"G2\",\"window\":[0,1000],\"service\":1},{\"node\":\"N3\",\"group\":\"G2\",\"window\":[5,1000],\"service\":3},{\"node\":\"N4\",\"group\":\"G3\",\"window\":[0,1000],\"service\":2},{\"node\":\"N5\",\"group\":\"G3\",\"window\":[0,1000],\"service\":1},{\"node\":\"N6\",\"group\":\"G4\",\"window\":[20,1000],\"service\":2},{\"node\":\"N7\",\"group\":\"G4\",\"window\":[0,1000],\"service\":2},{\"node\":\"N8\",\"group\":\"G5\",\"window\":[0,1000],\"service\":1},{\"node\":\"N9\",\"group\":\"G5\",\"window\":[0,1000],\"service\":2}]}]",
+      "[{\"u\":\"N0\",\"v\":\"N1\",\"time\":4,\"congestion\":0.2,\"fuel\":1,\"age_min\":0,\"max_age_min\":10},{\"u\":\"N1\",\"v\":\"N2\",\"time\":3,\"congestion\":0.1,\"fuel\":1,\"age_min\":0,\"max_age_min\":10},{\"u\":\"N1\",\"v\":\"N2\",\"time\":30,\"congestion\":0.5,\"fuel\":3,\"age_min\":20,\"max_age_min\":10},{\"u\":\"N2\",\"v\":\"N3\",\"time\":6,\"congestion\":0.2,\"fuel\":2,\"age_min\":0,\"max_age_min\":10},{\"u\":\"N3\",\"v\":\"N4\",\"time\":5,\"congestion\":0.3,\"fuel\":2,\"age_min\":0,\"max_age_min\":10},{\"u\":\"N4\",\"v\":\"N5\",\"time\":4,\"congestion\":0.0,\"fuel\":1,\"age_min\":0,\"max_age_min\":10},{\"u\":\"N5\",\"v\":\"N6\",\"time\":8,\"congestion\":0.4,\"fuel\":3,\"age_min\":15,\"max_age_min\":10},{\"u\":\"N5\",\"v\":\"N6\",\"time\":8,\"congestion\":0.4,\"fuel\":3,\"age_min\":1,\"max_age_min\":10},{\"u\":\"N6\",\"v\":\"N7\",\"time\":2,\"congestion\":0.0,\"fuel\":1,\"age_min\":0,\"max_age_min\":10},{\"u\":\"N7\",\"v\":\"N8\",\"time\":3,\"congestion\":0.2,\"fuel\":1,\"age_min\":0,\"max_age_min\":10},{\"u\":\"N8\",\"v\":\"N9\",\"time\":4,\"congestion\":0.1,\"fuel\":2,\"age_min\":0,\"max_age_min\":10},{\"u\":\"N0\",\"v\":\"N2\",\"time\":10,\"congestion\":0.6,\"fuel\":4,\"age_min\":0,\"max_age_min\":10}]",
+      "[{\"u\":\"N5\",\"v\":\"N6\",\"closed\":true},{\"u\":\"N5\",\"v\":\"N6\",\"closed\":false}]",
+      "[{\"vehicle_id\":\"Vmax\",\"priority\":3},{\"vehicle_id\":\"Vmax\",\"priority\":2}]"
+    ],
+    "focus": "max_checkpoints_service_times_and_stale_entries_where_last_update_wins"
+  }
+]

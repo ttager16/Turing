@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[[\"A\", 100, \"old_A_100\"], [\"A\", 101, \"mid_A_101\"], [\"A\", 103, \"new_A_103\"], [\"B\", 105, \"REF_A_100\"], [\"B\", 106, \"REF_A_103\"], [\"C\", 107, \"REF_B_105\"], [\"D\", 108, \"duplicate_entry\"], [\"E\", 109, \"REF_C_107\"], [\"F\", 110, \"normal_F\"], [\"G\", 111, \"REF_A_101\"]]",
+    "output_text": "[[\"A\", 103, \"new_A_103\"], [\"F\", 110, \"normal_F\"]]"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[[\"sensor\", 300, \"s300\"], [\"sensor\", 301, \"s301\"], [\"client\", 302, \"REF_sensor_300\"], [\"sensor\", 303, \"s303\"], [\"client2\", 304, \"REF_sensor_300\"], [\"sensor2\", 301, \"duplicate_entry\"], [\"client3\", 305, \"REF_sensor2_301\"]]",
+    "output_text": "[[\"sensor\", 303, \"s303\"]]"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[[\"device_group_1\", 111, \"payload1\"], [\"device_group_1\", 113, \"payload_new\"], [\"referrer\", 114, \"REF_device_group_1_111\"], [\"complex_device_name_v2\", 200, \"ok\"], [\"consumer\", 201, \"REF_complex_device_name_v2_200\"], [\"badref\", 202, \"REF__200\"], [\"weird\", 203, \"REF_device_group_1_113\"], [\"dupowner\", 204, \"duplicate_entry\"], [\"refer_dup\", 205, \"REF_dupowner_204\"], [\"multi_under\", 206, \"REF_device_group_1_999\"]]",
+    "output_text": "[[\"device_group_1\", 113, \"payload_new\"], [\"complex_device_name_v2\", 200, \"ok\"]]"
+  }
+]

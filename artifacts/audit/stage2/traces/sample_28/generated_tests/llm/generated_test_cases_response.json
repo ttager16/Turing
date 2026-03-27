@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5W3Ufdpno1JOmVIStd4NcNrsaik",
+  "object": "chat.completion",
+  "created": 1774395119,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[{\\\"id\\\":\\\"S1\\\",\\\"inventory\\\":[30,30],\\\"coalition_id\\\":\\\"C1\\\",\\\"routes\\\":{\\\"W1\\\":{\\\"cost\\\":10,\\\"time\\\":3},\\\"W2\\\":{\\\"cost\\\":12,\\\"time\\\":2}}},{\\\"id\\\":\\\"S2\\\",\\\"inventory\\\":[20,20],\\\"coalition_id\\\":\\\"C1\\\",\\\"routes\\\":{\\\"W1\\\":{\\\"cost\\\":11,\\\"time\\\":2},\\\"W2\\\":{\\\"cost\\\":9,\\\"time\\\":3}}}]\",\n        \"[{\\\"id\\\":\\\"D1\\\",\\\"demand\\\":[40,10],\\\"preferred_routes\\\":[\\\"W1\\\",\\\"W2\\\"]},{\\\"id\\\":\\\"D2\\\",\\\"demand\\\":[10,20],\\\"preferred_routes\\\":[\\\"W2\\\"]}]\",\n        \"[{\\\"id\\\":\\\"W1\\\",\\\"capacity\\\":[40,10],\\\"routes\\\":{\\\"D1\\\":{\\\"cost\\\":5,\\\"time\\\":1},\\\"D2\\\":{\\\"cost\\\":7,\\\"time\\\":2}}},{\\\"id\\\":\\\"W2\\\",\\\"capacity\\\":[30,30],\\\"routes\\\":{\\\"D1\\\":{\\\"cost\\\":6,\\\"time\\\":2},\\\"D2\\\":{\\\"cost\\\":4,\\\"time\\\":1}}}]\",\n        \"[{\\\"phase\\\":2,\\\"action\\\":\\\"route_closure\\\",\\\"details\\\":{\\\"from\\\":\\\"W1\\\",\\\"to\\\":\\\"D1\\\"}}]\"\n      ],\n      \"focus\": \"Coalition discount with route closure event mid-simulation and phased capacity drop forcing reroute; verifies coalition application, event persistence, and capacity boundary in phase 2.\"\n    },\n    {\n      \"input_lines\": [\n        \"[{\\\"id\\\":\\\"S1\\\",\\\"inventory\\\":[10],\\\"coalition_id\\\":null,\\\"routes\\\":{\\\"W1\\\":{\\\"cost\\\":5,\\\"time\\\":1}}}]\",\n        \"[{\\\"id\\\":\\\"D1\\\",\\\"demand\\\":[5],\\\"preferred_routes\\\":[\\\"W1\\\"]}]\",\n        \"[{\\\"id\\\":\\\"W1\\\",\\\"capacity\\\":[10],\\\"routes\\\":{}}]\",\n        \"[]\"\n      ],\n      \"focus\": \"No feasible end-to-end routes (warehouse has no outbound routes) -> should trigger empty result {} to test detection of impossible routing.\"\n    },\n    {\n      \"input_lines\": [\n        \"[{\\\"id\\\":\\\"S1\\\",\\\"inventory\\\":[5,0,5],\\\"coalition_id\\\":\\\"C1\\\",\\\"routes\\\":{\\\"W1\\\":{\\\"cost\\\":7,\\\"time\\\":5}}},{\\\"id\\\":\\\"S2\\\",\\\"inventory\\\":[0,5,0],\\\"coalition_id\\\":null,\\\"routes\\\":{\\\"W1\\\":{\\\"cost\\\":6,\\\"time\\\":4}}}]\",\n        \"[{\\\"id\\\":\\\"D1\\\",\\\"demand\\\":[5,5,5],\\\"preferred_routes\\\":[\\\"W1\\\"]}]\",\n        \"[{\\\"id\\\":\\\"W1\\\",\\\"capacity\\\":[5,5,5],\\\"routes\\\":{\\\"D1\\\":{\\\"cost\\\":3,\\\"time\\\":2}}}]\",\n        \"[{\\\"phase\\\":2,\\\"action\\\":\\\"capacity_change\\\",\\\"details\\\":{\\\"warehouse_id\\\":\\\"W1\\\",\\\"new_capacity\\\":2}}]\"\n      ],\n      \"focus\": \"Multi-phase capacity change persistence and coalition rounding effects (cost*time rounding down). Tests small inventories across phases and unmet demand calculation.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3563,
+    "completion_tokens": 2586,
+    "total_tokens": 6149,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1920,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

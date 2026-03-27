@@ -1,0 +1,368 @@
+def optimize_trading_strategy(
+    asset_data: Dict[str, Dict[str, Any]],
+    correlation_matrix: List[Dict[str, Any]],
+    portfolio_constraints: Dict[str, float],
+) -> Dict[str, Any]:
+    # Basic validations
+    if not asset_data:
+        return {'error': 'No assets provided'}
+    total_capital = portfolio_constraints.get('total_capital', 0.0)
+    if total_capital <= 0:
+        return {'error': 'Insufficient capital'}
+    min_liq = int(portfolio_constraints.get('min_liquidity', 1))
+    # Filter by liquidity
+    assets = {aid: a for aid, a in asset_data.items() if int(a.get('liquidity_score', 0)) >= min_liq}
+    if not assets:
+        return {'error': 'All assets below minimum liquidity threshold'}
+    asset_ids = sorted(assets.keys())
+    n = len(asset_ids)
+    # Build correlation lookup
+    corr = { (pair['asset_pair'][0], pair['asset_pair'][1]): pair['correlation'] for pair in correlation_matrix }
+    def get_corr(a,b):
+        if a==b: return 1.0
+        key = (a,b) if a<b else (b,a)
+        return corr.get(key, 0.0)
+    # Union-Find clustering
+    parent = {aid: aid for aid in asset_ids}
+    rank = {aid: 0 for aid in asset_ids}
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    def union(x,y):
+        rx, ry = find(x), find(y)
+        if rx==ry: return
+        if rank[rx] < rank[ry]:
+            parent[rx] = ry
+        else:
+            parent[ry] = rx
+            if rank[rx]==rank[ry]:
+                rank[rx]+=1
+    # union when corr > 0.7
+    for i in range(n):
+        for j in range(i+1,n):
+            a,b = asset_ids[i], asset_ids[j]
+            if get_corr(a,b) > 0.7:
+                union(a,b)
+    clusters = defaultdict(list)
+    for aid in asset_ids:
+        clusters[find(aid)].append(aid)
+    segments = []
+    for idx, (root, members) in enumerate(clusters.items()):
+        segments.append(f"segment_{idx}")
+    # Identify arbitrage candidates (cross-segment corr >0.8)
+    arbitrage_ops = []
+    for i in range(n):
+        for j in range(i+1,n):
+            a,b = asset_ids[i], asset_ids[j]
+            rho = get_corr(a,b)
+            if rho > 0.8:
+                # compute avg returns
+                def avg_ret(aid):
+                    prices = assets[aid].get('prices', [])
+                    if len(prices)<2: return 0.0
+                    rets = [(prices[k]-prices[k-1])/prices[k-1] for k in range(1,len(prices))]
+                    return sum(rets)/len(rets) if rets else 0.0
+                ra, rb = avg_ret(a), avg_ret(b)
+                divergence = 0.0
+                if rho != 0:
+                    divergence = abs(ra - rb) / abs(rho)
+                if divergence > 0.05:
+                    action = 'ARBITRAGE'
+                    arbitrage_ops.append({'asset_pair':[a,b],'divergence':divergence,'action':action})
+    # Precompute asset statistics: avg_return, volatility
+    stats = {}
+    for aid, info in assets.items():
+        prices = info.get('prices',[])
+        if len(prices) < 2:
+            avg_r = 0.0
+        else:
+            rets = [(prices[k]-prices[k-1])/prices[k-1] for k in range(1,len(prices))]
+            avg_r = sum(rets)/len(rets) if rets else 0.0
+        stats[aid] = {'avg_return': avg_r, 'volatility': float(info.get('volatility', 1.0)), 'sector': info.get('sector','')}
+    # Theoretical max sharpe func
+    def theoretical_max_sharpe(available):
+        if not available:
+            return 0.0
+        max_returns = [stats[a]['avg_return'] for a in available]
+        min_vols = [stats[a]['volatility'] for a in available if stats[a]['volatility']>0]
+        if not min_vols:
+            return 0.0
+        mr = max(max_returns) if max_returns else 0.0
+        mv = min(min_vols) if min_vols else 1.0
+        if mv==0: return mr/1e-6
+        return mr / mv if mv else 0.0
+    # Portfolio metrics
+    def portfolio_metrics(allocation_map):
+        # allocation_map: asset->weight (sum to 1 or <=1)
+        w = {a: allocation_map.get(a,0.0) for a in asset_ids}
+        expected_return = sum(w[a]*stats[a]['avg_return'] for a in asset_ids)
+        variance = 0.0
+        for i in range(n):
+            ai = asset_ids[i]
+            wi = w[ai]
+            sigma_i = stats[ai]['volatility']
+            variance += (wi*wi)*(sigma_i*sigma_i)
+            for j in range(i+1,n):
+                aj = asset_ids[j]
+                wj = w[aj]
+                sigma_j = stats[aj]['volatility']
+                rho = get_corr(ai,aj)
+                variance += 2*(wi*wj*sigma_i*sigma_j*rho)
+        vol = math.sqrt(variance) if variance>0 else 1e-9
+        sharpe = expected_return / vol if vol>0 else 0.0
+        return expected_return, vol, sharpe
+    # Constraints
+    max_pos = float(portfolio_constraints.get('max_position_size', 1.0))
+    max_sector = float(portfolio_constraints.get('max_sector_concentration', 1.0))
+    max_port_vol = float(portfolio_constraints.get('max_portfolio_volatility', float('inf')))
+    # Memoization with FNV-1a and linear probing
+    cache = {}
+    cache_hits = cache_misses = collisions = 0
+    def fnv1a_32(fset: FrozenSet[Tuple[str,float]]):
+        # deterministic: sort elements
+        FNV_prime = 0x01000193
+        h = 0x811c9dc5
+        for item in sorted(fset):
+            s = f"{item[0]}:{item[1]:.3f}"
+            for ch in s:
+                h ^= ord(ch)
+                h = (h * FNV_prime) & 0xffffffff
+        return h
+    # Decision path and counters
+    decision_path_records = []
+    prune_ops = 0
+    backtrack_count = 0
+    prune_limit_time = time.time() + 5.0  # avoid excessive runtime in testing
+    # Recursive search with alpha-beta, iterative deepening
+    best_overall = {'strategy':{}, 'sharpe': -1e9, 'path': []}
+    # We'll treat allocations discrete by 0.05 increments to limit branching
+    increments = [round(i*0.05,3) for i in range(0,21)]  # 0..1
+    # Helper to check constraints early
+    def constraints_ok(partial_alloc):
+        # per-asset
+        for a, w in partial_alloc.items():
+            if w - 1e-9 > max_pos:
+                return False, 'position_limit'
+            if assets[a]['liquidity_score'] < min_liq:
+                return False, 'liquidity'
+        # sector concentration
+        sector_sum = defaultdict(float)
+        for a,w in partial_alloc.items():
+            sector_sum[stats[a]['sector']] += w
+        for sec,amt in sector_sum.items():
+            if amt - 1e-9 > max_sector:
+                return False, 'sector_concentration'
+        # portfolio volatility approximate: compute with current weights (others zero)
+        _, vol, _ = portfolio_metrics(partial_alloc)
+        if vol - 1e-9 > max_port_vol:
+            return False, 'volatility'
+        return True, None
+    # main recursive function
+    def search(depth, max_depth, remaining, current_alloc, current_sharpe, alpha, beta, path):
+        nonlocal cache_hits, cache_misses, collisions, prune_ops, backtrack_count, best_overall
+        # Time cutoff
+        if time.time() > prune_limit_time:
+            return None
+        # State key
+        key_set = frozenset(((a, round(current_alloc.get(a,0.0),3)) for a in asset_ids))
+        h = fnv1a_32(key_set)
+        idx = h
+        slot = idx
+        probe = 0
+        cached = None
+        while True:
+            if slot in cache:
+                k_stored, val = cache[slot]
+                if k_stored == key_set:
+                    cache_hits += 1
+                    cached = val
+                    break
+                else:
+                    collisions += 1
+                    probe += 1
+                    slot = (idx + probe) & 0xffffffff
+                    continue
+            else:
+                cache_misses += 1
+                break
+        if cached is not None:
+            # use cached best from here
+            opt_strategy, opt_sharpe = cached
+            # update best_overall if better
+            if opt_sharpe > best_overall['sharpe'] + 1e-9:
+                best_overall['sharpe'] = opt_sharpe
+                best_overall['strategy'] = opt_strategy.copy()
+                best_overall['path'] = path.copy()
+            return opt_strategy, opt_sharpe
+        # Terminal or depth
+        if depth >= max_depth or not remaining:
+            # finalize compute
+            exp, vol, sharpe = portfolio_metrics(current_alloc)
+            # store
+            cache_slot = slot
+            cache[cache_slot] = (key_set, ({k:v for k,v in current_alloc.items()}, sharpe))
+            if sharpe > best_overall['sharpe'] + 1e-9:
+                best_overall['sharpe'] = sharpe
+                best_overall['strategy'] = current_alloc.copy()
+                best_overall['path'] = path.copy()
+            return current_alloc.copy(), sharpe
+        # Node upper bound
+        tmax = theoretical_max_sharpe(remaining)
+        node_upper = min(current_sharpe + tmax * 0.5, tmax)
+        if node_upper <= alpha:
+            prune_ops += 1
+            return None
+        best_local_strategy = None
+        best_local_sharpe = -1e9
+        # iterate choices: choose next asset to allocate or skip
+        # pick highest theoretical benefit asset first
+        ranked = sorted(remaining, key=lambda a: stats[a]['avg_return']/ (stats[a]['volatility'] if stats[a]['volatility']>0 else 1e-6), reverse=True)
+        for a in ranked:
+            # try allocations
+            for alloc in increments:
+                if alloc <= 0:
+                    continue
+                new_alloc = current_alloc.copy()
+                new_alloc[a] = round(new_alloc.get(a,0.0) + alloc,3)
+                # do not exceed total 1.0
+                total_alloc = sum(new_alloc.values())
+                if total_alloc - 1.0001 > 0:
+                    continue
+                ok, reason = constraints_ok(new_alloc)
+                if not ok:
+                    backtrack_count += 1
+                    continue
+                exp, vol, sharpe = portfolio_metrics(new_alloc)
+                # prepare path record
+                path_record = (depth+1, a, alloc, sharpe - current_sharpe, [] if reason is None else [reason])
+                path.append(path_record)
+                new_remaining = [x for x in remaining if x!=a]
+                # alpha-beta update
+                if sharpe > beta:
+                    # update beta (theoretical max)
+                    pass
+                res = search(depth+1, max_depth, new_remaining, new_alloc, sharpe, alpha, beta, path)
+                path.pop()
+                if res:
+                    strat, s_sharpe = res
+                    if s_sharpe is None:
+                        continue
+                    if s_sharpe > best_local_sharpe + 1e-9 or (abs(s_sharpe - best_local_sharpe) <= 0.001 and (sum(1 for v in strat.values() if v>0) < sum(1 for v in (best_local_strategy or {}).values() if v>0))):
+                        best_local_sharpe = s_sharpe
+                        best_local_strategy = strat.copy()
+                        # update alpha
+                        if s_sharpe > alpha:
+                            alpha = s_sharpe
+                # pruning if alpha >= node_upper
+                if alpha >= node_upper:
+                    prune_ops += 1
+                    break
+            # also consider skipping this asset (assign zero) to explore alternatives
+            # small attempt: continue to next asset
+        # cache result
+        cache_slot = slot
+        cache[cache_slot] = (key_set, (best_local_strategy or {}, best_local_sharpe if best_local_sharpe>-1e8 else 0.0))
+        if best_local_sharpe > best_overall['sharpe'] + 1e-9:
+            best_overall['sharpe'] = best_local_sharpe
+            best_overall['strategy'] = (best_local_strategy or {}).copy()
+            best_overall['path'] = path.copy()
+        return best_local_strategy, best_local_sharpe
+    # Iterative deepening
+    final_strategy = {}
+    final_sharpe = -1e9
+    max_depth_reached = 0
+    for depth_lim in range(2,9):
+        max_depth_reached = depth_lim
+        # reset alpha-beta per iteration
+        alpha = best_overall['sharpe']
+        beta = theoretical_max_sharpe(asset_ids)
+        res = search(0, depth_lim, asset_ids.copy(), {}, 0.0, alpha, beta, [])
+        if res:
+            strat, s_sharpe = res
+            if s_sharpe is not None and s_sharpe > final_sharpe + 1e-9:
+                final_sharpe = s_sharpe
+                final_strategy = strat.copy()
+        # early termination if convergence: no improvement
+        # simple heuristic: if improvement small
+    if not final_strategy:
+        # maybe empty allocation allowed; if constraints impossible
+        return {'error': 'Unsolvable sector concentration constraints'}
+    # Post-process: Cross-segment arbitrage and conflict resolution
+    resolved_conflicts = []
+    # detect pairs with rho>0.7 with opposing suggested positions
+    for i in range(n):
+        for j in range(i+1,n):
+            a,b = asset_ids[i], asset_ids[j]
+            rho = get_corr(a,b)
+            if rho > 0.7:
+                wa = final_strategy.get(a,0.0)
+                wb = final_strategy.get(b,0.0)
+                if wa>0 and wb<0 or wa<0 and wb>0:
+                    # resolve via sharpe-weighted merge (simplified)
+                    sa = stats[a]['avg_return'] / (stats[a]['volatility'] if stats[a]['volatility']>0 else 1e-6)
+                    sb = stats[b]['avg_return'] / (stats[b]['volatility'] if stats[b]['volatility']>0 else 1e-6)
+                    total = abs(sa)+abs(sb)
+                    if total == 0:
+                        continue
+                    wa_new = (abs(sa)/total) * (wa+abs(wb))
+                    wb_new = (abs(sb)/total) * (wa+abs(wb))
+                    final_strategy[a] = round(wa_new,3)
+                    final_strategy[b] = round(wb_new,3)
+                    resolved_conflicts.append({'pair':[a,b],'conflict_type':'opposing_positions','resolution':'sharpe_weighted_merge'})
+    # Arbitrage resolution for rho>0.8 as earlier (simpler: recommend trade)
+    arbitrage_list = []
+    for op in arbitrage_ops:
+        arbitrage_list.append(op)
+    # Iterative rebalancing
+    iteration_history = []
+    converged = False
+    max_iterations = 15
+    iter_count = 0
+    while iter_count < max_iterations:
+        iter_count += 1
+        # compute violations: per-asset, per-sector
+        sector_sum = defaultdict(float)
+        for a,w in final_strategy.items():
+            sector_sum[stats[a]['sector']] += w
+        violations = []
+        max_violation = 0.0
+        worst_asset = None
+        for a,w in final_strategy.items():
+            if w - max_pos > 0:
+                v = w - max_pos
+                violations.append((a,'position_limit',v))
+                if v > max_violation:
+                    max_violation = v; worst_asset = a
+        for sec,amt in sector_sum.items():
+            if amt - max_sector > 0:
+                v = amt - max_sector
+                violations.append((sec,'sector',v))
+                if v > max_violation:
+                    max_violation = v; worst_asset = None
+        iteration_history.append({'iteration':iter_count,'violations':violations,'max_violation':max_violation})
+        if max_violation < 0.001:
+            converged = True
+            break
+        if not violations:
+            converged = True
+            break
+        # redistribute worst violator: if asset, reduce and spread proportionally to sharpe contributions
+        if worst_asset:
+            reduce_amt = min(final_strategy[worst_asset], max_violation)
+            final_strategy[worst_asset] = round(final_strategy[worst_asset] - reduce_amt,3)
+            # compute sharpe contributions
+            contribs = {}
+            total_contrib = 0.0
+            for a,w in final_strategy.items():
+                contrib = abs(stats[a]['avg_return']) * (1.0/(stats[a]['volatility'] if stats[a]['volatility']>0 else 1e-6))
+                contribs[a] = contrib
+                total_contrib += contrib
+            if total_contrib == 0:
+                # distribute equally
+                for a in final_strategy:
+                    final_strategy[a] = round(final_strategy[a] + reduce_amt/(len(final_strategy)-1 if len(final_strategy)>1 else 1),3)
+            else:
+                for a in final_strategy:
+                    if a

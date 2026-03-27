@@ -1,0 +1,169 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+Develop a comprehensive Python-based cryptographic key distribution optimization system for a financial institution's secure communications network. This system serves as a critical component for financial technology platforms that require efficient allocation of encryption keys to various branches while minimizing latency and maximizing security. The framework must implement greedy algorithms with priority-based transaction processing, Union-Find for connectivity management, Dijkstra's algorithm for optimal path routing, and dynamic risk assessment to achieve deterministic performance essential for real-time secure transaction processing.
+
+## Problem Description
+
+The system optimizes cryptographic key distribution across a network of branches using advanced algorithmic paradigms. The framework must implement:
+
+### Core Features
+
+1. **Transaction Prioritization**: Priority queue-based processing of transactions ordered by risk scores
+2. **Network Connectivity Management**: Union-Find data structure for efficient connectivity queries
+3. **Optimal Path Routing**: Dijkstra's algorithm for shortest path computation with latency constraints
+4. **Dynamic Risk Assessment**: Real-time risk score adjustments based on network conditions
+5. **Bandwidth Allocation**: Constraint satisfaction for network bandwidth management
+6. **Path Security Evaluation**: Security scoring based on failure probabilities and risk factors
+7. **Performance Monitoring**: Time-based constraints and performance tracking
+8. **Bidirectional Network Topology**: Symmetric latency between connected branches
+9. **Resource Constraint Handling**: Bandwidth allocation along entire paths
+10. **Deterministic Output**: Consistent results sorted by transaction identifiers
+
+### Required Output Structure
+
+The main function must return a list of dictionaries, each with these exact keys:
+- `transaction_id`: Original transaction identifier (int)
+- `allocated`: Boolean indicating successful key allocation
+- `path_taken`: List of branch IDs representing the distribution path (empty list if not allocated)
+
+## Function Signature
+
+```python
+def optimize_key_distribution(transactions: List[Dict[str, Any]],
+                              branches: List[Dict[str, Any]],
+                              network_status: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Optimize key distribution across network branches using advanced algorithms.
+
+    This function implements a multi-stage optimization approach that:
+    1. Uses priority queues to handle transaction prioritization based on risk scores
+    2. Employs Union-Find for network connectivity management
+    3. Implements Dijkstra's algorithm for shortest path routing
+    4. Includes dynamic risk assessment with real-time adjustments
+    5. Manages bandwidth allocation and constraint satisfaction
+    6. Evaluates path security for optimal routing decisions
+
+    Args:
+        transactions: List of transaction dictionaries with id, branch_id, and risk_score
+        branches: List of branch dictionaries with id, bandwidth, and failure_probability
+        network_status: Dictionary containing latency_matrix, dynamic_risk_adjustments,
+                       and global_security_alert status
+
+    Returns:
+        List of allocation results with transaction_id, allocated status, and path_taken
+    """
+    pass
+```
+
+## Constraints
+
+1. **Standard Library Only**: Implementation must rely exclusively on Python's standard library, specifically the typing module for type hints and heapq for efficient priority queue operations
+2. **Transaction Structure**: Each transaction must contain an integer identifier, a string representing the target branch, and a numeric risk assessment value (supporting both integer and floating-point representations)
+3. **Branch Configuration**: Branch definitions must specify a unique string identifier, available bandwidth capacity as a numeric value, and a failure probability expressed as a decimal between zero and one
+4. **Network Status Flexibility**: The network status information may optionally include connection latencies between branches, per-branch risk adjustments, and a boolean security alert flag; implementations should handle missing values gracefully with appropriate defaults
+5. **Comprehensive Validation**: The system must validate all input structures and raise appropriate exceptions for missing required fields or incorrect data types, providing clear error messages to aid debugging
+6. **Latency Representation**: Network latencies should be represented using string keys in the format "source->destination" identifying source and destination branches, with numeric values indicating connection delay
+7. **Symmetric Connectivity**: The network topology is bidirectional, meaning any direct connection between two branches can be traversed in either direction with identical latency characteristics
+8. **Branch Existence Verification**: Network edges should only be established between branches that actually exist in the system configuration, filtering out any references to undefined branches
+9. **Central Distribution Point**: All cryptographic key distributions originate from a designated headquarters branch identified by the string 'HQ' and must route to their respective target branches
+10. **Risk-Based Prioritization**: Transaction processing order should prioritize higher risk transactions first, where priority is calculated as 100.0 minus the adjusted risk score (higher risk transactions have lower priority values and are thus processed first)
+11. **Multi-Factor Risk Assessment**: The adjusted risk calculation incorporates the base risk score plus any dynamic adjustments, historical incident factors, and anomaly detection signals, all multiplied by a security alert multiplier, with results capped at a maximum of one hundred
+12. **Dynamic Adjustment Handling**: Branch-specific risk adjustments should be retrieved from the configuration, defaulting to zero when no specific adjustment exists for a given branch
+13. **Security Alert Impact**: When a global security alert is active, all risk calculations should be amplified by a factor of 1.1 to reflect heightened threat conditions; normal operations use a neutral multiplier of 1.0
+14. **Extensibility Provisions**: The system architecture should accommodate future enhancements for historical incident tracking and anomaly detection, currently initialized with empty data structures and zero-value defaults
+15. **Bandwidth Requirements**: Each transaction's bandwidth needs scale with its risk profile, starting from a base requirement of ten units and increasing proportionally based on the risk score's percentage representation
+16. **Connectivity Data Structure**: Implement a Union-Find structure to efficiently track network connectivity, initializing each branch as its own independent component with equal rank
+17. **Path Compression Optimization**: When finding component representatives in the Union-Find structure, optimize subsequent queries by directly linking nodes to their root representatives during traversal
+18. **Balanced Union Strategy**: When merging network components, attach the component with lower rank to the one with higher rank to maintain tree balance; when ranks are equal, increment the resulting root's rank
+19. **Connectivity Queries**: Determine if two branches are in the same network component by comparing their root representatives in the Union-Find structure
+20. **Priority Queue Ordering**: Maintain transaction processing order using a heap-based priority queue where entries include priority value, a tie-breaking counter, and the task identifier
+21. **Lazy Deletion Pattern**: Support priority updates by marking entries as removed rather than physically deleting them, filtering out marked entries during retrieval operations
+22. **Queue State Tracking**: Determine queue emptiness by checking active entry count rather than heap size to account for removed entries
+23. **Shortest Path Foundation**: Initialize shortest path calculations with infinite distances for all branches except the source, which starts at zero, while tracking predecessor relationships for path reconstruction
+24. **Early Termination Optimization**: Shortest path algorithms can terminate immediately upon reaching the target destination, avoiding unnecessary exploration of remaining network branches
+25. **Distance Relaxation**: Update distance estimates when a shorter path is discovered through a neighboring branch, maintaining predecessor relationships to enable path reconstruction
+26. **Path Recovery Procedure**: Reconstruct the routing path by backtracking through predecessor relationships from target to source; handle cases where no path exists by returning appropriate indicators
+27. **Local Transaction Handling**: When a transaction's target is the source branch itself, optimize by checking local resource availability without invoking path-finding algorithms
+28. **Connectivity Validation**: Before attempting to find paths between branches, verify network connectivity using the Union-Find structure to avoid unnecessary computation for disconnected components
+29. **Resource Availability Verification**: Ensure all branches along a proposed path have sufficient available bandwidth before allocation, checking each node's capacity against the transaction's requirements
+30. **Security Assessment Threshold**: Calculate path security by averaging individual node security scores (derived from failure probabilities and risk factors), only proceeding with allocation when the average meets or exceeds a threshold of 0.7
+
+## Sample Input
+
+```python
+transactions = [
+    {'transaction_id': 101, 'branch_id': 'HQ', 'risk_score': 95},
+    {'transaction_id': 102, 'branch_id': 'R1', 'risk_score': 78},
+    {'transaction_id': 103, 'branch_id': 'R2', 'risk_score': 88},
+    {'transaction_id': 104, 'branch_id': 'R1', 'risk_score': 65},
+    {'transaction_id': 105, 'branch_id': 'R3', 'risk_score': 93}
+]
+
+branches = [
+    {'branch_id': 'HQ', 'bandwidth': 200, 'failure_probability': 0.005},
+    {'branch_id': 'R1', 'bandwidth': 100, 'failure_probability': 0.013},
+    {'branch_id': 'R2', 'bandwidth': 150, 'failure_probability': 0.009},
+    {'branch_id': 'R3', 'bandwidth': 120, 'failure_probability': 0.011}
+]
+
+network_status = {
+    'latency_matrix': {
+        'HQ->R1': 10,
+        'HQ->R2': 15,
+        'HQ->R3': 20,
+        'R1->R2': 12,
+        'R2->R3': 18,
+        'R1->R3': 16
+    },
+    'dynamic_risk_adjustments': {
+        'HQ': 2,
+        'R1': 5,
+        'R2': 0,
+        'R3': 3
+    },
+    'global_security_alert': True
+}
+```
+
+## Sample Output
+
+```python
+[
+    {'transaction_id': 101, 'allocated': True, 'path_taken': ['HQ']},
+    {'transaction_id': 102, 'allocated': True, 'path_taken': ['HQ', 'R1']},
+    {'transaction_id': 103, 'allocated': True, 'path_taken': ['HQ', 'R2']},
+    {'transaction_id': 104, 'allocated': True, 'path_taken': ['HQ', 'R1']},
+    {'transaction_id': 105, 'allocated': True, 'path_taken': ['HQ', 'R3']}
+]
+```
+
+## Output Format
+
+- Return value: List of dictionaries, one per transaction
+- Each dictionary contains:
+  - `transaction_id`: Integer matching input transaction ID
+  - `allocated`: Boolean (True if key successfully allocated, False otherwise)
+  - `path_taken`: List of string branch IDs from HQ to target (empty list if not allocated)
+- Results must be sorted by transaction_id in ascending order
+- All transactions must appear in output, even if not allocated
+
+Starter Code:
+```python
+from typing import List, Dict, Any, Tuple
+import heapq
+
+
+def optimize_key_distribution(transactions: List[Dict[str, Any]],
+                              branches: List[Dict[str, Any]],
+                              network_status: Dict[str, Any]) -> List[Dict[str, Any]]:
+    pass
+```

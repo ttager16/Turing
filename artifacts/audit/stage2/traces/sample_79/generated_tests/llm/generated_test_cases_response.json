@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6Toslw1qbFaLfMDHwPyA9X6FitX",
+  "object": "chat.completion",
+  "created": 1774398824,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[]\"\n      ],\n      \"focus\": \"entirely empty input (no streams) -> should return []\"\n    },\n    {\n      \"input_lines\": [\n        \"[[[1, \\\"buy\\\", 150.0], [2, \\\"sell\\\", 100.0]], [[3, \\\"sell\\\", 120.0], [4, \\\"buy\\\", 130.0]]]\"\n      ],\n      \"focus\": \"all orders fully match and are removed (result should be [])\"\n    },\n    {\n      \"input_lines\": [\n        \"[[[5, \\\"buy\\\", 99.0], [5, \\\"sell\\\", 101.0]], [[5, \\\"buy\\\", 99.0], [5, \\\"sell\\\", 100.0]], [[5, \\\"buy\\\", 98.0]]]\"\n      ],\n      \"focus\": \"tie-breaks across identical priorities/prices and arrival-index ordering; no crossing so final ordering tests side, price-aggressiveness, and arrival_index\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1980,
+    "completion_tokens": 1904,
+    "total_tokens": 3884,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1664,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

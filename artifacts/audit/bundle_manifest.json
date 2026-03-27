@@ -1,0 +1,7 @@
+{
+  "stage1_prompt_templates": 13,
+  "stage2_traces_present": true,
+  "stage3_stage3_auditor_traces_present": true,
+  "stage3_embedding_traces_present": true,
+  "stage4_review_packet_present": true
+}

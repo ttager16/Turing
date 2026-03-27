@@ -1,0 +1,97 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+A financial technology company is developing a high-frequency trading platform that requires efficient real-time data processing and analysis.
+They need to implement an order matching engine capable of handling thousands of buy and sell orders per second while ensuring that the system remains balanced and performant under heavy load.
+
+To achieve this, the company has decided to use an AVL tree, a self-balancing binary search tree structure, to store and retrieve orders based on price levels.
+This design enables the system to insert, delete, and search orders in logarithmic time complexity, which is crucial for real-time performance in high-frequency trading environments.
+
+Your task is to implement a simplified version of this AVL-based order management system.
+The system maintains a collection of integer price levels and supports the following operations:
+
+1. Insertion - add a new price level to the AVL tree.
+2. Deletion - remove an existing price level from the AVL tree.
+3. Search - check whether a specific price level exists and return it if present.
+
+All operations must be processed sequentially.
+After each insertion or deletion, the AVL tree must remain height-balanced, with balance factors limited to {–1, 0, 1}.
+
+
+### Objectives
+
+1. Implement an AVL tree supporting deterministic insert, delete, and search operations in O(log n) time.
+2. Maintain height balance after every update using correct rotations (LL, RR, LR, RL).
+3. Accept operation names in any case form ('insert', 'INSERT', 'InSeRt', etc.) and handle them equivalently.
+4. Guarantee idempotence - duplicate inserts or deletes must produce consistent results.
+5. Ensure state isolation - every call starts with a new, empty tree.
+6. Preserve operation order integrity - produce one output per operation, in order.
+
+
+### Constraints
+
+* Use only the Python standard library, no external libraries are allowed.
+* Input Structure:
+  * The input is a list of lists, where each inner list represents one operation: [operation_type, value].
+  * Each inner list must contain exactly two elements, other return [].
+* operation_type must be a string, matching 'insert', 'delete', or 'search' (case-insensitive), on violation function must immediately return []
+* value must be an integer only (negative intergers are valid), if float or anyother type appears function must immediately return []
+* Behavioral Rules:
+  * 'insert': add the key if not already present; return None.
+  * 'delete': remove the key if present; return None.
+  * 'search': return the key if found, else None.
+  * Duplicate inserts must not create multiple copies.
+  * Deleting a missing key must not raise an error.
+  * After every insertion/deletion, the AVL tree must remain height-balanced using the appropriate rotations.
+  * Each function call must begin with a fresh AVL tree.
+* Complexity:
+  * All valid operations must run in O(log n) time.
+
+
+### Function Signature
+
+
+```python
+def handle_orders(operations: List[List]) -> List:
+```
+
+
+### Sample Input/Output
+
+Input:
+```python
+operations = [
+  ['insert', 300],
+  ['insert', 450],
+  ['delete', 300],
+  ['search', 450]
+]
+```
+
+Output:
+```
+[None, None, None, 450]
+```
+
+
+### Description of Expected Output
+
+* "insert" (in any case) adds the price level and returns None.
+* "delete" (in any case) removes the price level if present and returns None.
+* "search" (in any case) returns the integer if found, otherwise None
+
+Starter Code:
+```python
+from typing import List
+
+def handle_orders(operations: List[List]) -> List:
+    pass
+```

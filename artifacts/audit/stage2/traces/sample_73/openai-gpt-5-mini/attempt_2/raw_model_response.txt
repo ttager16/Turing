@@ -1,0 +1,332 @@
+from typing import Any, Dict, List, Optional, Callable, Tuple
+import unicodedata
+import collections
+import sys
+
+# Deterministic 64-bit FNV-1a
+def fnv1a_64(data: bytes) -> int:
+    h = 0xcbf29ce484222325
+    fnv_prime = 0x100000001b3
+    for b in data:
+        h ^= b
+        h = (h * fnv_prime) & 0xFFFFFFFFFFFFFFFF
+    return h
+
+def str_to_bytes(s: str) -> bytes:
+    return s.encode('utf-8')
+
+def canonical_nfc(s: str) -> str:
+    return unicodedata.normalize('NFC', s)
+
+def is_supported_key_type(k: Any) -> bool:
+    return isinstance(k, (int, str, bytes))
+
+def detect_circular(obj: Any, seen: Optional[set]=None) -> bool:
+    if seen is None:
+        seen = set()
+    oid = id(obj)
+    if oid in seen:
+        return True
+    if isinstance(obj, (str, bytes, int, float, bool, type(None))):
+        return False
+    seen.add(oid)
+    if isinstance(obj, dict):
+        for kk, vv in obj.items():
+            if detect_circular(kk, seen):
+                return True
+            if detect_circular(vv, seen):
+                return True
+    elif isinstance(obj, (list, tuple, set)):
+        for item in obj:
+            if detect_circular(item, seen):
+                return True
+    # other types: inspect attributes?
+    # Conservative: do not traverse arbitrary objects to avoid introspection issues.
+    seen.remove(oid)
+    return False
+
+class Entry:
+    __slots__ = ('norm_key', 'orig_key', 'value', 'hash64', 'insert_idx')
+    def __init__(self, norm_key, orig_key, value, hash64, insert_idx):
+        self.norm_key = norm_key
+        self.orig_key = orig_key
+        self.value = value
+        self.hash64 = hash64
+        self.insert_idx = insert_idx
+
+class DeterministicNamespace:
+    def __init__(self, name: str, conf: Dict[str, Any]):
+        self.name = name
+        mode = conf.get('mode')
+        if mode not in ('map', 'set'):
+            raise ValueError(f"Invalid namespace mode for {name}: {mode}")
+        self.mode = mode
+        # validators and hash_fn may be provided as callables in Python tests
+        self.hash_fn: Optional[Callable[[Any], int]] = conf.get('hash_fn')
+        self.key_validator: Optional[Callable[[Any], None]] = conf.get('key_validator')
+        self.value_validator: Optional[Callable[[Any], None]] = conf.get('value_validator')
+        norm_mode = conf.get('normalize_key', 'nfc')
+        if norm_mode not in ('none', 'nfc', 'case_insensitive'):
+            raise ValueError(f"Invalid normalize_key for {name}: {norm_mode}")
+        self.normalize_mode = norm_mode
+        # storage
+        self.capacity = 8  # power of two initial
+        self.buckets: List[List[Entry]] = [[] for _ in range(self.capacity)]
+        self.size = 0
+        self._insert_counter = 0  # for stable insertion order
+    def _apply_key_validator(self, key):
+        if self.key_validator:
+            try:
+                self.key_validator(key)
+            except Exception as e:
+                raise
+    def _normalize(self, key) -> Tuple[Any, int]:
+        # returns (normalized_key, hash64)
+        if isinstance(key, int):
+            norm = key
+            h = key & 0xFFFFFFFFFFFFFFFF
+            return norm, h
+        if isinstance(key, bytes):
+            norm = key
+            if self.hash_fn:
+                h = self.hash_fn(key) & 0xFFFFFFFFFFFFFFFF
+            else:
+                h = fnv1a_64(key)
+            return norm, h
+        if isinstance(key, str):
+            s = canonical_nfc(key)
+            if self.normalize_mode == 'case_insensitive':
+                s = s.lower()
+            # default always NFC applied per requirements
+            norm = s
+            if self.hash_fn:
+                h = self.hash_fn(s) & 0xFFFFFFFFFFFFFFFF
+            else:
+                h = fnv1a_64(str_to_bytes(s))
+            return norm, h
+        raise TypeError("Invalid operation: unsupported key type")
+    def _bucket_index(self, hash64: int) -> int:
+        return hash64 & (self.capacity - 1)
+    def _find_entry(self, norm_key, hash64) -> Optional[Entry]:
+        b = self.buckets[self._bucket_index(hash64)]
+        for e in b:
+            if e.hash64 == hash64 and e.norm_key == norm_key:
+                return e
+        return None
+    def _rehash_if_needed(self):
+        if self.size > (self.capacity * 0.75):
+            old_buckets = self.buckets
+            old_capacity = self.capacity
+            self.capacity *= 2
+            self.buckets = [[] for _ in range(self.capacity)]
+            # reinsert preserving original bucket order and entry order within bucket
+            for i in range(old_capacity):
+                bucket = old_buckets[i]
+                for e in bucket:
+                    idx = self._bucket_index(e.hash64)
+                    self.buckets[idx].append(e)
+    def put(self, key: Any, value: Any):
+        if self.mode != 'map':
+            raise ValueError("Invalid operation: put not supported in set mode")
+        if not is_supported_key_type(key):
+            raise TypeError("Invalid operation: unsupported key type")
+        self._apply_key_validator(key)
+        if detect_circular(value):
+            raise ValueError("Invalid value: circular reference to table")
+        norm_key, h = self._normalize(key)
+        idx = self._bucket_index(h)
+        # check existing
+        for e in self.buckets[idx]:
+            if e.hash64 == h and e.norm_key == norm_key:
+                # update value; validate
+                if self.value_validator:
+                    self.value_validator(value)
+                e.value = value
+                return
+        # insert new
+        if self.value_validator:
+            self.value_validator(value)
+        e = Entry(norm_key, key, value, h, self._insert_counter)
+        self._insert_counter += 1
+        self.buckets[idx].append(e)
+        self.size += 1
+        self._rehash_if_needed()
+    def get(self, key: Any) -> Any:
+        if self.mode != 'map':
+            raise ValueError("Invalid operation: get not supported in set mode")
+        if not is_supported_key_type(key):
+            raise TypeError("Invalid operation: unsupported key type")
+        norm_key, h = self._normalize(key)
+        e = self._find_entry(norm_key, h)
+        return None if e is None else e.value
+    def remove(self, key: Any):
+        if self.mode != 'map':
+            raise ValueError("Invalid operation: remove not supported in set mode")
+        if not is_supported_key_type(key):
+            raise TypeError("Invalid operation: unsupported key type")
+        norm_key, h = self._normalize(key)
+        idx = self._bucket_index(h)
+        bucket = self.buckets[idx]
+        for i, e in enumerate(bucket):
+            if e.hash64 == h and e.norm_key == norm_key:
+                del bucket[i]
+                self.size -= 1
+                return
+    def update(self, key: Any, func: Callable[[Any], Any]):
+        if self.mode != 'map':
+            raise ValueError("Invalid operation: update not supported in set mode")
+        if not is_supported_key_type(key):
+            raise TypeError("Invalid operation: unsupported key type")
+        norm_key, h = self._normalize(key)
+        e = self._find_entry(norm_key, h)
+        if e is None:
+            raise KeyError("Key not found")
+        new_value = func(e.value)
+        if detect_circular(new_value):
+            raise ValueError("Invalid value: circular reference to table")
+        if self.value_validator:
+            self.value_validator(new_value)
+        e.value = new_value
+    def add(self, key: Any):
+        if self.mode != 'set':
+            raise ValueError("Invalid operation: add not supported in map mode")
+        if not is_supported_key_type(key):
+            raise TypeError("Invalid operation: unsupported key type")
+        self._apply_key_validator(key)
+        norm_key, h = self._normalize(key)
+        idx = self._bucket_index(h)
+        for e in self.buckets[idx]:
+            if e.hash64 == h and e.norm_key == norm_key:
+                return
+        e = Entry(norm_key, key, None, h, self._insert_counter)
+        self._insert_counter += 1
+        self.buckets[idx].append(e)
+        self.size += 1
+        self._rehash_if_needed()
+    def contains(self, key: Any) -> bool:
+        if self.mode != 'set':
+            raise ValueError("Invalid operation: contains not supported in map mode")
+        if not is_supported_key_type(key):
+            raise TypeError("Invalid operation: unsupported key type")
+        norm_key, h = self._normalize(key)
+        return self._find_entry(norm_key, h) is not None
+    def discard(self, key: Any):
+        if self.mode != 'set':
+            raise ValueError("Invalid operation: discard not supported in map mode")
+        if not is_supported_key_type(key):
+            raise TypeError("Invalid operation: unsupported key type")
+        norm_key, h = self._normalize(key)
+        idx = self._bucket_index(h)
+        bucket = self.buckets[idx]
+        for i, e in enumerate(bucket):
+            if e.hash64 == h and e.norm_key == norm_key:
+                del bucket[i]
+                self.size -= 1
+                return
+    def bulk_load(self, entries: List[Any]):
+        # entries: list of [k,v] for map, list of k for set
+        if self.mode == 'map':
+            for kv in entries:
+                if not isinstance(kv, (list, tuple)) or len(kv) != 2:
+                    raise ValueError("Invalid bulk_load entries for map")
+                self.put(kv[0], kv[1])
+        else:
+            for k in entries:
+                self.add(k)
+    def snapshot_entries(self) -> List[Any]:
+        # produce list according to ordering rules:
+        # sort by bucket index (0..capacity-1), then by hash value, then by canonical key, then by insertion index.
+        result = []
+        for bucket_idx in range(self.capacity):
+            bucket = self.buckets[bucket_idx]
+            if not bucket:
+                continue
+            # within bucket, sort by hash64, then canonical key, then insert_idx
+            sorted_bucket = sorted(bucket, key=lambda e: (e.hash64, _key_for_sort(e.norm_key), e.insert_idx))
+            for e in sorted_bucket:
+                if self.mode == 'map':
+                    result.append([e.orig_key, e.value])
+                else:
+                    result.append(e.orig_key)
+        return result
+
+def _key_for_sort(k):
+    # produce comparable key for sorting deterministic across types
+    if isinstance(k, int):
+        return ('int', k)
+    if isinstance(k, str):
+        return ('str', k)
+    if isinstance(k, bytes):
+        return ('bytes', tuple(k))
+    return ('other', str(k))
+
+def execute_hash_table_commands(
+    config: Dict[str, Dict[str, Any]],
+    commands: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Execute commands and return final snapshot.
+    """
+    # initialize namespaces
+    namespaces: Dict[str, DeterministicNamespace] = {}
+    for nsname in config:
+        namespaces[nsname] = DeterministicNamespace(nsname, config[nsname])
+    last_snapshot: Optional[Dict[str, Any]] = None
+    for cmd in commands:
+        op = cmd.get('op')
+        if op == 'snapshot':
+            # produce snapshot at this point (but continue processing until end)
+            snap = {}
+            for ns in sorted(namespaces.keys()):
+                snap[ns] = namespaces[ns].snapshot_entries()
+            last_snapshot = snap
+            continue
+        ns = cmd.get('ns')
+        if ns not in namespaces:
+            raise ValueError(f"Invalid operation: unknown namespace {ns}")
+        nsobj = namespaces[ns]
+        if op == 'put':
+            if 'key' not in cmd or 'value' not in cmd:
+                raise ValueError("Invalid operation: put requires key and value")
+            nsobj.put(cmd['key'], cmd['value'])
+        elif op == 'get':
+            if 'key' not in cmd:
+                raise ValueError("Invalid operation: get requires key")
+            _ = nsobj.get(cmd['key'])
+        elif op == 'remove':
+            if 'key' not in cmd:
+                raise ValueError("Invalid operation: remove requires key")
+            nsobj.remove(cmd['key'])
+        elif op == 'update':
+            if 'key' not in cmd or 'func' not in cmd:
+                raise ValueError("Invalid operation: update requires key and func")
+            nsobj.update(cmd['key'], cmd['func'])
+        elif op == 'add':
+            if 'key' not in cmd:
+                raise ValueError("Invalid operation: add requires key")
+            nsobj.add(cmd['key'])
+        elif op == 'contains':
+            if 'key' not in cmd:
+                raise ValueError("Invalid operation: contains requires key")
+            _ = nsobj.contains(cmd['key'])
+        elif op == 'discard':
+            if 'key' not in cmd:
+                raise ValueError("Invalid operation: discard requires key")
+            nsobj.discard(cmd['key'])
+        elif op == 'bulk_load':
+            entries = cmd.get('entries')
+            if entries is None:
+                raise ValueError("Invalid operation: bulk_load requires entries")
+            nsobj.bulk_load(entries)
+        elif op == 'size':
+            # return size maybe used by tests; we won't output but can validate
+            _ = nsobj.size
+        else:
+            raise ValueError(f"Invalid operation: {op}")
+    # final snapshot: if a snapshot command occurred, return last_snapshot, else current
+    if last_snapshot is not None:
+        return last_snapshot
+    snap = {}
+    for ns in sorted(namespaces.keys()):
+        snap[ns] = namespaces[ns].snapshot_entries()
+    return snap

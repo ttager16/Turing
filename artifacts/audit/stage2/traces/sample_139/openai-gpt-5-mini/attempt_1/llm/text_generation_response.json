@@ -1,0 +1,76 @@
+{
+  "id": "resp_0a0cfc354e19abf50069c340bf1634819596a984e9f76ee3d9",
+  "object": "response",
+  "created_at": 1774403775,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774403801,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0a0cfc354e19abf50069c340bf9ce08195b6de99b6b49a9ea5",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0a0cfc354e19abf50069c340bfe9e48195af8682935305e9b3",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from decimal import Decimal, ROUND_HALF_UP\nfrom typing import Dict, List, Tuple\nimport heapq\n\ndef robust_shortest_path(\n        graph: Dict[str, List[List]],\n        start_node: str,\n        end_node: str,\n        is_peak_hour: bool,\n        min_reliability: float,\n        robustness_weight: float\n) -> List[str]:\n    # Error checks\n    if not isinstance(graph, dict):\n        return {\"error\": \"Graph must be a dictionary\"}\n    # node count\n    if len(graph) > 1000:\n        return {\"error\": \"Graph cannot have more than 1000 nodes\"}\n    # is_peak_hour type\n    if not isinstance(is_peak_hour, bool):\n        return {\"error\": \"is_peak_hour must be a boolean\"}\n    # start/end presence\n    if start_node not in graph:\n        return {\"error\": \"Start node not found in graph\"}\n    if end_node not in graph:\n        return {\"error\": \"End node not found in graph\"}\n    # min_reliability and robustness_weight bounds\n    if not (isinstance(min_reliability, (int, float))):\n        return {\"error\": \"Minimum reliability must be between 0.1 and 1.0\"}\n    if not (0.1 <= float(min_reliability) <= 1.0):\n        return {\"error\": \"Minimum reliability must be between 0.1 and 1.0\"}\n    if not (isinstance(robustness_weight, (int, float))):\n        return {\"error\": \"Robustness weight must be between 0.1 and 2.0\"}\n    if not (0.1 <= float(robustness_weight) <= 2.0):\n        return {\"error\": \"Robustness weight must be between 0.1 and 2.0\"}\n\n    # Validate edges and neighbors\n    for node, edges in graph.items():\n        if not isinstance(edges, list):\n            return {\"error\": \"Edge list contains invalid types\"}\n        if len(edges) > 50:\n            return {\"error\": \"Node cannot have more than 50 edges\"}\n        for edge in edges:\n            if (not isinstance(edge, list)) or len(edge) != 5:\n                return {\"error\": \"Edge list contains invalid types\"}\n            neighbor, base_weight, congestion_multiplier, reliability_score, peak_hour_adjustment = edge\n            if not isinstance(neighbor, str):\n                return {\"error\": \"Edge list contains invalid types\"}\n            if neighbor not in graph:\n                return {\"error\": \"Neighbor node not found in graph\"}\n            # numeric checks\n            if not isinstance(base_weight, (int, float)):\n                return {\"error\": \"Edge list contains invalid types\"}\n            if not isinstance(congestion_multiplier, (int, float)):\n                return {\"error\": \"Edge list contains invalid types\"}\n            if not isinstance(reliability_score, (int, float)):\n                return {\"error\": \"Edge list contains invalid types\"}\n            if not isinstance(peak_hour_adjustment, (int, float)):\n                return {\"error\": \"Edge list contains invalid types\"}\n            # base weight constraints\n            if base_weight <= 0:\n                return {\"error\": \"Base weight must be positive\"}\n            if base_weight > 1000:\n                return {\"error\": \"Base weight must not exceed 1000\"}\n            # congestion multiplier\n            if not (1.0 <= float(congestion_multiplier) <= 5.0):\n                return {\"error\": \"Congestion multiplier must be between 1.0 and 5.0\"}\n            # reliability_score\n            if not (0.1 <= float(reliability_score) <= 1.0):\n                return {\"error\": \"Reliability score must be between 0.1 and 1.0\"}\n            # peak_hour_adjustment\n            if not (1.0 <= float(peak_hour_adjustment) <= 3.0):\n                return {\"error\": \"Peak hour adjustment must be between 1.0 and 3.0\"}\n\n    # Single node case\n    if start_node == end_node:\n        return [start_node]\n\n    # Dijkstra variant: state tracks node with accumulated final_weight and robustness_score.\n    # We want minimal final_weight among paths whose robustness_score >= min_reliability.\n    # Since robustness_score is sum(reliability * robustness_weight). Note min_reliability is threshold for that sum.\n    # We'll run Dijkstra minimizing final_weight but only consider paths with robustness >= threshold at termination.\n    # However need to ensure we can explore paths that may have higher weight but meet robustness. We'll keep for each node a dict mapping discretized robustness_sum to best final_weight.\n    # Discretize robustness_sum to 2 decimals as required.\n    def dec2(x: float) -> Decimal:\n        return Decimal(str(x)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)\n\n    min_rel_dec = dec2(min_reliability)\n    rob_weight = float(robustness_weight)\n\n    # Priority queue sorted by final_weight, store (final_weight_decimal, -robustness_decimal, node, path, robustness_decimal)\n    # Using -robustness to prefer higher robustness when same weight.\n    pq = []\n    start_fw = Decimal('0.00')\n    start_rob = Decimal('0.00')\n    heapq.heappush(pq, (start_fw, -start_rob, start_node, [start_node], start_rob))\n\n    # For each node, map robustness_decimal string to minimal final_weight Decimal seen.\n    best = {n: {} for n in graph.keys()}\n\n    while pq:\n        fw, neg_rob, node, path, rob = heapq.heappop(pq)\n        # If reached end and meets reliability threshold, return path\n        if node == end_node and rob >= min_rel_dec:\n            return path\n        # Skip if this state is not better than recorded\n        rob_key = format(rob, 'f')\n        recorded = best[node].get(rob_key)\n        if recorded is not None and recorded < fw:\n            continue\n        # Explore neighbors\n        for edge in graph[node]:\n            neighbor, base_weight, congestion_multiplier, reliability_score, peak_hour_adjustment = edge\n            # compute edge final weight\n            bw = Decimal(str(base_weight))\n            cm = Decimal(str(congestion_multiplier))\n            pha = Decimal(str(peak_hour_adjustment))\n            if is_peak_hour:\n                edge_w = (bw * cm * pha)\n            else:\n                edge_w = (bw * cm)\n            # round edge_w to 2 decimals then sum\n            edge_w = Decimal(edge_w).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)\n            new_fw = (fw + edge_w).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)\n            # robustness addition\n            add_rob = Decimal(str(float(reliability_score) * rob_weight))\n            add_rob = add_rob.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)\n            new_rob = (rob + add_rob).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)\n            neigh_key = format(new_rob, 'f')\n            prev_bw = best[neighbor].get(neigh_key)\n            if prev_bw is None or new_fw < prev_bw:\n                best[neighbor][neigh_key] = new_fw\n                heapq.heappush(pq, (new_fw, -new_rob, neighbor, path + [neighbor], new_rob))\n\n    # If exhausted and no path meets threshold\n    return []"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1678,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1614,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3292
+  },
+  "user": null,
+  "metadata": {}
+}

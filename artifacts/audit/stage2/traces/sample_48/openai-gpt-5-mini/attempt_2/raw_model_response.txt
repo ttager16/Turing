@@ -1,0 +1,251 @@
+from typing import List, Dict, Any, Tuple
+import heapq
+import math
+import time
+
+def optimize_key_distribution(transactions: List[Dict[str, Any]],
+                              branches: List[Dict[str, Any]],
+                              network_status: Dict[str, Any]) -> List[Dict[str, Any]]:
+    # Validation
+    if not isinstance(transactions, list):
+        raise TypeError("transactions must be a list")
+    if not isinstance(branches, list):
+        raise TypeError("branches must be a list")
+    if not isinstance(network_status, dict):
+        raise TypeError("network_status must be a dict")
+    # Build branch map
+    branch_map: Dict[str, Dict[str, Any]] = {}
+    for b in branches:
+        if not isinstance(b, dict):
+            raise TypeError("each branch must be a dict")
+        if 'branch_id' not in b or 'bandwidth' not in b or 'failure_probability' not in b:
+            raise ValueError("branch dict missing required fields")
+        bid = b['branch_id']
+        if not isinstance(bid, str):
+            raise TypeError("branch_id must be a string")
+        bw = b['bandwidth']
+        fp = b['failure_probability']
+        if not (isinstance(bw, (int, float)) and isinstance(fp, (int, float))):
+            raise TypeError("bandwidth and failure_probability must be numeric")
+        branch_map[bid] = {'bandwidth': float(bw), 'failure_probability': float(fp)}
+    if 'HQ' not in branch_map:
+        raise ValueError("HQ branch must exist")
+    # Parse network latencies
+    latency_matrix = network_status.get('latency_matrix', {}) or {}
+    if not isinstance(latency_matrix, dict):
+        raise TypeError("latency_matrix must be a dict if provided")
+    # Build adjacency (bidirectional), only for existing branches
+    adj: Dict[str, Dict[str, float]] = {bid: {} for bid in branch_map}
+    for edge, val in latency_matrix.items():
+        if not isinstance(edge, str):
+            continue
+        parts = edge.split("->")
+        if len(parts) != 2:
+            continue
+        a, b = parts[0], parts[1]
+        if a in branch_map and b in branch_map:
+            if not isinstance(val, (int, float)):
+                continue
+            latency = float(val)
+            adj[a][b] = latency
+            adj[b][a] = latency
+    # Dynamic risk adjustments and global alert
+    dr = network_status.get('dynamic_risk_adjustments', {}) or {}
+    if not isinstance(dr, dict):
+        raise TypeError("dynamic_risk_adjustments must be a dict if provided")
+    global_alert = bool(network_status.get('global_security_alert', False))
+    alert_multiplier = 1.1 if global_alert else 1.0
+    # Initialize historical and anomaly placeholders
+    historical_incidents: Dict[str, float] = {}
+    anomaly_signals: Dict[str, float] = {}
+    # Validate transactions and prepare priority queue
+    class PriorityQueue:
+        def __init__(self):
+            self.heap = []
+            self.entry_finder = {}
+            self.REMOVED = '<removed>'
+            self.counter = 0
+            self.active = 0
+        def add(self, task, priority):
+            if task in self.entry_finder:
+                self.remove(task)
+            entry = [priority, self.counter, task]
+            self.counter += 1
+            self.entry_finder[task] = entry
+            heapq.heappush(self.heap, entry)
+            self.active += 1
+        def remove(self, task):
+            entry = self.entry_finder.pop(task, None)
+            if entry:
+                entry[2] = self.REMOVED
+                self.active -= 1
+        def pop(self):
+            while self.heap:
+                priority, _, task = heapq.heappop(self.heap)
+                if task is not self.REMOVED:
+                    self.entry_finder.pop(task, None)
+                    self.active -= 1
+                    return task, priority
+            raise KeyError("pop from an empty priority queue")
+        def empty(self):
+            return self.active == 0
+    pq = PriorityQueue()
+    tx_map: Dict[int, Dict[str, Any]] = {}
+    for t in transactions:
+        if not isinstance(t, dict):
+            raise TypeError("each transaction must be a dict")
+        if 'transaction_id' not in t or 'branch_id' not in t or 'risk_score' not in t:
+            raise ValueError("transaction missing required fields")
+        tid = t['transaction_id']
+        bid = t['branch_id']
+        rs = t['risk_score']
+        if not isinstance(tid, int):
+            raise TypeError("transaction_id must be int")
+        if not isinstance(bid, str):
+            raise TypeError("branch_id must be str")
+        if not isinstance(rs, (int, float)):
+            raise TypeError("risk_score must be numeric")
+        if bid not in branch_map:
+            raise ValueError(f"transaction target branch {bid} not defined")
+        # compute adjusted risk
+        base = float(rs)
+        dyn = float(dr.get(bid, 0.0))
+        hist = float(historical_incidents.get(bid, 0.0))
+        anomaly = float(anomaly_signals.get(bid, 0.0))
+        adjusted = (base + dyn + hist + anomaly) * alert_multiplier
+        adjusted = min(adjusted, 100.0)
+        # priority as 100 - adjusted (lower value -> higher risk)
+        priority = 100.0 - adjusted
+        pq.add(tid, priority)
+        tx_map[tid] = {'branch_id': bid, 'risk_score': base, 'adjusted_risk': adjusted}
+    # Union-Find
+    parent = {bid: bid for bid in branch_map}
+    rank = {bid: 0 for bid in branch_map}
+    def find(x):
+        if parent[x] != x:
+            parent[x] = find(parent[x])
+        return parent[x]
+    def union(x, y):
+        rx, ry = find(x), find(y)
+        if rx == ry:
+            return
+        if rank[rx] < rank[ry]:
+            parent[rx] = ry
+        else:
+            parent[ry] = rx
+            if rank[rx] == rank[ry]:
+                rank[rx] += 1
+    # Union edges present
+    for a in adj:
+        for b in adj[a]:
+            union(a, b)
+    def connected(a, b):
+        return find(a) == find(b)
+    # Dijkstra
+    def dijkstra(src: str, dst: str) -> Tuple[float, List[str]]:
+        if src == dst:
+            return 0.0, [src]
+        dist = {bid: math.inf for bid in branch_map}
+        prev: Dict[str, str] = {}
+        dist[src] = 0.0
+        heap = [(0.0, src)]
+        visited = set()
+        while heap:
+            d, u = heapq.heappop(heap)
+            if u in visited:
+                continue
+            visited.add(u)
+            if u == dst:
+                break
+            for v, w in adj.get(u, {}).items():
+                nd = d + w
+                if nd < dist[v]:
+                    dist[v] = nd
+                    prev[v] = u
+                    heapq.heappush(heap, (nd, v))
+        if dist[dst] == math.inf:
+            return math.inf, []
+        # reconstruct
+        path = []
+        cur = dst
+        while cur != src:
+            path.append(cur)
+            cur = prev.get(cur)
+            if cur is None:
+                return math.inf, []
+        path.append(src)
+        path.reverse()
+        return dist[dst], path
+    # Bandwidth allocation helper
+    available_bw = {bid: branch_map[bid]['bandwidth'] for bid in branch_map}
+    def bandwidth_required(adjusted_risk: float) -> float:
+        return 10.0 * (1.0 + adjusted_risk / 100.0)
+    def path_has_bandwidth(path: List[str], req: float) -> bool:
+        for node in path:
+            if available_bw.get(node, 0.0) < req:
+                return False
+        return True
+    def allocate_bandwidth(path: List[str], req: float):
+        for node in path:
+            available_bw[node] -= req
+    # Path security evaluation: node security score = 1 - failure_probability - risk_factor (normalized)
+    def path_security_score(path: List[str], adjusted_risk: float) -> float:
+        scores = []
+        for node in path:
+            fp = branch_map[node]['failure_probability']
+            risk_factor = adjusted_risk / 100.0
+            score = max(0.0, 1.0 - fp - 0.5 * risk_factor)
+            scores.append(score)
+        if not scores:
+            return 0.0
+        return sum(scores) / len(scores)
+    # Process transactions in priority order
+    results: Dict[int, Dict[str, Any]] = {}
+    start_time = time.time()
+    while not pq.empty():
+        tid, _ = pq.pop()
+        info = tx_map[tid]
+        target = info['branch_id']
+        adjusted = info['adjusted_risk']
+        req_bw = bandwidth_required(adjusted)
+        allocated = False
+        path_taken: List[str] = []
+        # Local optimization: if target is HQ
+        if target == 'HQ':
+            if available_bw['HQ'] >= req_bw:
+                allocated = True
+                path_taken = ['HQ']
+                allocate_bandwidth(path_taken, req_bw)
+            else:
+                allocated = False
+                path_taken = []
+            results[tid] = {'transaction_id': tid, 'allocated': allocated, 'path_taken': path_taken}
+            continue
+        # Connectivity check
+        if not connected('HQ', target):
+            results[tid] = {'transaction_id': tid, 'allocated': False, 'path_taken': []}
+            continue
+        # Find shortest path
+        dist, path = dijkstra('HQ', target)
+        if not path:
+            results[tid] = {'transaction_id': tid, 'allocated': False, 'path_taken': []}
+            continue
+        # Check bandwidth along path
+        if not path_has_bandwidth(path, req_bw):
+            results[tid] = {'transaction_id': tid, 'allocated': False, 'path_taken': []}
+            continue
+        # Evaluate path security
+        sec = path_security_score(path, adjusted)
+        if sec < 0.7:
+            results[tid] = {'transaction_id': tid, 'allocated': False, 'path_taken': []}
+            continue
+        # allocate
+        allocate_bandwidth(path, req_bw)
+        allocated = True
+        path_taken = path
+        results[tid] = {'transaction_id': tid, 'allocated': allocated, 'path_taken': path_taken}
+    # Ensure deterministic output sorted by transaction_id ascending and include any missing transactions
+    out: List[Dict[str, Any]] = []
+    for t in sorted(tx_map.keys()):
+        out.append(results.get(t, {'transaction_id': t, 'allocated': False, 'path_taken': []}))
+    return out

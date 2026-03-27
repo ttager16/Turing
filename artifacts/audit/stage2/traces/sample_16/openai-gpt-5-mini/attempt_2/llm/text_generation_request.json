@@ -1,0 +1,30 @@
+{
+  "model": "gpt-5-mini",
+  "input": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are a careful coding assistant. Return the best possible answer for the task."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Solve the following Python coding task.\n\nRequirements:\n- Return only Python code.\n- Implement the requested entry function exactly.\n- Do not include explanations before or after the code.\n- Use only the Python standard library unless the prompt explicitly permits otherwise.\n\nProblem Statement:\n### Problem Statement:\n- A global aerospace agency is building an autonomous satellite control system to process real time telemetry data from multiple orbital satellites.\n- Each satellite transmits a stream of integer readings representing signal stability levels collected over time.\n- To ensure optimal downstream analysis, the agency wants to distribute these readings into exactly K telemetry channels, each of which must maintain:\n - A strictly increasing pattern of stability levels (for smooth trend detection), and\n - A minimum improvement gap D between consecutive readings (to ensure significant signal gain).\n- Every reading must be assigned to exactly one channel, and each channel must remain strictly increasing and satisfy the D gap rule.\n- The engineers want to maximize the signal diversity potential mathematically defined as the product of the lengths of all K channels.\n- Your task is to help them determine the maximum possible product of the lengths of these K strictly increasing telemetry sequences, each satisfying the minimum gap condition D.\n- If it is impossible to distribute all readings across K valid channels, return 0.\n\n#### Objective:\n- You are given an integer array nums and integers K and D.\n- Split all elements of nums into exactly K disjoint strictly increasing subsequences such that for every subsequence, the difference between consecutive elements is at least D (i.e., for any adjacent elements x, y in a subsequence, y - x >= D). Each element of nums must belong to exactly one subsequence.\n- Return the maximum possible product of the lengths of the K subsequences.\n- If it is impossible to partition nums into K subsequences that satisfy the constraints, return 0.\n- Subsequences must respect relative order from nums (i.e., each subsequence is formed by taking elements in the same order as they appear in nums), and they must be strictly increasing while also satisfying the D gap.\n\n#### Function Signature:\n```python\ndef maxProductKIncreasing(nums: List[int], K: int, D: int) -> int:\n```\n\n#### Examples:\n```python\nInput: nums = [1, 3, 5, 2, 4, 6], K = 2, D = 1\nOutput: 9\nExplanation:\nOne optimal partition:\n S1 = [1, 3, 5]  (length 3)\n S2 = [2, 4, 6]  (length 3)\nProduct = 3 * 3 = 9\n\nInput: nums = [1, 2, 3], K = 4, D = 1\nOutput: 0\nExplanation: Impossible to split 3 elements into 4 non empty subsequences.\n```\n\n#### Constraints:\n- 1 <= nums.length <= 200\n- 1 <= K <= min(10, nums.length)\n- 0 <= D <= 10^4\n- -10^4 <= nums[i] <= 10^4\n\nStarter Code:\n```python\nfrom typing import List\nfrom collections import deque\n\ndef maxProductKIncreasing(nums: List[int], K: int, D: int) -> int:\n```\n"
+        }
+      ]
+    }
+  ],
+  "reasoning": {
+    "effort": "minimal"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 4096
+}

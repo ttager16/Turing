@@ -1,0 +1,170 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      []
+    ],
+    "input_lines": [
+      "[]"
+    ],
+    "focus": "Empty operations list -> should immediately return []"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        [
+          "push",
+          10
+        ],
+        [
+          "push",
+          20
+        ],
+        [
+          "merge_clusters",
+          null
+        ],
+        [
+          "push",
+          5
+        ],
+        [
+          "push",
+          30
+        ],
+        [
+          "get_min",
+          null
+        ],
+        [
+          "range_sum",
+          0
+        ],
+        [
+          "range_sum",
+          1
+        ],
+        [
+          "pop",
+          null
+        ],
+        [
+          "get_max",
+          null
+        ],
+        [
+          "pop",
+          null
+        ],
+        [
+          "get_min",
+          1
+        ],
+        [
+          "get_max",
+          0
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[\"push\", 10], [\"push\", 20], [\"merge_clusters\", null], [\"push\", 5], [\"push\", 30], [\"get_min\", null], [\"range_sum\", 0], [\"range_sum\", 1], [\"pop\", null], [\"get_max\", null], [\"pop\", null], [\"get_min\", 1], [\"get_max\", 0]]"
+    ],
+    "focus": "One-shot redirect after merge, MRU routing across symbols, and range_sum baseline for source vs. merged symbol"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        [
+          "push",
+          1000000000
+        ],
+        [
+          "push",
+          -1000000000
+        ],
+        [
+          "push",
+          500
+        ],
+        [
+          "push",
+          500
+        ],
+        [
+          "get_min",
+          0
+        ],
+        [
+          "merge_clusters",
+          null
+        ],
+        [
+          "push",
+          500
+        ],
+        [
+          "get_max",
+          1
+        ],
+        [
+          "pop",
+          null
+        ],
+        [
+          "get_min",
+          1
+        ],
+        [
+          "merge_clusters",
+          null
+        ],
+        [
+          "push",
+          -1000000000
+        ],
+        [
+          "pop",
+          null
+        ],
+        [
+          "get_min",
+          null
+        ],
+        [
+          "pop",
+          null
+        ],
+        [
+          "pop",
+          null
+        ],
+        [
+          "pop",
+          null
+        ],
+        [
+          "pop",
+          null
+        ],
+        [
+          "get_min",
+          0
+        ],
+        [
+          "get_max",
+          null
+        ],
+        [
+          "range_sum",
+          0
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[\"push\", 1000000000], [\"push\", -1000000000], [\"push\", 500], [\"push\", 500], [\"get_min\", 0], [\"merge_clusters\", null], [\"push\", 500], [\"get_max\", 1], [\"pop\", null], [\"get_min\", 1], [\"merge_clusters\", null], [\"push\", -1000000000], [\"pop\", null], [\"get_min\", null], [\"pop\", null], [\"pop\", null], [\"pop\", null], [\"pop\", null], [\"get_min\", 0], [\"get_max\", null], [\"range_sum\", 0]]"
+    ],
+    "focus": "Boundary values (±1e9), duplicate mins/maxs, deep snapshots independence across multiple merges, many pops including empty pops, and range_sum after later merge"
+  }
+]

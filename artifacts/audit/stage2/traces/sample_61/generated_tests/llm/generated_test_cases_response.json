@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6EHwoxsbwqmYqUdhOILn8oMXW4f",
+  "object": "chat.completion",
+  "created": 1774397861,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[[\\\"insert\\\", 30], [\\\"insert\\\", 10], [\\\"insert\\\", 20], [\\\"search\\\", 20], [\\\"insert\\\", 40], [\\\"insert\\\", 50], [\\\"search\\\", 50], [\\\"delete\\\", 10], [\\\"search\\\", 10]]\"\n      ],\n      \"focus\": \"Triggers LR rotation (30,10,20), then further inserts to exercise rebalancing, searches and deletion; checks rotations and idempotence.\"\n    },\n    {\n      \"input_lines\": [\n        \"[[\\\"insert\\\", 5], [\\\"insert\\\", 5], [\\\"search\\\", 5], [\\\"delete\\\", 5], [\\\"delete\\\", 5], [\\\"search\\\", 5], [\\\"insert\\\", -10], [\\\"search\\\", -10], [\\\"delete\\\", -10], [\\\"search\\\", -10]]\"\n      ],\n      \"focus\": \"Duplicate inserts and repeated deletes including negative values; verifies idempotence and correct search behavior for removed/missing keys.\"\n    },\n    {\n      \"input_lines\": [\n        \"[[\\\"insert\\\", 10], [\\\"insert\\\", 20], [\\\"insert\\\", 30], [\\\"insert\\\", 40], [\\\"insert\\\", 50], [\\\"search\\\", 30], [\\\"delete\\\", 40], [\\\"search\\\", 40], [\\\"insert\\\", 25], [\\\"search\\\", 25]]\"\n      ],\n      \"focus\": \"Ascending inserts to force RR rebalancing, deletion of an internal node and reinsertion in middle; checks balancing after deletes and subsequent inserts.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1153,
+    "completion_tokens": 1967,
+    "total_tokens": 3120,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1600,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

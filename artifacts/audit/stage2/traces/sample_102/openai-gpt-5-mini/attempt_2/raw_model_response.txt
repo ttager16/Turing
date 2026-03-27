@@ -1,0 +1,272 @@
+from typing import List, Dict, Any
+from collections import defaultdict, deque
+import math
+
+def optimize_truck_route_matching(trucks: List[Dict], routes: List[Dict], 
+                                dependencies: List[Dict], operational_constraints: Dict) -> Dict[str, Any]:
+    # Basic validations
+    if not isinstance(trucks, list) or len(trucks) == 0:
+        return {"error": "No trucks provided"}
+    # index maps
+    truck_map = {}
+    for t in trucks:
+        tid = t.get("truck_id")
+        cap = t.get("capacity")
+        if cap is None or not (100 <= cap <= 2000):
+            return {"error": f"Invalid truck capacity for truck {tid}"}
+        op_h = t.get("operational_hours")
+        if op_h is None or not (8 <= op_h <= 16):
+            return {"error": f"Invalid operational hours for truck {tid}"}
+        loc = t.get("current_location")
+        if not isinstance(loc, dict) or loc.get("x") is None or loc.get("y") is None:
+            return {"error": f"Invalid coordinates for truck {tid}"}
+        if not (0 <= loc["x"] <= 1000 and 0 <= loc["y"] <= 1000):
+            return {"error": f"Invalid coordinates for truck {tid}"}
+        truck_map[tid] = t
+    route_map = {}
+    max_truck_capacity = max(t["capacity"] for t in trucks)
+    for r in routes:
+        rid = r.get("route_id")
+        lr = r.get("load_requirement")
+        if lr is None or lr > max_truck_capacity:
+            return {"error": f"Invalid route load requirement for route {rid}"}
+        st = r.get("start_time_window")
+        et = r.get("end_time_window")
+        if st is None or et is None or st >= et:
+            return {"error": f"Invalid time window for route {rid}"}
+        pr = r.get("priority_level")
+        if pr is None or not (1 <= pr <= 5):
+            return {"error": f"Invalid priority level for route {rid}"}
+        dest = r.get("destination_coordinates")
+        if not isinstance(dest, dict) or dest.get("x") is None or dest.get("y") is None:
+            return {"error": f"Invalid coordinates for truck {None}"}  # generic
+        if not (0 <= dest["x"] <= 1000 and 0 <= dest["y"] <= 1000):
+            return {"error": f"Invalid coordinates for truck {None}"}
+        route_map[rid] = r
+    # validate dependencies references and build graph
+    dep_graph = defaultdict(list)
+    indeg = defaultdict(int)
+    dependency_by_id = {}
+    for d in dependencies:
+        did = d.get("dependency_id")
+        pr = d.get("prerequisite_route_id")
+        de = d.get("dependent_route_id")
+        if pr not in route_map or de not in route_map:
+            return {"error": f"Invalid route reference in dependency {did}"}
+        dep_graph[pr].append(de)
+        indeg[de] += 1
+        dependency_by_id[did] = d
+    # detect cycles via Kahn
+    all_route_ids = set(route_map.keys())
+    q = deque([rid for rid in all_route_ids if indeg.get(rid,0)==0])
+    topo = []
+    while q:
+        n = q.popleft()
+        topo.append(n)
+        for nei in dep_graph.get(n,[]):
+            indeg[nei] -= 1
+            if indeg[nei]==0:
+                q.append(nei)
+    if len(topo) != len(all_route_ids):
+        # find cycle nodes
+        # simple detection: nodes with indeg>0
+        cycle_nodes = [rid for rid in all_route_ids if indeg.get(rid,0)>0]
+        return {"error": f"Circular dependency detected involving routes {cycle_nodes}"}
+    # operational constraints defaults
+    max_routes_per_truck = operational_constraints.get("max_routes_per_truck", 3)
+    fuel_cost_per_km = operational_constraints.get("fuel_cost_per_km", 1.0)
+    overtime_multiplier = operational_constraints.get("overtime_multiplier", 1.5)
+    priority_weight_factor = operational_constraints.get("priority_weight_factor", 1.0)
+    # Build dependency mapping for quick checks
+    prereq_map = defaultdict(list)
+    depid_for_pair = {}
+    for d in dependencies:
+        prereq_map[d["dependent_route_id"]].append((d["prerequisite_route_id"], d["minimum_gap_hours"], d["dependency_id"]))
+        depid_for_pair[(d["prerequisite_route_id"], d["dependent_route_id"])] = d["dependency_id"]
+    # Prepare route processing order: priority then topo order stable
+    # group routes by priority
+    priority_buckets = defaultdict(list)
+    for rid in topo:
+        priority_buckets[route_map[rid]["priority_level"]].append(rid)
+    ordered_routes = []
+    for p in sorted(priority_buckets.keys()):
+        ordered_routes.extend(priority_buckets[p])
+    # Assignment state
+    assignments = {t["truck_id"]: {"assigned_routes": [], "scheduled_start_times": [], "total_duration": 0.0, "total_load": 0} for t in trucks}
+    route_assigned = {}
+    constraint_violations = []
+    resolved_dependencies = set()
+    unresolved_dependencies = set(d["dependency_id"] for d in dependencies)
+    dependency_chain_analysis = defaultdict(list)
+    # helper distance
+    def manhattan(a,b):
+        return abs(a["x"]-b["x"]) + abs(a["y"]-b["y"])
+    # compute for each route, try assign best truck
+    system_total_cost = 0.0
+    assignment_efficiency_sum = 0.0
+    for rid in ordered_routes:
+        r = route_map[rid]
+        # count unresolved prerequisites
+        prereqs = prereq_map.get(rid, [])
+        unresolved_count = 0
+        earliest_start = r["start_time_window"]
+        for pr_id, gap, did in prereqs:
+            if pr_id not in route_assigned:
+                unresolved_count += 1
+            else:
+                # ensure gap respected: scheduled finish of prereq + gap <= start
+                # approximate finish = start + duration*complexity
+                truck_of_pr = route_assigned[pr_id]["truck_id"]
+                idx = assignments[truck_of_pr]["assigned_routes"].index(pr_id)
+                pr_start = assignments[truck_of_pr]["scheduled_start_times"][idx]
+                pr_r = route_map[pr_id]
+                pr_dur = pr_r["estimated_duration"] * pr_r["route_complexity"]
+                earliest_start = max(earliest_start, pr_start + pr_dur + gap)
+                # mark resolved dependency id
+                depid = depid_for_pair.get((pr_id, rid))
+                if depid is not None and depid in unresolved_dependencies:
+                    resolved_dependencies.add(depid)
+                    unresolved_dependencies.discard(depid)
+                    dependency_chain_analysis[pr_id].append(rid)
+        # Evaluate candidate trucks
+        best = None
+        best_metrics = None
+        for t in trucks:
+            tid = t["truck_id"]
+            # capacity check: cannot assign if load > capacity
+            if r["load_requirement"] > t["capacity"]:
+                continue
+            # check max routes per truck
+            if len(assignments[tid]["assigned_routes"]) >= max_routes_per_truck:
+                continue
+            # maintenance window conflict: simplistic: if scheduled time within maintenance skip
+            # scheduled start choose max(earliest_start, truck available time 0)
+            scheduled_start = max(earliest_start, r["start_time_window"])
+            # ensure scheduled_start + duration within end_time_window
+            actual_duration = r["estimated_duration"] * r["route_complexity"]
+            scheduled_end = scheduled_start + actual_duration
+            if scheduled_end > r["end_time_window"]:
+                # can still consider but will incur time penalty; allow if within 24 hours
+                pass
+            # maintenance: if maintenance window spans through scheduled_start..end, skip
+            mw = t.get("maintenance_window", {})
+            mw_s = mw.get("start_hour", 0)
+            mw_e = mw.get("end_hour", 0)
+            # normalize maintenance: if end < start it's overnight
+            def in_maintenance(s,e,ms,me):
+                # check any overlap between [s,e) and maintenance interval
+                if ms <= me:
+                    return not (e <= ms or s >= me)
+                else:
+                    # overnight: maintenance covers [ms,24) U [0,me)
+                    return not (e <= ms and s >= me)
+            if in_maintenance(scheduled_start, scheduled_end, mw_s, mw_e):
+                continue
+            # operational hours constraint: total duration including this
+            total_dur = assignments[tid]["total_duration"] + actual_duration
+            overtime_hours = max(0.0, total_dur - t["operational_hours"])
+            # compute penalties and costs
+            # Assignment Efficiency Score components
+            base_assignment_cost = r["base_assignment_cost"]
+            capacity_penalty = 0.0
+            if r["load_requirement"] > t["capacity"] * 0.8:
+                capacity_penalty = (r["load_requirement"] / t["capacity"]) * 100.0
+            dependency_penalty = unresolved_count * 50.0
+            time_penalty = 0.0
+            if scheduled_start > r["end_time_window"]:
+                time_penalty = (scheduled_start - r["end_time_window"]) * 10.0
+            window_urgency_penalty = 200.0 / (r["end_time_window"] - r["start_time_window"] + 1)
+            assignment_efficiency_score = base_assignment_cost + capacity_penalty + dependency_penalty + time_penalty + window_urgency_penalty
+            # Total Assignment Cost components in order
+            dependency_adjusted_base = base_assignment_cost * (1 + 0.15 * unresolved_count) if unresolved_count > 0 else base_assignment_cost
+            priority_adj_base = dependency_adjusted_base * priority_weight_factor
+            # distance fuel from truck current location or last assigned route destination
+            if assignments[tid]["assigned_routes"]:
+                last_rid = assignments[tid]["assigned_routes"][-1]
+                last_dest = route_map[last_rid]["destination_coordinates"]
+                start_loc = last_dest
+            else:
+                start_loc = t["current_location"]
+            fuel_cost = manhattan(start_loc, r["destination_coordinates"]) * fuel_cost_per_km
+            hour_cost = t["base_cost_per_hour"] * actual_duration
+            overtime_cost = 0.0
+            if overtime_hours > 0:
+                overtime_cost = overtime_hours * t["base_cost_per_hour"] * (overtime_multiplier - 1)
+            total_assignment_cost = priority_adj_base + fuel_cost + hour_cost + overtime_cost
+            # select best minimal assignment_efficiency_score then cost tie-breaker
+            cand = (assignment_efficiency_score, total_assignment_cost, tid, scheduled_start, total_dur)
+            if best is None or cand < best:
+                best = cand
+                best_metrics = {
+                    "assignment_efficiency_score": assignment_efficiency_score,
+                    "total_assignment_cost": total_assignment_cost,
+                    "scheduled_start": scheduled_start,
+                    "total_duration": total_dur,
+                    "overtime_hours": overtime_hours,
+                    "capacity_penalty": capacity_penalty
+                }
+        if best is not None:
+            _, cost, chosen_tid, sched_start, total_dur = best
+            # commit assignment
+            assignments[chosen_tid]["assigned_routes"].append(rid)
+            assignments[chosen_tid]["scheduled_start_times"].append(int(sched_start))
+            assignments[chosen_tid]["total_duration"] = best_metrics["total_duration"]
+            assignments[chosen_tid]["total_load"] += r["load_requirement"]
+            assignments[chosen_tid].setdefault("total_assignment_cost", 0.0)
+            assignments[chosen_tid]["total_assignment_cost"] += best_metrics["total_assignment_cost"]
+            route_assigned[rid] = {"truck_id": chosen_tid, "scheduled_start": int(sched_start)}
+            system_total_cost += best_metrics["total_assignment_cost"]
+            assignment_efficiency_sum += best_metrics["assignment_efficiency_score"]
+        else:
+            # cannot assign route due to constraints; leave unassigned
+            pass
+    # compile optimal_assignments list
+    optimal_assignments = []
+    total_utilizations = []
+    for tid, info in assignments.items():
+        if not info["assigned_routes"]:
+            continue
+        truck = truck_map[tid]
+        total_load_utilization = round(info["total_load"] / truck["capacity"], 3) if truck["capacity"]>0 else 0.0
+        total_utilizations.append(total_load_utilization)
+        optimal_assignments.append({
+            "truck_id": tid,
+            "assigned_routes": info["assigned_routes"],
+            "total_assignment_cost": round(info.get("total_assignment_cost", 0.0), 2),
+            "total_load_utilization": total_load_utilization,
+            "scheduled_start_times": info["scheduled_start_times"],
+            "assignment_efficiency_score": round(
+                sum(
+                    # recompute per-route efficiency for assigned ones for reporting
+                    (route_map[rid]["base_assignment_cost"] +
+                     ((route_map[rid]["load_requirement"] / truck["capacity"]) * 100.0 if route_map[rid]["load_requirement"] > truck["capacity"]*0.8 else 0.0) +
+                     (len([p for p in prereq_map.get(rid,[]) if p[0] not in route_assigned]) * 50.0) +
+                     (max(0, info["scheduled_start_times"][i] - route_map[rid]["end_time_window"]) * 10.0) +
+                     (200.0 / (route_map[rid]["end_time_window"] - route_map[rid]["start_time_window"] + 1))
+                    )
+                    for i, rid in enumerate(info["assigned_routes"])
+                ), 2)
+        })
+    unassigned_routes = [rid for rid in route_map.keys() if rid not in route_assigned]
+    avg_capacity_util = round((sum(total_utilizations)/len(total_utilizations)) if total_utilizations else 0.0, 3)
+    optimization_summary = {
+        "assignment_efficiency": round(assignment_efficiency_sum, 2),
+        "dependency_resolution_rate": (len(resolved_dependencies) / len(dependencies)) if dependencies else 1.0,
+        "resource_utilization_score": avg_capacity_util
+    }
+    result = {
+        "optimal_assignments": optimal_assignments,
+        "dependency_satisfaction": {
+            "resolved_dependencies": sorted(list(resolved_dependencies)),
+            "unresolved_dependencies": sorted(list(unresolved_dependencies)),
+            "dependency_chain_analysis": dict((k, v) for k, v in dependency_chain_analysis.items())
+        },
+        "system_metrics": {
+            "total_system_cost": round(system_total_cost, 2),
+            "average_capacity_utilization": avg_capacity_util,
+            "unassigned_routes": unassigned_routes,
+            "constraint_violations": constraint_violations
+        },
+        "optimization_summary": optimization_summary
+    }
+    return result

@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN792ToNex8pQG8whKJv4GabF2RsY",
+  "object": "chat.completion",
+  "created": 1774401380,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"{\\\"1\\\": [[2, {\\\"time_cost\\\": {\\\"day\\\": 2}}], [3, {\\\"time_cost\\\": {\\\"day\\\": 2}}]], \\\"2\\\": [[1, {\\\"time_cost\\\": {\\\"day\\\": 2}}], [3, {\\\"time_cost\\\": {\\\"night\\\": 2}}]], \\\"3\\\": [[1, {\\\"time_cost\\\": {\\\"day\\\": 2}}], [2, {\\\"time_cost\\\": {\\\"night\\\": 2}}]]}\",\n        \"[]\"\n      ],\n      \"focus\": \"triangle_missing_time_fields_tiebreak\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"1\\\": [[2, {\\\"time_cost\\\": {\\\"day\\\": 5, \\\"night\\\": 5}, \\\"pollution_factor\\\": 1.2}], [2, {\\\"time_cost\\\": {\\\"day\\\": 3}, \\\"pollution_factor\\\": 0.5}]], \\\"2\\\": [[1, {\\\"time_cost\\\": {\\\"day\\\": 5, \\\"night\\\": 5}, \\\"pollution_factor\\\": 1.2}], [1, {\\\"time_cost\\\": {\\\"day\\\": 3}, \\\"pollution_factor\\\": 0.5}]], \\\"3\\\": [[4, {\\\"time_cost\\\": {\\\"day\\\": 4}, \\\"maintenance_mode\\\": true}]], \\\"4\\\": [[3, {\\\"time_cost\\\": {\\\"day\\\": 4}, \\\"maintenance_mode\\\": true}], [5, {\\\"time_cost\\\": {\\\"day\\\": 2, \\\"night\\\": 2}}]], \\\"5\\\": [[4, {\\\"time_cost\\\": {\\\"day\\\": 2, \\\"night\\\": 2}}]]}\",\n        \"[{\\\"substructure_id\\\": \\\"pollute_block\\\", \\\"edge_constraints\\\": [{\\\"pollution_factor\\\": {\\\"min\\\": 1.0, \\\"max\\\": 2.0}}]}, {\\\"substructure_id\\\": \\\"maint_block\\\", \\\"edge_constraints\\\": [{\\\"maintenance_mode\\\": true}]}]\"\n      ],\n      \"focus\": \"parallel_edges_and_edge_forbidden_by_patterns\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"1\\\": [[2, {\\\"time_cost\\\": {\\\"day\\\": 5}, \\\"pollution_factor\\\": 1.0}]], \\\"2\\\": [[1, {\\\"time_cost\\\": {\\\"day\\\": 5}, \\\"pollution_factor\\\": 1.0}]], \\\"3\\\": [[4, {\\\"time_cost\\\": {\\\"day\\\": 2}, \\\"pollution_factor\\\": 2.0}]], \\\"4\\\": [[3, {\\\"time_cost\\\": {\\\"day\\\": 2}, \\\"pollution_factor\\\": 2.0}]]}\",\n        \"[{\\\"substructure_id\\\": \\\"range_block\\\", \\\"edge_constraints\\\": [{\\\"pollution_factor\\\": {\\\"min\\\": 1.0, \\\"max\\\": 2.0}}]}]\"\n      ],\n      \"focus\": \"boundary_exclusion_inclusive_range_all_forbidden\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1741,
+    "completion_tokens": 3723,
+    "total_tokens": 5464,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3072,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

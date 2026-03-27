@@ -1,0 +1,76 @@
+{
+  "id": "resp_0a415cda6032514f0069c33833c3e081a1a342ce60cac9d20f",
+  "object": "response",
+  "created_at": 1774401587,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774401599,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0a415cda6032514f0069c3383409ec81a1b3c0d91c47814f96",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0a415cda6032514f0069c33834347081a1a82c444dd554a099",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List\nfrom collections import deque, defaultdict\nimport copy\n\ndef max_flow_simulator(graph: Dict[str, List[Dict[str, int]]], source: int, sink: int) -> Dict:\n    # Normalize nodes as integers and build adjacency with capacities\n    # graph keys are strings per spec\n    adj = defaultdict(dict)  # adj[u][v] = capacity\n    nodes = set()\n    for u_str, edges in graph.items():\n        u = int(u_str)\n        nodes.add(u)\n        for e in edges:\n            v = int(e[\"neighbor\"])\n            cap = int(e[\"capacity\"])\n            nodes.add(v)\n            # If multiple parallel edges u->v provided, sum capacities\n            adj[u][v] = adj[u].get(v, 0) + cap\n\n    max_node = max(nodes) if nodes else 0\n    # Build residual capacities and flow trackers\n    residual = defaultdict(lambda: defaultdict(int))\n    flow = defaultdict(lambda: defaultdict(int))\n    for u in adj:\n        for v, cap in adj[u].items():\n            residual[u][v] += cap\n            # ensure reverse edge exists in residual with 0 if not present\n            residual[v].setdefault(u, 0)\n            flow[u][v] = 0\n\n    # Ensure all nodes present in residual\n    for n in nodes:\n        residual.setdefault(n, defaultdict(int))\n\n    algorithm_steps = []\n    explanations = []\n    total_flow = 0\n    step_num = 0\n\n    # Deterministic BFS using sorted neighbors to respect tie-breaking\n    def bfs():\n        parent = {}\n        visited = set()\n        q = deque()\n        q.append(source)\n        visited.add(source)\n        while q:\n            u = q.popleft()\n            # iterate neighbors in sorted order for determinism\n            for v in sorted(residual[u].keys()):\n                if v not in visited and residual[u][v] > 0:\n                    visited.add(v)\n                    parent[v] = u\n                    if v == sink:\n                        # reconstruct path\n                        path = []\n                        cur = sink\n                        while cur != source:\n                            prev = parent[cur]\n                            path.append((prev, cur))\n                            cur = prev\n                        path.reverse()\n                        return path\n                    q.append(v)\n        return None\n\n    while True:\n        path = bfs()\n        if not path:\n            break\n        # compute bottleneck\n        bottleneck = min(residual[u][v] for u, v in path)\n        # apply flow along path (update flow and residuals), careful with anti-parallel edges\n        for u, v in path:\n            # If original forward edge exists in flow dict, increase; else decrease reverse flow\n            if v in flow[u]:\n                flow[u][v] += bottleneck\n            else:\n                # If no explicit forward flow recorded (edge not in original direction),\n                # this means we're sending flow on a reverse of an original edge: decrease flow[v][u]\n                flow[v][u] -= bottleneck\n            residual[u][v] -= bottleneck\n            residual[v][u] += bottleneck\n        total_flow += bottleneck\n        step_num += 1\n\n        # Prepare residual_edges snapshot (only original edges and their residuals and any currently existing residual edges)\n        residual_edges = []\n        # include all pairs where residual >0 for consistent display (sorted)\n        seen_pairs = set()\n        for u in sorted(residual.keys()):\n            for v in sorted(residual[u].keys()):\n                if (u, v) in seen_pairs:\n                    continue\n                seen_pairs.add((u, v))\n                if residual[u][v] >= 0:\n                    residual_edges.append({\"from\": u, \"to\": v, \"residual\": residual[u][v]})\n\n        # Prepare path representation\n        path_repr = [{\"from\": u, \"to\": v} for u, v in path]\n\n        algorithm_steps.append({\n            \"step\": step_num,\n            \"path\": path_repr,\n            \"bottleneck\": bottleneck,\n            \"flow_increase\": bottleneck,\n            \"residual_edges\": residual_edges\n        })\n\n        # Explanation under 200 words\n        expl = (\n            f\"Step {step_num}: Selected augmenting path \" +\n            \"→\".join(str(p[\"from\"]) for p in path_repr) + f\"→{path_repr[-1]['to']}\" if path_repr else f\"Step {step_num}: No path.\"\n        )\n        # build concise further text\n        if path_repr:\n            expl = (f\"Step {step_num}: Selected augmenting path \" +\n                    \"→\".join(str(p[\"from\"]) for p in path_repr) + f\"→{path_repr[-1]['to']}\" +\n                    f\" with bottleneck capacity {bottleneck}. Increased flow by {bottleneck} units. \"\n                    f\"Residual capacities updated to reflect forward capacity decreases and backward capacity increases, preserving flow conservation.\")\n        explanations.append(expl)\n\n    # Build edge_flows for original edges in input format \"u->v\"\n    edge_flows = {}\n    for u in sorted(adj.keys()):\n        for v in sorted(adj[u].keys()):\n            f = flow[u].get(v, 0)\n            res = residual[u].get(v, 0)\n            edge_flows[f\"{u}->{v}\"] = {\"flow\": f, \"residual_capacity\": res}\n\n    result = {\n        \"total_flow\": total_flow,\n        \"edge_flows\": edge_flows,\n        \"algorithm_steps\": algorithm_steps,\n        \"explanations\": explanations\n    }\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1912,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1199,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3111
+  },
+  "user": null,
+  "metadata": {}
+}

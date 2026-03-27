@@ -1,0 +1,181 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        {
+          "id": "A",
+          "expected_return": 0.05,
+          "volatility": 0.1
+        },
+        {
+          "id": "B",
+          "expected_return": 0.05,
+          "volatility": 0.1
+        },
+        {
+          "id": "C",
+          "expected_return": 0.06,
+          "volatility": 0.2
+        },
+        {
+          "id": "D",
+          "expected_return": 0.04,
+          "volatility": 0.05
+        }
+      ],
+      {
+        "A": 0.05,
+        "B": 0.05,
+        "C": 0.06,
+        "D": 0.04
+      },
+      "absolute",
+      null,
+      0.35,
+      0.4,
+      0.01,
+      0.2,
+      0.2,
+      false
+    ],
+    "input_lines": [
+      "[{\"id\": \"A\", \"expected_return\": 0.05, \"volatility\": 0.1}, {\"id\": \"B\", \"expected_return\": 0.05, \"volatility\": 0.1}, {\"id\": \"C\", \"expected_return\": 0.06, \"volatility\": 0.2}, {\"id\": \"D\", \"expected_return\": 0.04, \"volatility\": 0.05}]",
+      "{\"A\": 0.05, \"B\": 0.05, \"C\": 0.06, \"D\": 0.04}",
+      "\"absolute\"",
+      "null",
+      "0.35",
+      "0.4",
+      "0.01",
+      "0.2",
+      "0.2",
+      "false"
+    ],
+    "focus": "Exact-score ties between assets A and B with identical returns and volatilities; tests deterministic lexicographic tie-breaking and disabling diversification penalty (absolute mode)."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        {
+          "id": "X",
+          "expected_return": 0.02,
+          "volatility": 0.1
+        },
+        {
+          "id": "Y",
+          "expected_return": 0.08,
+          "volatility": 0.2
+        }
+      ],
+      {
+        "X": 0.01,
+        "Y": 0.09
+      },
+      "risk_adjusted",
+      [
+        1.0,
+        0.0
+      ],
+      1.0,
+      0.1,
+      0.01,
+      0.2,
+      0.2,
+      true
+    ],
+    "input_lines": [
+      "[{\"id\": \"X\", \"expected_return\": 0.02, \"volatility\": 0.1}, {\"id\": \"Y\", \"expected_return\": 0.08, \"volatility\": 0.2}]",
+      "{\"X\": 0.01, \"Y\": 0.09}",
+      "\"risk_adjusted\"",
+      "[1.0, 0.0]",
+      "1.0",
+      "0.1",
+      "0.01",
+      "0.2",
+      "0.2",
+      "true"
+    ],
+    "focus": "Turnover budget too small to move from an all-in previous allocation; should force returning prev_weights unchanged (tests turnover-budget early-exit behavior)."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        {
+          "id": "AssetA",
+          "expected_return": 0.07,
+          "volatility": 0.15
+        },
+        {
+          "id": "asset02",
+          "expected_return": 0.07,
+          "volatility": 0.15
+        },
+        {
+          "id": "mid",
+          "expected_return": 0.06,
+          "volatility": 0.12
+        },
+        {
+          "id": "zeta",
+          "expected_return": 0.05,
+          "volatility": 0.05
+        },
+        {
+          "id": "zeroVol",
+          "expected_return": 0.05,
+          "volatility": 0.0
+        },
+        {
+          "id": "eq1",
+          "expected_return": 0.05,
+          "volatility": 0.05
+        },
+        {
+          "id": "eq2",
+          "expected_return": 0.05,
+          "volatility": 0.05
+        }
+      ],
+      {
+        "AssetA": 0.08,
+        "asset02": 0.06,
+        "mid": 0.065,
+        "zeta": 0.05,
+        "zeroVol": 0.051,
+        "eq1": 0.05,
+        "eq2": 0.05
+      },
+      "risk_adjusted",
+      [
+        0.2,
+        0.05,
+        0.15,
+        0.1,
+        0.1,
+        0.2,
+        0.2
+      ],
+      0.25,
+      0.5,
+      0.01,
+      0.5,
+      0.5,
+      true
+    ],
+    "input_lines": [
+      "[{\"id\": \"AssetA\", \"expected_return\": 0.07, \"volatility\": 0.15}, {\"id\": \"asset02\", \"expected_return\": 0.07, \"volatility\": 0.15}, {\"id\": \"mid\", \"expected_return\": 0.06, \"volatility\": 0.12}, {\"id\": \"zeta\", \"expected_return\": 0.05, \"volatility\": 0.05}, {\"id\": \"zeroVol\", \"expected_return\": 0.05, \"volatility\": 0.0}, {\"id\": \"eq1\", \"expected_return\": 0.05, \"volatility\": 0.05}, {\"id\": \"eq2\", \"expected_return\": 0.05, \"volatility\": 0.05}]",
+      "{\"AssetA\": 0.08, \"asset02\": 0.06, \"mid\": 0.065, \"zeta\": 0.05, \"zeroVol\": 0.051, \"eq1\": 0.05, \"eq2\": 0.05}",
+      "\"risk_adjusted\"",
+      "[0.2, 0.05, 0.15, 0.1, 0.1, 0.2, 0.2]",
+      "0.25",
+      "0.5",
+      "0.01",
+      "0.5",
+      "0.5",
+      "true"
+    ],
+    "focus": "Many-assets case including a zero-volatility asset and multiple equal scores; tests smoothing with non-default alpha/beta, per-asset caps, diversification penalty, and lexicographic ordering with mixed-case IDs."
+  }
+]

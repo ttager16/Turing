@@ -1,0 +1,45 @@
+from typing import List
+import heapq
+
+def manage_patient_queue(patients: List[List[int]], aging_interval: int) -> dict:
+    # Input type checks
+    if not isinstance(patients, list) or not isinstance(aging_interval, int):
+        return {'error': 'Invalid input type'}
+    if len(patients) == 0:
+        return {'error': 'Empty patient list'}
+    # Validate patient entries and prepare list
+    prepared = []
+    for idx, entry in enumerate(patients):
+        if (not isinstance(entry, list) and not isinstance(entry, tuple)) or len(entry) != 2:
+            return {'error': 'Invalid patient format'}
+        pid, sev = entry[0], entry[1]
+        if not isinstance(pid, int) or not isinstance(sev, int):
+            return {'error': 'Invalid patient format'}
+        prepared.append([pid, sev, idx])  # store arrival index for tie-breaker
+    n = len(prepared)
+    treatment_order = []
+    # We'll use list for current patients
+    current = prepared
+    for _ in range(n):
+        # select patient with highest severity, tie by lower arrival index
+        # compute max
+        best_idx = 0
+        best_sev = current[0][1]
+        best_arr = current[0][2]
+        for i in range(1, len(current)):
+            sev = current[i][1]
+            arr = current[i][2]
+            if sev > best_sev or (sev == best_sev and arr < best_arr):
+                best_idx = i
+                best_sev = sev
+                best_arr = arr
+        # treat
+        pid_treated = current.pop(best_idx)[0]
+        treatment_order.append(pid_treated)
+        # apply aging to remaining
+        for p in current:
+            if p[0] % 2 == 1:
+                p[1] += aging_interval
+            else:
+                p[1] -= aging_interval
+    return {'treatment_order': treatment_order}

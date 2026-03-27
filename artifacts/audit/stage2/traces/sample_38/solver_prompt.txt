@@ -1,0 +1,137 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+Develop a comprehensive Python-based portfolio optimization system for financial technology platforms that require adaptive, risk-aware asset allocation. This framework serves as a critical component for investment management systems that dynamically adjust portfolios based on real-time market conditions while respecting transaction costs and risk constraints. The system must implement recursive optimization algorithms with divide-and-conquer strategies, using segment trees for efficient allocation tracking, backtracking for constraint satisfaction, and adaptive rebalancing to achieve optimal risk-adjusted returns essential for institutional-grade portfolio management.
+
+## Problem Description
+
+The system optimizes stock portfolio allocations using recursive algorithms and adaptive strategies. The framework must implement:
+
+### Core Features
+
+1. **Stock Scoring System**: Compute attractiveness scores based on volatility and correlation penalties
+2. **Segment Tree Integration**: Efficient O(log n) range queries and point updates for allocation tracking
+3. **Greedy Allocation Algorithm**: Iteratively allocate units to maximize marginal risk-adjusted utility
+4. **Risk Constraint Management**: Multi-factor risk calculation with volatility, correlation, concentration, and degree penalties
+5. **Transaction Cost Tracking**: Dynamic budget management with cost deduction and refund mechanisms
+6. **Backtracking Allocation**: Attempt alternative allocations when primary choice violates risk constraints
+7. **Portfolio Rebalancing**: Single-pass optimization moving units from low-scoring to high-scoring stocks
+8. **Expected Return Calculation**: Weighted return estimation based on allocation and scores
+9. **Post-Optimization Cleanup**: Risk-based rollback of final allocation if constraints violated
+10. **Comprehensive Output**: Portfolio allocation with expected return and risk metrics
+
+### Required Dictionary Keys
+
+The main function must return a dictionary with these exact keys:
+- `portfolio`: Dictionary mapping stock symbols to allocated unit counts
+- `expected_return`: Expected portfolio return as a percentage (6 decimal places)
+- `risk`: Calculated portfolio risk level (6 decimal places)
+
+## Function Signature
+
+```python
+def optimize_portfolio(stock_data: List[Dict[str, Any]], risk_tolerance: float, 
+                       transaction_cost_per_unit: float | None = None, 
+                       transaction_cost_budget: float | None = None) -> Dict[str, Any]:
+    """
+    Optimize portfolio allocations under risk and transaction cost constraints.
+    
+    Parameters:
+        stock_data (List[Dict[str, Any]]): List of stock dictionaries with keys:
+            - symbol (str): Stock ticker symbol
+            - price (float): Current stock price
+            - volatility (float): Historical volatility on 0-1 scale
+            - correlated_with (List[str]): List of correlated stock symbols
+        risk_tolerance (float): Maximum acceptable portfolio risk level
+        transaction_cost_per_unit (float | None): Cost per transaction (optional, defaults to None for no cost)
+        transaction_cost_budget (float | None): Total budget for transaction costs (optional, defaults to None for unlimited)
+    
+    Returns:
+        Dict[str, Any]: Dictionary with portfolio allocation, expected_return, and risk
+    """
+    pass
+```
+
+## Constraints
+
+1. **Libraries**: Only standard Python libraries allowed: typing
+2. **Transaction Cost Parameters**: Create TransactionCostContext class to hold cost_per_unit and budget (as list with single element). Pass context object to all helper functions that need transaction cost access.
+3. **Empty Input Handling**: Return {"portfolio": {}, "expected_return": 0.0, "risk": 0.0} for empty or invalid stock_data (not list or empty list)
+4. **Dictionary Field Defaults**: Use .get() with defaults: symbol default "", volatility default 0.0, correlated_with default [] (use `or []` to treat None as [])
+5. **Type Conversions**: Convert symbol to str(), volatility to float(), and correlated_with elements to str() when extracting from stock_data
+6. **Segment Tree Structure**: Implement with size n as next power of 2 (using left shift), tree array of size 2*n with leaves at indices n to 2n-1
+7. **Segment Tree Building**: Copy data to leaves at tree[n+i], build internal nodes bottom-up with tree[i] = tree[i<<1] + tree[(i<<1)|1]
+8. **Segment Tree Update**: Update leaf at n+idx, propagate upward using right shift and sum of children with bitwise operations
+9. **Score Calculation**: Base = max(0.0, 1.0 - volatility), penalty = 0.01 * len(correlated_with), score = max(0.0, base - penalty), normalize all to sum 1.0
+10. **Score Normalization**: Divide each score by (sum of all scores or 1.0) to ensure all normalized scores sum to exactly 1.0
+11. **Risk Components**: Weighted volatility + correlation pair penalty + HHI concentration penalty + degree penalty (sum all four)
+12. **Volatility Risk**: Sum of (alloc[s] / total_units) * vols[s] for each symbol, where total_units = max(1, sum(alloc.values()))
+13. **Correlation Penalty**: For s in symbols, for t in corr_map[s] where s < t and both weights > 0: add 0.5 * min(weight_s, weight_t) * avg_vol * 0.5
+14. **Concentration Penalty**: HHI = sum of (alloc[s] / total_units)^2, penalty = 0.005 * HHI
+15. **Degree Penalty**: For each stock, add 0.002 * weight * (degree / (degree + 1.0)) where degree = float(len(corr_map[s]))
+16. **Marginal Delta**: score[s] - lambda * max(0.0, new_risk - base_risk) where lambda is risk penalty coefficient
+17. **Transaction Cost Check**: If ctx.cost_per_unit is None or ctx.budget is None return True, else check ctx.budget[0] >= cost
+18. **Cost Deduction**: Subtract cost from ctx.budget[0] only if ctx.cost_per_unit is not None and ctx.budget is not None
+19. **Cost Refund**: Add cost back to ctx.budget[0] only if ctx.cost_per_unit is not None and ctx.budget is not None
+20. **Target Units**: Main allocation loop runs up to 100 iterations attempting to allocate one unit per iteration
+21. **Lambda Parameter**: Use 0.5 as risk penalty coefficient for marginal utility calculations
+22. **Best Candidate Selection**: Initialize best_delta to -1e18, for each symbol at index idx: alloc[s]+=1, seg.update(idx, alloc[s]), calculate delta, alloc[s]-=1, seg.update(idx, alloc[s]), track maximum
+23. **Allocation Backtracking**: Check budget first, return False if insufficient; deduct cost, allocate to best_sym, update segment tree; if risk <= tolerance return True; else refund cost, revert allocation and segment tree, try each other symbol in order
+24. **Backtracking Order**: Iterate symbols in original list order, skip if symbol == best_sym or budget insufficient, allocate and check risk, return True if acceptable
+25. **Context Initialization**: Create TransactionCostContext(transaction_cost_per_unit, transaction_cost_budget) at start of optimize_portfolio
+26. **Rebalance Early Exit**: Return immediately if total_units from sum(alloc.values()) is 0
+27. **Rebalance Limit**: max_moves = max(1, total_units // 20) using integer division
+28. **Rebalance Move Validation**: Cannot move if high_sym == low_sym, alloc.get(low_sym, 0) == 0, or not _can_afford_transaction(2 * ctx.cost_per_unit, ctx)
+29. **Rebalance Cost Model**: Deduct 2 * ctx.cost_per_unit before executing move, never refund even if reverted
+
+## Sample Input
+
+```python
+stock_data = [
+    {"symbol": "AAPL", "price": 150.0, "volatility": 0.04, "correlated_with": ["GOOGL"]},
+    {"symbol": "GOOGL", "price": 2800.0, "volatility": 0.02, "correlated_with": ["AAPL", "MSFT"]},
+    {"symbol": "MSFT", "price": 300.0, "volatility": 0.05, "correlated_with": []},
+    {"symbol": "TSLA", "price": 800.0, "volatility": 0.07, "correlated_with": ["AAPL"]},
+    {"symbol": "AMZN", "price": 3500.0, "volatility": 0.03, "correlated_with": ["MSFT", "GOOGL"]},
+]
+risk_tolerance = 0.028
+transaction_cost_per_unit = 1.0
+transaction_cost_budget = 50.0
+```
+
+## Sample Output
+
+```python
+{
+    'portfolio': {'AAPL': 0, 'GOOGL': 50, 'MSFT': 0, 'TSLA': 0, 'AMZN': 0},
+    'expected_return': 0.030444,
+    'risk': 0.026333
+}
+```
+
+## Output Format
+
+- Return value: Dictionary with exact keys as specified
+- `portfolio`: Dictionary mapping each stock symbol (str) to allocated unit count (int)
+- `expected_return`: Float rounded to 6 decimal places representing expected portfolio return percentage
+- `risk`: Float rounded to 6 decimal places representing calculated portfolio risk level
+- All stocks in input should appear in portfolio dictionary, even if allocated 0 units
+
+Starter Code:
+```python
+from typing import Any, Dict, List, Tuple
+
+
+def optimize_portfolio(stock_data: List[Dict[str, Any]], risk_tolerance: float,
+                       transaction_cost_per_unit: float | None = None,
+                       transaction_cost_budget: float | None = None) -> Dict[str, Any]:
+    pass
+```

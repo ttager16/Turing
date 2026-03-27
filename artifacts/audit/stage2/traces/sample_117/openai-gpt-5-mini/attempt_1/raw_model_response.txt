@@ -1,0 +1,113 @@
+from typing import List, Dict, Tuple
+from collections import deque, defaultdict
+import heapq
+
+def optimize_logistics_flow(network: List[List[int]], source: int, sink: int) -> List[List[int]]:
+    # Build graph with adjacency list; allow multi-edges
+    # Edge: to, rev, cap, cost, orig_from, orig_to, idx
+    adj: Dict[int, List[Dict]] = defaultdict(list)
+    def add_edge(u, v, cap, cost, idx):
+        adj[u].append({'to': v, 'rev': len(adj[v]), 'cap': cap, 'cost': cost, 'idx': idx, 'from': u})
+        adj[v].append({'to': u, 'rev': len(adj[u]) - 1, 'cap': 0,   'cost': -cost, 'idx': None, 'from': v})
+    # incorporate priority as tie-breaker by slightly adjusting cost: lower effective cost for higher priority
+    # scale priorities small to not override costs: subtract priority * eps
+    EPS = 1e-6
+    for i, (u, v, cap, cost, priority) in enumerate(network):
+        eff_cost = cost - priority * EPS
+        add_edge(u, v, cap, eff_cost, i)
+    # min-cost max-flow using successive shortest augmenting path with potentials (Dijkstra)
+    N = max((max(u, v) for u, v, *_ in network), default=0) + 1
+    flow = 0
+    cost = 0.0
+    max_possible = sum(e for *_, e in [(e[2],) for e in network]) if network else 0
+    # initialize potential using Bellman-Ford (SPFA) to handle negative costs (there shouldn't be negative but safe)
+    potential = [0.0] * (N)
+    dist = [float('inf')] * N
+    dist[source] = 0.0
+    inq = [False]*N
+    q = deque([source])
+    inq[source] = True
+    while q:
+        u = q.popleft(); inq[u]=False
+        for e in adj[u]:
+            if e['cap']>0 and dist[e['to']] > dist[u] + e['cost']:
+                dist[e['to']] = dist[u] + e['cost']
+                if not inq[e['to']]:
+                    q.append(e['to']); inq[e['to']]=True
+    for i in range(N):
+        if dist[i] < float('inf'):
+            potential[i] = dist[i]
+    # main loop
+    parent = [None]*N
+    while True:
+        dist = [float('inf')]*N
+        parent = [None]*N
+        dist[source]=0
+        heap = [(0.0, source)]
+        while heap:
+            d,u = heapq.heappop(heap)
+            if d>dist[u]: continue
+            for ei, e in enumerate(adj[u]):
+                if e['cap']<=0: continue
+                v = e['to']
+                nd = d + e['cost'] + potential[u] - potential[v]
+                if nd < dist[v]:
+                    dist[v]=nd
+                    parent[v]=(u, ei)
+                    heapq.heappush(heap,(nd, v))
+        if parent[sink] is None:
+            break
+        for v in range(N):
+            if dist[v]<float('inf'):
+                potential[v]+=dist[v]
+        # augment
+        addf = float('inf')
+        v = sink
+        while v!=source:
+            u, ei = parent[v]
+            e = adj[u][ei]
+            addf = min(addf, e['cap'])
+            v = u
+        v = sink
+        path_cost = 0.0
+        while v!=source:
+            u, ei = parent[v]
+            e = adj[u][ei]
+            e['cap'] -= addf
+            adj[v][e['rev']]['cap'] += addf
+            path_cost += e['cost'] * addf
+            v = u
+        flow += addf
+        cost += path_cost
+    # After flow, compute min-cut from source in residual graph
+    visited = [False]*N
+    stack = [source]
+    while stack:
+        u = stack.pop()
+        if visited[u]: continue
+        visited[u]=True
+        for e in adj[u]:
+            if e['cap']>0 and not visited[e['to']]:
+                stack.append(e['to'])
+    # Edges from visited to not visited in original network are in min-cut
+    # Need to map original edges (u->v) - since multi-edges allowed, include unique pairs that are saturated across all parallel lanes?
+    # We'll consider an original provided edge as bottleneck if in residual, the corresponding forward edge has cap==0 (saturated) AND u in S, v not in S
+    bottlenecks = []
+    # Map original edges indices to their forward edge objects (they were added in order)
+    # iterate adjacency of original from-nodes to find edges with idx not None
+    for u in adj:
+        for e in adj[u]:
+            if e.get('idx') is None: continue
+            v = e['to']
+            idx = e['idx']
+            # find original parameters via network[idx]
+            orig = network[idx]
+            ou, ov = orig[0], orig[1]
+            if ou==u and ov==v:
+                if visited[u] and not visited[v]:
+                    # if forward capacity is 0 (saturated) consider bottleneck
+                    if e['cap'] == 0:
+                        pair = [u, v]
+                        if pair not in bottlenecks:
+                            bottlenecks.append(pair)
+    return bottlenecks

@@ -1,0 +1,139 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+A financial analytics company needs an automated allocation engine that distributes a fixed investment budget across multiple stocks to maximize total expected return. The system receives a finite list of price and fee updates for one trading period.
+For each stock, only the latest valid price in the list is considered. The most recent valid broker fee reduces the effective attractiveness of all stocks.
+
+After processing all updates, the system should compute the final allocation using a greedy approach - invest first in the stocks that currently offer the best return per cost ratio until no additional full lot can be placed (due to caps or remaining budget), any leftover becomes ['RESERVE', remainder].
+
+
+## Objectives
+
+1. **Greedy Allocation Rule**
+
+   * Define each stock's score as "1 / (price * (1 + fee))". Higher score means better value.
+   * Sort all valid stocks by score in descending order (highest score first).
+   * Allocate funds greedily: give as much as possible to the top-ranked stock up to its per-stock cap, then move to the next, and so on, until you cannot allocate another full lot.
+
+2. **Update Consolidation**
+
+   * From the given list of updates such as "['AAPL', 152.0]" or "['BROKER_FEE', 0.005]", keep only the last valid update for each stock symbol (case-insensitive) and the last valid broker fee, invalid updates do not override previous valid ones.
+   * Ignore any update whose value is not finite or not greater than zero.
+
+3. **Transaction Fee and Risk Limits**
+
+   * Apply the latest global broker fee as a multiplicative penalty in the score calculation for all stocks.
+   * Each stock can receive at most a fixed fraction of the total budget (for example, 0.31).
+   * The total allocation must never exceed the total budget.
+
+4. **Deterministic Output**
+
+   * If two or more stocks have the same score, apply this tie-break order:
+     1. Higher raw price wins.
+     2. If still tied, ticker name in alphabetical order (uppercase).
+   * The algorithm must be deterministic and must not depend on the input list order beyond the "last valid update wins" rule.
+
+
+## Constraints
+
+* Must be implemented in pure Python (no external libraries allowed).
+* Input is a list of updates: each item is either "['BROKER_FEE', fee]" or "['TICKER', price]".
+* Only the latest valid update per ticker (case-insensitive) and the latest valid broker fee are used, invalid updates do not override prior valid ones. If no valid broker-fee update exists, use fee = 0.
+* Ticker normalization is uppercase. Updates with non-alphabetic ticker names must be ignored.
+* Ticker length must be between 1 and 5 characters inclusive.
+* Prices must be finite and > 0. Broker-fee updates must be finite and > 0. if no valid broker-fee update exists, use fee = 0. Invalid entries are ignored and do not override prior valid values.
+* Per-stock cap is "per_stock_cap_frac * budget".
+* Minimum lot rule: allocations must be in whole multiples of "min_lot_dollars".
+  * If the remaining budget is smaller than one full lot, it cannot be allocated.
+* Reserve requirement: any unallocated remainder (including amounts smaller than one lot) must be returned as a separate entry "['RESERVE', remainder]".
+  * This entry must be present even if the remainder is 0.
+* Output set and order:
+  * Include only stocks with a positive allocated amount.
+  * Always include the ['RESERVE', remainder] entry.
+  * Sort stock entries by allocated amount in descending order, then by ticker name alphabetically.
+  * Place ['RESERVE', remainder] last.
+
+
+## Function Signature
+
+```python
+from typing import List
+
+def optimize_trades(
+    price_updates: List[List],
+    budget: float,
+    per_stock_cap_frac: float = 0.3,
+    min_lot_dollars: float = 100.00
+) -> List[List]:
+    pass
+```
+
+
+## Sample Input and Output
+
+**Input**
+
+```python
+price_updates = [
+    ['aapl', 152.0],
+    ['BROKER_FEE', 0.005],
+    ['GOOG', 2820.0],
+    ['AMZN', 3400.0],
+    ['AAPL', 150.0],
+    ['BROKER_FEE', 0.010],
+    ['MSFT!', 420.0],
+    ['GOOG', -1.0],
+    ['TSLA', 0.0]
+]
+budget = 50000.0
+per_stock_cap_frac = 0.30
+min_lot_dollars = 1200.00
+```
+
+**Output**
+
+```python
+[['AAPL', 14400.00], ['AMZN', 14400.00], ['GOOG', 14400.00], ['RESERVE', 6800.00]]
+```
+
+**Explanation:**
+- Latest valid prices are AAPL 150.0, GOOG 2820.0, AMZN 3400.0.
+- The latest broker fee is 0.010.
+- Each stock’s score = 1 / (price * (1 + fee)). lower price means higher score.
+- Per-stock cap = 15000.00 (30% of 50000).
+- Minimum lot = 1200.00
+- Each stock is allocated 12 full lots (14400.00).
+- The remaining 6800 is returned as RESERVE.
+- All amounts sum exactly to the budget (50000.00).
+
+
+## Expected Output Format
+
+Return a list of "[stock_ticker, allocated_amount]" items plus a final "['RESERVE', remainder]" item.
+
+* The total of all allocations plus the reserve must equal the input budget.
+* Each stock’s allocation must be a multiple of "min_lot_dollars" and must not exceed its cap.
+* The result must be deterministic and sorted as described.
+
+Starter Code:
+```python
+from typing import List
+from decimal import Decimal, ROUND_FLOOR
+import math
+
+def optimize_trades(
+    price_updates: List[List],
+    budget: float,
+    per_stock_cap_frac: float = 0.3,
+    min_lot_dollars: float = 100.00
+) -> List[List]:
+    pass
+```

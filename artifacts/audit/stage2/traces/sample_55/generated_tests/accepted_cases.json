@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[{\"name\": \"External\", \"risk\": 1.0, \"return\": 4.0, \"references\": [\"Leaf\"], \"sub_portfolios\": []}, {\"name\": \"Root\", \"risk\": 1.0, \"return\": 2.0, \"references\": [\"Leaf\", \"Leaf\", \"Unknown\"], \"sub_portfolios\": [{\"name\": \"Leaf\", \"risk\": 0.5, \"return\": 1.5, \"references\": [\"Root\"], \"sub_portfolios\": []}, {\"name\": \"Solo\", \"risk\": 2.0, \"return\": 6.0, \"references\": [], \"sub_portfolios\": []}]}]",
+    "output_text": "[{\"name\": \"External\", \"risk\": 1.0, \"return\": 4.0, \"references\": [\"Leaf\"], \"sub_portfolios\": [], \"_score\": 4.25, \"_rank\": 1}, {\"name\": \"Root\", \"risk\": 1.0, \"return\": 2.0, \"references\": [\"Leaf\", \"Leaf\", \"Unknown\"], \"sub_portfolios\": [{\"name\": \"Leaf\", \"risk\": 0.5, \"return\": 1.5, \"references\": [\"Root\"], \"sub_portfolios\": []}, {\"name\": \"Solo\", \"risk\": 2.0, \"return\": 6.0, \"references\": [], \"sub_portfolios\": []}], \"_score\": 2.5, \"_rank\": 2}]"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[]",
+    "output_text": "[]"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[{\"name\": \"TopOne\", \"risk\": 1.0, \"return\": 2.0, \"references\": [\"B\", \"B\", \"Z\"], \"sub_portfolios\": [{\"name\": \"A\", \"risk\": 0.1, \"return\": 0.2, \"references\": [\"B\", \"B\"], \"sub_portfolios\": []}, {\"name\": \"B\", \"risk\": 0.2, \"return\": 0.4, \"references\": [\"C\"], \"sub_portfolios\": []}]}, {\"name\": \"TopTwo\", \"risk\": 2.0, \"return\": 10.0, \"references\": [\"A\", \"B\", \"A\"], \"sub_portfolios\": []}, {\"name\": \"C\", \"risk\": 0.4, \"return\": 0.8, \"references\": [], \"sub_portfolios\": []}]",
+    "output_text": "[{\"name\": \"TopTwo\", \"risk\": 2.0, \"return\": 10.0, \"references\": [\"A\", \"B\", \"A\"], \"sub_portfolios\": [], \"_score\": 5.221, \"_rank\": 1}, {\"name\": \"TopOne\", \"risk\": 1.0, \"return\": 2.0, \"references\": [\"B\", \"B\", \"Z\"], \"sub_portfolios\": [{\"name\": \"A\", \"risk\": 0.1, \"return\": 0.2, \"references\": [\"B\", \"B\"], \"sub_portfolios\": []}, {\"name\": \"B\", \"risk\": 0.2, \"return\": 0.4, \"references\": [\"C\"], \"sub_portfolios\": []}], \"_score\": 2.22, \"_rank\": 2}, {\"name\": \"C\", \"risk\": 0.4, \"return\": 0.8, \"references\": [], \"sub_portfolios\": [], \"_score\": 2.0, \"_rank\": 3}]"
+  }
+]

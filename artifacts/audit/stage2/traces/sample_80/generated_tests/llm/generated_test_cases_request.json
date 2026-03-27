@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: manage_device_logs\n\nProblem Statement:\n## Problrm Statement\n\nIn a large-scale IoT network, a Python developer must design a multi-layer graph-based data pipeline to manage and reconcile real-time device logs.\nEach of thousands of devices continuously generates timestamped logs, often referencing other devices’ logs (cross-device dependencies).\nThe goal is to build a robust system that maintains global consistency, detects conflicts, resolves dependencies, and ensures data integrity even under concurrent updates.\n\n---\n\n### Objectives\n\n1. **Construct a Hybrid Data Structure:**\n   Build a structure combining Segment Trees (for time-based interval queries) and Union-Find (Disjoint Sets) (for conflict and merge tracking).\n   The Segment Tree efficiently partitions logs by time intervals and detects overlapping timestamps or stale data.\n   The Union-Find structure tracks merges between related or duplicate logs and supports rollback on invalid merges.\n   *(Note: For this problem, you will simulate the filtering logic conceptually; actual data structure implementation is not required.)*\n\n2. **Implement Multi-Step Reconciliation Algorithms:**\n   Develop routines to iteratively reconcile partial merges, resolve cyclical dependencies, and handle stale or duplicate entries.\n   These routines must apply rollback mechanisms when incorrect merges or unreliable device data are detected.\n\n3. **Introduce Conflict and Dependency Detection:**\n   Formulate a deterministic conflict resolution process that validates references between device logs and removes invalid or stale data.\n   This process must detect invalid references, remove or reorder them, and ensure valid data streams remain intact.\n\n4. **Enable Real-Time Concurrent Merging:**\n   Design the logic such that multiple log updates can be handled concurrently, ensuring the result is consistent and deterministic even under parallel insertions.\n\n5. **Advanced Data Integrity Checks:**\n   Enforce consistency constraints to ensure there are no cyclical merges, invalid device references, or timestamp violations.\n   Any inconsistencies must be flagged and removed before returning the reconciled output.\n\n---\n\n### Constraints\n\n1. The system must support up to 1000 devices.\n2. Log reconciliation and conflict detection must complete within 1 second per update cycle, even under high concurrency.\n3. The merging process must handle at least 1000 logs per second.\n4. Any cyclical dependency or invalid reference discovered must trigger a rollback and correction process.\n5. No external libraries are allowed, adhere to the built-in Python libraries\n\n---\n\n### Function Signature\n\n```python\nfrom typing import List, Any\n\ndef manage_device_logs(device_logs: List[List[Any]]) -> List[List[Any]]:\n    pass\n```\n\n---\n\n### Input Description\n\n* `device_logs`: a list of logs, where each log is represented as a 3-element list\n  `[device_id: str, timestamp: int, payload: str]`\n\n---\n\n### Rules and Processing Logic\n\n1. **Stale Data Rule:**\n   Each device has a defined “freshness window” (Δ_stale = 1).\n   A log `[device_id, timestamp, payload]` is considered **stale** if a newer log exists for the same device such that:\n\n   ```\n   newer_timestamp - timestamp > Δ_stale\n   ```\n\n   Stale logs must be discarded.\n\n2. **Duplicate Entry Rule:**\n   Any log with a payload exactly equal to `\"duplicate_entry\"` must be removed.\n   This is an explicit rule and not dependent on comparison with other entries.\n\n3. **Reference Validation Rule:**\n   Some payloads reference other logs using the format:\n   `\"REF_<device_id>_<timestamp>\"`\n   Such a log is valid only if there exists a corresponding log `[device_id, timestamp, ...]` in the current dataset (after applying the stale and duplicate rules).\n   Invalid or malformed references must be discarded.\n\n4. **Order Preservation Rule:**\n   The final output must preserve the original order of valid logs. No sorting or reordering is allowed.\n\n---\n\n### Sample Input\n\n```python\n[\n    [\"device_1\", 1625235600, \"data_1\"],\n    [\"device_2\", 1625235601, \"REF_device_1_1625235600\"],\n    [\"device_3\", 1625235600, \"out_of_order_data\"],\n    [\"device_2\", 1625235599, \"stale_data\"],\n    [\"device_1\", 1625235602, \"data_2_reference\"],\n    [\"device_2\", 1625235602, \"duplicate_entry\"]\n]\n```\n\n---\n\n### Sample Output\n\n```python\n[\n    [\"device_1\", 1625235600, \"data_1\"],\n    [\"device_2\", 1625235601, \"REF_device_1_1625235600\"],\n    [\"device_3\", 1625235600, \"out_of_order_data\"],\n    [\"device_1\", 1625235602, \"data_2_reference\"]\n]\n```\n\n---\n\n### Output Clarification\n\n* `[\"device_2\", 1625235599, \"stale_data\"]` is stale because `\"device_2\"` has a newer log at 1625235601, and Δ_stale = 1.\n* `[\"device_2\", 1625235601, \"REF_device_1_1625235600\"]` is valid because `\"device_1\"` at 1625235600 exists.\n* `[\"device_2\", 1625235602, \"duplicate_entry\"]` is explicitly removed under the duplicate entry rule.\n\nStarter Code:\n```python\nfrom typing import List, Any\nfrom collections import defaultdict\nimport re\n\ndef manage_device_logs(device_logs: List[List[Any]]) -> List[List[Any]]:\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[[\\\"device_1\\\", 1625235600, \\\"data_1\\\"], [\\\"device_2\\\", 1625235601, \\\"REF_device_1_1625235600\\\"], [\\\"device_3\\\", 1625235600, \\\"out_of_order_data\\\"], [\\\"device_2\\\", 1625235599, \\\"stale_data\\\"], [\\\"device_1\\\", 1625235602, \\\"data_2_reference\\\"], [\\\"device_2\\\", 1625235602, \\\"duplicate_entry\\\"]]\",\n    \"output\": \"[[\\\"device_3\\\", 1625235600, \\\"out_of_order_data\\\"], [\\\"device_1\\\", 1625235602, \\\"data_2_reference\\\"]]\"\n  },\n  {\n    \"input\": \"[]\",\n    \"output\": \"[]\"\n  },\n  {\n    \"input\": \"[[\\\"device_1\\\", 1625235600, \\\"data_1\\\"]]\",\n    \"output\": \"[[\\\"device_1\\\", 1625235600, \\\"data_1\\\"]]\"\n  }\n]\n"
+    }
+  ]
+}

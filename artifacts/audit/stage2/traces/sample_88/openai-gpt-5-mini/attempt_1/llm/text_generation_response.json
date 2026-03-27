@@ -1,0 +1,76 @@
+{
+  "id": "resp_0d42a1db4f1b63070069c3303dcd74819db59ecdbfd265b7de",
+  "object": "response",
+  "created_at": 1774399549,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774399579,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0d42a1db4f1b63070069c3303e23fc819db5b841c82f1eff20",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0d42a1db4f1b63070069c3303e7768819db611a960b88edc8b",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\nfrom threading import Lock\nimport math\nimport copy\n\nclass Node:\n    __slots__ = ('l','r','left','right','sum','mx','mn')\n    def __init__(self,l,r):\n        self.l=l;self.r=r\n        self.left=None;self.right=None\n        self.sum=0;self.mx=0;self.mn=0\n\ndef build(arr,l,r):\n    node=Node(l,r)\n    if l==r:\n        v=arr[l]\n        node.sum=v;node.mx=v;node.mn=v\n    else:\n        m=(l+r)//2\n        node.left=build(arr,l,m)\n        node.right=build(arr,m+1,r)\n        pull(node)\n    return node\n\ndef pull(node):\n    node.sum = node.left.sum + node.right.sum\n    node.mx = node.left.mx if node.left.mx>node.right.mx else node.right.mx\n    node.mn = node.left.mn if node.left.mn<node.right.mn else node.right.mn\n\ndef point_update(node,idx,newval):\n    if node.l==node.r:\n        n=Node(node.l,node.r)\n        n.sum=newval; n.mx=newval; n.mn=newval\n        return n\n    n=Node(node.l,node.r)\n    m=(node.l+node.r)//2\n    if idx<=m:\n        n.left=point_update(node.left,idx,newval)\n        n.right=node.right\n    else:\n        n.left=node.left\n        n.right=point_update(node.right,idx,newval)\n    pull(n)\n    return n\n\ndef range_update_apply(node,l,r,func):\n    # func receives old val returns new val; apply to each point in [l,r]\n    if node.r<l or node.l>r:\n        return node\n    if node.l==node.r:\n        old = node.sum\n        newv = func(old)\n        n=Node(node.l,node.r)\n        n.sum=newv; n.mx=newv; n.mn=newv\n        return n\n    n=Node(node.l,node.r)\n    n.left=range_update_apply(node.left,l,r,func)\n    n.right=range_update_apply(node.right,l,r,func)\n    pull(n)\n    return n\n\ndef range_query(node,l,r,mode):\n    if node is None or node.r<l or node.l>r:\n        if mode=='sum': return 0\n        if mode=='max': return -10**18\n        if mode=='min': return 10**18\n    if l<=node.l and node.r<=r:\n        if mode=='sum': return node.sum\n        if mode=='max': return node.mx\n        if mode=='min': return node.mn\n    a=range_query(node.left,l,r,mode)\n    b=range_query(node.right,l,r,mode)\n    if mode=='sum': return a+b\n    if mode=='max': return a if a>b else b\n    if mode=='min': return a if a<b else b\n\nclass VersionedUF:\n    def __init__(self,n):\n        self.par=[i for i in range(n)]\n        self.size=[1]*n\n        self.lock=Lock()\n    def copy(self):\n        new=VersionedUF(0)\n        new.par=self.par[:]\n        new.size=self.size[:]\n        new.lock=Lock()\n        return new\n    def find(self,x):\n        while self.par[x]!=x:\n            x=self.par[x]\n        return x\n    def union(self,a,b):\n        ra=self.find(a); rb=self.find(b)\n        if ra==rb: return\n        if self.size[ra]<self.size[rb]:\n            ra,rb=rb,ra\n        self.par[rb]=ra\n        self.size[ra]+=self.size[rb]\n    def unlink(self,x):\n        rx=self.find(x)\n        if rx==x: return\n        # make x singleton\n        self.par[x]=x\n        self.size[x]=1\n        # decrease size of old root\n        self.size[rx]-=1\n\ndef ultra_advanced_risk_analytics(initial_data: List[int], queries: List[List]) -> List[int]:\n    n=len(initial_data)\n    if n==0:\n        res=[]\n        for q in queries:\n            if q[0] in (\"range_query\",\"group_query\",\"version_count\"):\n                res.append(0)\n        return res\n    roots=[build(initial_data,0,n-1)]\n    ufs=[VersionedUF(n)]\n    outputs=[]\n    for q in queries:\n        typ=q[0]\n        if typ==\"update\":\n            idx=q[1]; newv=q[2]\n            if not (0<=idx<n):\n                # duplicate last\n                roots.append(roots[-1]); ufs.append(ufs[-1].copy())\n                continue\n            curuf=ufs[-1].copy()\n            root=roots[-1]\n            # find group\n            r=curuf.find(idx)\n            # collect members\n            members=[i for i in range(n) if curuf.find(i)==r]\n            old_x = range_query(root,idx,idx,'sum')\n            if old_x==0:\n                # skip cascade, just set idx\n                newroot=point_update(root,idx,newv)\n                roots.append(newroot); ufs.append(curuf)\n                continue\n            ratio_num=newv; ratio_den=old_x\n            def func_factory(i):\n                def f(old):\n                    if i==idx:\n                        return newv\n                    return (old * ratio_num)//ratio_den\n                return f\n            newroot=root\n            for i in members:\n                newroot=range_update_apply(newroot,i,i,func_factory(i))\n            roots.append(newroot); ufs.append(curuf)\n        elif typ==\"range_query\":\n            s=q[1]; e=q[2]; mode=q[3]; ver=q[4]\n            if not (0<=ver<len(roots)) or s>e or s<0 or e>=n:\n                outputs.append(0); continue\n            if mode=='avg':\n                total=range_query(roots[ver],s,e,'sum')\n                cnt=e-s+1\n                outputs.append(total//cnt)\n            else:\n                outputs.append(range_query(roots[ver],s,e, 'sum' if mode=='sum' else ('max' if mode=='max' else 'min')))\n        elif typ==\"link\":\n            i,j=q[1],q[2]\n            if not (0<=i<n and 0<=j<n):\n                roots.append(roots[-1]); ufs.append(ufs[-1].copy()); continue\n            if i==j:\n                roots.append(roots[-1]); ufs.append(ufs[-1].copy()); continue\n            curuf=ufs[-1].copy()\n            curuf.union(i,j)\n            roots.append(roots[-1]); ufs.append(curuf)\n        elif typ==\"unlink\":\n            i=q[1]\n            if not (0<=i<n):\n                roots.append(roots[-1]); ufs.append(ufs[-1].copy()); continue\n            curuf=ufs[-1].copy()\n            curuf.unlink(i)\n            roots.append(roots[-1]); ufs.append(curuf)\n        elif typ==\"conditional_update\":\n            s=q[1]; e=q[2]; cond=q[3]; threshold=q[4]\n            if cond==\"between\":\n                upper=q[5]; newv=q[6]\n            else:\n                newv=q[5]\n            if s>e or s<0 or e>=n:\n                roots.append(roots[-1]); ufs.append(ufs[-1].copy()); continue\n            root=roots[-1]\n            def cond_func(val):\n                if cond==\"gt\": return val>threshold\n                if cond==\"lt\": return val<threshold\n                if cond==\"eq\": return val==threshold\n                if cond==\"between\": return threshold<=val<=upper\n                return False\n            def func(old):\n                return newv if cond_func(old) else old\n            newroot=range_update_apply(root,s,e,func)\n            roots.append(newroot); ufs.append(ufs[-1].copy())\n        elif typ==\"group_query\":\n            idx=q[1]; ver=q[2]\n            if not (0<=ver<len(roots)) or not (0<=idx<n):\n                outputs.append(0); continue\n            # need group at that version\n            uf=ufs[ver]\n            root=roots[ver]\n            r=uf.find(idx)\n            members=[i for i in range(n) if uf.find(i)==r]\n            s=0\n            for i in members:\n                s+=range_query(root,i,i,'sum')\n            outputs.append(s)\n        elif typ==\"version_count\":\n            outputs.append(len(roots))\n        else:\n            # unknown -> ignore\n            pass\n    return outputs"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1872,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1896,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3768
+  },
+  "user": null,
+  "metadata": {}
+}

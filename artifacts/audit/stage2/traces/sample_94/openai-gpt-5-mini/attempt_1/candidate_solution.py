@@ -1,0 +1,103 @@
+def __init__(self):
+        self.children = {}  # char -> TrieNode
+        self.count = 0      # number of words that pass through this node (including those ending here)
+        self.end_count = 0  # number of words that end exactly at this node
+
+class Trie:
+    def __init__(self):
+        self.root = TrieNode()
+
+    def insert(self, word: str):
+        if word == "":
+            return
+        node = self.root
+        node.count += 1
+        for ch in word:
+            if ch not in node.children:
+                node.children[ch] = TrieNode()
+            node = node.children[ch]
+            node.count += 1
+        node.end_count += 1
+
+    def delete(self, word: str):
+        if word == "":
+            return
+        # first check existence: follow path, ensure counts sufficient
+        node = self.root
+        path = [node]
+        for ch in word:
+            if ch not in node.children:
+                return  # word not present; do nothing
+            node = node.children[ch]
+            path.append((ch, node))
+        # if end_count == 0 then word not present
+        if path[-1][1].end_count == 0:
+            return
+        # decrement along path
+        self.root.count -= 1
+        for ch, nd in path[1:]:
+            nd.count -= 1
+        path[-1][1].end_count -= 1
+        # clean up nodes that have count==0 to keep structure tidy
+        # iterate from end backwards
+        for i in range(len(path)-1, 0, -1):
+            ch, nd = path[i]
+            if nd.count == 0:
+                parent = path[i-1]
+                if isinstance(parent, tuple):
+                    parent = parent[1]
+                else:
+                    parent = parent
+                # parent is node
+                # remove child
+                if ch in parent.children:
+                    del parent.children[ch]
+            else:
+                break
+
+    def search_longest_prefix(self, prefix: str) -> str:
+        if prefix == "":
+            return ""
+        node = self.root
+        matched = []
+        for ch in prefix:
+            if ch in node.children:
+                node = node.children[ch]
+                matched.append(ch)
+            else:
+                break
+        return "".join(matched)
+
+def validate_operations(operations):
+    if not isinstance(operations, list):
+        return False
+    for op in operations:
+        if not isinstance(op, list) or len(op) != 2:
+            return False
+        name, arg = op
+        if not isinstance(name, str) or name not in ("insert", "delete", "search"):
+            return False
+        if not isinstance(arg, str):
+            return False
+        if len(arg) > 50 or len(arg) < 0:
+            return False
+        # empty string allowed; but characters must be a-z
+        if arg != "" and not all('a' <= c <= 'z' for c in arg):
+            return False
+    return True
+
+def manage_trie_concurrently(operations: List[List[str]]) -> List[str]:
+    if operations == []:
+        return []
+    if not validate_operations(operations):
+        return []
+    trie = Trie()
+    results = []
+    for name, arg in operations:
+        if name == 'insert':
+            trie.insert(arg)
+        elif name == 'delete':
+            trie.delete(arg)
+        else:  # search
+            results.append(trie.search_longest_prefix(arg))
+    return results

@@ -1,0 +1,112 @@
+[
+  {
+    "case_index": 1,
+    "args": [
+      [
+        [
+          "A_USD",
+          "B_EUR",
+          700.0
+        ],
+        [
+          "B_EUR",
+          "C_GBP",
+          800.0
+        ],
+        [
+          "C_GBP",
+          "D_USD",
+          600.0
+        ],
+        [
+          "D_USD",
+          "A_USD",
+          100.0
+        ],
+        [
+          "X_USD",
+          "Y_EUR",
+          1200.0
+        ],
+        [
+          "r1_USD",
+          "r2_USD",
+          300.0
+        ],
+        [
+          "r1_USD",
+          "r2_USD",
+          300.0
+        ],
+        [
+          "r1_USD",
+          "r2_USD",
+          300.0
+        ],
+        [
+          "r1_USD",
+          "r2_USD",
+          300.0
+        ]
+      ],
+      {
+        "volume_threshold": 1000.0,
+        "frequency_threshold": 3,
+        "cross_currency_sensitivity": 0.9,
+        "cycle_threshold": 2200.0
+      }
+    ],
+    "input_lines": [
+      "[[\"A_USD\", \"B_EUR\", 700.0], [\"B_EUR\", \"C_GBP\", 800.0], [\"C_GBP\", \"D_USD\", 600.0], [\"D_USD\", \"A_USD\", 100.0], [\"X_USD\", \"Y_EUR\", 1200.0], [\"r1_USD\", \"r2_USD\", 300.0], [\"r1_USD\", \"r2_USD\", 300.0], [\"r1_USD\", \"r2_USD\", 300.0], [\"r1_USD\", \"r2_USD\", 300.0]]",
+      "{\"volume_threshold\": 1000.0, \"frequency_threshold\": 3, \"cross_currency_sensitivity\": 0.9, \"cycle_threshold\": 2200.0}"
+    ],
+    "focus": "Multi-hop cycle spanning four nodes (sum near/at cycle threshold), a clear cross-currency spike, and a repeated small-pair appearing enough times to exceed both aggregated volume and frequency thresholds. Stresses cycle detection and aggregation logic."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        [
+          "same_USD",
+          "same_USD",
+          1500.0
+        ],
+        [
+          "weirdAcct",
+          "weirdAcct",
+          500.0
+        ],
+        [
+          "alphaEUR",
+          "betaEUR",
+          999.9999999
+        ],
+        [
+          "alphaEUR",
+          "betaEUR",
+          2e-07
+        ],
+        [
+          "companyA",
+          "companyB",
+          2000.0
+        ],
+        [
+          "lonely_USD",
+          "other_USD",
+          1000.0000001
+        ]
+      ],
+      {
+        "volume_threshold": 1000.0,
+        "frequency_threshold": 2,
+        "cycle_threshold": 3000.0
+      }
+    ],
+    "input_lines": [
+      "[[\"same_USD\", \"same_USD\", 1500.0], [\"weirdAcct\", \"weirdAcct\", 500.0], [\"alphaEUR\", \"betaEUR\", 999.9999999], [\"alphaEUR\", \"betaEUR\", 0.0000002], [\"companyA\", \"companyB\", 2000.0], [\"lonely_USD\", \"other_USD\", 1000.0000001]]",
+      "{\"volume_threshold\": 1000.0, \"frequency_threshold\": 2, \"cycle_threshold\": 3000.0}"
+    ],
+    "focus": "Format-sensitive account names (no explicit currency suffix), floating-point precision around thresholds, true same-account self-loop, and missing cross_currency_sensitivity key to test default/missing-parameter handling."
+  }
+]

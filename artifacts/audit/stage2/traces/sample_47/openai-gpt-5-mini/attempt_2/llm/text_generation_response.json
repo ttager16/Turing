@@ -1,0 +1,76 @@
+{
+  "id": "resp_03f0df4587fb392c0069c325bd513c819eae4fe32488bfcd65",
+  "object": "response",
+  "created_at": 1774396861,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774396905,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_03f0df4587fb392c0069c325bdb7e4819eb2f91b424dc4468e",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_03f0df4587fb392c0069c325be45c8819eab8a96a95fa81f3f",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import logging\nimport math\nimport time\nfrom typing import List, Dict, Optional, Tuple\n\ndef multi_stage_adaptive_filter(  \n    channels: List[float],  \n    edges: List[List[int]],  \n    threshold_updates: List[List[float]],  \n    max_latency_ms: float  \n) -> List[float]:\n    start_time = time.time()\n    n = len(channels)\n    # Defensive copy\n    ch = [float(x) if (not (isinstance(x, float) and math.isnan(x))) else float('nan') for x in channels]\n\n    # Build initial thresholds: default 1.0 for all channels unless updated\n    # Use segment tree for thresholds with lazy propagation\n    size = 1\n    while size < n:\n        size <<= 1\n    seg = [1.0] * (2 * size)\n    lazy = [None] * (2 * size)\n\n    def apply_node(idx: int, val: float):\n        seg[idx] = val\n        lazy[idx] = val\n\n    def push(idx: int):\n        if lazy[idx] is not None and idx < size:\n            apply_node(idx*2, lazy[idx])\n            apply_node(idx*2+1, lazy[idx])\n            lazy[idx] = None\n\n    def range_update(l: int, r: int, val: float, idx: int=1, lx: int=0, rx: Optional[int]=None):\n        if rx is None:\n            rx = size - 1\n        if l > rx or r < lx:\n            return\n        if l <= lx and rx <= r:\n            apply_node(idx, val)\n            return\n        push(idx)\n        mid = (lx + rx) // 2\n        range_update(l, r, val, idx*2, lx, mid)\n        range_update(l, r, val, idx*2+1, mid+1, rx)\n        # seg value not needed for point queries but keep placeholder\n        seg[idx] = seg[idx*2]  # arbitrary\n\n    def point_update(pos: int, val: float):\n        range_update(pos, pos, val)\n\n    def point_query(pos: int, idx: int=1, lx: int=0, rx: Optional[int]=None) -> float:\n        if rx is None:\n            rx = size - 1\n        if lx == rx:\n            return seg[idx]\n        push(idx)\n        mid = (lx + rx) // 2\n        if pos <= mid:\n            return point_query(pos, idx*2, lx, mid)\n        else:\n            return point_query(pos, idx*2+1, mid+1, rx)\n\n    # Apply threshold updates respecting malformed and out-of-bounds rules\n    for upd in threshold_updates:\n        # check time budget minimally\n        if (time.time() - start_time) * 1000 > max_latency_ms:\n            logging.warning(\"Processing exceeded latency budget while applying updates\")\n            break\n        if not isinstance(upd, list) or len(upd) not in (2,3):\n            logging.warning(\"Malformed update ignored: %s\", upd)\n            continue\n        try:\n            if len(upd) == 2:\n                idx = int(upd[0])\n                thr = float(upd[1])\n                if 0 <= idx < n:\n                    point_update(idx, thr)\n            else:\n                a = int(upd[0])\n                b = int(upd[1])\n                thr = float(upd[2])\n                l = max(0, min(a,b))\n                r = min(n-1, max(a,b))\n                if l <= r:\n                    range_update(l, r, thr)\n        except Exception:\n            logging.warning(\"Malformed update ignored: %s\", upd)\n            continue\n\n    # Build directed graph adjacency and reverse adjacency\n    adj: List[List[int]] = [[] for _ in range(n)]\n    radj: List[List[int]] = [[] for _ in range(n)]\n    for e in edges:\n        if not isinstance(e, list) or len(e) < 2:\n            continue\n        try:\n            u = int(e[0]); v = int(e[1])\n        except Exception:\n            continue\n        if 0 <= u < n and 0 <= v < n:\n            adj[u].append(v)\n            radj[v].append(u)\n    # Compute in/out counts (duplicates counted)\n    out_counts = [len(adj[i]) for i in range(n)]\n    in_counts = [len(radj[i]) for i in range(n)]\n\n    # Strongly connected components (Kosaraju)\n    visited = [False]*n\n    order: List[int] = []\n    def dfs1(u:int):\n        visited[u] = True\n        for v in adj[u]:\n            if not visited[v]:\n                dfs1(v)\n        order.append(u)\n    for i in range(n):\n        if not visited[i]:\n            dfs1(i)\n    comp = [-1]*n\n    cid = 0\n    def dfs2(u:int, c:int):\n        comp[u] = c\n        for v in radj[u]:\n            if comp[v] == -1:\n                dfs2(v, c)\n    for u in reversed(order):\n        if comp[u] == -1:\n            dfs2(u, cid)\n            cid += 1\n\n    # Build undirected graph for bridge detection (using edges as undirected)\n    und_adj: List[List[Tuple[int,int]]] = [[] for _ in range(n)]\n    edge_id = 0\n    for e in edges:\n        if not isinstance(e, list) or len(e) < 2:\n            continue\n        try:\n            u = int(e[0]); v = int(e[1])\n        except Exception:\n            continue\n        if 0 <= u < n and 0 <= v < n:\n            und_adj[u].append((v, edge_id))\n            und_adj[v].append((u, edge_id))\n            edge_id += 1\n\n    # Bridge detection (Tarjan) on undirected multigraph: treat parallel edges by id\n    tin = [-1]*n\n    low = [0]*n\n    timer = 0\n    is_bridge_edge = set()\n    visited_e = set()\n    def dfs_br(u:int, peid:int):\n        nonlocal timer\n        tin[u] = low[u] = timer\n        timer += 1\n        for v, eid in und_adj[u]:\n            if eid == peid:\n                continue\n            if tin[v] != -1:\n                low[u] = min(low[u], tin[v])\n            else:\n                dfs_br(v, eid)\n                low[u] = min(low[u], low[v])\n                if low[v] > tin[u]:\n                    # this edge is a bridge (u-v)\n                    is_bridge_edge.add((u,v,eid))\n                    is_bridge_edge.add((v,u,eid))\n    for i in range(n):\n        if tin[i] == -1:\n            dfs_br(i, -1)\n    # Determine bridge nodes: if any incident undirected edge is a bridge, node is bridge node\n    bridge_node = [False]*n\n    for u in range(n):\n        for v,eid in und_adj[u]:\n            if (u,v,eid) in is_bridge_edge:\n                bridge_node[u] = True\n                break\n\n    # Detect cycles to mark ring topology membership (directed cycles)\n    onstack = [False]*n\n    visited2 = [False]*n\n    in_ring = [False]*n\n    def dfs_cycle(u:int, stack:List[int], idxmap:Dict[int,int]):\n        visited2[u] = True\n        onstack[u] = True\n        idxmap[u] = len(stack)\n        stack.append(u)\n        for v in adj[u]:\n            if not visited2[v]:\n                dfs_cycle(v, stack, idxmap)\n            elif onstack[v]:\n                # mark cycle nodes from idxmap[v]..end\n                start = idxmap.get(v, 0)\n                for w in stack[start:]:\n                    in_ring[w] = True\n        stack.pop()\n        onstack[u] = False\n        idxmap.pop(u, None)\n    for i in range(n):\n        if not visited2[i]:\n            dfs_cycle(i, [], {})\n\n    # Prepare active flags initially: channels meeting/exceeding threshold are active\n    thresholds = [point_query(i) for i in range(n)]\n    active = [False]*n\n    for i in range(n):\n        thr = thresholds[i]\n        val = ch[i]\n        if val is None or (isinstance(val, float) and math.isnan(val)):\n            active[i] = False\n            continue\n        if thr == 0.0:\n            # avoid division by zero: if measured positive treat as high ratio else zero\n            ratio = float('inf') if val > 0 else 0.0\n        else:\n            ratio = val / thr\n        if ratio >= 1.0:\n            active[i] = True\n\n    # Evaluate rules in priority order for each channel not already active\n    result = [0.0]*n\n    for i in range(n):\n        if active[i]:\n            result[i] = ch[i]\n            continue\n        thr = thresholds[i]\n        val = ch[i]\n        if val is None or (isinstance(val, float) and math.isnan(val)):\n            result[i] = 0.0\n            continue\n        # ratio calc safe\n        if thr == 0.0:\n            ratio = float('inf') if val > 0 else 0.0\n        else:\n            ratio = val / thr\n        decided = False\n        # Rule order: bridge, critical junction, source, sink, else suppressed\n        # Bridge channels preserved if ratio in [0.81,0.82]\n        if not decided and bridge_node[i] and 0.81 <= ratio <= 0.82:\n            result[i] = ch[i]\n            decided = True\n        # Critical junction: handling both incoming and outgoing, part of redundant ring topologies,\n        # ratio in (0.79,0.81] and connecting to at least 2 active neighbors\n        if not decided and in_counts[i] > 0 and out_counts[i] > 0 and in_ring[i] and 0.79 < ratio <= 0.81:\n            # count active neighbors (in+out, duplicates counted)\n            active_neighbors = 0\n            for v in adj[i]:\n                if 0 <= v < n and result[v] != 0.0:\n                    active_neighbors += 1\n            for v in radj[i]:\n                if 0 <= v < n and result[v] != 0.0:\n                    active_neighbors += 1\n            if active_neighbors >= 2:\n                result[i] = ch[i]\n                decided = True\n        # Source channels: no incoming connections, ratio > 0.85 AND feeding at least 1 active downstream\n        if not decided and in_counts[i] == 0 and ratio > 0.85:\n            downstream_active = 0\n            for v in adj[i]:\n                if 0 <= v < n and result[v] != 0.0:\n                    downstream_active += 1\n            if downstream_active >= 1:\n                result[i] = ch[i]\n                decided = True\n        # Sink channels: no outgoing connections, ratio between 0.75 and 0.78 AND receiving from at least 3 active sources\n        if not decided and out_counts[i] == 0 and 0.75 <= ratio <= 0.78:\n            sources_active = 0\n            for v in radj[i]:\n                if 0 <= v < n and result[v] != 0.0:\n                    sources_active += 1\n            if sources_active >= 3:\n                result[i] = ch[i]\n                decided = True\n        # If none matched, suppressed (0.0)\n        if not decided:\n            result[i] = 0.0\n\n    # Final pass: ensure rules that depend on neighbors see consistent state.\n    # Some rules require checking active neighbors; do a small iterative stabilization (2 passes)\n    for _ in range(2):\n        changed = False\n        for i in range(n):\n            if result[i] != 0.0:\n                continue  # already active\n            thr = thresholds[i]\n            val = ch[i]\n            if val is None or (isinstance(val, float) and math.isnan(val)):\n                continue\n            if thr == 0.0:\n                ratio = float('inf') if val > 0 else 0.0\n            else:\n                ratio = val / thr\n            # re-evaluate prioritized rules\n            if bridge_node[i] and 0.81 <= ratio <= 0.82:\n                result[i] = ch[i]; changed = True; continue\n            if in_counts[i] > 0 and out_counts[i] > 0 and in_ring[i] and 0.79 < ratio <= 0.81:\n                active_neighbors = 0\n                for v in adj[i]:\n                    if 0 <= v < n and result[v] != 0.0:\n                        active_neighbors += 1\n                for v in radj[i]:\n                    if 0 <= v < n and result[v] != 0.0:\n                        active_neighbors += 1\n                if active_neighbors >= 2:\n                    result[i] = ch[i]; changed = True; continue\n            if in_counts[i] == 0 and ratio > 0.85:\n                downstream_active = 0\n                for v in adj[i]:\n                    if 0 <= v < n and result[v] != 0.0:\n                        downstream_active += 1\n                if downstream_active >= 1:\n                    result[i] = ch[i]; changed = True; continue\n            if out_counts[i] == 0 and 0.75 <= ratio <= 0.78:\n                sources_active = 0\n                for v in radj[i]:\n                    if 0 <= v < n and result[v] != 0.0:\n                        sources_active += 1\n                if sources_active >= 3:\n                    result[i] = ch[i]; changed = True; continue\n        if not changed:\n            break\n\n    elapsed_ms = (time.time() - start_time) * 1000.0\n    if elapsed_ms > max_latency_ms:\n        logging.warning(\"Processing exceeded latency budget: %.2f ms > %.2f ms\", elapsed_ms, max_latency_ms)\n\n    return result[:]"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1397,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 3104,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4501
+  },
+  "user": null,
+  "metadata": {}
+}

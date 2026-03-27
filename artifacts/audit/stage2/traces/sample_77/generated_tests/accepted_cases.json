@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[[1, \"C1\"], [99, \"C2\"], [50, \"C3\"]]\n[[\"split\", \"C1\"], [\"merge\", [\"C2\", \"C1\"]], [\"adjust\", [-200, \"C2\"]], [\"balance\", [\"C2\", \"C3\"]]]",
+    "output_text": "[\"C2\", \"C3\"]"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[[60, \"A\"], [50, \"B\"]]\n[[\"merge\", [\"A\", \"B\"]]]",
+    "output_text": "[]"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[[5, \"X\"], [5, \"Y\"]]\n[[\"link\", [\"X\", \"Y\"]], [\"split\", [\"X\"]], [\"adjust\", [3, \"Y\"]]]",
+    "output_text": "[]"
+  }
+]

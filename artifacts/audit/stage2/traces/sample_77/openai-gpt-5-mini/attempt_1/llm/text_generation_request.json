@@ -1,0 +1,30 @@
+{
+  "model": "gpt-5-mini",
+  "input": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are a careful coding assistant. Return the best possible answer for the task."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Solve the following Python coding task.\n\nRequirements:\n- Return only Python code.\n- Implement the requested entry function exactly.\n- Do not include explanations before or after the code.\n- Use only the Python standard library unless the prompt explicitly permits otherwise.\n\nProblem Statement:\n### Problem Statement\n\nIn a local computing environment, an ML engineer needs to coordinate a workflow of computational tasks distributed across multiple processing clusters. Each cluster has a limited capacity and may handle multiple dependent tasks at once. The engineer aims to design a scheduling system that can efficiently:\n\n1. Manage dynamic task groups with changing capacities.  \n2. Merge or split clusters based on workload conditions.  \n3. Adjust task priorities to achieve balanced utilization and minimal delay.\n\nTo achieve this, the engineer plans to use a graph-based scheduling structure that models clusters and their relationships, supporting efficient updates and priority adjustments.\n\n### Objectives\n\n1. **Graph-Based Resource Clusters**  \n   Each cluster should be represented as a node in a virtual graph. Tasks can be assigned to clusters, and clusters may be linked, merged, or split dynamically to reflect changing workloads.\n\n2. **Efficient Priority Management**  \n   A tree-based data structure (for example, a custom segment tree or balanced priority tracker) should be used to efficiently handle capacity updates and priority adjustments. Each update or query should run in O(log n) time or better.\n\n3. **Cluster Operations**  \n   The scheduling system must support the following operations:\n\n   - link(a, b): Connect two clusters to form a workload relationship.  \n   - split(a): Split cluster \"a\" internally into two equal subparts. The cluster retains the same external identifier \"a\", but its capacity is halved (rounded down). The discarded half is no longer tracked.  \n   - merge(a, b): Merge clusters \"a\" and \"b\" if their combined capacity does not exceed a defined global merge limit of 100. The merged cluster keeps the name of the first operand \"a\", and cluster \"b\" is removed from the active cluster set.  \n   - adjust(value, a): Adjust the capacity of cluster \"a\" by \"value\". A positive value increases it, and a negative value decreases it, if the computed value is less than zero, it must be clamped to zero.\n   - balance(a, b): If one cluster’s capacity exceeds 1.5 times that of the other, transfer half the difference in capacity from the larger cluster to the smaller one.\n\n### Constraints\n\n- The implementation must be written in pure Python with no external libraries.  \n- Only the following operation types are allowed: \"link\", \"split\", \"merge\", \"adjust\", and \"balance\", if any other operation appears in the input, the function must immediately return an empty list [].  \n- Payload validation must be strict. Any violation must also return [].  \n    1. For link, the payload must be a list [a: str, b: str] where a != b.  \n    2. For split, the payload must be a single string \"a\" that references an existing cluster.  \n    3. For merge, the payload must be a list [a: str, b: str] where both clusters exist and a != b, and their combined capacity must not exceed 100.  \n    4. For adjust, the payload must be a list [value: int, a: str] where the cluster a exists.  \n    5. For balance, the payload must be a list [a: str, b: str] where both clusters exist and a != b.  \n- Each operation must be represented as a list of length two [operation, payload].  \n- Any operation that references a cluster name not currently present in the active state must return an empty list.  \n\n### Function Signature\n\n```python\ndef schedule_tasks(tasks: List[List[Any]], operations: List[List[Any]]) -> List[str]:\n    pass\n```\n\n### Sample Input\n\n```python\ntasks = [\n    [10, 'cluster_A'],\n    [7,  'cluster_B'],\n    [15, 'cluster_C']\n]\n\noperations = [\n    ['link',   ['cluster_A', 'cluster_B']],\n    ['split',  'cluster_C'],\n    ['merge',  ['cluster_C', 'cluster_B']],\n    ['adjust', [5, 'cluster_A']],\n    ['balance', ['cluster_A', 'cluster_C']],\n]\n```\n\n### Sample Output\n\n```python\n['cluster_A', 'cluster_C']\n```\n\n### Expected Output Format\n\n- The function should return a list of all active cluster identifiers after processing all operations.  \n- The list must be ordered by final capacity in descending order.  \n- If two clusters have equal capacities, they should be ordered alphabetically by their names.  \n- The output should reflect all merges, splits, adjustments, and balancing operations that occurred during processing.  \n- If any invalid operation or payload is encountered, the function must return an empty list immediately.\n\nStarter Code:\n```python\nfrom typing import List, Any\n\ndef schedule_tasks(tasks: List[List[Any]], operations: List[List[Any]]) -> List[str]:\n    pass\n```\n"
+        }
+      ]
+    }
+  ],
+  "reasoning": {
+    "effort": "minimal"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 4096
+}

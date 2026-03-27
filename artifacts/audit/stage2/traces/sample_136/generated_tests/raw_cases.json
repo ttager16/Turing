@@ -1,0 +1,280 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "0": [
+          [
+            1,
+            {
+              "vehicle_access": [
+                "electric"
+              ],
+              "time_windows": [
+                [
+                  0,
+                  10
+                ]
+              ],
+              "env_limits": {},
+              "base_cost": 4,
+              "capacity": 1
+            }
+          ],
+          [
+            2,
+            {
+              "vehicle_access": [
+                "electric"
+              ],
+              "time_windows": [
+                [
+                  0,
+                  24
+                ]
+              ],
+              "env_limits": {
+                "icy": true
+              },
+              "base_cost": 2,
+              "capacity": 2
+            }
+          ]
+        ],
+        "1": [
+          [
+            3,
+            {
+              "vehicle_access": [
+                "electric"
+              ],
+              "time_windows": [
+                [
+                  0,
+                  24
+                ]
+              ],
+              "env_limits": {},
+              "base_cost": 1,
+              "capacity": 1
+            }
+          ]
+        ],
+        "2": [
+          [
+            3,
+            {
+              "vehicle_access": [
+                "electric"
+              ],
+              "time_windows": [
+                [
+                  0,
+                  24
+                ]
+              ],
+              "env_limits": {},
+              "base_cost": 1,
+              "capacity": 2
+            }
+          ]
+        ],
+        "3": []
+      },
+      "electric",
+      0,
+      3,
+      10,
+      {
+        "icy": true
+      },
+      {
+        "0,1": 1,
+        "0,2": 0,
+        "1,3": 0,
+        "2,3": 0
+      }
+    ],
+    "input_lines": [
+      "{\"0\": [[1, {\"vehicle_access\": [\"electric\"], \"time_windows\": [[0, 10]], \"env_limits\": {}, \"base_cost\": 4, \"capacity\": 1}], [2, {\"vehicle_access\": [\"electric\"], \"time_windows\": [[0, 24]], \"env_limits\": {\"icy\": true}, \"base_cost\": 2, \"capacity\": 2}]], \"1\": [[3, {\"vehicle_access\": [\"electric\"], \"time_windows\": [[0, 24]], \"env_limits\": {}, \"base_cost\": 1, \"capacity\": 1}]], \"2\": [[3, {\"vehicle_access\": [\"electric\"], \"time_windows\": [[0, 24]], \"env_limits\": {}, \"base_cost\": 1, \"capacity\": 2}]], \"3\": []}",
+      "\"electric\"",
+      "0",
+      "3",
+      "10",
+      "{\"icy\": true}",
+      "{\"0,1\": 1, \"0,2\": 0, \"1,3\": 0, \"2,3\": 0}"
+    ],
+    "focus": "Capacity boundary: edge (0->1) at full capacity should be unavailable, forcing choice of icy path with hazard multiplier"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "0": [
+          [
+            1,
+            {
+              "vehicle_access": [
+                "diesel"
+              ],
+              "time_windows": [
+                [
+                  0,
+                  24
+                ]
+              ],
+              "env_limits": {},
+              "base_cost": 1,
+              "capacity": 1
+            }
+          ],
+          [
+            2,
+            {
+              "vehicle_access": [
+                "electric"
+              ],
+              "time_windows": [
+                [
+                  0,
+                  24
+                ]
+              ],
+              "env_limits": {
+                "flooded": false
+              },
+              "base_cost": 5,
+              "capacity": 2
+            }
+          ]
+        ],
+        "2": [
+          [
+            3,
+            {
+              "vehicle_access": [
+                "electric"
+              ],
+              "time_windows": [
+                [
+                  12,
+                  14
+                ]
+              ],
+              "env_limits": {},
+              "base_cost": 1,
+              "capacity": 1
+            }
+          ],
+          [
+            4,
+            {
+              "vehicle_access": [
+                "electric"
+              ],
+              "time_windows": [],
+              "env_limits": {},
+              "base_cost": 2,
+              "capacity": 2
+            }
+          ]
+        ],
+        "4": [
+          [
+            3,
+            {
+              "vehicle_access": [
+                "electric"
+              ],
+              "time_windows": [
+                [
+                  0,
+                  24
+                ]
+              ],
+              "env_limits": {},
+              "base_cost": 1,
+              "capacity": 1
+            }
+          ]
+        ],
+        "1": [],
+        "3": []
+      },
+      "electric",
+      0,
+      3,
+      11,
+      {
+        "flooded": false
+      },
+      {
+        "0,1": 0,
+        "0,2": 0,
+        "2,3": 0,
+        "2,4": 0,
+        "4,3": 0
+      }
+    ],
+    "input_lines": [
+      "{\"0\": [[1, {\"vehicle_access\": [\"diesel\"], \"time_windows\": [[0, 24]], \"env_limits\": {}, \"base_cost\": 1, \"capacity\": 1}], [2, {\"vehicle_access\": [\"electric\"], \"time_windows\": [[0, 24]], \"env_limits\": {\"flooded\": false}, \"base_cost\": 5, \"capacity\": 2}]], \"2\": [[3, {\"vehicle_access\": [\"electric\"], \"time_windows\": [[12, 14]], \"env_limits\": {}, \"base_cost\": 1, \"capacity\": 1}], [4, {\"vehicle_access\": [\"electric\"], \"time_windows\": [], \"env_limits\": {}, \"base_cost\": 2, \"capacity\": 2}]], \"4\": [[3, {\"vehicle_access\": [\"electric\"], \"time_windows\": [[0, 24]], \"env_limits\": {}, \"base_cost\": 1, \"capacity\": 1}]], \"1\": [], \"3\": []}",
+      "\"electric\"",
+      "0",
+      "3",
+      "11",
+      "{\"flooded\": false}",
+      "{\"0,1\": 0, \"0,2\": 0, \"2,3\": 0, \"2,4\": 0, \"4,3\": 0}"
+    ],
+    "focus": "Time-window and empty-window handling: direct edge (2->3) closed at current_time so route must use an always-open intermediate (2->4->3); env_limits false/false should not apply multiplier"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "5": [],
+        "0": [
+          [
+            5,
+            {
+              "vehicle_access": [
+                "diesel"
+              ],
+              "time_windows": [
+                [
+                  0,
+                  24
+                ]
+              ],
+              "env_limits": {
+                "icy": true
+              },
+              "base_cost": 10,
+              "capacity": 1
+            }
+          ]
+        ],
+        "1": []
+      },
+      "diesel",
+      5,
+      5,
+      8,
+      {
+        "icy": true
+      },
+      {
+        "0,5": 0
+      }
+    ],
+    "input_lines": [
+      "{\"5\": [], \"0\": [[5, {\"vehicle_access\": [\"diesel\"], \"time_windows\": [[0, 24]], \"env_limits\": {\"icy\": true}, \"base_cost\": 10, \"capacity\": 1}]], \"1\": []}",
+      "\"diesel\"",
+      "5",
+      "5",
+      "8",
+      "{\"icy\": true}",
+      "{\"0,5\": 0}"
+    ],
+    "focus": "Start equals end: trivial zero-cost route when start_node == end_node should return [start_node] regardless of graph edges"
+  }
+]

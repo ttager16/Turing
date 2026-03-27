@@ -1,0 +1,93 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "city_graph": {},
+        "capacity_map": {},
+        "demand_map": {}
+      }
+    ],
+    "input_lines": [
+      "{\"city_graph\": {}, \"capacity_map\": {}, \"demand_map\": {}}"
+    ],
+    "focus": "Empty graph — edge case: no nodes, expect fallback/default handling (hub 0) and safe defaults for metrics."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "city_graph": {
+          "0": [
+            1,
+            3
+          ],
+          "1": [
+            0,
+            2
+          ],
+          "2": [
+            1,
+            3
+          ],
+          "3": [
+            0,
+            2
+          ]
+        },
+        "capacity_map": {
+          "0,1": 3,
+          "2,1": 1,
+          "2,3": 2,
+          "0,3": 2
+        },
+        "demand_map": {
+          "0": "2",
+          "1": "1",
+          "2": "2",
+          "3": "1"
+        }
+      }
+    ],
+    "input_lines": [
+      "{\"city_graph\": {\"0\": [1, 3], \"1\": [0, 2], \"2\": [1, 3], \"3\": [0, 2]}, \"capacity_map\": {\"0,1\": 3, \"2,1\": 1, \"2,3\": 2, \"0,3\": 2}, \"demand_map\": {\"0\": \"2\", \"1\": \"1\", \"2\": \"2\", \"3\": \"1\"}}"
+    ],
+    "focus": "Format-sensitive case: mixed capacity key direction (\"2,1\"), demand values as strings; tests parsing, normalization, and capacity-aware path selection."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "city_graph": {
+          "0": [
+            1
+          ],
+          "1": [
+            0,
+            2
+          ],
+          "2": [
+            1,
+            3
+          ],
+          "3": [
+            2
+          ]
+        },
+        "capacity_map": {
+          "0,1": 5
+        },
+        "demand_map": {
+          "0": 1,
+          "1": 2,
+          "2": 2,
+          "3": 1
+        }
+      }
+    ],
+    "input_lines": [
+      "{\"city_graph\": {\"0\": [1], \"1\": [0, 2], \"2\": [1, 3], \"3\": [2]}, \"capacity_map\": {\"0,1\": 5}, \"demand_map\": {\"0\": 1, \"1\": 2, \"2\": 2, \"3\": 1}}"
+    ],
+    "focus": "Missing capacity entries for some adjacency edges (treated as zero capacity) causing no capacity-feasible hub — tests fallback to first node and unreachable handling."
+  }
+]

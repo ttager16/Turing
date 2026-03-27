@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN7ocTIHj6JjkVQbw3thz9WUVVhmJ",
+  "object": "chat.completion",
+  "created": 1774403958,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"{\\\"X\\\": [[\\\"A\\\", 5, {}], [\\\"B\\\", 5, {}]], \\\"A\\\": [[\\\"T\\\", 5, {}], [\\\"A\\\", 1, {\\\"traffic\\\": 1.0}]], \\\"B\\\": [[\\\"T\\\", 5, {}]], \\\"T\\\": []}\",\"[[\\\"B\\\", \\\"S\\\", {\\\"traffic\\\": 1.1}], [\\\"X\\\", \\\"A\\\", {\\\"traffic\\\": 1.0}]]\",\"8\"],\"focus\":\"equal-cost tie with lexicographic full-path tie-break; includes a self-loop and an ignored update to a non-existent edge\"},{\"input_lines\":[\"{\\\"P\\\": [[\\\"Q\\\", 0, {}]], \\\"Q\\\": [[\\\"P\\\", 0, {}], [\\\"T\\\", 1, {}]], \\\"A\\\": [[\\\"B\\\", 3, {\\\"time_window_start\\\": 0, \\\"time_window_end\\\": 6}], [\\\"T\\\", 2, {\\\"time_window_end\\\": 24}]], \\\"B\\\": [[\\\"T\\\", 5, {}]], \\\"T\\\": []}\",\"[[\\\"Q\\\", \\\"T\\\", {\\\"traffic\\\": 0.5}]]\",\"23\"],\"focus\":\"time-window boundaries (inclusive) and end=24 validity; zero-cost cycle between P and Q to ensure no infinite loops\"},{\"input_lines\":[\"{\\\"S\\\": [[\\\"M\\\", 10, {\\\"traffic\\\": 1.2, \\\"capacity_tier\\\": 2}], [\\\"N\\\", 5, {}], [\\\"T\\\", 14, {}]], \\\"M\\\": [[\\\"T\\\", 5, {\\\"maintenance\\\": 0.8}]], \\\"N\\\": [[\\\"T\\\", 10, {\\\"time_window_start\\\": 9, \\\"time_window_end\\\": 17}]], \\\"T\\\": []}\",\"[[\\\"S\\\", \\\"M\\\", {\\\"traffic\\\": 1.0}], [\\\"S\\\", \\\"M\\\", {\\\"capacity_tier\\\": 1}], [\\\"X\\\", \\\"Y\\\", {\\\"traffic\\\": 2.0}]]\",\"9\"],\"focus\":\"overlapping updates merging (key-wise override), tie between direct and two-step routes resolved lexicographically; includes an ignored update for unknown edge\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1989,
+    "completion_tokens": 4007,
+    "total_tokens": 5996,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3520,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

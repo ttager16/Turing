@@ -1,0 +1,294 @@
+from typing import Any, Dict, List, Tuple
+
+
+class TransactionCostContext:
+    def __init__(self, cost_per_unit: float | None, budget: float | None):
+        self.cost_per_unit = cost_per_unit
+        # budget passed as float, but requirements ask budget as list with single element
+        self.budget = [float(budget)] if budget is not None else None
+
+
+class SegmentTree:
+    def __init__(self, size: int, data: List[float] = None):
+        n = 1
+        while n < size:
+            n <<= 1
+        self.n = n
+        self.size = size
+        self.tree = [0.0] * (2 * n)
+        if data:
+            for i in range(min(size, len(data))):
+                self.tree[n + i] = float(data[i])
+            for i in range(n - 1, 0, -1):
+                self.tree[i] = self.tree[i << 1] + self.tree[(i << 1) | 1]
+
+    def update(self, idx: int, value: float):
+        pos = self.n + idx
+        self.tree[pos] = float(value)
+        pos >>= 1
+        while pos:
+            self.tree[pos] = self.tree[pos << 1] + self.tree[(pos << 1) | 1]
+            pos >>= 1
+
+    def range_sum(self, l: int, r: int) -> float:
+        # sum on [l, r)
+        res = 0.0
+        l += self.n
+        r += self.n
+        while l < r:
+            if l & 1:
+                res += self.tree[l]
+                l += 1
+            if r & 1:
+                r -= 1
+                res += self.tree[r]
+            l >>= 1
+            r >>= 1
+        return res
+
+    def total(self) -> float:
+        return self.tree[1]
+
+
+def _safe_get_stock_field(d: Dict[str, Any]) -> Tuple[str, float, List[str]]:
+    symbol = str(d.get("symbol", "")) if d is not None else ""
+    volatility = float(d.get("volatility", 0.0)) if d is not None else 0.0
+    correlated_with = d.get("correlated_with", []) or []
+    correlated_with = [str(x) for x in correlated_with]
+    return symbol, volatility, correlated_with
+
+
+def _build_corr_map(symbols: List[str], corr_lists: Dict[str, List[str]]) -> Dict[str, List[str]]:
+    cmap: Dict[str, List[str]] = {s: [] for s in symbols}
+    for s in symbols:
+        for t in (corr_lists.get(s) or []):
+            t = str(t)
+            if t not in cmap:
+                continue
+            if t not in cmap[s]:
+                cmap[s].append(t)
+            if s not in cmap[t]:
+                cmap[t].append(s)
+    return cmap
+
+
+def _calculate_scores(symbols: List[str], vol_map: Dict[str, float], corr_lists: Dict[str, List[str]]) -> Dict[str, float]:
+    raw = {}
+    for s in symbols:
+        vol = float(vol_map.get(s, 0.0))
+        base = max(0.0, 1.0 - vol)
+        penalty = 0.01 * len(corr_lists.get(s) or [])
+        score = max(0.0, base - penalty)
+        raw[s] = score
+    ssum = sum(raw.values())
+    denom = ssum if ssum > 0.0 else 1.0
+    return {s: raw[s] / denom for s in symbols}
+
+
+def _calc_risk(alloc: Dict[str, int], symbols: List[str], vol_map: Dict[str, float], corr_map: Dict[str, List[str]]) -> float:
+    total_units = sum(alloc.values())
+    total_units = max(1, total_units)
+    # volatility risk
+    vol_risk = 0.0
+    weights: Dict[str, float] = {}
+    for s in symbols:
+        w = alloc.get(s, 0) / total_units
+        weights[s] = w
+        vol_risk += w * float(vol_map.get(s, 0.0))
+    # correlation penalty
+    corr_pen = 0.0
+    for i, s in enumerate(symbols):
+        for t in (corr_map.get(s) or []):
+            if s >= t:
+                continue
+            if weights.get(s, 0.0) > 0.0 and weights.get(t, 0.0) > 0.0:
+                avg_vol = (float(vol_map.get(s, 0.0)) + float(vol_map.get(t, 0.0))) / 2.0
+                corr_pen += 0.5 * min(weights[s], weights[t]) * avg_vol * 0.5
+    # concentration HHI
+    hhi = 0.0
+    for s in symbols:
+        w = weights.get(s, 0.0)
+        hhi += w * w
+    conc_pen = 0.005 * hhi
+    # degree penalty
+    deg_pen = 0.0
+    for s in symbols:
+        deg = float(len(corr_map.get(s) or []))
+        deg_pen += 0.002 * weights.get(s, 0.0) * (deg / (deg + 1.0))
+    return vol_risk + corr_pen + conc_pen + deg_pen
+
+
+def _can_afford_transaction(cost: float | None, ctx: TransactionCostContext) -> bool:
+    if cost is None or ctx.budget is None:
+        return True
+    return ctx.budget[0] >= cost
+
+
+def _deduct_cost(cost: float | None, ctx: TransactionCostContext):
+    if cost is None or ctx.budget is None:
+        return
+    ctx.budget[0] -= cost
+
+
+def _refund_cost(cost: float | None, ctx: TransactionCostContext):
+    if cost is None or ctx.budget is None:
+        return
+    ctx.budget[0] += cost
+
+
+def optimize_portfolio(stock_data: List[Dict[str, Any]], risk_tolerance: float,
+                       transaction_cost_per_unit: float | None = None,
+                       transaction_cost_budget: float | None = None) -> Dict[str, Any]:
+    if not isinstance(stock_data, list) or len(stock_data) == 0:
+        return {"portfolio": {}, "expected_return": 0.0, "risk": 0.0}
+    ctx = TransactionCostContext(transaction_cost_per_unit, transaction_cost_budget)
+    # extract normalized structures
+    symbols: List[str] = []
+    vol_map: Dict[str, float] = {}
+    corr_lists: Dict[str, List[str]] = {}
+    price_map: Dict[str, float] = {}
+    for d in stock_data:
+        sym, vol, corr = _safe_get_stock_field(d)
+        symbols.append(sym)
+        vol_map[sym] = float(vol)
+        corr_lists[sym] = [str(x) for x in (corr or [])]
+        price_map[sym] = float(d.get("price", 0.0))
+    # build correlation map ensuring symmetry
+    corr_map = _build_corr_map(symbols, corr_lists)
+    # initial scores
+    scores = _calculate_scores(symbols, vol_map, corr_map)
+    n = len(symbols)
+    # initial allocations zero
+    alloc: Dict[str, int] = {s: 0 for s in symbols}
+    seg = SegmentTree(n, [0.0] * n)
+    base_risk = _calc_risk(alloc, symbols, vol_map, corr_map)
+    lam = 0.5  # risk penalty coefficient
+    # greedy allocation up to 100 units
+    for it in range(100):
+        best_delta = -1e18
+        best_idx = -1
+        for idx, s in enumerate(symbols):
+            # simulate allocating one unit
+            alloc[s] += 1
+            seg.update(idx, alloc[s])
+            new_risk = _calc_risk(alloc, symbols, vol_map, corr_map)
+            delta = scores[s] - lam * max(0.0, new_risk - base_risk)
+            # revert
+            alloc[s] -= 1
+            seg.update(idx, alloc[s])
+            if delta > best_delta:
+                best_delta = delta
+                best_idx = idx
+        if best_idx == -1:
+            break
+        best_sym = symbols[best_idx]
+        cost = None if ctx.cost_per_unit is None else float(ctx.cost_per_unit)
+        if not _can_afford_transaction(cost, ctx):
+            break
+        # attempt primary allocation with backtracking if risk too high
+        def try_allocate_primary() -> bool:
+            nonlocal alloc, seg, ctx
+            # deduct cost
+            _deduct_cost(cost, ctx)
+            alloc[best_sym] += 1
+            seg.update(best_idx, alloc[best_sym])
+            new_risk = _calc_risk(alloc, symbols, vol_map, corr_map)
+            if new_risk <= risk_tolerance:
+                return True
+            # revert
+            alloc[best_sym] -= 1
+            seg.update(best_idx, alloc[best_sym])
+            _refund_cost(cost, ctx)
+            # backtracking: try others in original order
+            for idx, s in enumerate(symbols):
+                if s == best_sym:
+                    continue
+                if not _can_afford_transaction(cost, ctx):
+                    return False
+                _deduct_cost(cost, ctx)
+                alloc[s] += 1
+                seg.update(idx, alloc[s])
+                new_risk2 = _calc_risk(alloc, symbols, vol_map, corr_map)
+                if new_risk2 <= risk_tolerance:
+                    return True
+                # revert
+                alloc[s] -= 1
+                seg.update(idx, alloc[s])
+                _refund_cost(cost, ctx)
+            return False
+
+        ok = try_allocate_primary()
+        if not ok:
+            break
+        base_risk = _calc_risk(alloc, symbols, vol_map, corr_map)
+    # Rebalance: move units from low-scoring to high-scoring
+    total_units = sum(alloc.values())
+    if total_units == 0:
+        # return empty allocations but include all symbols
+        portfolio = {s: 0 for s in symbols}
+        return {"portfolio": portfolio, "expected_return": round(0.0, 6), "risk": round(0.0, 6)}
+    max_moves = max(1, total_units // 20)
+    moves = 0
+    # precompute sorted lists
+    sorted_high = sorted(symbols, key=lambda s: (-scores[s], s))
+    sorted_low = sorted(symbols, key=lambda s: (scores[s], s))
+    while moves < max_moves:
+        moved = False
+        for high_sym in sorted_high:
+            for low_sym in sorted_low[::-1]:
+                if moves >= max_moves:
+                    break
+                if high_sym == low_sym:
+                    continue
+                if alloc.get(low_sym, 0) == 0:
+                    continue
+                # need to be able to afford 2 * cost_per_unit
+                double_cost = None if ctx.cost_per_unit is None else 2.0 * float(ctx.cost_per_unit)
+                if not _can_afford_transaction(double_cost, ctx):
+                    continue
+                # Deduct double cost (never refunded per requirements)
+                _deduct_cost(double_cost, ctx)
+                # perform move: remove one from low, add to high
+                alloc[low_sym] -= 1
+                seg.update(symbols.index(low_sym), alloc[low_sym])
+                alloc[high_sym] += 1
+                seg.update(symbols.index(high_sym), alloc[high_sym])
+                moves += 1
+                moved = True
+            if moves >= max_moves:
+                break
+        if not moved:
+            break
+    # Post-optimization cleanup: if risk violates tolerance, rollback smallest contributors until within tolerance
+    final_risk = _calc_risk(alloc, symbols, vol_map, corr_map)
+    if final_risk > risk_tolerance:
+        # sort by contribution (weight * score) ascending and remove units
+        while final_risk > risk_tolerance:
+            total_units = sum(alloc.values())
+            if total_units <= 1:
+                break
+            contribs = []
+            for s in symbols:
+                w = alloc.get(s, 0) / max(1, total_units)
+                contribs.append((w * scores[s], s))
+            contribs.sort()
+            removed = False
+            for _, s in contribs:
+                if alloc.get(s, 0) > 0:
+                    alloc[s] -= 1
+                    seg.update(symbols.index(s), alloc[s])
+                    removed = True
+                    break
+            if not removed:
+                break
+            final_risk = _calc_risk(alloc, symbols, vol_map, corr_map)
+    # final expected return: weighted by scores and allocations and prices maybe irrelevant; use scores weighted
+    total_units = max(1, sum(alloc.values()))
+    expected_return = 0.0
+    for s in symbols:
+        expected_return += (alloc.get(s, 0) / total_units) * scores[s]
+    # map expected_return to percentage-ish number: keep as fraction; but sample shows ~0.03, scores sum to 1 so small values; leave as is
+    # Round outputs to 6 decimals
+    portfolio = {s: int(alloc.get(s, 0)) for s in symbols}
+    final_risk = _calc_risk(alloc, symbols, vol_map, corr_map)
+    return {"portfolio": portfolio, "expected_return": round(float(expected_return), 6), "risk": round(float(final_risk), 6)}

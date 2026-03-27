@@ -1,0 +1,228 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        [
+          "insert",
+          {
+            "id": 1001,
+            "ward": "ICU",
+            "priority": 3,
+            "emergency": false,
+            "duration": 120,
+            "resources": [
+              "Ventilator"
+            ]
+          }
+        ],
+        [
+          "insert",
+          {
+            "id": 1002,
+            "ward": "Ward-A",
+            "priority": 4,
+            "emergency": false,
+            "duration": 240
+          }
+        ],
+        [
+          "insert",
+          {
+            "id": 1003,
+            "ward": "ER",
+            "priority": 1,
+            "emergency": true,
+            "duration": 45
+          }
+        ],
+        [
+          "insert",
+          {
+            "id": 1004,
+            "ward": "ER",
+            "priority": 2,
+            "emergency": false,
+            "duration": 30
+          }
+        ],
+        [
+          "insert",
+          {
+            "id": 1005,
+            "ward": "Ward-A",
+            "priority": 5,
+            "emergency": false,
+            "duration": 300
+          }
+        ],
+        [
+          "reorder",
+          {
+            "id": 1003,
+            "new_priority": 0,
+            "simulate_mass_update": true
+          }
+        ],
+        [
+          "transfer",
+          {
+            "id": 1004,
+            "new_ward": "Ward-A"
+          }
+        ],
+        [
+          "transfer",
+          {
+            "id": 1002,
+            "new_ward": "ICU"
+          }
+        ],
+        [
+          "reorder",
+          {
+            "id": 1001,
+            "new_priority": 1
+          }
+        ],
+        [
+          "ward_status",
+          {
+            "ward": "ICU"
+          }
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[\"insert\", {\"id\": 1001, \"ward\": \"ICU\", \"priority\": 3, \"emergency\": false, \"duration\": 120, \"resources\": [\"Ventilator\"]}], [\"insert\", {\"id\": 1002, \"ward\": \"Ward-A\", \"priority\": 4, \"emergency\": false, \"duration\": 240}], [\"insert\", {\"id\": 1003, \"ward\": \"ER\", \"priority\": 1, \"emergency\": true, \"duration\": 45}], [\"insert\", {\"id\": 1004, \"ward\": \"ER\", \"priority\": 2, \"emergency\": false, \"duration\": 30}], [\"insert\", {\"id\": 1005, \"ward\": \"Ward-A\", \"priority\": 5, \"emergency\": false, \"duration\": 300}], [\"reorder\", {\"id\": 1003, \"new_priority\": 0, \"simulate_mass_update\": true}], [\"transfer\", {\"id\": 1004, \"new_ward\": \"Ward-A\"}], [\"transfer\", {\"id\": 1002, \"new_ward\": \"ICU\"}], [\"reorder\", {\"id\": 1001, \"new_priority\": 1}], [\"ward_status\", {\"ward\": \"ICU\"}]]"
+    ],
+    "focus": "Mass reprioritize with simulate_mass_update and multiple inter-ward transfers, including resource tag"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        [
+          "insert",
+          {
+            "id": 5000000,
+            "ward": "ER-Outpost",
+            "priority": 5,
+            "emergency": false,
+            "duration": 30
+          }
+        ],
+        [
+          "delete",
+          {
+            "id": 5000000
+          }
+        ],
+        [
+          "transfer",
+          {
+            "id": 5000000,
+            "new_ward": "ICU"
+          }
+        ],
+        [
+          "delete",
+          {
+            "id": 5000000
+          }
+        ],
+        [
+          "patient_info",
+          {
+            "id": 5000000
+          }
+        ],
+        [
+          "insert",
+          {
+            "id": 5000001,
+            "ward": "ICU",
+            "priority": 999999,
+            "emergency": true,
+            "duration": 100000
+          }
+        ],
+        [
+          "patient_info",
+          {
+            "id": 5000001
+          }
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[\"insert\", {\"id\": 5000000, \"ward\": \"ER-Outpost\", \"priority\": 5, \"emergency\": false, \"duration\": 30}], [\"delete\", {\"id\": 5000000}], [\"transfer\", {\"id\": 5000000, \"new_ward\": \"ICU\"}], [\"delete\", {\"id\": 5000000}], [\"patient_info\", {\"id\": 5000000}], [\"insert\", {\"id\": 5000001, \"ward\": \"ICU\", \"priority\": 999999, \"emergency\": true, \"duration\": 100000}], [\"patient_info\", {\"id\": 5000001}]]"
+    ],
+    "focus": "Delete-then-transfer of same patient (nonexistent transfer), repeated deletes, and querying removed vs existing patient; extreme priority/duration boundary values"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        [
+          "insert",
+          {
+            "id": 99999999,
+            "ward": "Cardiology - East Wing",
+            "priority": 0,
+            "emergency": false,
+            "duration": 0
+          }
+        ],
+        [
+          "insert",
+          {
+            "id": 1000000000,
+            "ward": "Neuro/ICU 🧠",
+            "priority": 10,
+            "emergency": true,
+            "duration": 1000000
+          }
+        ],
+        [
+          "reorder",
+          {
+            "id": 99999999,
+            "new_priority": 500000,
+            "simulate_mass_update": false
+          }
+        ],
+        [
+          "reorder",
+          {
+            "id": 99999999,
+            "new_priority": 1
+          }
+        ],
+        [
+          "transfer",
+          {
+            "id": 1000000000,
+            "new_ward": "Cardiology - East Wing"
+          }
+        ],
+        [
+          "ward_status",
+          {
+            "ward": "Cardiology - East Wing"
+          }
+        ],
+        [
+          "ward_status",
+          {
+            "ward": "Neuro/ICU 🧠"
+          }
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[\"insert\", {\"id\": 99999999, \"ward\": \"Cardiology - East Wing\", \"priority\": 0, \"emergency\": false, \"duration\": 0}], [\"insert\", {\"id\": 1000000000, \"ward\": \"Neuro/ICU 🧠\", \"priority\": 10, \"emergency\": true, \"duration\": 1000000}], [\"reorder\", {\"id\": 99999999, \"new_priority\": 500000, \"simulate_mass_update\": false}], [\"reorder\", {\"id\": 99999999, \"new_priority\": 1}], [\"transfer\", {\"id\": 1000000000, \"new_ward\": \"Cardiology - East Wing\"}], [\"ward_status\", {\"ward\": \"Cardiology - East Wing\"}], [\"ward_status\", {\"ward\": \"Neuro/ICU 🧠\"}]]"
+    ],
+    "focus": "Format-sensitive ward names (spaces, punctuation, emoji) and extreme numeric boundaries for ids, priority and duration with multiple successive reorders and cross-ward transfer"
+  }
+]

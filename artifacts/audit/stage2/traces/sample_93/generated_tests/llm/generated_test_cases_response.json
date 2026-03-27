@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6mMWXwikwl3Z8q7TnkKnnIoIU9S",
+  "object": "chat.completion",
+  "created": 1774399974,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"{\\\"svc_json\\\": \\\"{ invalid json }\\\", \\\"svc_yaml\\\": \\\"app:\\\\n  replicas: 3\\\\n  features:\\\\n    flag: true\\\\n    note: \\\\\\\"alpha\\\\\\\"\\\\n  timeout: null\\\\n\\\", \\\"svc_xml\\\": \\\"<?xml version=\\\\\\\"1.0\\\\\\\"?><root><item id='1'>old</item><empty></empty><selfclosing attr=\\\\\\\"x\\\\\\\"/></root>\\\"}\",\n        \"{\\\"svc_json\\\": \\\"{\\\\n  \\\\\\\"new_key\\\\\\\": \\\\\\\"value\\\\\\\",\\\\n  \\\\\\\"count\\\\\\\": 5\\\\n}\\\", \\\"svc_yaml\\\": \\\"app:\\\\n  replicas: 3\\\\n  features:\\\\n    flag: false\\\\n    note: 'alpha'\\\\n  timeout: null\\\\n\\\", \\\"svc_xml\\\": \\\"<?xml version=\\\\\\\"1.0\\\\\\\"?><root><item id='1'>new</item><empty>filled</empty><selfclosing attr=\\\\\\\"y\\\\\\\"/></root>\\\"}\",\n        \"[[\\\"svc_json\\\", \\\"svc_yaml\\\"], [\\\"svc_yaml\\\", \\\"svc_xml\\\"], [\\\"svc_xml\\\", \\\"svc_json\\\"]]\"\n      ],\n      \"focus\": \"Cycle in dependencies + invalid JSON baseline (fallback) + XML declaration and empty tag -> tests attribute parsing, empty-tag to value change, and circular BFS handling.\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"ws_service\\\": \\\"parent:\\\\n  child: value\\\\n  list:\\\\n    - a\\\\n    - b\\\\n\\\", \\\"removed_service\\\": \\\"{\\\\\\\"to_remove\\\\\\\": \\\\\\\"old\\\\\\\", \\\\\\\"keep\\\\\\\": \\\\\\\"stay\\\\\\\"}\\\"}\",\n        \"{\\\"ws_service\\\": \\\"parent:\\\\n    child: value\\\\n  list:\\\\n   - a\\\\n   - b\\\\n\\\", \\\"added_service\\\": \\\"<config><port>80</port></config>\\\"}\",\n        \"[[\\\"removed_service\\\", \\\"ws_service\\\"], [\\\"added_service\\\", \\\"removed_service\\\"]]\"\n      ],\n      \"focus\": \"Whitespace-only indentation changes that should not produce line-level 'modified' reports due to .strip(); structural removal when a service is missing in current; added service present only in current; chain dependencies.\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"list_service\\\": \\\"{\\\\n  \\\\\\\"values\\\\\\\": [1, 2, 3], \\\\n  \\\\\\\"meta\\\\\\\": {\\\\\\\"name\\\\\\\": \\\\\\\"alpha\\\\\\\"}\\\\n}\\\", \\\"order_service\\\": \\\"items:\\\\n  - one\\\\n  - two\\\\n  - three\\\\n\\\", \\\"xml_attr_service\\\": \\\"<root><val>10</val><empty></empty><elem flag=\\\\'a\\\\'>x</elem></root>\\\"}\",\n        \"{\\\"list_service\\\": \\\"{\\\\n  \\\\\\\"values\\\\\\\": [1, 3, 2], \\\\n  \\\\\\\"meta\\\\\\\": {\\\\\\\"name\\\\\\\": \\\\\\\"alpha\\\\\\\"}\\\\n}\\\", \\\"order_service\\\": \\\"items:\\\\n  - three\\\\n  - two\\\\n  - one\\\\n\\\", \\\"xml_attr_service\\\": \\\"<root><val>20</val><empty>now-filled</empty><elem flag=\\\\'b\\\\'>x</elem></root>\\\"}\",\n        \"[[\\\"list_service\\\", \\\"xml_attr_service\\\"], [\\\"order_service\\\", \\\"list_service\\\"]]\"\n      ],\n      \"focus\": \"List order changes and JSON list flattening, YAML list reordering, XML empty-tag -> filled and attribute changes; tests list-to-string flattening, structural detection, and transitive impact propagation.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3463,
+    "completion_tokens": 3493,
+    "total_tokens": 6956,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2688,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

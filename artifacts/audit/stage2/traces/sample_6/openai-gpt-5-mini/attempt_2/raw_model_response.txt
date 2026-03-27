@@ -1,0 +1,330 @@
+from typing import List, Dict, Any, Tuple, Union
+from collections import deque, defaultdict
+import heapq
+import math
+
+def advanced_multi_commodity_flow_solver(
+    base_graph: List[List[List[Union[int, float]]]],
+    commodities: List[Dict[str, Any]],
+    time_windows: List[List[Union[int, int]]],
+    node_storage_caps: List[float]
+) -> List[Union[List[List[float]], float]]:
+    # Build edge list and adjacency with edge indices
+    n = len(base_graph)
+    edges = []  # (u, v, cost)
+    adj = [[] for _ in range(n)]
+    for u, nbrs in enumerate(base_graph):
+        for v_cost in nbrs:
+            v, c = v_cost[0], float(v_cost[1])
+            idx = len(edges)
+            edges.append((u, v, c))
+            adj[u].append((v, idx, c))
+    m = len(edges)
+
+    # Priority order mapping
+    priority_order = {"electronics": 0, "pharmaceuticals": 1, "perishables": 2, "textiles": 3, "chemicals": 4}
+    # Incompatibilities
+    incompatible = {
+        "chemicals": set(["perishables", "pharmaceuticals"]),
+        "perishables": set(["chemicals"]),
+        "pharmaceuticals": set(["chemicals"])
+    }
+
+    K = len(commodities)
+    # Initialize flows per commodity per edge
+    flows = [[0.0 for _ in range(m)] for _ in range(K)]
+    total_cost = 0.0
+
+    # Track node usages by commodity types (set of types using node)
+    node_used_types = [set() for _ in range(n)]
+
+    # Helper: get adjacent nodes
+    neighbors = [[] for _ in range(n)]
+    for u in range(n):
+        for v, idx, _ in adj[u]:
+            neighbors[u].append(v)
+            neighbors[v]  # ensure exists
+
+    # Process commodities in priority order: create list of indices sorted by priority
+    commodity_indices = list(range(K))
+    commodity_indices.sort(key=lambda i: priority_order.get(commodities[i].get("type_of_good", ""), 100))
+
+    # For numeric stability small epsilon
+    EPS = 1e-9
+
+    # Helper: check cross-contamination if commodity type wants to use node u
+    def node_allowed_for_type(u: int, typ: str) -> bool:
+        # if node currently used by incompatible types -> not allowed
+        for t in node_used_types[u]:
+            if t in incompatible and typ in incompatible[t]:
+                return False
+            if typ in incompatible and t in incompatible[typ]:
+                return False
+        # Also check neighbors: if any neighbor used by incompatible types, forbidden
+        for v in neighbors[u]:
+            for t in node_used_types[v]:
+                if t in incompatible and typ in incompatible[t]:
+                    return False
+                if typ in incompatible and t in incompatible[typ]:
+                    return False
+        return True
+
+    # Helper: Dijkstra to find min-cost path respecting node constraints and residual capacities
+    def find_path_dijkstra(source: int, sink: int, typ: str, edge_caps: List[float], edge_costs: List[float], forbidden_nodes: set) -> Tuple[List[int], float]:
+        dist = [math.inf] * n
+        prev = [(-1, -1)] * n  # (prev_node, edge_idx)
+        dist[source] = 0.0
+        hq = [(0.0, source)]
+        while hq:
+            d, u = heapq.heappop(hq)
+            if d > dist[u] + 1e-12:
+                continue
+            if u == sink:
+                break
+            # Can't use node if forbidden or cross-contamination
+            if u != source and u != sink and u in forbidden_nodes:
+                continue
+            if u != source and u != sink and not node_allowed_for_type(u, typ):
+                continue
+            for v, eidx, base_cost in adj[u]:
+                if edge_caps[eidx] <= EPS:
+                    continue
+                if v != sink and v != source and v in forbidden_nodes:
+                    continue
+                if v != source and v != sink and not node_allowed_for_type(v, typ):
+                    continue
+                # cost includes edge_costs (already adjusted) plus possible storage at v if intermediate
+                add = edge_costs[eidx]
+                if v != sink and v != source:
+                    add += 0.1  # storage cost per unit
+                nd = d + add
+                if nd + 1e-12 < dist[v]:
+                    dist[v] = nd
+                    prev[v] = (u, eidx)
+                    heapq.heappush(hq, (nd, v))
+        if dist[sink] == math.inf:
+            return [], math.inf
+        # reconstruct path edges
+        path_edges = []
+        cur = sink
+        while cur != source:
+            pu, eidx = prev[cur]
+            if pu == -1:
+                break
+            path_edges.append(eidx)
+            cur = pu
+        path_edges.reverse()
+        return path_edges, dist[sink]
+
+    # For each commodity in priority
+    for idx in commodity_indices:
+        com = commodities[idx]
+        source = int(com["source"])
+        sink = int(com["sink"])
+        demand = float(com["demand"])
+        typ = com.get("type_of_good", "")
+        daily_changes = com.get("daily_capacity_changes", [])
+        tw = time_windows[idx] if idx < len(time_windows) else [0, 1000]
+        start_day, end_day = tw[0], tw[1]
+        # Build edge capacities starting from daily_changes and degradation
+        # initial capacities per edge: if daily_changes provided use average or max; interpret as per-day total cap that commodity can use from source
+        # For simplicity, we'll map daily_changes to a base capacity fraction applied to all edges (simulation simplification)
+        # Compute effective cap multiplier from daily changes with cumulative degradation
+        days = max(len(daily_changes), 1)
+        cap_mult = 0.0
+        # accumulate capacities as sum of daily capacities after degradation
+        for day_i in range(days):
+            base_day_cap = float(daily_changes[day_i]) if day_i < len(daily_changes) else 0.0
+            days_in_transit = day_i
+            degr = max(0.1, 1.0 - (days_in_transit * 0.1))
+            cap_mult += base_day_cap * degr
+        # To avoid zero, if cap_mult==0 set to small fraction of demand
+        if cap_mult < 1e-9:
+            cap_mult = 0.0
+
+        # Edge capacities: base very large but limited by cap_mult distributed evenly across edges for this commodity
+        # Also, apply time-window modifiers
+        time_window_len = end_day - start_day + 1
+        tw_capacity_factor = 1.0
+        tw_cost_increase = 0.0
+        if typ == "perishables" and time_window_len < 2:
+            tw_capacity_factor *= 0.5
+            tw_cost_increase += 0.5
+        if typ == "pharmaceuticals" and time_window_len < 3:
+            tw_capacity_factor *= 0.8
+            tw_cost_increase += 0.2
+
+        # Base per-edge capacity for this commodity
+        if cap_mult > 0:
+            per_edge_cap = (cap_mult / max(1, m)) * tw_capacity_factor
+        else:
+            # if no daily capacity, still allow up to demand across edges if nodes permit
+            per_edge_cap = demand * tw_capacity_factor
+
+        # Edge capacities list
+        edge_caps = [per_edge_cap for _ in range(m)]
+        # Edge costs adjusted
+        edge_costs = [edges[i][2] * (1.0 + tw_cost_increase) for i in range(m)]
+
+        # forbidden nodes: nodes with zero storage capacity that cannot hold intermediate shipments
+        forbidden_nodes = set(i for i, cap in enumerate(node_storage_caps) if cap <= 0.0)
+
+        # Attempt to route up to demand respecting min flow threshold
+        remaining = demand
+        routed_amount = 0.0
+        # To prevent infinite loops, limit iterations
+        iter_limit = max(50, n + 5)
+        it = 0
+        while remaining > EPS and it < iter_limit:
+            it += 1
+            path_edges, path_cost = find_path_dijkstra(source, sink, typ, edge_caps, edge_costs, forbidden_nodes)
+            if not path_edges:
+                break
+            # Determine bottleneck capacity on path
+            bott = min(edge_caps[e] for e in path_edges)
+            # Also consider node storage caps on intermediate nodes
+            # compute min storage available across intermediate nodes
+            min_storage = math.inf
+            for e in path_edges:
+                u, v, _ = edges[e]
+                # for intermediate nodes exclude source and sink
+                if v != sink and v != source:
+                    min_storage = min(min_storage, node_storage_caps[v])
+                if u != source and u != sink:
+                    min_storage = min(min_storage, node_storage_caps[u])
+            if min_storage == math.inf:
+                min_storage = demand
+            send = min(bott, remaining, min_storage)
+            if send <= EPS:
+                break
+            # Update flows and capacities
+            for e in path_edges:
+                flows[idx][e] += send
+                edge_caps[e] -= send
+                # reduce base edge capacities globally to reflect usage by higher priority (prevent lower priority using same capacity)
+                # We'll reflect by reducing a global per-edge available capacity map - simple approach: subtract from a global cap tracker
+            remaining -= send
+            routed_amount += send
+            # mark nodes along path as used by this type
+            cur = source
+            node_used_types[cur].add(typ)
+            for e in path_edges:
+                u, v, _ = edges[e]
+                node_used_types[v].add(typ)
+            # cost accumulation: transportation + storage for intermediate nodes
+            # transport cost:
+            for e in path_edges:
+                total_cost += (edges[e][2] * (1.0 + tw_cost_increase)) * send
+            # storage cost: for each intermediate node count once per unit
+            intermediates = set()
+            cur = source
+            for e in path_edges:
+                u, v, _ = edges[e]
+                if v != sink and v != source:
+                    intermediates.add(v)
+                if u != source and u != sink:
+                    intermediates.add(u)
+            total_cost += 0.1 * send * len(intermediates)
+            # simulate dynamic capacity degradation: after each day in transit capacities drop
+            # We'll degrade remaining per-edge caps multiplicatively by 0.9 per simulated day up to len(daily_changes)
+            for day_i in range(len(daily_changes)):
+                factor = max(0.1, 1.0 - (day_i * 0.1))
+                for e in range(m):
+                    edge_caps[e] = max(0.0, edge_caps[e] * factor)
+            # If after routing, remaining less than min threshold, break
+            if routed_amount + EPS < 0.2 * demand and remaining < EPS:
+                # will check threshold after loop
+                pass
+
+        # After attempts, check minimum flow threshold
+        if routed_amount + EPS < 0.2 * demand:
+            # revert flows for this commodity (set to zero)
+            for e in range(m):
+                flows[idx][e] = 0.0
+            # remove node usage marks for this commodity
+            for u in range(n):
+                if typ in node_used_types[u]:
+                    node_used_types[u].discard(typ)
+            # no cost charged for this commodity (we only added cost as we routed; need to remove; easiest is recompute total_cost from scratch)
+            total_cost = 0.0
+            for ci in range(K):
+                # recompute cost from flows matrix
+                for e in range(m):
+                    f = flows[ci][e]
+                    if f <= 0.0:
+                        continue
+                    basec = edges[e][2]
+                    # find commodity type and time window adjustments for cost (approximate)
+                    ctyp = commodities[ci].get("type_of_good", "")
+                    twi = time_windows[ci] if ci < len(time_windows) else [0, 1000]
+                    twlen = twi[1] - twi[0] + 1
+                    tw_inc = 0.0
+                    if ctyp == "perishables" and twlen < 2:
+                        tw_inc += 0.5
+                    if ctyp == "pharmaceuticals" and twlen < 3:
+                        tw_inc += 0.2
+                    total_cost += f * basec * (1.0 + tw_inc)
+                    # storage: approximate intermediate count by 1 if path exists
+                    total_cost += f * 0.1
+        # else commodity successfully routed some amount; continue
+
+    # Final check: ensure cross-contamination neighbor rule (separated by one intermediate node) enforced more strictly:
+    # For any node used by chemicals, remove perishables and pharmaceuticals from that node and its neighbors
+    for u in range(n):
+        if "chemicals" in node_used_types[u]:
+            for v in [u] + neighbors[u]:
+                if 0 <= v < n:
+                    node_used_types[v].discard("perishables")
+                    node_used_types[v].discard("pharmaceuticals")
+    # If that removal invalidated flows (i.e., flows for certain commodities go through forbidden nodes), zero those commodity flows
+    for ci in range(K):
+        typ = commodities[ci].get("type_of_good", "")
+        invalid = False
+        for e in range(m):
+            if flows[ci][e] > EPS:
+                u, v, _ = edges[e]
+                # if any node on that edge is used by incompatible type, mark invalid
+                for node in (u, v):
+                    for t in node_used_types[node]:
+                        if t == typ:
+                            continue
+                        if t in incompatible and typ in incompatible[t]:
+                            invalid = True
+                        if typ in incompatible and t in incompatible[typ]:
+                            invalid = True
+                if invalid:
+                    break
+        if invalid:
+            for e in range(m):
+                flows[ci][e] = 0.0
+
+    # Recompute total_cost cleanly
+    total_cost = 0.0
+    for ci in range(K):
+        for e in range(m):
+            f = flows[ci][e]
+            if f <= 0.0:
+                continue
+            basec = edges[e][2]
+            ctyp = commodities[ci].get("type_of_good", "")
+            twi = time_windows[ci] if ci < len(time_windows) else [0, 1000]
+            twlen = twi[1] - twi[0] + 1
+            tw_inc = 0.0
+            if ctyp == "perishables" and twlen < 2:
+                tw_inc += 0.5
+            if ctyp == "pharmaceuticals" and twlen < 3:
+                tw_inc += 0.2
+            total_cost += f * basec * (1.0 + tw_inc)
+            # storage cost: count intermediate nodes roughly as 1 per used edge except if edge touches source/sink
+            u, v, _ = edges[e]
+            storage_nodes = 0
+            # if neither endpoint is a source/sink for this commodity, count one storage
+            if u != commodities[ci]["source"] and u != commodities[ci]["sink"]:
+                storage_nodes += 1
+            if v != commodities[ci]["source"] and v != commodities[ci]["sink"]:
+                storage_nodes += 1
+            # approximate storage cost proportionally (divide by 2 to avoid double counting)
+            total_cost += f * 0.1 * (storage_nodes / 2.0)
+
+    # Ensure flows are flattened per specification: first element is list of lists with flows per commodity across edges
+    return [flows, total_cost]

@@ -1,0 +1,111 @@
+def __init__(self):
+        self.n = 0
+        self.bit = [0]  # 1-based
+
+    def _resize(self, new_n):
+        if new_n <= self.n:
+            return
+        self.bit.extend([0] * (new_n - self.n))
+        self.n = new_n
+
+    def add_at_index(self, idx: int, delta: int):
+        # idx is 1-based, ensure capacity
+        if idx <= 0:
+            return
+        if idx > self.n:
+            self._resize(idx)
+        i = idx
+        while i <= self.n:
+            self.bit[i] += delta
+            i += i & -i
+
+    def prefix_sum(self, idx: int) -> int:
+        if idx <= 0:
+            return 0
+        if idx > self.n:
+            idx = self.n
+        res = 0
+        i = idx
+        while i > 0:
+            res += self.bit[i]
+            i -= i & -i
+        return res
+
+    def point_query(self, idx: int) -> int:
+        # value at single index = prefix(idx) - prefix(idx-1)
+        if idx <= 0 or idx > self.n:
+            return 0
+        return self.prefix_sum(idx) - self.prefix_sum(idx - 1)
+
+    def remove_index(self, idx: int):
+        # Remove element at idx by shifting subsequent elements left by 1.
+        # To keep O(n log n) worst-case on many removes, we will perform:
+        # - Get value at idx, subtract it at idx.
+        # - For positions j = idx+1..n, get their values and move to j-1.
+        # This requires per-shift updates; acceptable given constraints and typical usage.
+        if idx <= 0 or idx > self.n:
+            return
+        val = self.point_query(idx)
+        if val != 0:
+            self.add_at_index(idx, -val)
+        # Shift subsequent values left by 1
+        for j in range(idx + 1, self.n + 1):
+            v = self.point_query(j)
+            if v != 0:
+                # remove at j and add at j-1
+                self.add_at_index(j, -v)
+                self.add_at_index(j - 1, v)
+        # shrink by 1
+        if self.n >= 1:
+            self.bit.pop()
+            self.n -= 1
+
+def manage_inventory(operations: List[List[Union[str, int]]]) -> List[int]:
+    fw = Fenwick()
+    results: List[int] = []
+    for op in operations:
+        if not op:
+            continue
+        cmd = op[0]
+        if cmd == "add":
+            if len(op) < 2:
+                continue
+            val = int(op[1])
+            # append at next available index
+            idx = fw.n + 1
+            fw._resize(idx)
+            fw.add_at_index(idx, val)
+        elif cmd == "remove":
+            if len(op) < 2:
+                continue
+            idx = int(op[1])
+            fw.remove_index(idx)
+        elif cmd == "update":
+            if len(op) < 3:
+                continue
+            idx = int(op[1])
+            delta = int(op[2])
+            # ignore non-existent
+            if idx <= 0 or idx > fw.n:
+                continue
+            # prevent negative propagation: ensure resulting point value non-negative
+            cur = fw.point_query(idx)
+            newv = cur + delta
+            if newv < 0:
+                # clamp to zero change
+                delta = -cur
+            if delta != 0:
+                fw.add_at_index(idx, delta)
+        elif cmd == "query":
+            if len(op) < 2:
+                results.append(0)
+            else:
+                idx = int(op[1])
+                if idx <= 0:
+                    results.append(0)
+                else:
+                    results.append(fw.prefix_sum(min(idx, fw.n)))
+        else:
+            # unknown command: ignore
+            continue
+    return results

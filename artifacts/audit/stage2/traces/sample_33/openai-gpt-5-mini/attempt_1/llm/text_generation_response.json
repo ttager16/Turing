@@ -1,0 +1,76 @@
+{
+  "id": "resp_0c23b55d648cad410069c32096d9e8819d9770b7bbc05273a7",
+  "object": "response",
+  "created_at": 1774395542,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774395553,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0c23b55d648cad410069c320973714819d9cf721af77b56b95",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0c23b55d648cad410069c320977a30819dbc7e36d2f6bba92f",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any\n\ndef optimize_traffic_flow(sensor_data: List[Dict[str, Any]]) -> Dict[str, Any]:\n    # Prepare output structures\n    signal_adjustments = []\n    alternate_routes = []\n\n    if not sensor_data:\n        return {\"signal_adjustments\": signal_adjustments, \"alternate_routes\": alternate_routes}\n\n    # Maintain order as given (sequential network)\n    ids = [entry.get(\"intersection_id\") for entry in sensor_data]\n\n    # Compute signal adjustments using provided proportional control formula\n    for entry in sensor_data:\n        intersection_id = entry.get(\"intersection_id\")\n        vehicle_count = float(entry.get(\"vehicle_count\", 0))\n        average_speed = float(entry.get(\"average_speed\", 0))\n        congestion_level = float(entry.get(\"congestion_level\", 0))\n\n        raw = 1 - (0.5 * congestion_level + 0.3 * (vehicle_count / 300.0) - 0.2 * (average_speed / 60.0))\n        signal_adjustment = max(0.1, min(1.0, raw))\n        # Round to 2 decimal places as in sample (but keep float)\n        signal_adjustments.append({\n            \"intersection_id\": intersection_id,\n            \"signal_adjustment\": round(signal_adjustment, 2)\n        })\n\n    # Alternate route generation\n    n = len(ids)\n    if n < 3:\n        return {\"signal_adjustments\": signal_adjustments, \"alternate_routes\": alternate_routes}\n\n    # Find most congested intersection (highest congestion_level). If tie, pick first occurrence.\n    max_idx = 0\n    max_cong = float(sensor_data[0].get(\"congestion_level\", 0))\n    for i, entry in enumerate(sensor_data):\n        c = float(entry.get(\"congestion_level\", 0))\n        if c > max_cong:\n            max_cong = c\n            max_idx = i\n\n    # For each other intersection, suggest alternate route bypassing the most congested one:\n    # Alternate route should connect to the next two consecutive intersections ahead in the sequence, if available.\n    # That is, from current index i, identify a path that skips the congested node and goes to i+3 via i+1 and i+2,\n    # but only if those nodes exist and the path bypasses the congested node.\n    for i, origin in enumerate(ids):\n        if i == max_idx:\n            continue\n        # We need next two nodes ahead from origin (i+1, i+2). Destination is i+2 (the second ahead).\n        next1_idx = i + 1\n        next2_idx = i + 2\n        if next2_idx >= n:\n            continue  # not enough following nodes\n        # Ensure the alternate route bypasses the most congested node: the congested node index must be among the skipped ones.\n        # The standard interpretation in examples: bypass the most congested intersection, so the route should skip it.\n        # If the congested node is not between origin and destination along the normal path, still produce route that skips it.\n        # To follow requirements: generate \"From origin to destination via middle\" where middle is next1, destination is next2,\n        # but only if by skipping the congested node (i.e., the congested node equals next1 or next2) OR if skipping is meaningful.\n        # We'll generate routes that skip the congested node if the congested node index is between origin and destination inclusive of next1/next2.\n        # Specifically, if max_idx == next1_idx or max_idx == next2_idx:\n        # Additionally, sample shows for A1 when B2 is max (B2 at index1), A1->D4 via C3 (A1 index0 -> C3 index2 via index1) which matches.\n        if max_idx in (next1_idx, next2_idx):\n            origin_id = origin\n            via_id = ids[next1_idx]\n            dest_id = ids[next2_idx]\n            alternate_routes.append(f\"Alternate Route: From {origin_id} to {dest_id} via {via_id}\")\n\n    return {\"signal_adjustments\": signal_adjustments, \"alternate_routes\": alternate_routes}"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1148,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 904,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2052
+  },
+  "user": null,
+  "metadata": {}
+}

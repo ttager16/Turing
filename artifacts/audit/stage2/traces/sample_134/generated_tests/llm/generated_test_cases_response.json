@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN7bIUPfsXJdyUVLNUEEnALyMMTgw",
+  "object": "chat.completion",
+  "created": 1774403132,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[{\\\"from\\\":1,\\\"to\\\":2,\\\"lanes\\\":[{\\\"mode\\\":\\\"road\\\",\\\"travel_time\\\":2,\\\"capacity\\\":5}]},{\\\"from\\\":2,\\\"to\\\":4,\\\"lanes\\\":[{\\\"mode\\\":\\\"road\\\",\\\"travel_time\\\":2,\\\"capacity\\\":5}]},{\\\"from\\\":1,\\\"to\\\":6,\\\"lanes\\\":[{\\\"mode\\\":\\\"road\\\",\\\"travel_time\\\":2,\\\"capacity\\\":5}]},{\\\"from\\\":6,\\\"to\\\":4,\\\"lanes\\\":[{\\\"mode\\\":\\\"road\\\",\\\"travel_time\\\":2,\\\"capacity\\\":5}]},{\\\"from\\\":1,\\\"to\\\":3,\\\"lanes\\\":[{\\\"mode\\\":\\\"road\\\",\\\"travel_time\\\":1,\\\"capacity\\\":5}]},{\\\"from\\\":3,\\\"to\\\":5,\\\"lanes\\\":[{\\\"mode\\\":\\\"road\\\",\\\"travel_time\\\":1,\\\"capacity\\\":5}]},{\\\"from\\\":5,\\\"to\\\":4,\\\"lanes\\\":[{\\\"mode\\\":\\\"road\\\",\\\"travel_time\\\":2,\\\"capacity\\\":5}]},{\\\"from\\\":1,\\\"to\\\":4,\\\"lanes\\\":[{\\\"mode\\\":\\\"bus\\\",\\\"travel_time\\\":5,\\\"capacity\\\":3}]}]\",\n        \"{\\\"1\\\":0,\\\"2\\\":0,\\\"3\\\":0,\\\"5\\\":0,\\\"6\\\":0,\\\"4\\\":0}\",\n        \"{}\",\n        \"[{\\\"src\\\":1,\\\"dst\\\":4,\\\"block\\\":[],\\\"unblock\\\":[],\\\"delay_updates\\\":[],\\\"reset\\\":true,\\\"k\\\":2},{\\\"src\\\":1,\\\"dst\\\":4,\\\"block\\\":[{\\\"node\\\":2,\\\"mode\\\":\\\"road\\\"}],\\\"unblock\\\":[],\\\"delay_updates\\\":[],\\\"reset\\\":false,\\\"k\\\":2},{\\\"src\\\":1,\\\"dst\\\":4,\\\"block\\\":[],\\\"unblock\\\":[{\\\"node\\\":2,\\\"mode\\\":\\\"road\\\"}],\\\"delay_updates\\\":[{\\\"node\\\":6,\\\"delta\\\":3}],\\\"reset\\\":false,\\\"k\\\":1}]\"\n      ],\n      \"focus\": \"Tie-breakers (cost, fewest edges, lexicographic) and cumulative block/unblock with delay update changing ranking\"\n    },\n    {\n      \"input_lines\": [\n        \"[{\\\"from\\\":1,\\\"to\\\":2,\\\"lanes\\\":[{\\\"mode\\\":\\\"road\\\",\\\"travel_time\\\":3,\\\"capacity\\\":5}]},{\\\"from\\\":2,\\\"to\\\":3,\\\"lanes\\\":[{\\\"mode\\\":\\\"road\\\",\\\"travel_time\\\":3,\\\"capacity\\\":5}]},{\\\"from\\\":1,\\\"to\\\":3,\\\"lanes\\\":[{\\\"mode\\\":\\\"bus\\\",\\\"travel_time\\\":6,\\\"capacity\\\":2}]}]\",\n        \"{\\\"1\\\":0,\\\"2\\\":1,\\\"3\\\":0}\",\n        \"{\\\"2\\\":[\\\"road\\\"]}\",\n        \"[{\\\"src\\\":1,\\\"dst\\\":3,\\\"block\\\":[],\\\"unblock\\\":[],\\\"delay_updates\\\":[],\\\"reset\\\":true,\\\"k\\\":2},{\\\"src\\\":1,\\\"dst\\\":3,\\\"block\\\":[{\\\"node\\\":1,\\\"mode\\\":\\\"bus\\\"}],\\\"unblock\\\":[],\\\"delay_updates\\\":[],\\\"reset\\\":false,\\\"k\\\":2},{\\\"src\\\":1,\\\"dst\\\":3,\\\"block\\\":[],\\\"unblock\\\":[{\\\"node\\\":2,\\\"mode\\\":\\\"road\\\"}],\\\"delay_updates\\\":[],\\\"reset\\\":true,\\\"k\\\":1}]\"\n      ],\n      \"focus\": \"Reset vs cumulative behavior with base_blocked; k larger than available routes and temporary full disconnection\"\n    },\n    {\n      \"input_lines\": [\n        \"[{\\\"from\\\":10,\\\"to\\\":20,\\\"lanes\\\":[{\\\"mode\\\":\\\"road\\\",\\\"travel_time\\\":2,\\\"capacity\\\":5},{\\\"mode\\\":\\\"bus\\\",\\\"travel_time\\\":2,\\\"capacity\\\":3}]},{\\\"from\\\":20,\\\"to\\\":30,\\\"lanes\\\":[{\\\"mode\\\":\\\"tram\\\",\\\"travel_time\\\":1,\\\"capacity\\\":4}]},{\\\"from\\\":10,\\\"to\\\":30,\\\"lanes\\\":[{\\\"mode\\\":\\\"road\\\",\\\"travel_time\\\":5,\\\"capacity\\\":5}]},{\\\"from\\\":20,\\\"to\\\":40,\\\"lanes\\\":[{\\\"mode\\\":\\\"road\\\",\\\"travel_time\\\":1,\\\"capacity\\\":5}]},{\\\"from\\\":40,\\\"to\\\":30,\\\"lanes\\\":[{\\\"mode\\\":\\\"road\\\",\\\"travel_time\\\":1,\\\"capacity\\\":5}]}]\",\n        \"{\\\"10\\\":0,\\\"30\\\":1}\",\n        \"{\\\"20\\\":[\\\"tram\\\"]}\",\n        \"[{\\\"src\\\":10,\\\"dst\\\":30,\\\"block\\\":[],\\\"unblock\\\":[],\\\"delay_updates\\\":[],\\\"reset\\\":true,\\\"k\\\":3},{\\\"src\\\":10,\\\"dst\\\":30,\\\"block\\\":[{\\\"node\\\":10,\\\"mode\\\":\\\"road\\\"}],\\\"unblock\\\":[],\\\"delay_updates\\\":[],\\\"reset\\\":false,\\\"k\\\":3},{\\\"src\\\":10,\\\"dst\\\":30,\\\"block\\\":[],\\\"unblock\\\":[],\\\"delay_updates\\\":[{\\\"node\\\":30,\\\"delta\\\":-1}],\\\"reset\\\":false,\\\"k\\\":5}]\"\n      ],\n      \"focus\": \"Missing node delays (defaults), multiple lanes with equal travel_time (mode counting), tram pre-blocking and partial closures at source; k exceeding route count\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2810,
+    "completion_tokens": 4185,
+    "total_tokens": 6995,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3136,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

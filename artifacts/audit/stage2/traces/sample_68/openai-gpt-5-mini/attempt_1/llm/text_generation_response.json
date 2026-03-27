@@ -1,0 +1,76 @@
+{
+  "id": "resp_04c5e24651895a9b0069c32b3ac274819788ac3880249bef2a",
+  "object": "response",
+  "created_at": 1774398266,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398289,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_04c5e24651895a9b0069c32b3b0fc081979f0411eea3985662",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_04c5e24651895a9b0069c32b3b334481978b688e40b7df7c8a",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Union, Optional\n\ndef manage_shard_connections(operations: List[List[Union[str, int, None]]]) -> List[str]:\n    MAX_SHARDS = 2000\n    MAX_LOAD = 500\n\n    def load_of(s: int) -> int:\n        return (s % 100) + 1\n\n    # We'll maintain per-version snapshots of components using immutable-ish structures:\n    # For each version we store:\n    # - parent dict: mapping node -> parent (root if parent[node]==node)\n    # - rank dict\n    # - comp_load dict: root -> total load\n    # To avoid full copies each time, we'll share and copy-on-write per changed keys.\n    # Since constraints are small (<=2000 shards, <=10000 ops), this is acceptable.\n\n    versions_parent: List[Dict[int, int]] = []\n    versions_rank: List[Dict[int, int]] = []\n    versions_comp_load: List[Dict[int, int]] = []\n\n    current_parent: Dict[int, int] = {}\n    current_rank: Dict[int, int] = {}\n    current_comp_load: Dict[int, int] = {}\n\n    def ensure_node(state_parent: Dict[int,int], state_rank: Dict[int,int], state_comp_load: Dict[int,int], x: int):\n        if x not in state_parent:\n            state_parent[x] = x\n            state_rank[x] = 0\n            state_comp_load[x] = load_of(x)\n\n    def find_root(state_parent: Dict[int,int], x: int) -> int:\n        # path compression (mutates given dict)\n        if state_parent[x] != x:\n            state_parent[x] = find_root(state_parent, state_parent[x])\n        return state_parent[x]\n\n    results: List[str] = []\n    current_version = 0\n    # initialize version 0 as empty (all nodes will be added lazily)\n    versions_parent.append(dict(current_parent))\n    versions_rank.append(dict(current_rank))\n    versions_comp_load.append(dict(current_comp_load))\n\n    for op in operations:\n        typ = op[0]\n        a = op[1]\n        b = op[2]\n        v = op[3]\n\n        if typ == \"union\":\n            # prepare copies\n            new_parent = dict(current_parent)\n            new_rank = dict(current_rank)\n            new_comp_load = dict(current_comp_load)\n            # ensure nodes\n            ensure_node(new_parent, new_rank, new_comp_load, a)\n            ensure_node(new_parent, new_rank, new_comp_load, b)\n            ra = find_root(new_parent, a)\n            rb = find_root(new_parent, b)\n            if ra == rb:\n                results.append(\"True\")\n                # commit new version (state unchanged but we still push)\n                current_parent = new_parent\n                current_rank = new_rank\n                current_comp_load = new_comp_load\n                current_version += 1\n                versions_parent.append(dict(current_parent))\n                versions_rank.append(dict(current_rank))\n                versions_comp_load.append(dict(current_comp_load))\n                continue\n            load_a = new_comp_load.get(ra, 0)\n            load_b = new_comp_load.get(rb, 0)\n            if load_a + load_b > MAX_LOAD:\n                results.append(\"False\")\n                # Operation rejected: still increments version? Spec: \"Only union and split modify state and increment version\"\n                # If rejected, no state change but version still increments? Problem statement example counts only completed operations.\n                # We'll treat rejected union as not modifying state but still counts as operation that increments version? The example indicates union returns False when rejected; unclear on versioning.\n                # We'll assume union even if rejected still increments version but state remains same.\n                current_version += 1\n                versions_parent.append(dict(current_parent))\n                versions_rank.append(dict(current_rank))\n                versions_comp_load.append(dict(current_comp_load))\n                continue\n            # union by rank\n            if new_rank[ra] < new_rank[rb]:\n                ra, rb = rb, ra  # ensure ra has higher rank\n            new_parent[rb] = ra\n            new_comp_load[ra] = load_a + load_b\n            if rb in new_comp_load:\n                del new_comp_load[rb]\n            if new_rank[ra] == new_rank[rb]:\n                new_rank[ra] += 1\n            # commit\n            results.append(\"True\")\n            current_parent = new_parent\n            current_rank = new_rank\n            current_comp_load = new_comp_load\n            current_version += 1\n            versions_parent.append(dict(current_parent))\n            versions_rank.append(dict(current_rank))\n            versions_comp_load.append(dict(current_comp_load))\n\n        elif typ == \"split\":\n            # split a b: if not connected -> False. if connected, isolate b into its own singleton\n            # special: split a a -> False\n            if a == b:\n                results.append(\"False\")\n                # still increments version? spec: \"Only union and split operations modify state and increment version\"\n                # If split failed (not connected or invalid), we treat as no state change but still increments version? Examples show split non-connected returns False and then subsequent union occurs; versioning behavior for failed split not explicit.\n                # We'll increment version regardless to maintain consistent numbering of operations that could modify.\n                current_version += 1\n                versions_parent.append(dict(current_parent))\n                versions_rank.append(dict(current_rank))\n                versions_comp_load.append(dict(current_comp_load))\n                continue\n            new_parent = dict(current_parent)\n            new_rank = dict(current_rank)\n            new_comp_load = dict(current_comp_load)\n            ensure_node(new_parent, new_rank, new_comp_load, a)\n            ensure_node(new_parent, new_rank, new_comp_load, b)\n            ra = find_root(new_parent, a)\n            rb = find_root(new_parent, b)\n            if ra != rb:\n                results.append(\"False\")\n                current_version += 1\n                versions_parent.append(dict(current_parent))\n                versions_rank.append(dict(current_rank))\n                versions_comp_load.append(dict(current_comp_load))\n                continue\n            # Need to isolate b: make b its own root; others remain. This may require re-parenting children of b.\n            # Because we maintain parent pointers, we can't easily remove b from tree without traversing all nodes in component.\n            # We'll reconstruct component: find all nodes currently present that belong to root ra, excluding b.\n            comp_nodes = [node for node in new_parent.keys() if find_root(new_parent, node) == ra]\n            # If b not present (shouldn't happen) handle\n            if b not in comp_nodes:\n                results.append(\"False\")\n                current_version += 1\n                versions_parent.append(dict(current_parent))\n                versions_rank.append(dict(current_rank))\n                versions_comp_load.append(dict(current_comp_load))\n                continue\n            # Make b singleton\n            new_parent[b] = b\n            new_rank[b] = 0\n            lb = load_of(b)\n            # Remaining nodes: set their root to some representative (choose a if it's not b else another)\n            remaining = [node for node in comp_nodes if node != b]\n            if remaining:\n                rep = remaining[0]\n                for node in remaining:\n                    new_parent[node] = rep\n                # compress parents for remaining to root rep\n                for node in remaining:\n                    find_root(new_parent, node)\n                # compute new load for rep\n                total = sum(load_of(node) for node in remaining)\n                new_comp_load[rep] = total\n                # remove old root entry if different\n                old_root = ra\n                if old_root in new_comp_load and old_root != rep:\n                    if old_root != rep:\n                        # delete old root load if present\n                        if old_root in new_comp_load:\n                            del new_comp_load[old_root]\n                # remove b from old comp load\n                # ensure b not in comp_load\n                if b in new_comp_load:\n                    del new_comp_load[b]\n            else:\n                # component only had b? split invalid because a==b case handled earlier; but if remaining empty, then after split b becomes singleton and original component empty -> remove\n                pass\n            # set comp_load entries properly: ensure b singleton has its load\n            new_comp_load[b] = lb\n            # There may be other roots in mapping; clean: ensure only roots have comp_load entries\n            # Recompute comp_load for all roots present to be safe\n            roots = {}\n            for node in list(new_parent.keys()):\n                rnode = find_root(new_parent, node)\n                roots.setdefault(rnode, 0)\n                roots[rnode] += load_of(node)\n            new_comp_load = roots\n            # ranks: reset ranks for roots present\n            for node in list(new_rank.keys()):\n                if find_root(new_parent, node) == node:\n                    new_rank[node] = new_rank.get(node, 0)\n                else:\n                    # non-root rank irrelevant\n                    new_rank[node] = new_rank.get(node, 0)\n            results.append(\"True\")\n            current_parent = new_parent\n            current_rank = new_rank\n            current_comp_load = new_comp_load\n            current_version += 1\n            versions_parent.append(dict(current_parent))\n            versions_rank.append(dict(current_rank))\n            versions_comp_load.append(dict(current_comp_load))\n\n        elif typ == \"find\":\n            # ensure nodes exist\n            if a not in current_parent:\n                current_parent = dict(current_parent)\n                current_rank = dict(current_rank)\n                current_comp_load = dict(current_comp_load)\n                current_parent[a] = a\n                current_rank[a] = 0\n                current_comp_load[a] = load_of(a)\n                # update version0 snapshot? find is read-only and shouldn't change versioning; but we mutated current state by lazy init -> reflect immediately without incrementing version\n            if b not in current_parent:\n                current_parent = dict(current_parent)\n                current_rank = dict(current_rank)\n                current_comp_load = dict(current_comp_load)\n                current_parent[b] = b\n                current_rank[b] = 0\n                current_comp_load[b] = load_of(b)\n            ra = find_root(current_parent, a)\n            rb = find_root(current_parent, b)\n            results.append(\"True\" if ra == rb else \"False\")\n            # find does not change versioning or snapshots\n\n        elif typ == \"find_versioned\":\n            # v is version to query\n            if not isinstance(v, int):\n                results.append(\"False\")\n                continue\n            if v > current_version or v < 0:\n                results.append(\"False\")\n                continue\n            vp = versions_parent[v]\n            vr = versions_rank[v]\n            # nodes might not exist in that version; if not exist, they were singletons (not connected unless equal)\n            if a == b:\n                # even if not present, self-connected\n                results.append(\"True\")\n                continue\n            if a not in vp or b not in vp:\n                # if one absent, they were separate singletons\n                results.append(\"False\")\n                continue\n            # perform find without mutating stored version (operate on copies)\n            cp = dict(vp)\n            def fr(x):\n                if cp[x] != x:\n                    cp[x] = fr(cp[x])\n                return cp[x]\n            ra = fr(a)\n            rb = fr(b)\n            results.append(\"True\" if ra == rb else \"False\")\n        else:\n            # unknown op\n            results.append(\"False\")\n\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1946,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2417,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4363
+  },
+  "user": null,
+  "metadata": {}
+}

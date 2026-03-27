@@ -1,0 +1,159 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        [],
+        [
+          5.000000000000001,
+          5.0
+        ],
+        [
+          1e-307
+        ]
+      ],
+      [
+        "FIND",
+        "UPDATE",
+        "FIND",
+        "UPDATE",
+        "FIND",
+        "FIND"
+      ],
+      [
+        5.0,
+        5.000000000000001,
+        5.000000000000001,
+        3.141592653589793,
+        3.141592653589793,
+        1e-307
+      ],
+      [
+        0,
+        0,
+        0,
+        1,
+        1,
+        2
+      ]
+    ],
+    "input_lines": [
+      "[[], [5.000000000000001, 5.0], [1e-307]]",
+      "[\"FIND\", \"UPDATE\", \"FIND\", \"UPDATE\", \"FIND\", \"FIND\"]",
+      "[5.0, 5.000000000000001, 5.000000000000001, 3.141592653589793, 3.141592653589793, 1e-307]",
+      "[0, 0, 0, 1, 1, 2]"
+    ],
+    "focus": "Empty market insertion and float-precision collisions (very close duplicate floats and tiny exponent values)."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        [
+          1.0,
+          2.0,
+          3.0
+        ],
+        [
+          1000000000000.0
+        ],
+        [
+          -1e+308,
+          0.0,
+          1e+308
+        ],
+        []
+      ],
+      [
+        "UPDATE",
+        "FIND",
+        "UPDATE",
+        "FIND",
+        "UPDATE",
+        "FIND",
+        "FIND"
+      ],
+      [
+        2.0,
+        2.0,
+        1000000000000.0,
+        1000000000000.0,
+        -1e+308,
+        -1e+308,
+        1e+308
+      ],
+      [
+        0,
+        0,
+        1,
+        1,
+        2,
+        2,
+        2
+      ]
+    ],
+    "input_lines": [
+      "[[1.0, 2.0, 3.0], [1000000000000.0], [-1e308, 0.0, 1e308], []]",
+      "[\"UPDATE\", \"FIND\", \"UPDATE\", \"FIND\", \"UPDATE\", \"FIND\", \"FIND\"]",
+      "[2.0, 2.0, 1000000000000.0, 1000000000000.0, -1e308, -1e308, 1e308]",
+      "[0, 0, 1, 1, 2, 2, 2]"
+    ],
+    "focus": "Large and extreme float values, duplicate updates, and operations on an empty market; checks handling of huge exponents and duplicates."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        [
+          10.0,
+          20.0,
+          30.0
+        ],
+        [
+          15.0,
+          25.0
+        ],
+        [
+          12.5
+        ]
+      ],
+      [
+        "FIND",
+        "UPDATE",
+        "FIND",
+        "UPDATE",
+        "FIND",
+        "UPDATE",
+        "FIND",
+        "FIND"
+      ],
+      [
+        25.0,
+        22.0,
+        22.0,
+        30.0,
+        30.0,
+        11.0,
+        11.0,
+        12.5
+      ],
+      [
+        1,
+        1,
+        1,
+        0,
+        0,
+        2,
+        2,
+        0
+      ]
+    ],
+    "input_lines": [
+      "[[10.0, 20.0, 30.0], [15.0, 25.0], [12.5]]",
+      "[\"FIND\", \"UPDATE\", \"FIND\", \"UPDATE\", \"FIND\", \"UPDATE\", \"FIND\", \"FIND\"]",
+      "[25.0, 22.0, 22.0, 30.0, 30.0, 11.0, 11.0, 12.5]",
+      "[1, 1, 1, 0, 0, 2, 2, 0]"
+    ],
+    "focus": "Order-breaking updates across markets, repeated finds after inserts, and cross-market value movements to detect naive sorted-list assumptions."
+  }
+]

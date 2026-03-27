@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: optimize_traffic_signals\n\nProblem Statement:\n## Urban Traffic Signal Optimization Using Dynamic Graph Buffering\n\nAn urban transportation management system dynamically adjusts traffic lights based on periodically updated traffic information.\nThe system models the city’s road network as a directed graph, where intersections and roads are represented as nodes and edges.\nThrough dynamic graph buffering, the system continuously integrates new data on traffic density, lane blockages, and emergency activity to improve signal timing and reduce congestion.\n\n\n### Scenario\n\nThe city’s traffic network is a directed graph in which:\n* Each intersection represents a traffic signal.\n* Each road represents a one-way connection to another intersection.\n* Road capacities exist in the real system but are not used in this specific computation.\nPeriodic updates report per-intersection information on traffic \"density\", \"accidents\", and \"priority requests\" (for example, emergency vehicles).\nUsing this information, the system must determine two outputs for each intersection:\n* The optimized green-signal duration (in seconds).\n* An overflow indicator showing whether congestion is likely.\n\n\n### Objectives\n\n1. **Graph Representation and Data Updates**  \n   - The city network is modeled as a **directed graph** where each intersection lists its outgoing connections.  \n   - Each traffic record corresponds to one intersection and may include:  \n     * traffic_density (float 0.0–1.0), accidents (e.g., [\"LANE_OUTAGE\"]), and priority_requests (e.g., [\"EMERGENCY\"]).  \n   - If multiple records exist for the same intersection, compute each record’s preliminary timing and keep the one with the lowest value.  \n   - If tied, prefer a record containing an EMERGENCY request, if still tied, use the last record.  \n   - Intersections mentioned in traffic_data but not present in the graph are added with empty outgoing lists.  \n   - Missing fields default as follows:  \n     * traffic_density -> no traffic data (neighbor-average rule), accidents or priority_requests -> empty list.\n\n2. **Preliminary Signal Duration**\n   For intersections with traffic data:\n   - Start from a base duration of 20 s.  \n   - Add \"70 × traffic_density\", rounded half-up.  \n   - Add 10 s if an EMERGENCY request is present.  \n   - If traffic_density > 0.7 and \"LANE_OUTAGE\" is reported, halve the total (after the emergency bonus) using floor division.  \n   For intersections without traffic data, use the half-up average of already-computed outgoing neighbors. if none are known, or no outgoing edges exist, use 45 s.\n\n3. **Normalization**\n   - After all preliminary durations are known, take the union of graph keys and traffic-data intersections.  \n   - Scale all durations so their mean (before rounding) equals 45 s.  \n   - Then round half-up and clamp each value to 20–90 s.  \n   - The final mean after rounding may differ slightly from 45 s.\n\n4. **Overflow Determination**  \n   - An intersection is marked overflowing if its optimized duration is below 30 s, or if its traffic_density is > 0.75 without an EMERGENCY request.  \n   - Intersections lacking traffic data consider only the first condition.\n\n\n#### Constraints:\n\n* Use only standard Python libraries.\n* Return an empty dict {} immediately if any of the following fail:\n  1. graph is not a non-empty dictionary.\n  2. Any graph key is not a non-empty string.\n  3. Any graph value is not a list of strings.\n  4. traffic_data is not a list.\n  5. Any record in traffic_data lacks the \"intersection\" key.\n  Malformed records (e.g., traffic_density outside [0, 1] or wrong types for accidents/priority_requests) are ignored, but valid records continue processing.\n\n\n#### Function Definition\n\n```python\ndef optimize_traffic_signals(\n    graph: Dict[str, List[str]],\n    traffic_data: List[Dict[str, Any]]\n) -> Dict[str, Any]:\n    pass\n```\n\n### Sample Input\n\n```python\ngraph = {\n    \"A\": [\"B\", \"C\"],\n    \"B\": [\"A\", \"D\"],\n    \"C\": [\"A\", \"F\"],\n    \"D\": [\"B\", \"E\"],\n    \"E\": [\"D\", \"F\"],\n    \"F\": [\"C\", \"E\"]\n}\ntraffic_data = [\n    {\"intersection\": \"A\", \"traffic_density\": 0.8, \"accidents\": [], \"priority_requests\": [\"EMERGENCY\"]},\n    {\"intersection\": \"B\", \"traffic_density\": 0.75, \"accidents\": [\"LANE_OUTAGE\"], \"priority_requests\": []},\n    {\"intersection\": \"C\", \"traffic_density\": 0.4, \"accidents\": [], \"priority_requests\": []},\n    {\"intersection\": \"E\", \"traffic_density\": 0.65, \"accidents\": [], \"priority_requests\": []}\n]\n```\n\n### Expected Output\n\n```python\n{\n  \"A\": {\"signal_timing\": 68, \"overflow_indicator\": False},\n  \"B\": {\"signal_timing\": 28, \"overflow_indicator\": True},\n  \"C\": {\"signal_timing\": 38, \"overflow_indicator\": False},\n  \"D\": {\"signal_timing\": 40, \"overflow_indicator\": False},\n  \"E\": {\"signal_timing\": 52, \"overflow_indicator\": False},\n  \"F\": {\"signal_timing\": 45, \"overflow_indicator\": False}\n}\n```\n\nStarter Code:\n```python\nfrom decimal import Decimal, ROUND_HALF_UP\nfrom typing import Dict, List, Any\n\ndef optimize_traffic_signals(\n    graph: Dict[str, List[str]],\n    traffic_data: List[Dict[str, Any]]\n) -> Dict[str, Any]:\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"{\\\"A\\\": [\\\"B\\\", \\\"C\\\"], \\\"B\\\": [\\\"A\\\", \\\"D\\\"], \\\"C\\\": [\\\"A\\\", \\\"F\\\"], \\\"D\\\": [\\\"B\\\", \\\"E\\\"], \\\"E\\\": [\\\"D\\\", \\\"F\\\"], \\\"F\\\": [\\\"C\\\", \\\"E\\\"]}\\n[{\\\"intersection\\\": \\\"A\\\", \\\"traffic_density\\\": 0.8, \\\"accidents\\\": [], \\\"priority_requests\\\": [\\\"EMERGENCY\\\"]}, {\\\"intersection\\\": \\\"B\\\", \\\"traffic_density\\\": 0.75, \\\"accidents\\\": [\\\"LANE_OUTAGE\\\"], \\\"priority_requests\\\": []}, {\\\"intersection\\\": \\\"C\\\", \\\"traffic_density\\\": 0.4, \\\"accidents\\\": [], \\\"priority_requests\\\": []}, {\\\"intersection\\\": \\\"E\\\", \\\"traffic_density\\\": 0.65, \\\"accidents\\\": [], \\\"priority_requests\\\": []}]\",\n    \"output\": \"{\\\"A\\\": {\\\"signal_timing\\\": 68, \\\"overflow_indicator\\\": false}, \\\"B\\\": {\\\"signal_timing\\\": 28, \\\"overflow_indicator\\\": true}, \\\"C\\\": {\\\"signal_timing\\\": 38, \\\"overflow_indicator\\\": false}, \\\"D\\\": {\\\"signal_timing\\\": 40, \\\"overflow_indicator\\\": false}, \\\"E\\\": {\\\"signal_timing\\\": 52, \\\"overflow_indicator\\\": false}, \\\"F\\\": {\\\"signal_timing\\\": 45, \\\"overflow_indicator\\\": false}}\"\n  },\n  {\n    \"input\": \"{}\\n[]\",\n    \"output\": \"{}\"\n  },\n  {\n    \"input\": \"{\\\"A\\\": [\\\"B\\\"]}\\n{\\\"intersection\\\": \\\"A\\\"}\",\n    \"output\": \"{}\"\n  }\n]\n"
+    }
+  ]
+}

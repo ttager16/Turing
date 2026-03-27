@@ -1,0 +1,30 @@
+{
+  "model": "gpt-5-mini",
+  "input": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are a careful coding assistant. Return the best possible answer for the task."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Solve the following Python coding task.\n\nRequirements:\n- Return only Python code.\n- Implement the requested entry function exactly.\n- Do not include explanations before or after the code.\n- Use only the Python standard library unless the prompt explicitly permits otherwise.\n\nProblem Statement:\n### Problem Statement\n\nA leading financial technology company is now scaling its high-frequency trading platform to manage not just a single, static list of stock prices, but multiple evolving lists of correlated prices from different markets. The platform must merge real-time feed updates across these markets and respond to thousands of concurrent queries requiring complex lookups and dynamic adjustments. Rather than performing a simple binary search on one fixed list, the new subsystem should maintain and query an advanced data structure (e.g., Segment Tree, Fenwick Tree, or similar) capable of concurrently tracking updates, identifying target prices, and returning other useful metrics (such as range minima/maxima) under tight latency constraints and high throughput.\n\n#### Objectives\n\n1. **Implement a Concurrency-Friendly Data Structure:**\n   Design and build a structure that seamlessly integrates multiple correlated price lists. It must support:\n\n   * Insertion, removal, and updates of stock prices in each market list.\n   * Efficient range queries (e.g., to find the position of a given target price, or to retrieve minimum/maximum in a range).\n   * Low-latency performance despite handling thousands of concurrent queries.\n\n2. **Optimize for Multi-Market Aggregation:**\n   Allow merging or partial synchronization of prices across correlated market lists. The data structure should adapt to shifting correlations between markets without a full rebuild, supporting dynamic queries that span multiple lists.\n\n3. **Minimize Latency Under Real-Time Constraints:**\n   With a large number of markets each receiving frequent updates, the system must respond quickly to queries (e.g., “find the target price in market X”). Brute-force or naïve traversal will be infeasible due to tight execution windows and high data volume.\n\n---\n\n#### Constraints\n\n* You will be given multiple sorted lists of floating-point stock prices, one for each market. However, ongoing updates may temporarily invalidate the global sorting order or require partial re-sorting/rebalancing in certain data structure segments.\n* The solution must be implemented in Python **without using any external libraries**. Handcrafting or implementing advanced data structures (e.g., Segment Trees, Fenwick Trees, specialized Tries) is encouraged.\n* The number of markets can range up to **tens of thousands**, each capable of holding up to **hundreds of thousands** of prices.\n* The total volume of queries (across all markets) can reach into the **millions**.\n* Memory usage should be kept as low as possible while maintaining efficient, concurrency-friendly performance.\n* The data structure must support both **“FIND”** operations (to locate a target price’s index) and **“UPDATE”** operations (to replace or insert a new price in a specific market).\n\n---\n\n#### Function Signature\n\n```python\ndef manage_high_freq_trades(\n    markets: List[List[float]],\n    operations: List[str],\n    prices: List[float],\n    market_indices: List[int]\n) -> List[int]:\n    \"\"\"\n    Processes a list of markets (each a sorted list of stock prices) and\n    executes a sequence of high-frequency trading operations.\n\n    Each query is represented by aligned entries across:\n    - operations[i]: a string, either 'FIND' or 'UPDATE'\n    - prices[i]: the float value relevant to the operation\n    - market_indices[i]: the index of the target market\n\n    Behavior:\n    - 'FIND' returns the zero-based index of the price in the specified market, or -1 if not found.\n    - 'UPDATE' modifies the market by inserting or replacing the given price (no direct output).\n\n    Returns:\n    A list of integers corresponding only to 'FIND' queries, preserving their order of execution.\n    \"\"\"\n```\n\n---\n\n#### Sample Input/Output\n\n**Input:**\n\n```python\nmarkets = [\n    [10.5, 20.3, 30.1],\n    [15.2, 25.5, 40.0]\n]\n\noperations = [\"FIND\", \"UPDATE\", \"FIND\", \"FIND\"]\nprices = [20.3, 35.0, 35.0, 30.1]\nmarket_indices = [0, 1, 1, 0]\n```\n\n**Output:**\n\n```python\n[1, 1, 2]\n```\n\n**Explanation:**\n\n* The first `FIND` locates the target price `20.3` at index `1` in market `0`.\n* The `UPDATE` inserts or replaces a price in market `1` (no direct output).\n* The next `FIND` in market `1` locates the newly updated price at index `1`.\n* The final `FIND` locates the price `30.1` at index `2` in market `0`.\n\n---\n\n#### Expected Output Format\n\nThe function should return a list of integers of length equal to the number of `\"FIND\"` operations.\nEach integer represents the zero-based index of the requested price if found in the specified market, or `-1` if not found.\n`UPDATE` operations do not produce a separate output but must affect subsequent `FIND` queries.\n\n---\n\nStarter Code:\n```python\nfrom typing import List\r\n\r\n\r\n\r\ndef manage_high_freq_trades(\r\n    markets: List[List[float]],\r\n    operations: List[str],\r\n    prices: List[float],\r\n    market_indices: List[int]\r\n) -> List[int]:\r\n    pass\n```\n"
+        }
+      ]
+    }
+  ],
+  "reasoning": {
+    "effort": "minimal"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 4096
+}

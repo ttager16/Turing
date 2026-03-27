@@ -1,0 +1,89 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      []
+    ],
+    "input_lines": [
+      "[]"
+    ],
+    "focus": "entirely empty input (no streams) -> should return []"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        [
+          [
+            1,
+            "buy",
+            150.0
+          ],
+          [
+            2,
+            "sell",
+            100.0
+          ]
+        ],
+        [
+          [
+            3,
+            "sell",
+            120.0
+          ],
+          [
+            4,
+            "buy",
+            130.0
+          ]
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[[1, \"buy\", 150.0], [2, \"sell\", 100.0]], [[3, \"sell\", 120.0], [4, \"buy\", 130.0]]]"
+    ],
+    "focus": "all orders fully match and are removed (result should be [])"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        [
+          [
+            5,
+            "buy",
+            99.0
+          ],
+          [
+            5,
+            "sell",
+            101.0
+          ]
+        ],
+        [
+          [
+            5,
+            "buy",
+            99.0
+          ],
+          [
+            5,
+            "sell",
+            100.0
+          ]
+        ],
+        [
+          [
+            5,
+            "buy",
+            98.0
+          ]
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[[5, \"buy\", 99.0], [5, \"sell\", 101.0]], [[5, \"buy\", 99.0], [5, \"sell\", 100.0]], [[5, \"buy\", 98.0]]]"
+    ],
+    "focus": "tie-breaks across identical priorities/prices and arrival-index ordering; no crossing so final ordering tests side, price-aggressiveness, and arrival_index"
+  }
+]

@@ -1,0 +1,282 @@
+from typing import List, Dict, Any
+import copy
+import math
+
+def simulate_decision_tree(
+    suppliers: List[Dict[str, Any]],
+    distribution_centers: List[Dict[str, Any]],
+    warehouses: List[Dict[str, Any]],
+    events: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    # Defensive copies
+    suppliers = copy.deepcopy(suppliers)
+    distribution_centers = copy.deepcopy(distribution_centers)
+    warehouses = copy.deepcopy(warehouses)
+    events = copy.deepcopy(events)
+
+    # Indexing helpers
+    sup_by_id = {s["id"]: s for s in suppliers}
+    wh_by_id = {w["id"]: w for w in warehouses}
+    dc_by_id = {d["id"]: d for d in distribution_centers}
+
+    # Determine number of phases
+    P = 0
+    for s in suppliers:
+        P = max(P, len(s.get("inventory", [])))
+    for d in distribution_centers:
+        P = max(P, len(d.get("demand", [])))
+    for w in warehouses:
+        P = max(P, len(w.get("capacity", [])))
+    if P == 0:
+        return {}
+
+    # Normalize lists lengths
+    for s in suppliers:
+        inv = s.get("inventory", [])
+        if len(inv) < P:
+            inv += [0] * (P - len(inv))
+        s["inventory"] = inv
+    for d in distribution_centers:
+        dem = d.get("demand", [])
+        if len(dem) < P:
+            dem += [0] * (P - len(dem))
+        d["demand"] = dem
+    for w in warehouses:
+        cap = w.get("capacity", [])
+        if len(cap) < P:
+            cap += [0] * (P - len(cap))
+        w["capacity"] = cap
+
+    # Process events into per-phase persistent modifications
+    # We'll maintain active route closures set and per-phase warehouse capacity overrides
+    route_closed = set()  # tuples (from,to) closed from current phase onward
+    # For capacity changes, we update warehouse capacities in place when event applies
+
+    # Output accumulators
+    multi_phase_routes = []
+    total_cost = 0
+    total_time = 0
+    # Track delivered per DC across phases
+    delivered = {d["id"]: 0 for d in distribution_centers}
+
+    # Pre-calc coalition membership mapping
+    coalition_members = {}
+    for s in suppliers:
+        cid = s.get("coalition_id")
+        if cid:
+            coalition_members.setdefault(cid, []).append(s["id"])
+
+    # For each phase
+    for phase_idx in range(P):
+        phase_num = phase_idx + 1
+        # Apply events that start at this phase
+        for ev in events:
+            if ev.get("phase") == phase_num:
+                action = ev.get("action")
+                details = ev.get("details", {})
+                if action == "route_closure":
+                    fr = details.get("from")
+                    to = details.get("to")
+                    if fr is not None and to is not None:
+                        route_closed.add((fr, to))
+                elif action == "capacity_change":
+                    wid = details.get("warehouse_id")
+                    new_cap = details.get("new_capacity")
+                    if wid in wh_by_id and isinstance(new_cap, int):
+                        # apply for this and subsequent phases: change capacity at this phase index
+                        w = wh_by_id[wid]
+                        if len(w["capacity"]) > phase_idx:
+                            w["capacity"][phase_idx] = new_cap
+                        else:
+                            # extend if needed
+                            extend = phase_idx - len(w["capacity"]) + 1
+                            w["capacity"].extend([0]*extend)
+                            w["capacity"][phase_idx] = new_cap
+
+        # Initialize per-phase remaining warehouse throughput equal to capacity for that phase
+        wh_remaining = {w["id"]: w["capacity"][phase_idx] for w in warehouses}
+
+        # Suppliers' inventory for this phase
+        sup_remaining = {s["id"]: s["inventory"][phase_idx] for s in suppliers}
+
+        # DC remaining demand this phase
+        dc_remaining = {d["id"]: d["demand"][phase_idx] for d in distribution_centers}
+
+        phase_routes = []
+        # Bound iterations by sum of demands units
+        max_iterations = sum(dc_remaining.values())
+        iterations = 0
+
+        # Helper to find all feasible S-W-DC triples
+        def enumerate_feasible():
+            combos = []
+            for s in suppliers:
+                sid = s["id"]
+                if sup_remaining.get(sid, 0) <= 0:
+                    continue
+                # supplier->warehouse routes
+                for wid, s_w_route in s.get("routes", {}).items():
+                    if (sid, wid) in route_closed:
+                        continue
+                    if wid not in wh_by_id:
+                        continue
+                    # warehouse capacity must have remaining positive
+                    if wh_remaining.get(wid, 0) <= 0:
+                        continue
+                    # warehouse->dc routes
+                    wh = wh_by_id[wid]
+                    for did, w_d_route in wh.get("routes", {}).items():
+                        if (wid, did) in route_closed:
+                            continue
+                        if did not in dc_by_id:
+                            continue
+                        if dc_remaining.get(did, 0) <= 0:
+                            continue
+                        # Ensure supplier has route to warehouse and warehouse to DC exist (already)
+                        # Compute base cost/time per unit
+                        base_cost = s_w_route.get("cost", 0) + w_d_route.get("cost", 0)
+                        base_time = s_w_route.get("time", 0) + w_d_route.get("time", 0)
+                        # coalition check: if supplier has coalition_id and coalition_members includes supplier
+                        coalition_id = s.get("coalition_id")
+                        coalition_used = None
+                        cost = base_cost
+                        time = base_time
+                        if coalition_id:
+                            # coalition applies when supplier is part of coalition (no need other suppliers)
+                            # As per spec: "Coalitions between suppliers provide cost and time discounts... when coalition members use shared routes."
+                            # Here we apply coalition discount if supplier has coalition_id (supplier part of coalition)
+                            coalition_used = coalition_id
+                            cost = math.floor(cost * 0.85)
+                            time = math.floor(time * 0.80)
+                        combos.append({
+                            "supplier": sid,
+                            "warehouse": wid,
+                            "dc": did,
+                            "per_unit_cost": cost,
+                            "per_unit_time": time,
+                            "coalition_used": coalition_used
+                        })
+            return combos
+
+        # Iteratively pick best route by minimal cost per unit, then minimal time, then maximal possible units
+        while iterations < max_iterations:
+            iterations += 1
+            # Recompute feasible combos each decision point (brute force)
+            combos = enumerate_feasible()
+            if not combos:
+                break
+            # Evaluate each combo for cost-per-unit efficiency primary, then time
+            # For tie-breaking, prefer route that can ship more units now (min of supplier inventory, warehouse remaining, dc demand)
+            best = None
+            best_key = None
+            for c in combos:
+                sid = c["supplier"]; wid = c["warehouse"]; did = c["dc"]
+                avail = min(sup_remaining.get(sid, 0), wh_remaining.get(wid, 0), dc_remaining.get(did, 0))
+                if avail <= 0:
+                    continue
+                # Key: (cost per unit, time per unit, -avail) to minimize cost/time and prefer larger avail
+                key = (c["per_unit_cost"], c["per_unit_time"], -avail)
+                if best is None or key < best_key:
+                    best = c
+                    best_key = key
+            if best is None:
+                break
+            # Commit to ship maximum feasible units on best route
+            sid = best["supplier"]; wid = best["warehouse"]; did = best["dc"]
+            send = min(sup_remaining.get(sid, 0), wh_remaining.get(wid, 0), dc_remaining.get(did, 0))
+            if send <= 0:
+                break
+            phase_cost = best["per_unit_cost"] * send
+            phase_time = best["per_unit_time"] * send
+            # Record route
+            phase_routes.append({
+                "path": [sid, wid, did],
+                "units_shipped": send,
+                "coalition_used": best["coalition_used"],
+                "phase_cost": phase_cost,
+                "phase_time": phase_time
+            })
+            # Update totals and resources
+            total_cost += phase_cost
+            total_time += phase_time
+            sup_remaining[sid] -= send
+            wh_remaining[wid] -= send
+            dc_remaining[did] -= send
+            delivered[did] += send
+            # Also update suppliers' persistent inventory for this phase (so multiple decisions consider reduced)
+            # The suppliers list inventory is only per-phase snapshot; we update sup_remaining already
+            # Continue until demand satisfied or no feasible combos
+            # Termination if all dc_remaining zero
+            if all(v <= 0 for v in dc_remaining.values()):
+                break
+
+        # After phase, if no routing was possible at all but there was positive demand -> might be impossible
+        # But spec says return {} if no valid routing exists that respects all capacity constraints.
+        # Determine if any demand >0 and no possible routes ever existed from start of phase (i.e., delivered zero and demands positive)
+        # More strict: if there exists a DC with demand>0 and for every supplier-warehouse-DC path either route closed or capacities zero or no supplier inventory for entire phase, and no shipments happened => no valid routing
+        any_demand = any(d["demand"][phase_idx] > 0 for d in distribution_centers)
+        shipped_any = len(phase_routes) > 0
+        if any_demand and not shipped_any:
+            # Check feasibility in theoretical terms: enumerate combos once ignoring current dynamic depletion
+            feasible_exist = False
+            for s in suppliers:
+                sid = s["id"]
+                if s["inventory"][phase_idx] <= 0:
+                    continue
+                for wid, s_w_route in s.get("routes", {}).items():
+                    if (sid, wid) in route_closed:
+                        continue
+                    if wid not in wh_by_id:
+                        continue
+                    if wh_by_id[wid]["capacity"][phase_idx] <= 0:
+                        continue
+                    for did in wh_by_id[wid].get("routes", {}):
+                        if (wid, did) in route_closed:
+                            continue
+                        if did not in dc_by_id:
+                            continue
+                        if dc_by_id[did]["demand"][phase_idx] <= 0:
+                            continue
+                        feasible_exist = True
+                        break
+                    if feasible_exist:
+                        break
+                if feasible_exist:
+                    break
+            if not feasible_exist:
+                return {}
+
+        # Commit phase_routes to multi_phase_routes
+        multi_phase_routes.append({
+            "phase": phase_num,
+            "routes": phase_routes
+        })
+
+        # Persist changes: supplier inventories should be reduced in main suppliers data for next phases?
+        # Spec: "Each supplier has phase-specific inventory (list of integers, one per phase)" - inventory per phase independent.
+        # So no carryover to next phases. Warehouses capacities are per phase and events already applied.
+
+        # Proceed to next phase; note that route closures persist as we stored route_closed
+
+        # Update the suppliers' inventories in the supplier objects to reflect consumption in this phase,
+        # though not necessary for later phases (phase-specific). But we keep for possible checks.
+        for s in suppliers:
+            sid = s["id"]
+            s["inventory"][phase_idx] = sup_remaining.get(sid, s["inventory"][phase_idx])
+
+        # Update delivered already tracked
+
+    # After all phases, compute unmet demand aggregated across phases: required sum per DC minus delivered
+    unmet = {}
+    for d in distribution_centers:
+        total_required = sum(d.get("demand", []))
+        unmet_amount = max(0, total_required - delivered.get(d["id"], 0))
+        unmet[d["id"]] = unmet_amount
+
+    # Final return
+    return {
+        "multi_phase_routes": multi_phase_routes,
+        "total_cost": total_cost,
+        "total_time": total_time,
+        "unmet_demand": unmet
+    }

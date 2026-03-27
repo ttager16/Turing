@@ -1,0 +1,138 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "[0, 1, 2]": 1,
+        "[1, 1, 2]": 1,
+        "[0, 2, 3]": 5,
+        "[1, 2, 3]": 2,
+        "[2, 1, 3]": 10
+      },
+      [
+        [
+          [
+            1,
+            1,
+            2
+          ],
+          "MANDATORY"
+        ],
+        [
+          [
+            0,
+            2,
+            3
+          ],
+          1
+        ],
+        [
+          [
+            1,
+            2,
+            3
+          ],
+          "PROHIBITED"
+        ]
+      ]
+    ],
+    "input_lines": [
+      "{\"[0, 1, 2]\": 1, \"[1, 1, 2]\": 1, \"[0, 2, 3]\": 5, \"[1, 2, 3]\": 2, \"[2, 1, 3]\": 10}",
+      "[[[1, 1, 2], \"MANDATORY\"], [[0, 2, 3], 1], [[1, 2, 3], \"PROHIBITED\"]]"
+    ],
+    "focus": "Parallel edges across layers, mandatory inclusion forcing exclusion of other-layer parallel edge, and a prohibition forcing alternate connection."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "[0, 10, 11]": 7,
+        "[1, 11, 12]": 4,
+        "[0, 12, 13]": 6,
+        "[2, 14, 15]": 3
+      },
+      [
+        [
+          [
+            1,
+            13,
+            14
+          ],
+          2
+        ],
+        [
+          [
+            1,
+            13,
+            14
+          ],
+          "MANDATORY"
+        ],
+        [
+          [
+            0,
+            10,
+            11
+          ],
+          1
+        ],
+        [
+          [
+            0,
+            11,
+            12
+          ],
+          1
+        ]
+      ]
+    ],
+    "input_lines": [
+      "{\"[0, 10, 11]\": 7, \"[1, 11, 12]\": 4, \"[0, 12, 13]\": 6, \"[2, 14, 15]\": 3}",
+      "[[[1, 13, 14], 2], [[1, 13, 14], \"MANDATORY\"], [[0, 10, 11], 1], [[0, 11, 12], 1]]"
+    ],
+    "focus": "New conduit addition to connect previously disconnected components, then make it mandatory; cost updates add alternative links — tests handling of new-edge additions and large node ids."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "[0, 0, 1]": 3,
+        "[1, 1, 2]": 0,
+        "[1, 2, 0]": 2,
+        "[2, 2, 1]": 4,
+        "[0, 1, 2]": 1
+      },
+      [
+        [
+          [
+            1,
+            1,
+            2
+          ],
+          1
+        ],
+        [
+          [
+            2,
+            1,
+            2
+          ],
+          "MANDATORY"
+        ],
+        [
+          [
+            0,
+            1,
+            2
+          ],
+          "PROHIBITED"
+        ]
+      ]
+    ],
+    "input_lines": [
+      "{\"[0, 0, 1]\": 3, \"[1, 1, 2]\": 0, \"[1, 2, 0]\": 2, \"[2, 2, 1]\": 4, \"[0, 1, 2]\": 1}",
+      "[[[1, 1, 2], 1], [[2, 1, 2], \"MANDATORY\"], [[0, 1, 2], \"PROHIBITED\"]]"
+    ],
+    "focus": "Order-insensitivity and node-order normalization (updates reference reversed node order); zero-cost edge changed, then a reversed-edge is made mandatory and a cheaper edge prohibited to force non-trivial re-selection."
+  }
+]

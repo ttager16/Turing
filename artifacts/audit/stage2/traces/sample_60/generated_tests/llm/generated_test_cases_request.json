@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: update_and_query_stock_tree\n\nProblem Statement:\n### Problem Statement\n\nIn the context of a real-time stock trading platform, the system must manage a **partially persistent, concurrency-aware data structure** that integrates adaptive balancing with interval-based indexing. This structure should efficiently handle rapid insertions, deletions, updates, and compound range queries across historical stock price data, while maintaining internal consistency under simulated concurrent operations and partial rollbacks.\n\nRather than relying on true multithreading, **concurrency should be simulated logically** — for example, by tracking the order of operations and supporting rollback mechanisms to revert previous updates. The data structure should dynamically adjust its organization to keep operations efficient, even as overlapping updates or queries occur.\n\n---\n\n### Objectives\n\n1. **Adaptive Multi-Layer Balancing**\n   Maintain optimal height by dynamically distributing nodes across multiple tiers (e.g., segment tree overlay or interval-based indexing). The structure should self-balance after single-event or bulk operations to ensure minimal query and update latency.\n\n2. **Compound Range Query Support**\n   Implement advanced range queries that return aggregated metrics — such as the maximum or minimum stock price less than or equal to a given value — while efficiently updating internal metadata.\n\n3. **Simulated Concurrent Transactions and Partial Rollbacks**\n   Handle logically concurrent operations by maintaining a transaction history that supports partial rollbacks. This ensures data consistency when recent updates must be undone.\n\n4. **Stateful Operation Tracking**\n   Store metadata at internal nodes (e.g., last update timestamp, trade volume, or risk coefficient). These fields should be updated or queried within `O(log n)` time, similar to normal stock operations.\n\n5. **Scalability Under High Frequency**\n   The data structure must scale to handle a large number of operations while keeping memory and runtime overhead proportional to the logarithm of the total node count.\n\n---\n\n### Constraints\n\n* The algorithmic complexity of all operations (insert, delete, update, query, rollback) must be **O(log n)**.\n* The design must handle edge cases such as negative or zero stock prices, repeated rollbacks, and overlapping intervals.\n* Only **built-in Python functionality** may be used; no external libraries or frameworks are allowed.\n* Concurrency is **simulated**, not physically parallel (no threading or multiprocessing).\n\n---\n\n### Function Signature\n\n```python\ndef update_and_query_stock_tree(operations: List[Tuple[str, int]]) -> List[Optional[float]]:\n```\nThe function returns a list where each element corresponds to an operation result: None for all mutating operations (insert, delete, bulk_insert, rollback), and a floating-point value for query operations representing the maximum stock price less than or equal to the query value.\n\n---\n\n### Sample Input\n\n```python\noperations = [\n    ('insert', 120),        # Inserts a new stock price into the structure\n    ('query', 100),         # Query: max price <= 100 (none found)\n    ('rollback', 1),        # Reverts the last operation\n    ('bulk_insert', 200),   # Inserts a batch of prices around 200\n    ('delete', 120),        # Attempts to delete price 120 (may not exist)\n    ('query', 210),         # Query: max price <= 210 → 200\n    ('insert', 220),        # Inserts another stock price\n    ('query', 300)          # Query: max price <= 300 → 220\n]\n```\n\n---\n\n### Expected Output\n\n```python\n[None, None, None, None, None, 200, None, 220]\n```\n\n---\n\n### Explanation\n\n* Operations that modify the structure (`insert`, `delete`, `rollback`, `bulk_insert`) return `None` to indicate success.\n* `query` operations return the **maximum stock price ≤ the query value**, or `None` if no such value exists.\n* After inserting `120`, querying `100` yields `None` since no price ≤ 100 exists.\n* A rollback removes the previous insertion.\n* Bulk insertion near `200` adds new values, making the next query (`210`) return `200`.\n* Deleting `120` has no effect (it was rolled back).\n* Inserting `220` adds another valid price, so the final query (`300`) returns `220`.\n\nStarter Code:\n```python\nfrom typing import List, Tuple, Optional, Any\nimport random\n\ndef update_and_query_stock_tree(operations: List[Tuple[str, int]]) -> List[Optional[float]]:\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[[\\\"insert\\\", 120],[\\\"query\\\", 100],[\\\"rollback\\\", 1],[\\\"bulk_insert\\\", 200],[\\\"delete\\\", 120],[\\\"query\\\", 210],[\\\"insert\\\", 220],[\\\"query\\\", 300]]\",\n    \"output\": \"[null, null, null, null, null, 200.0, null, 220.0]\"\n  },\n  {\n    \"input\": \"[[\\\"insert\\\", 50],[\\\"insert\\\", 75],[\\\"query\\\", 70],[\\\"delete\\\", 50],[\\\"query\\\", 100]]\",\n    \"output\": \"[null, null, 50.0, null, 75.0]\"\n  },\n  {\n    \"input\": \"[[\\\"insert\\\", -5],[\\\"insert\\\", 0],[\\\"query\\\", -1],[\\\"query\\\", 10]]\",\n    \"output\": \"[null, null, -5.0, 0.0]\"\n  }\n]\n"
+    }
+  ]
+}

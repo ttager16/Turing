@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN85B1HMj0Y1FltRV7sxpKpGj2S8G",
+  "object": "chat.completion",
+  "created": 1774404985,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"20\",\"5\",\"0\",\"0\"],\"focus\":\"Boundary at Bell-comparison limit (n=20), zero concurrent_updates to force total_complexity=0 and estimated_throughput -> None, large Catalan values to test big-integer handling and performance.\"},{\"input_lines\":[\"1\",\"2\",\"0.25\",\"1\"],\"focus\":\"Minimal non-trivial n=1: triggers 'insufficient_data' growth behavior (omit previous_value), tests remainder allocation across layers when n < num_layers, and average rounding.\"},{\"input_lines\":[\"3\",\"4\",\"0.75\",\"3\"],\"focus\":\"More layers than nodes (num_layers>n) to exercise empty-layer handling and distribution remainder allocation, also tests derivative computation for n>=2 and second derivative null for n<3, and risk classification near thresholds.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 4219,
+    "completion_tokens": 1213,
+    "total_tokens": 5432,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1024,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

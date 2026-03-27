@@ -1,0 +1,76 @@
+{
+  "id": "resp_0ea1ec389c5fd8550069c336cd2c148192bd5a80bba8470dbf",
+  "object": "response",
+  "created_at": 1774401229,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774401239,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0ea1ec389c5fd8550069c336cd7d1081929dd64d5b7b3affbd",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0ea1ec389c5fd8550069c336cdb18081929177b6cd6015e9a5",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Dict, List\n\ndef optimize_supply_chain_flow(\n    graph: Dict[str, Dict[str, int]],\n    user_adjustments: List[List]\n) -> Dict[str, Dict[str, int]]:\n    # Basic emptiness rule\n    if (not graph) and (not user_adjustments):\n        return {}\n    # Validate graph structure\n    if not isinstance(graph, dict):\n        return {}\n    for u, out in graph.items():\n        if not isinstance(u, str) or u == \"\" or not u.isalpha() or not u.isupper():\n            return {}\n        if not isinstance(out, dict):\n            return {}\n        for v, cap in out.items():\n            if not isinstance(v, str) or v == \"\" or not v.isalpha() or not v.isupper():\n                return {}\n            if u == v:\n                return {}\n            if not isinstance(cap, int) or cap < 0:\n                return {}\n    # Validate adjustments structure and collect nodes, deltas\n    if not isinstance(user_adjustments, list):\n        return {}\n    deltas = {}  # (u,v) -> int\n    nodes = set(graph.keys())\n    nodes.update({v for u in graph for v in graph[u].keys()})\n    for adj in user_adjustments:\n        if not isinstance(adj, list) or len(adj) != 3:\n            return {}\n        s, d, delta = adj\n        if not isinstance(s, str) or s == \"\" or not s.isalpha() or not s.isupper():\n            return {}\n        if not isinstance(d, str) or d == \"\" or not d.isalpha() or not d.isupper():\n            return {}\n        if s == d:\n            return {}\n        if not isinstance(delta, int):\n            return {}\n        nodes.add(s); nodes.add(d)\n        key = (s, d)\n        deltas[key] = deltas.get(key, 0) + delta\n    # Build current capacities map\n    current = {}\n    for u in nodes:\n        current[u] = {}\n    for u, out in graph.items():\n        for v, cap in out.items():\n            current[u][v] = cap\n    # Apply aggregated deltas\n    affected = set(k for k, v in deltas.items() if v != 0)\n    for (u, v), agg in deltas.items():\n        cur = current.get(u, {}).get(v, 0)\n        final = cur + agg\n        if agg != 0:\n            if final > 0:\n                current.setdefault(u, {})[v] = final\n            else:\n                # remove edge if existed or would have existed; ensure removal only if affected by non-zero delta\n                if v in current.get(u, {}):\n                    del current[u][v]\n        else:\n            # agg == 0 -> no change; leave existing edges as is; do not add new zero-cap edges\n            pass\n    # Ensure nodes exist even if isolated; current already has keys for nodes\n    # Filter inner dicts to ensure capacities are ints >=0\n    for u in list(current.keys()):\n        # sort will be applied later; ensure inner dict only contains valid entries\n        new_out = {}\n        for v, cap in current[u].items():\n            if not isinstance(v, str) or not isinstance(cap, int) or cap < 0:\n                return {}\n            new_out[v] = cap\n        current[u] = new_out\n    # Produce lexicographically sorted dictionaries\n    result = {}\n    for u in sorted(current.keys()):\n        inner = current[u]\n        if inner:\n            inner_sorted = {v: inner[v] for v in sorted(inner.keys())}\n        else:\n            inner_sorted = {}\n        result[u] = inner_sorted\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1112,
+    "input_tokens_details": {
+      "cached_tokens": 1024
+    },
+    "output_tokens": 803,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1915
+  },
+  "user": null,
+  "metadata": {}
+}

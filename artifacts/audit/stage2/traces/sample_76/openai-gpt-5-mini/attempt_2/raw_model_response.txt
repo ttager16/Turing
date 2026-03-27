@@ -1,0 +1,113 @@
+from typing import Any, Dict, List, Tuple, Optional
+import threading
+from collections import defaultdict, deque
+
+def manage_trades(trade_data: List[Dict[str, Any]], market_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    # Build trade map
+    trades = {t['trade_id']: {'trade_id': t['trade_id'],
+                              'profit': t.get('profit', 0),
+                              'dependencies': list(t.get('dependencies', [])),
+                              'priority': t.get('priority', None)} for t in trade_data}
+    # Ensure all market_data entries present in trades (spawn)
+    for tid in market_data:
+        if tid not in trades:
+            trades[tid] = {'trade_id': tid, 'profit': market_data[tid].get('new_profit', 0),
+                           'dependencies': [], 'priority': None}
+    # Build dependency graph (edges from dep -> trade) to propagate downstream
+    dependents = defaultdict(list)
+    indeg = defaultdict(int)
+    for tid, info in trades.items():
+        for d in info['dependencies']:
+            dependents[d].append(tid)
+            indeg[tid] += 1
+        indeg.setdefault(tid, indeg.get(tid, 0))
+    # Topological order (Kahn). If cycles exist, break deterministically by lex order.
+    q = deque(sorted([tid for tid, deg in indeg.items() if deg == 0]))
+    topo = []
+    indeg_copy = dict(indeg)
+    while q:
+        u = q.popleft()
+        topo.append(u)
+        for v in sorted(dependents.get(u, [])):
+            indeg_copy[v] -= 1
+            if indeg_copy[v] == 0:
+                q.append(v)
+    # If not all included (cycles), append remaining in sorted order to produce deterministic order
+    if len(topo) < len(trades):
+        remaining = sorted(set(trades.keys()) - set(topo))
+        topo.extend(remaining)
+    # Compute initial scores using market_data where available
+    scores = {}
+    for tid in trades:
+        P = market_data.get(tid, {}).get('new_profit', trades[tid]['profit'])
+        L = market_data.get(tid, {}).get('liquidity_impact', 1.0)
+        D = len(trades[tid]['dependencies'])
+        scores[tid] = P * L - 5 * D
+        # update stored profit to market new_profit if present
+        if tid in market_data:
+            trades[tid]['profit'] = market_data[tid].get('new_profit', trades[tid]['profit'])
+    # Segment tree over topo order for range max queries (store (score, -D, trade_id) to break ties)
+    n = len(topo)
+    index_of = {tid: i for i, tid in enumerate(topo)}
+    size = 1
+    while size < n:
+        size <<= 1
+    seg = [(-10**18, 0, "")] * (2 * size)
+    def make_key(tid):
+        return (scores.get(tid, -10**18), -len(trades[tid]['dependencies']), tid)
+    for tid, i in index_of.items():
+        seg[size + i] = make_key(tid)
+    for i in range(size - 1, 0, -1):
+        seg[i] = max(seg[2*i], seg[2*i+1])
+    seg_lock = threading.Lock()
+    def seg_update(tid):
+        i = index_of[tid]
+        pos = size + i
+        with seg_lock:
+            seg[pos] = make_key(tid)
+            pos //= 2
+            while pos:
+                seg[pos] = max(seg[2*pos], seg[2*pos+1])
+                pos //= 2
+    # Propagate updates: when a trade's P or L changes, recompute its score and downstream in topo order
+    # For this function, assume market_data contains the latest P and L; we recompute for all trades that are affected.
+    # We'll find all trades whose market_data differs from stored profit or liquidity, start BFS on dependents.
+    changed = deque()
+    for tid in trades:
+        md = market_data.get(tid)
+        if md:
+            newP = md.get('new_profit', trades[tid]['profit'])
+            newL = md.get('liquidity_impact', 1.0)
+            oldP = trades[tid]['profit']
+            # If profit changed or liquidity provided, consider changed
+            if newP != oldP or ('liquidity_impact' in md):
+                trades[tid]['profit'] = newP
+                changed.append(tid)
+    # Collect affected set via BFS downstream
+    affected = set()
+    while changed:
+        u = changed.popleft()
+        if u in affected:
+            continue
+        affected.add(u)
+        for v in dependents.get(u, []):
+            changed.append(v)
+    # Recompute scores in topo order but only for affected
+    for tid in topo:
+        if tid in affected:
+            P = market_data.get(tid, {}).get('new_profit', trades[tid]['profit'])
+            L = market_data.get(tid, {}).get('liquidity_impact', 1.0)
+            D = len(trades[tid]['dependencies'])
+            scores[tid] = P * L - 5 * D
+            seg_update(tid)
+    # Now produce final ranking by sorting all trades by (score desc, smaller D, trade_id lex)
+    sorted_trades = sorted(trades.keys(), key=lambda tid: (-scores.get(tid, -10**18), len(trades[tid]['dependencies']), tid))
+    result = []
+    rank = 1
+    for tid in sorted_trades:
+        result.append({'trade_id': tid,
+                       'priority': rank,
+                       'profit': trades[tid]['profit'],
+                       'dependencies': trades[tid]['dependencies']})
+        rank += 1
+    return result

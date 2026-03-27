@@ -1,0 +1,76 @@
+{
+  "id": "resp_0a55682afb6350620069c32db819c08192b3b362b26fad30c7",
+  "object": "response",
+  "created_at": 1774398904,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398912,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0a55682afb6350620069c32db85c0081929c38754d09ac7d51",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0a55682afb6350620069c32db888f48192af3c8b66a7be3e49",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Any\nfrom collections import defaultdict\nimport re\n\nREF_RE = re.compile(r\"^REF_([^_]+)_([0-9]+)$\")\n\ndef manage_device_logs(device_logs: List[List[Any]]) -> List[List[Any]]:\n    # Δ_stale\n    DELTA = 1\n\n    # First pass: find latest timestamp per device\n    latest = defaultdict(lambda: -10**18)\n    for log in device_logs:\n        try:\n            dev, ts, _ = log\n            if isinstance(ts, int):\n                if ts > latest[dev]:\n                    latest[dev] = ts\n        except Exception:\n            continue\n\n    # Apply stale and duplicate_entry filters, preserve original order\n    filtered = []\n    for log in device_logs:\n        if len(log) < 3:\n            continue\n        dev, ts, payload = log\n        # duplicate_entry rule\n        if payload == \"duplicate_entry\":\n            continue\n        # stale rule: if there exists newer_timestamp such that newer - ts > DELTA => stale\n        if latest.get(dev, -10**18) - ts > DELTA:\n            continue\n        filtered.append(log)\n\n    # Build a set of existing (device, timestamp) for reference validation\n    existing = set()\n    for log in filtered:\n        dev, ts, _ = log\n        existing.add((dev, ts))\n\n    # Validate references: if payload matches REF_dev_ts must exist in existing, else discard\n    result = []\n    for log in filtered:\n        dev, ts, payload = log\n        m = REF_RE.match(str(payload))\n        if m:\n            ref_dev = m.group(1)\n            try:\n                ref_ts = int(m.group(2))\n            except Exception:\n                continue\n            if (ref_dev, ref_ts) not in existing:\n                # invalid reference -> discard\n                continue\n        result.append(log)\n\n    # Final integrity pass: ensure no cycles of references (simple detection via graph on indices)\n    # Build directed graph of indices where edge i->j if log i references log j\n    index_map = {}\n    for idx, log in enumerate(result):\n        index_map[(log[0], log[1])] = idx\n\n    edges = [[] for _ in result]\n    for i, log in enumerate(result):\n        payload = str(log[2])\n        m = REF_RE.match(payload)\n        if m:\n            ref = (m.group(1), int(m.group(2)))\n            j = index_map.get(ref)\n            if j is not None:\n                edges[i].append(j)\n\n    # Detect cycles using DFS and remove any logs participating in cycles (rollback)\n    visited = [0]*len(result)  # 0=unvisited,1=visiting,2=done\n    in_cycle = [False]*len(result)\n\n    def dfs(u):\n        if visited[u] == 1:\n            return [u]\n        if visited[u] == 2:\n            return []\n        visited[u] = 1\n        for v in edges[u]:\n            cycle = dfs(v)\n            if cycle:\n                # mark nodes in cycle\n                in_cycle[u] = True\n                # propagate marking\n                for node in cycle:\n                    in_cycle[node] = True\n                # return cycle to propagate up until full cycle closed\n                if u in cycle:\n                    return []\n                else:\n                    cycle.append(u)\n                    return cycle\n        visited[u] = 2\n        return []\n\n    for i in range(len(result)):\n        if visited[i] == 0:\n            dfs(i)\n\n    if any(in_cycle):\n        final = []\n        removed_set = set()\n        for i, flag in enumerate(in_cycle):\n            if flag:\n                removed_set.add((result[i][0], result[i][1], result[i][2]))\n        # remove any logs that are part of cycles; preserve order\n        for log in result:\n            if (log[0], log[1], log[2]) in removed_set:\n                continue\n            final.append(log)\n        return final\n\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1227,
+    "input_tokens_details": {
+      "cached_tokens": 1152
+    },
+    "output_tokens": 867,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2094
+  },
+  "user": null,
+  "metadata": {}
+}

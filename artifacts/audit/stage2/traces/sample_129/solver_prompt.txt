@@ -1,0 +1,286 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+A logistics company operates an extensive delivery network spanning multiple cities connected by roads with varying fuel costs. The engineering team needs to optimize their infrastructure investments by analyzing the minimum spanning tree (MST) of their delivery network and efficiently processing numerous strategic queries about potential route modifications.
+
+You are tasked with implementing a sophisticated offline MST query system that pre-computes the minimum spanning tree and handles complex analytical queries about network modifications, route criticality, and cost optimization. The system must process large datasets of cities and roads while providing instant responses to infrastructure planning queries.
+
+## Core Requirements
+
+Your solution must implement a **pure Python** offline MST query algorithm (no external libraries) that processes delivery network data and efficiently answers strategic planning queries. The algorithm should pre-compute necessary data structures to enable fast query responses for infrastructure decision-making.
+
+### Key Operational Constraints
+
+1. **MST Construction Constraints**: Build the minimum spanning tree using Kruskal's algorithm with Union-Find data structure
+2. **Edge Weight Constraints**: All road costs must be positive integers representing fuel consumption units
+3. **Connectivity Constraints**: The network must remain connected after any edge removal queries
+4. **Memory Efficiency Constraints**: Preprocessing data structures must not exceed O(n²) space complexity
+
+### Advanced Algorithmic Requirements
+
+The offline MST query system must implement a multi-faceted analysis framework that evaluates network modifications using these computational methods:
+
+**Critical Edge Analysis**: For each edge in the MST, pre-compute the maximum weight edge that would be added if this edge were removed. This enables instant "what-if" analysis for infrastructure maintenance planning.
+
+**Bottleneck Path Queries**: For any two cities, determine the maximum cost edge along the unique path in the MST. This represents the most expensive segment that limits efficient delivery between these locations.
+
+**Edge Addition Impact**: Calculate cost reduction by finding the maximum weight edge in the unique cycle created by adding the new edge to the current MST. If the new edge cost is less than the maximum cycle edge cost, cost_reduction = max_cycle_edge_cost - new_fuel_cost, otherwise cost_reduction = 0. Calculate efficiency_gain = (cost_reduction / total_mst_cost) * 100
+
+**Network Vulnerability Assessment**: Identify edges whose removal would cause the maximum increase in total MST cost, representing critical infrastructure that requires protection and redundancy planning.
+
+The algorithm must also implement cost optimization analysis, where edges with weight greater than the 75th percentile of all edge weights are classified as "high-cost" segments requiring priority review for alternative routing solutions.
+
+**Cost Classification Formula**:
+- Calculate Q3 = 75th percentile of all edge weights
+- If edge_weight > Q3: classify as "high_cost_segment"
+- Otherwise: classify as "standard_cost_segment"
+
+## Function Signature
+
+```python
+def analyze_delivery_network(cities, roads, infrastructure_queries, cost_threshold):
+    """
+    Analyzes the delivery network using offline MST queries for strategic planning.
+    Returns: Dictionary with MST analysis and query results
+    """
+    pass
+```
+
+## Input Specifications
+
+**cities**: List of dictionaries, each containing:
+- city_id: Unique city identifier (integer, 0-999)
+- city_name: Name of the city (string, 3-50 characters, alphanumeric)
+- region_type: Geographic classification (string: "urban", "suburban", "rural", "industrial")
+- processing_capacity: Daily package processing limit (integer, 100-10000)
+
+**roads**: List of dictionaries, each containing:
+- road_id: Unique road identifier (integer, 0-9999)
+- city_a: Starting city identifier (integer)
+- city_b: Ending city identifier (integer)
+- fuel_cost: Fuel consumption units for traversal (integer, 1-1000)
+- road_type: Infrastructure classification (string: "highway", "arterial", "local", "service")
+- maintenance_priority: Maintenance urgency level (integer, 1=immediate to 5=routine)
+
+**infrastructure_queries**: List of dictionaries, each containing:
+- query_id: Unique query identifier (integer, 0-99)
+- query_type: Type of analysis requested (string: "critical_edge", "bottleneck_path", "edge_addition_impact", "vulnerability_assessment")
+- parameters: Dictionary with query-specific parameters:
+  - For "critical_edge": {"edge_road_id": integer}
+  - For "bottleneck_path": {"source_city_id": integer, "target_city_id": integer}
+  - For "edge_addition_impact": {"new_city_a": integer, "new_city_b": integer, "new_fuel_cost": integer}
+  - For "vulnerability_assessment": {"analysis_scope": string ("single_edge" or "top_k_edges"), "k_value": integer (1-10)}
+
+**cost_threshold**: Dictionary containing:
+- max_acceptable_cost: Maximum fuel cost per road segment for inclusion in analysis (integer, 1-2000)
+- high_cost_multiplier: Factor for identifying expensive routes (float, 1.5-3.0)
+- efficiency_target: Target reduction percentage for cost optimization (integer, 5-25)
+- **critical_impact_threshold**: Threshold multiplier for critical edge replacement cost analysis (float, 1.5)
+- **medium_impact_threshold**: Threshold multiplier for medium impact classification (float, 1.2)
+- **congestion_analysis_count**: Number of top congested routes to identify (integer, 2)
+- **redundancy_cost_factor**: Multiplier of 75th percentile threshold for redundancy classification (float, 1.0)
+
+## Output Specification
+
+Return a dictionary containing:
+
+```python
+{
+    "mst_analysis": {
+        "total_mst_cost": int,
+        "mst_edges": [
+            {
+                "road_id": int,
+                "city_a": int,
+                "city_b": int,
+                "fuel_cost": int,
+                "cost_classification": str  # "high_cost_segment" or "standard_cost_segment"
+            }
+        ],
+        "excluded_roads": list[int],
+        "network_efficiency_score": float  # (total_mst_cost / sum_of_all_edge_weights)
+    },
+    "query_results": [
+        {
+            "query_id": int,
+            "query_type": str,
+            "result": dict,  # critical_edge: {"replacement_cost": int, "impact_severity": str}, bottleneck_path: {"bottleneck_edge_id": int, "max_cost_segment": int}, edge_addition_impact: {"cost_reduction": int, "efficiency_gain": float}, vulnerability_assessment: {"critical_edges": list[int], "max_impact_edge": int}
+            "processing_time_category": str  # "instant" for critical_edge and bottleneck_path, "fast" for edge_addition_impact, "moderate" for vulnerability_assessment
+        }
+    ],
+    "infrastructure_recommendations": {
+        "critical_segments": list[int],  # road_ids of MST edges with fuel_cost > 75th percentile
+        "redundancy_needed": list[int],  # road_ids of MST edges with fuel_cost > (75th_percentile * redundancy_cost_factor)
+        "cost_optimization_potential": float  # ((sum of high-cost segment costs / total_mst_cost) * efficiency_target)
+    },
+    "network_statistics": {
+        "connectivity_index": float,  # 1.0 if fully connected, 0.0 if disconnected
+        "average_path_cost": float,  # Average cost of all MST edges
+        "bottleneck_analysis": {
+            "most_congested_routes": list[int],  # Top congestion_analysis_count MST edges sorted by fuel_cost descending
+            "alternative_routing_suggestions": list[dict]  # [{"current_road_id": highest_cost_edge_id, "suggested_improvement": "capacity_upgrade"}]
+        }
+    }
+}
+```
+
+**Query Result Calculation Formulas**:
+- `efficiency_gain` = `(cost_reduction / total_mst_cost) * 100` rounded to 2 decimal places
+- `cost_optimization_potential` = `(total_high_cost_segments_cost / total_mst_cost) * efficiency_target` rounded to 1 decimal place
+- `most_congested_routes` = top `congestion_analysis_count` roads by fuel_cost in MST (highest cost first)
+- `alternative_routing_suggestions` = for top 1 congested route, suggest `{"current_road_id": road_id, "suggested_improvement": "capacity_upgrade"}`
+- `processing_time_category` assignment: "critical_edge" and "bottleneck_path" → "instant", "edge_addition_impact" → "fast", "vulnerability_assessment" → "moderate"
+
+## Constraint Requirements
+
+* **Graph Connectivity Validation**: Return {"error": "Graph is not connected"} if the input roads do not form a connected graph among all cities
+* **City Reference Validation**: Return {"error": "Invalid city reference in road {road_id}"} if city_a or city_b in roads references non-existent city_id
+* **Road Cost Validation**: Return {"error": "Invalid fuel cost for road {road_id}"} if fuel_cost is not a positive integer
+* **Duplicate Road Validation**: Return {"error": "Duplicate road between cities {city_a} and {city_b}"} if multiple roads exist between the same pair of cities
+* **Query Parameter Validation**: Return {"error": "Invalid query parameters for query {query_id}"} if required parameters are missing or invalid for the specified query_type
+* **Cost Threshold Validation**: Return {"error": "Invalid cost threshold configuration"} if max_acceptable_cost < 1 or high_cost_multiplier < 1.5 or high_cost_multiplier > 3.0 or efficiency_target < 5 or efficiency_target > 25
+* **City Name Validation**: Return {"error": "Invalid city name for city {city_id}"} if city_name contains non-alphanumeric characters or is outside 3-50 character range
+* **Processing Capacity Validation**: Return {"error": "Invalid processing capacity for city {city_id}"} if processing_capacity is outside 100-10000 range
+* **Self-Loop Validation**: Return {"error": "Self-loop detected for road {road_id}"} if city_a equals city_b in any road
+* **Query Type Validation**: Return {"error": "Unsupported query type for query {query_id}"} if query_type is not one of the four supported types
+* **Empty Input Validation**: Return {"error": "No cities provided"} if cities list is empty
+* **Empty Roads Validation**: Return {"error": "No roads provided"} if roads list is empty
+* For any other input parameter violation, return {"error": "Input is not valid"}
+
+## Sample Input/Output
+
+**Input:**
+
+```python
+cities = [
+    {"city_id": 0, "city_name": "MetroHub", "region_type": "urban", "processing_capacity": 5000},
+    {"city_id": 1, "city_name": "SouthPort", "region_type": "industrial", "processing_capacity": 3000},
+    {"city_id": 2, "city_name": "NorthVale", "region_type": "suburban", "processing_capacity": 2000},
+    {"city_id": 3, "city_name": "EastBridge", "region_type": "rural", "processing_capacity": 1500},
+    {"city_id": 4, "city_name": "WestPoint", "region_type": "urban", "processing_capacity": 4000}
+]
+
+roads = [
+    {"road_id": 0, "city_a": 0, "city_b": 1, "fuel_cost": 150, "road_type": "highway", "maintenance_priority": 2},
+    {"road_id": 1, "city_a": 0, "city_b": 2, "fuel_cost": 200, "road_type": "arterial", "maintenance_priority": 3},
+    {"road_id": 2, "city_a": 1, "city_b": 2, "fuel_cost": 180, "road_type": "local", "maintenance_priority": 1},
+    {"road_id": 3, "city_a": 1, "city_b": 3, "fuel_cost": 220, "road_type": "service", "maintenance_priority": 4},
+    {"road_id": 4, "city_a": 2, "city_b": 3, "fuel_cost": 160, "road_type": "highway", "maintenance_priority": 2},
+    {"road_id": 5, "city_a": 2, "city_b": 4, "fuel_cost": 190, "road_type": "arterial", "maintenance_priority": 3},
+    {"road_id": 6, "city_a": 3, "city_b": 4, "fuel_cost": 170, "road_type": "local", "maintenance_priority": 1}
+]
+
+infrastructure_queries = [
+    {"query_id": 0, "query_type": "critical_edge", "parameters": {"edge_road_id": 0}},
+    {"query_id": 1, "query_type": "bottleneck_path", "parameters": {"source_city_id": 0, "target_city_id": 3}}
+]
+
+cost_threshold = {
+    "max_acceptable_cost": 500,
+    "high_cost_multiplier": 2.0,
+    "efficiency_target": 15,
+    "critical_impact_threshold": 1.5,
+    "medium_impact_threshold": 1.2,
+    "congestion_analysis_count": 2,
+    "redundancy_cost_factor": 1.0
+}
+```
+
+**Expected Output:**
+
+```python
+{
+    "mst_analysis": {
+        "total_mst_cost": 660,
+        "mst_edges": [
+            {"road_id": 0, "city_a": 0, "city_b": 1, "fuel_cost": 150, "cost_classification": "standard_cost_segment"},
+            {"road_id": 4, "city_a": 2, "city_b": 3, "fuel_cost": 160, "cost_classification": "standard_cost_segment"},
+            {"road_id": 6, "city_a": 3, "city_b": 4, "fuel_cost": 170, "cost_classification": "standard_cost_segment"},
+            {"road_id": 2, "city_a": 1, "city_b": 2, "fuel_cost": 180, "cost_classification": "standard_cost_segment"}
+        ],
+        "excluded_roads": [1, 3, 5],
+        "network_efficiency_score": 0.52
+    },
+    "query_results": [
+        {
+            "query_id": 0,
+            "query_type": "critical_edge",
+            "result": {"replacement_cost": 200, "impact_severity": "medium"},
+            "processing_time_category": "instant"
+        },
+        {
+            "query_id": 1,
+            "query_type": "bottleneck_path",
+            "result": {"bottleneck_edge_id": 2, "max_cost_segment": 180},
+            "processing_time_category": "instant"
+        }
+    ],
+    "infrastructure_recommendations": {
+        "critical_segments": [],
+        "redundancy_needed": [],
+        "cost_optimization_potential": 0.0
+    },
+    "network_statistics": {
+        "connectivity_index": 1.0,
+        "average_path_cost": 165.0,
+        "bottleneck_analysis": {
+            "most_congested_routes": [2, 6],
+            "alternative_routing_suggestions": [
+                {"current_road_id": 2, "suggested_improvement": "capacity_upgrade"}
+            ]
+        }
+    }
+}
+```
+
+## Implementation Guidelines
+
+**MST Construction Strategy**: Implement Kruskal's algorithm with Union-Find data structure for efficient MST computation with O(E log E) time complexity
+
+**Preprocessing Phase**: Build auxiliary data structures including parent arrays for LCA queries, edge replacement tables, and bottleneck matrices for O(1) query responses
+
+**Critical Edge Analysis**: For each MST edge, pre-compute the minimum cost replacement edge by finding the maximum weight edge in the cycle formed when adding each non-MST edge. Use `critical_impact_threshold` and `medium_impact_threshold` from cost_threshold to classify impact severity (high: replacement_cost > original_cost * critical_impact_threshold, medium: replacement_cost > original_cost * medium_impact_threshold, low: otherwise).
+
+**Bottleneck Path Computation**: Use Lowest Common Ancestor (LCA) preprocessing to enable O(log n) bottleneck queries between any two cities
+
+**Edge Addition Impact**: Calculate cost reduction by finding the maximum weight edge in the unique cycle created by adding the new edge to the current MST
+
+**Vulnerability Assessment**: Rank MST edges by their removal impact on total network cost and identify critical infrastructure requiring redundancy
+
+**Cost Classification**: Apply the 75th percentile threshold to classify edges and prioritize high-cost segments for optimization review. Use max_acceptable_cost to filter roads during preprocessing and high_cost_multiplier to identify critical segments.
+
+**Network Statistics**: Calculate connectivity metrics, average path costs, and identify top `congestion_analysis_count` bottleneck segments based on capacity and alternative routing availability. For redundancy classification, use edges with cost > (75th_percentile * redundancy_cost_factor).
+
+**Deterministic Processing**: Ensure consistent results by processing edges and queries in sorted order by their identifiers
+
+**Memory Optimization**: Use space-efficient data structures and avoid redundant storage while maintaining O(log n) query performance
+
+## Algorithm Flow
+
+1. **Input Validation Phase**: Validate all input parameters and check graph connectivity using Union-Find
+2. **MST Construction**: Apply Kruskal's algorithm to build the minimum spanning tree and identify excluded edges
+3. **Preprocessing Phase**: Build LCA data structures, replacement edge tables, and bottleneck matrices for efficient query processing
+4. **Cost Classification**: Calculate the 75th percentile threshold and classify all MST edges as high-cost or standard-cost segments
+5. **Query Processing**: Execute all infrastructure queries using pre-computed data structures for optimal performance
+6. **Statistics Computation**: Calculate network connectivity metrics, bottleneck analysis, and infrastructure recommendations
+7. **Result Compilation**: Generate comprehensive output including MST analysis, query results, and strategic recommendations
+
+The algorithm should terminate successfully when all queries are processed and comprehensive network analysis is complete, providing strategic insights for infrastructure investment and route optimization decisions.
+
+Starter Code:
+```python
+from typing import List, Dict, Any
+import re
+import math
+
+def analyze_delivery_network(cities: List[Dict], roads: List[Dict], infrastructure_queries: List[Dict], cost_threshold: Dict) -> Dict[str, Any]:
+    pass
+```

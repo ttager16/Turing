@@ -1,0 +1,259 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+An international team of anthropologists must build and query a **deterministic hash table system** for indigenous data — including cultural artifact IDs, linguistic pattern strings, and genetic marker identifiers.
+Each namespace (e.g., `"artifacts"`, `"linguistics"`, `"genetics"`) can define its own hashing, normalization, and validation policies.
+
+The system must support deterministic handling of keys of type `int`, `str`, and `bytes`, avoiding Python’s randomized hash behavior.
+Given a **sequence of commands** (e.g., `put`, `add`, `get`, `snapshot`) and a per-namespace configuration, return the **final deterministic snapshot** of the system.
+
+---
+
+### Objectives
+
+#### 1. Customizable, Deterministic Hashing
+
+* Implement a deterministic 64-bit hash (e.g., FNV-1a) for `str` and `bytes`.
+
+* Define hashing for `int` as `(value & 0xFFFFFFFFFFFFFFFF)`.
+
+* Allow per-namespace overrides:
+
+* `hash_fn`: deterministic hash override (Python tests only; not JSON-configurable)
+* `normalize_key` or `normalize_mode`: canonical form for equality. For JSON, use `normalize_key` as a string mode:
+  * `"none"` – no additional normalization
+  * `"nfc"` – Unicode NFC normalization (default applied to strings regardless)
+  * `"case_insensitive"` – lowercase after NFC for strings
+* `key_validator`: callable to validate key type/format (Python tests only; not JSON-configurable)
+
+* Must not use Python’s built-in `hash()` for `str` or `bytes` due to its randomization.
+
+* Default string handling: normalize to **NFC Unicode form** before hashing.
+
+---
+
+#### 2. Core Hash Table (Map & Set Modes)
+
+* Two explicit modes:
+
+  * **Map** — commands: `put`, `get`, `remove`, `update`
+  * **Set** — commands: `add`, `contains`, `discard`
+
+* Implement **separate chaining** for collision resolution (lists of entries per bucket).
+
+* Use **deterministic rehashing**:
+
+  * Capacity always a power of two.
+  * Resize (double) when load factor > 0.75.
+  * Preserve stable bucket order for identical insert sequences.
+
+---
+
+#### 3. Namespaces & Schema Hints
+
+* Each namespace may define:
+
+  * `mode`: `"map"` or `"set"`
+  * `hash_fn`, `normalize_key`, `key_validator`
+  * `value_validator` callable for maps (if provided).
+* Namespaces are **fully isolated**: no cross-collision or shared state.
+* Unified API: all commands specify `"ns"` for the target namespace.
+
+---
+
+#### 4. Deterministic Iteration & Snapshot Export
+
+* Iteration and export must yield **deterministic results** across runs and Python versions.
+* Final snapshot returns a **stable, structured data representation**:
+
+  * For maps: `[[original_key, value], ...]`
+  * For sets: `[original_key, ...]`
+* Return pure Python structures (lists and dicts only) that are JSON-serializable.
+* Format: lists for entries, dicts for namespaces.
+* Snapshot ordering rules (see Constraints §11).
+
+---
+
+#### 5. Simplicity, Validation & Safety
+
+* **Standard library only** — no external packages.
+* Reject unsupported key types (`tuple`, `float`, etc.).
+* Enforce clear and consistent error messages.
+* Provide docstrings and type hints for public methods.
+* **Explicitly non-thread-safe**: concurrent access not supported.
+
+---
+
+### Function Signature
+
+```python
+from typing import Any, Dict, List
+
+def execute_hash_table_commands(
+    config: Dict[str, Dict[str, Any]],
+    commands: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Execute a sequence of deterministic hash table commands and return
+    the final snapshot across all namespaces.
+
+    Args:
+        config: Per-namespace configuration, e.g.:
+            {
+                "artifacts": {"mode": "map"},
+                "linguistics": {"mode": "set", "normalize_key": "case_insensitive"},
+                "genetics": {"mode": "map"}
+            }
+
+        commands: List of command dicts, each containing:
+            - "op": operation name
+            - "ns": namespace
+            - Other parameters as required by the operation.
+
+            Example:
+            [
+                {"op": "put", "ns": "artifacts", "key": 101, "value": {"name": "Vessel"}},
+                {"op": "add", "ns": "linguistics", "key": "nahuatl"},
+                {"op": "snapshot"}
+            ]
+
+    Returns:
+        Dict[str, Any]: The final deterministic state snapshot.
+
+    Notes:
+        - Processes all commands sequentially in one call.
+        - Returns ONLY the final snapshot (no intermediate states).
+        - Non-snapshot operations like `get` or `contains` may be
+          validated internally but do not appear in the output.
+    """
+    pass
+```
+
+---
+
+### Example Usage
+
+```python
+result = execute_hash_table_commands(
+    config={
+        "artifacts":  {"mode": "map"},
+        "linguistics":{"mode": "set", "normalize_key": "case_insensitive"},
+        "genetics":   {"mode": "map"}
+    },
+    commands=[
+        {"op": "put", "ns": "artifacts", "key": 101,
+         "value": {"name": "Vessel-A", "era": "Late Formative"}},
+        {"op": "put", "ns": "artifacts", "key": "AX-42",
+         "value": {"name": "Obsidian Blade"}},
+        {"op": "add", "ns": "linguistics", "key": "nahuatl"},
+        {"op": "add", "ns": "linguistics", "key": "QUECHUA"},
+        {"op": "put", "ns": "genetics", "key": "Haplogroup B2",
+         "value": {"freq": 0.27}},
+        {"op": "snapshot"}
+    ]
+)
+
+# Final deterministic snapshot
+# {
+#   "artifacts": [
+#       [101, {"name": "Vessel-A", "era": "Late Formative"}],
+#       ["AX-42", {"name": "Obsidian Blade"}]
+#   ],
+#   "linguistics": ["nahuatl", "quechua"],
+#   "genetics": [["Haplogroup B2", {"freq": 0.27}]]
+# }
+```
+
+---
+
+### Constraints
+
+1. Must handle ≥ 500 total keys efficiently across namespaces.
+2. Supported key types: `int`, `str`, `bytes`.
+3. Use deterministic hashing (no built-in `hash()` for `str`/`bytes`).
+4. Use separate chaining only — no open addressing.
+5. Iteration and output must be **deterministic** across runs.
+6. Use only the Python standard library.
+7. Namespace isolation: keys in one namespace never affect another.
+8. Canonical equality:
+
+   * All equality and hashing are based on the **normalized key**.
+   * The **first original key form** for a given normalized key is retained for export.
+9. Idempotent updates: inserting identical key/value pairs must not create duplicates.
+10. Snapshot must return a stable, deterministic structure (lists and dicts only). Use lists for entries, dicts for namespace organization.
+11. **Strict snapshot ordering**:
+
+    * Namespaces sorted lexicographically.
+    * Within each namespace:
+
+      1. By bucket index (`hash & (capacity - 1)`),
+      2. Then by 64-bit hash value,
+      3. Then by canonical key,
+      4. Then by insertion index.
+12. Resize behavior: double capacity when load factor > 0.75, preserving insertion stability.
+13. Memory efficiency: use separate chaining, not open addressing.
+14. Error messages must be explicit (e.g., `"Invalid operation: unsupported key type"`).
+15. Hash collisions resolved deterministically (canonical key → hash → insertion order).
+16. `bulk_load`: inserts multiple items deterministically, identical to sequential `put`/`add`.
+    JSON schema:
+    - For map namespaces: `{ "op": "bulk_load", "ns": "A", "entries": [[key, value], ...] }`
+    - For set namespaces: `{ "op": "bulk_load", "ns": "S", "entries": [key1, key2, ...] }`
+17. `size` operation must return count of unique normalized keys.
+18. Unicode normalization: string keys normalized to NFC before hashing.
+19. Circular reference detection: inserting or updating a value that references the hash table (directly or indirectly) must raise `ValueError("Invalid value: circular reference to table")`.
+20. Explicitly non-thread-safe: concurrent modification unsupported.
+
+Starter Code:
+```python
+from typing import Any, Dict, List
+
+def execute_hash_table_commands(
+    config: Dict[str, Dict[str, Any]],
+    commands: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Execute a sequence of deterministic hash table commands and return
+    the final snapshot across all namespaces.
+
+    Args:
+        config: Per-namespace configuration, e.g.:
+            {
+                "artifacts": {"mode": "map"},
+                "linguistics": {"mode": "set", "normalize_key": "case_insensitive"},
+                "genetics": {"mode": "map"}
+            }
+
+        commands: List of command dicts, each containing:
+            - "op": operation name
+            - "ns": namespace
+            - Other parameters as required by the operation.
+
+            Example (single-call, JSON-replicable):
+            [
+                {"op": "put", "ns": "artifacts", "key": 101, "value": {"name": "Vessel"}},
+                {"op": "add", "ns": "linguistics", "key": "nahuatl"},
+                {"op": "snapshot"}
+            ]
+
+    Returns:
+        Dict[str, Any]: The final deterministic state snapshot.
+
+    Notes:
+        - Processes all commands sequentially in one call.
+        - Returns ONLY the final snapshot (no intermediate states).
+        - JSON-friendly normalization:
+          * normalize_key (string mode): "none" | "nfc" | "case_insensitive"
+        - bulk_load JSON schema:
+          * Map: {"op": "bulk_load", "ns": "A", "entries": [[key, value], ...]}
+          * Set: {"op": "bulk_load", "ns": "S", "entries": [key1, key2, ...]}
+    """
+    pass
+```

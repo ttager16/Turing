@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5tBgd9CiuzBAqW66gRtzlcKQaVd",
+  "object": "chat.completion",
+  "created": 1774396553,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[[\\\"a\\\", 10.0], [\\\"BROKER_FEE\\\", -0.01], [\\\"B\\\", 20.0], [\\\"b\\\", 18.0], [\\\"C6\\\", 5.0], [\\\"D\\\", 50.0], [\\\"D\\\", null], [\\\"BROKER_FEE\\\", 0.002], [\\\"xlonger\\\", 5.0], [\\\"E\\\", 0.0], [\\\"A\\\", 12.0]]\",\n        \"1000.0\",\n        \"0.3\",\n        \"100.0\"\n      ],\n      \"focus\": \"Case sensitivity, invalid updates (negative, null, zero), non-alphabetic and overlength tickers, last-valid-wins preservation, default fee behavior\"\n    },\n    {\n      \"input_lines\": [\n        \"[[\\\"BROKER_FEE\\\", 0.005], [\\\"BROKER_FEE\\\", 0.0], [\\\"CCC\\\", 40.0], [\\\"AAA\\\", 50.0], [\\\"BBB\\\", 50.0], [\\\"CCC\\\", -1.0], [\\\"DDD!\\\", 30.0]]\",\n        \"15000.0\",\n        \"0.3333\",\n        \"1000.0\"\n      ],\n      \"focus\": \"Tie on score (identical prices), deterministic tie-break order (alphabetical), fee invalidation not overriding prior valid fee, cap and lot rounding interactions\"\n    },\n    {\n      \"input_lines\": [\n        \"[[\\\"BROKER_FEE\\\", 0.1], [\\\"A\\\", 10.0], [\\\"ZZZZZ\\\", 20.0], [\\\"TOOLONG\\\", 1.0], [\\\"ok1\\\", 5.0]]\",\n        \"99.99\",\n        \"0.5\",\n        \"100.0\"\n      ],\n      \"focus\": \"Budget smaller than min_lot -> entire budget becomes RESERVE; validates ticker length 5 allowed and non-alpha rejected\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1855,
+    "completion_tokens": 3336,
+    "total_tokens": 5191,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2880,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

@@ -1,0 +1,177 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+TransLogistics Inc. has expanded to handle global-scale deliveries across an intricate, dynamic network of interconnected regions, each with its own operational nuances. The company must orchestrate a fleet of specialized vehicles each with custom load capacities, fuel consumption patterns, and route preferences through a multi-layered system of delivery hubs and transit corridors. These hubs are organized into graph-like structures that may shift topologically due to unpredictable factors such as closed roads, fluctuating traffic patterns, and enforced transit regulations.
+
+To achieve a robust scheduling and routing plan, TransLogistics Inc. requires a solution that uses shortest-path search and graph-based dynamic programming for small instances, and a greedy heuristic with a simple flow-like demand allocator for larger cases. It must handle overlapping time windows and real-time route updates. Fuel usage is optimized heuristically while obeying the operational rules below:
+
+1. **Compound Time Windows:** Cities or hubs may have staggered or overlapping delivery windows, requiring detailed scheduling of partial vehicle arrivals.
+2. **Fuel Efficiency and Cost Awareness:** Since the fleet contains multiple fuel-consuming vehicle types, the solution must carefully distribute the total load to minimize aggregate fuel cost.
+
+### Objectives
+
+1. Build scheduling over a directed, mutable graph where edges can be disabled or re-weighted via deterministic updates.
+2. Provide an optional demand allocator that distributes vehicle capacity to city demands per phase, respecting per-city `hub_capacity`.
+3. When `phases` are provided, keep a vehicle’s first chosen route persistent across phases (no reassignment).
+4. Produce a schedule listing each vehicle’s path (single-city stay or shortest path), total travel time (edge time only), and fuel cost.
+
+### Constraints
+
+- Vehicle capacity is not enforced along routes; it informs cost and demand allocation only.
+- Fuel usage is optimized heuristically; small instances use DP on a route-value objective, larger instances use a greedy strategy.
+  - For DP (small instances): maximize route-value = 10 \* number_of_cities_visited - fuel_cost(minutes, capacity). Fuel cost uses the formula in the constraints below.
+  - For the greedy heuristic (large instances): process vehicles in ascending `(capacity, id)` order; for each vehicle, assign the highest-value non-overlapping candidate route (same route-value as DP); if none exists, assign an empty route.
+- Each vehicle can only be assigned to one route at a time and cannot be split across multiple simultaneous routes.
+- Travel times between cities must be non-negative integers representing minutes.
+- Vehicle IDs must be unique positive integers, and city names must be non-empty strings.
+- The solution must handle cases where no feasible route exists for a vehicle (return empty route with zero costs).
+- All routes must start and end at valid cities from the input cities list.
+- Fuel costs must be calculated as non-negative integers based on travel time (minutes) and vehicle capacity per the formula below.
+- The total number of vehicles assigned to routes cannot exceed the number of available vehicles.
+- The solution must be deterministic, given the same input, it should produce the same output.
+- Travel graph is directed; 'A-B' does not imply 'B-A'.
+- Traffic updates are applied in deterministic order (by route key; removals before additions/changes), and `None` removes the edge.
+- Candidate routes are limited to single-city stays and shortest paths between ordered city pairs.
+- Without `demands`/`phases`, any city may be visited by at most one vehicle in the final plan; with `demands` or `phases`, multiple vehicles may serve the same city.
+- For small instances (<=18 cities and <=12 vehicles) dynamic programming is used; otherwise a greedy heuristic is used.
+- Per-vehicle candidate options are truncated to at most 30 after scoring.
+- Across phases, a vehicle’s first chosen route persists; later phases do not reassign it.
+- TravelTime sums only edge traversal times; waiting to meet time windows is excluded.
+- Schedules report arrival times only, in hours rounded to two decimals.
+- Fuel cost formula: base_rate=0.1 per minute, efficiency factor (1 + capacity/200), integer truncation, minimum cost 1 for any positive travel time.
+- Vehicles are processed in `(capacity, id)` order for tie-breaking.
+- Time windows are converted from hours to minutes internally; schedules convert minutes back to hours.
+- The global time origin is minute 0; initial arrival is at max(0, start_window).
+
+### Function Signature
+
+```python
+class VehicleEntry(TypedDict):
+    Route: List[str]
+    TravelTime: int
+    FuelCost: int
+    Schedule: List[List[str, float]]
+
+def optimize_fleet_scheduling(
+    cities: List[List[str, int, int]],
+    vehicles: List[List[int, int]],
+    traffic_data: Dict[str, int],
+    demands: Optional[Dict[str, int]] = None,
+    hub_capacity: Optional[Dict[str, int]] = None,
+    updates: Optional[List[List[str, Optional[int]]]] = None,
+    phases: Optional[List[Dict[str, int]]] = None
+) -> Dict[str, VehicleEntry]:
+```
+
+**Parameters:**
+
+- `cities`: List of lists [city_name, start_time_window, end_time_window] in hours
+- `vehicles`: List of lists [vehicle_id, capacity]
+- `traffic_data`: Dictionary mapping "CityA-CityB" to travel time in minutes
+- `demands`: Optional dictionary mapping city names to demand quantities
+- `hub_capacity`: Optional dictionary mapping city names to capacity limits
+- `updates`: Optional list of traffic updates as [route_key, new_time] lists
+- `phases`: Optional list of demand phases as dictionaries
+
+### Sample Input
+
+```python
+cities = [
+        ['HubA', 8, 10],
+        ['HubB', 6, 9],
+        ['CityX', 9, 12],
+        ['CityY', 11, 14]
+    ]
+    vehicles = [
+        [101, 120],
+        [202, 80],
+        [303, 150]
+    ]
+    traffic_data = {
+        'HubA-HubB': 30,
+        'HubB-CityX': 30,
+        'HubA-CityX': 60,
+        'CityX-CityY': 30,
+        'HubB-CityY': 60
+    }
+
+    demands = {'HubB': 50, 'CityX': 75}  # Demand quantities per city
+    hub_capacity = {'HubB': 100, 'CityX': 200}  # Capacity limits per hub
+    updates = [['HubA-HubB', 15], ['HubB-CityX', None]]  # Traffic updates
+    phases = [{'HubB': 30}, {'CityX': 40}]  # Demand phases
+```
+
+### Expected Output Format
+
+```python
+{
+    'Vehicle202': {
+        'Route': [],
+        'TravelTime': 0,
+        'FuelCost': 0
+    },
+    'Vehicle101': {
+        'Route': ['HubA', 'CityX'],
+        'TravelTime': 60,
+        'FuelCost': 9,
+        'Schedule': [
+            ['HubA', 8.0],
+            ['CityX', 9.0]
+        ]
+    },
+    'Vehicle303': {
+        'Route': ['HubA', 'HubB'],
+        'TravelTime': 15,
+        'FuelCost': 2,
+        'Schedule': [
+            ['HubA', 8.0],
+            ['HubB', 8.25]
+        ]
+    }
+}
+
+```
+
+### Expected Output Description
+
+- The output is a dictionary keyed by each vehicle’s unique identifier formatted as `f"Vehicle{vehicle_id}"`.
+- Each vehicle entry contains:  
+  • 'Route': An ordered list of hubs/cities visited during its operational window, respecting time windows; capacity affects cost and demand allocation only.  
+  • 'TravelTime': The aggregated travel time after applying any real-time re-routing decisions.  
+  • 'FuelCost': The final computed fuel cost for the sequence of trips, reflecting dynamic route modifications.
+  • 'Schedule': A list of `[city, arrival_time_hours]` pairs; arrival times include any waiting to satisfy time windows and are reported in hours rounded to two decimals.
+
+This solution must seamlessly integrate dynamic graph reconfiguration, and advanced scheduling data structures to provide a resilient plan that optimizes fuel usage while meeting all deadlines and accommodating real-time disruptions.
+
+Starter Code:
+```python
+from typing import List, Tuple, Dict, Union, Set, Optional
+from collections import defaultdict
+import heapq
+
+
+class VehicleEntry(TypedDict):
+    Route: List[str]
+    TravelTime: int
+    FuelCost: int
+    Schedule: List[List[Union[str, float]]]
+
+def optimize_fleet_scheduling(
+    cities: List[List[Union[str, int, int]]],
+    vehicles: List[List[Union[int, int]]],
+    traffic_data: Dict[str, int],
+    demands: Optional[Dict[str, int]] = None,
+    hub_capacity: Optional[Dict[str, int]] = None,
+    updates: Optional[List[List[Union[str, Optional[int]]]]] = None,
+    phases: Optional[List[Dict[str, int]]] = None
+) -> Dict[str, VehicleEntry]:
+ ...
+```

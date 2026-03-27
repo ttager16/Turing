@@ -1,0 +1,81 @@
+def compute_multilayer_min_cost_route(
+    layered_graph: Dict[str, List[Dict[str, Any]]],
+    vehicle_type: str,
+    start_node: int,
+    end_node: int,
+    current_time: int,
+    environment_state: Dict[str, Any],
+    concurrency_tracker: Dict[str, int]
+) -> List[int]:
+    start = str(start_node)
+    end = str(end_node)
+    # Helper to check time window
+    def time_allowed(windows):
+        if not windows:
+            return True
+        for w in windows:
+            if len(w) >= 2:
+                if w[0] <= current_time <= w[1]:
+                    return True
+        return False
+    # Helper to check capacity
+    def capacity_allowed(u, v, cap):
+        key = f"{u},{v}"
+        used = concurrency_tracker.get(key, 0)
+        return used < cap
+    # Helper to compute cost with environmental multipliers
+    def edge_cost(attrs):
+        cost = attrs.get('base_cost', 0)
+        env_limits = attrs.get('env_limits', {}) or {}
+        multiplier = 1.0
+        for k, v in env_limits.items():
+            if k in environment_state and environment_state.get(k) == v and v:
+                multiplier *= 2.0
+        return cost * multiplier
+    # Dijkstra
+    pq = [(0.0, start, None)]  # cost, node, prev
+    dist = {start: 0.0}
+    prev = {start: None}
+    visited = set()
+    while pq:
+        cost_u, u, _ = heapq.heappop(pq)
+        if u in visited:
+            continue
+        visited.add(u)
+        if u == end:
+            break
+        neighbors = layered_graph.get(u, [])
+        for edge in neighbors:
+            if not isinstance(edge, (list, tuple)) or len(edge) < 2:
+                continue
+            v = str(edge[0])
+            attrs = edge[1] or {}
+            # vehicle access
+            va = attrs.get('vehicle_access', []) or []
+            if vehicle_type not in va:
+                continue
+            # time windows
+            if not time_allowed(attrs.get('time_windows', [])):
+                continue
+            # capacity
+            cap = attrs.get('capacity', 0)
+            if cap < 0:
+                continue
+            if not capacity_allowed(u, v, cap):
+                continue
+            c = edge_cost(attrs)
+            new_cost = cost_u + c
+            if v not in dist or new_cost < dist[v]:
+                dist[v] = new_cost
+                prev[v] = u
+                heapq.heappush(pq, (new_cost, v, u))
+    if end not in dist:
+        return []
+    # reconstruct path
+    path = []
+    cur = end
+    while cur is not None:
+        path.append(int(cur))
+        cur = prev.get(cur)
+    path.reverse()
+    return path

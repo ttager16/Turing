@@ -1,0 +1,48 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        "In a surprise, Apple Inc. (AAPL) reports upbeat revenue; analysts are positive.",
+        "Quarterly notes: Apple Incorporated (AAPL) posts mixed results but recorta costs afterward.",
+        "NAZDAQ had notable volatility; some reports were bullish.",
+        "Analysts remain cautious on the Nasdaq Composite amid mixed signals.",
+        "新闻：纳斯达克 表现稳健。"
+      ]
+    ],
+    "input_lines": [
+      "[\"In a surprise, Apple Inc. (AAPL) reports upbeat revenue; analysts are positive.\", \"Quarterly notes: Apple Incorporated (AAPL) posts mixed results but recorta costs afterward.\", \"NAZDAQ had notable volatility; some reports were bullish.\", \"Analysts remain cautious on the Nasdaq Composite amid mixed signals.\", \"新闻：纳斯达克 表现稳健。\"]"
+    ],
+    "focus": "Fuzzy matching and multilingual aliases (Chinese), distinguishing alias edges (no sentiment transfer) from entity edges (transfer) and propagation when two canonical entities are shared."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        "apple inc. expands operations in Europe; AAPL shows strength.",
+        "Applr Inc (AAPL) posts flat revenue.",
+        "Investors are POSITIVE on aapl despite headwinds."
+      ]
+    ],
+    "input_lines": [
+      "[\"apple inc. expands operations in Europe; AAPL shows strength.\", \"Applr Inc (AAPL) posts flat revenue.\", \"Investors are POSITIVE on aapl despite headwinds.\"]"
+    ],
+    "focus": "Case-insensitive and punctuation-robust matching, single-character typo (Applr) fuzzy-mapped to company alias, lowercase ticker variants, and whole-word sentiment detection (POSITIVE)."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        "Market note: positive signals then negative; overall the final word is negative.",
+        "Company brief: Apple Inc.",
+        "Ticker brief: AAPL",
+        "Combined: Apple Inc. and AAPL are discussed but no sentiment words.",
+        "Mirror: Apple Incorporated AAPL performance is under review; analysts remain upbeat."
+      ]
+    ],
+    "input_lines": [
+      "[\"Market note: positive signals then negative; overall the final word is negative.\", \"Company brief: Apple Inc.\", \"Ticker brief: AAPL\", \"Combined: Apple Inc. and AAPL are discussed but no sentiment words.\", \"Mirror: Apple Incorporated AAPL performance is under review; analysts remain upbeat.\"]"
+    ],
+    "focus": "Edge of entity-edge requirement (requires two shared canonical entities): some articles only share one entity and should not transfer sentiment; tests last-keyword wins and that an unconnected negative article stays negative."
+  }
+]

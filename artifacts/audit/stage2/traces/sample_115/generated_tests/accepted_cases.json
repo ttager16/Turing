@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[0, 1, 2, 3]\n{\"0\": [{\"to\": 1, \"capacity\": 3, \"cost\": 1.0, \"time_windows\": [[0, 2], [7, 9]], \"forbidden_pairs\": [], \"obstruction_time\": null}, {\"to\": 3, \"capacity\": 2, \"cost\": 5.0, \"time_windows\": [[1, 4]], \"forbidden_pairs\": [], \"obstruction_time\": null}], \"1\": [{\"to\": 2, \"capacity\": 2, \"cost\": 0.5, \"time_windows\": [[5, 5]], \"forbidden_pairs\": [[0, 0]], \"obstruction_time\": null}], \"2\": [{\"to\": 3, \"capacity\": 5, \"cost\": 2.0, \"time_windows\": [[5, 9]], \"forbidden_pairs\": [], \"obstruction_time\": 7}], \"3\": []}\n[{\"id\": 0, \"source\": 0, \"sink\": 3, \"demand\": 3, \"priority\": 0, \"max_split\": 2}]\n10\n[{\"node\": 1, \"capacity\": 2, \"cost_per_unit_per_time\": 0.5}, {\"node\": 2, \"capacity\": 1, \"cost_per_unit_per_time\": 0.2}]\nnull",
+    "output_text": "{\"paths\": {\"0\": [[0, 1, 2, 3], [0, 3]]}, \"flows\": {\"0\": 3}, \"cost\": 14.5, \"throughput\": 3}"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[0, 1, 2]\n{\"0\": [{\"to\": 1, \"capacity\": 3, \"cost\": -5.0, \"time_windows\": [[0, 2]], \"forbidden_pairs\": [[0, 1], [1, 2]], \"obstruction_time\": null}], \"1\": [{\"to\": 2, \"capacity\": 6, \"cost\": 1.0, \"time_windows\": [[0, 3]], \"forbidden_pairs\": [], \"obstruction_time\": null}], \"2\": []}\n[{\"id\": 0, \"source\": 0, \"sink\": 2, \"demand\": 2, \"priority\": 0, \"max_split\": 1}, {\"id\": 1, \"source\": 0, \"sink\": 2, \"demand\": 2, \"priority\": 2, \"max_split\": 1}, {\"id\": 2, \"source\": 0, \"sink\": 2, \"demand\": 2, \"priority\": 1, \"max_split\": 1}]\n4\nnull\nnull",
+    "output_text": "{\"paths\": {\"1\": [[0, 1, 2]], \"2\": [[0, 1, 2]], \"0\": []}, \"flows\": {\"1\": 2, \"2\": 2, \"0\": 0}, \"cost\": -16.0, \"throughput\": 4}"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[0, 1, 2, 3, 4]\n{\"0\": [{\"to\": 1, \"capacity\": 5, \"cost\": 2.0, \"time_windows\": [[0, 3]], \"forbidden_pairs\": [], \"obstruction_time\": null}], \"1\": [{\"to\": 2, \"capacity\": 2, \"cost\": 1.0, \"time_windows\": [[1, 4]], \"forbidden_pairs\": [], \"obstruction_time\": null}, {\"to\": 3, \"capacity\": 4, \"cost\": 1.5, \"time_windows\": [[1, 5]], \"forbidden_pairs\": [], \"obstruction_time\": null}], \"2\": [{\"to\": 1, \"capacity\": 3, \"cost\": 0.8, \"time_windows\": [[2, 5]], \"forbidden_pairs\": [], \"obstruction_time\": null}, {\"to\": 4, \"capacity\": 10, \"cost\": 3.0, \"time_windows\": [[2, 5]], \"forbidden_pairs\": [], \"obstruction_time\": 3}], \"3\": [{\"to\": 4, \"capacity\": 10, \"cost\": 2.0, \"time_windows\": [[2, 6]], \"forbidden_pairs\": [], \"obstruction_time\": null}], \"4\": []}\n[{\"id\": 0, \"source\": 0, \"sink\": 4, \"demand\": 3.7, \"priority\": 1, \"max_split\": 3}, {\"id\": 1, \"source\": 0, \"sink\": 4, \"demand\": 1.3, \"priority\": 0, \"max_split\": 2}]\n7\n[{\"node\": 2, \"capacity\": 2, \"cost_per_unit_per_time\": 0.2}]\n[{\"u\": 1, \"v\": 2, \"block_time\": 4}]",
+    "output_text": "{\"paths\": {\"0\": [[0, 1, 3, 4]], \"1\": [[0, 1, 3, 4]]}, \"flows\": {\"0\": 3.7, \"1\": 1.3}, \"cost\": 27.5, \"throughput\": 5.0}"
+  }
+]

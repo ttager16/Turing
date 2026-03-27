@@ -1,0 +1,76 @@
+{
+  "id": "resp_0defac8ef36209420069c32d1a129c819eb8e4a8a9591c89ad",
+  "object": "response",
+  "created_at": 1774398746,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398757,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0defac8ef36209420069c32d1a6218819eae71c2b18449b51b",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0defac8ef36209420069c32d1a9404819e9522c8f3832dd8bf",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Any\n\ndef schedule_tasks(tasks: List[List[Any]], operations: List[List[Any]]) -> List[str]:\n    # Validate initial tasks\n    if not isinstance(tasks, list) or not isinstance(operations, list):\n        return []\n    clusters = {}\n    links = {}  # adjacency set, though links have no further effect in this spec\n    for item in tasks:\n        if (not isinstance(item, list)) or len(item) != 2:\n            return []\n        cap, name = item\n        if not isinstance(name, str):\n            return []\n        if not (isinstance(cap, int) and cap >= 0):\n            return []\n        if name in clusters:\n            return []\n        clusters[name] = cap\n        links[name] = set()\n    MERGE_LIMIT = 100\n\n    for op in operations:\n        # Each operation must be list of length 2\n        if not isinstance(op, list) or len(op) != 2:\n            return []\n        typ, payload = op\n        if typ not in (\"link\", \"split\", \"merge\", \"adjust\", \"balance\"):\n            return []\n        # link\n        if typ == \"link\":\n            if not (isinstance(payload, list) and len(payload) == 2):\n                return []\n            a, b = payload\n            if not (isinstance(a, str) and isinstance(b, str)):\n                return []\n            if a == b:\n                return []\n            if a not in clusters or b not in clusters:\n                return []\n            links.setdefault(a, set()).add(b)\n            links.setdefault(b, set()).add(a)\n        elif typ == \"split\":\n            # payload must be a single string \"a\" that references existing cluster\n            if not isinstance(payload, str):\n                return []\n            a = payload\n            if a not in clusters:\n                return []\n            old = clusters[a]\n            new_cap = old // 2\n            clusters[a] = new_cap\n            # discarded half is no longer tracked\n            # links remain as they were for a\n        elif typ == \"merge\":\n            if not (isinstance(payload, list) and len(payload) == 2):\n                return []\n            a, b = payload\n            if not (isinstance(a, str) and isinstance(b, str)):\n                return []\n            if a == b:\n                return []\n            if a not in clusters or b not in clusters:\n                return []\n            combined = clusters[a] + clusters[b]\n            if combined > MERGE_LIMIT:\n                return []\n            # merge b into a; a keeps name, b removed\n            clusters[a] = combined\n            # merge links\n            links.setdefault(a, set())\n            links.setdefault(b, set())\n            for nbr in links[b]:\n                if nbr != a:\n                    links[a].add(nbr)\n                    links.setdefault(nbr, set()).add(a)\n                links.get(nbr, set()).discard(b)\n            links.pop(b, None)\n            clusters.pop(b, None)\n        elif typ == \"adjust\":\n            if not (isinstance(payload, list) and len(payload) == 2):\n                return []\n            value, a = payload\n            if not (isinstance(value, int) and isinstance(a, str)):\n                return []\n            if a not in clusters:\n                return []\n            new = clusters[a] + value\n            if new < 0:\n                new = 0\n            clusters[a] = new\n        elif typ == \"balance\":\n            if not (isinstance(payload, list) and len(payload) == 2):\n                return []\n            a, b = payload\n            if not (isinstance(a, str) and isinstance(b, str)):\n                return []\n            if a == b:\n                return []\n            if a not in clusters or b not in clusters:\n                return []\n            ca = clusters[a]\n            cb = clusters[b]\n            # If one cluster’s capacity exceeds 1.5 times that of the other,\n            # transfer half the difference from larger to smaller.\n            # Avoid division by zero: if other is zero and larger > 0 then condition holds (infinite).\n            larger, smaller = (a, b) if ca > cb else (b, a)\n            cl = clusters[larger]\n            cs = clusters[smaller]\n            # Check condition\n            cond = False\n            if cs == 0:\n                if cl > 0:\n                    cond = True\n            else:\n                if cl > 1.5 * cs:\n                    cond = True\n            if cond:\n                diff = cl - cs\n                transfer = diff // 2\n                if transfer > 0:\n                    clusters[larger] = cl - transfer\n                    clusters[smaller] = cs + transfer\n                # if transfer == 0, no change\n\n    # After processing, return list of active cluster identifiers ordered by capacity desc, then name asc\n    items = list(clusters.items())\n    items.sort(key=lambda x: (-x[1], x[0]))\n    return [name for name, cap in items]"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1078,
+    "input_tokens_details": {
+      "cached_tokens": 1024
+    },
+    "output_tokens": 1075,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2153
+  },
+  "user": null,
+  "metadata": {}
+}

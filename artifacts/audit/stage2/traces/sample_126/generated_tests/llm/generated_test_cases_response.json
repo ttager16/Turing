@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN7RVLSmjmo7VnVU9M2wUwUpPFsdM",
+  "object": "chat.completion",
+  "created": 1774402525,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"{\\\"[0, 1, 2]\\\": 1, \\\"[1, 1, 2]\\\": 1, \\\"[0, 2, 3]\\\": 5, \\\"[1, 2, 3]\\\": 2, \\\"[2, 1, 3]\\\": 10}\",\"[[[1, 1, 2], \\\"MANDATORY\\\"], [[0, 2, 3], 1], [[1, 2, 3], \\\"PROHIBITED\\\"]]\"],\"focus\":\"Parallel edges across layers, mandatory inclusion forcing exclusion of other-layer parallel edge, and a prohibition forcing alternate connection.\"},{\"input_lines\":[\"{\\\"[0, 10, 11]\\\": 7, \\\"[1, 11, 12]\\\": 4, \\\"[0, 12, 13]\\\": 6, \\\"[2, 14, 15]\\\": 3}\",\"[[[1, 13, 14], 2], [[1, 13, 14], \\\"MANDATORY\\\"], [[0, 10, 11], 1], [[0, 11, 12], 1]]\"],\"focus\":\"New conduit addition to connect previously disconnected components, then make it mandatory; cost updates add alternative links — tests handling of new-edge additions and large node ids.\"},{\"input_lines\":[\"{\\\"[0, 0, 1]\\\": 3, \\\"[1, 1, 2]\\\": 0, \\\"[1, 2, 0]\\\": 2, \\\"[2, 2, 1]\\\": 4, \\\"[0, 1, 2]\\\": 1}\",\"[[[1, 1, 2], 1], [[2, 1, 2], \\\"MANDATORY\\\"], [[0, 1, 2], \\\"PROHIBITED\\\"]]\"],\"focus\":\"Order-insensitivity and node-order normalization (updates reference reversed node order); zero-cost edge changed, then a reversed-edge is made mandatory and a cheaper edge prohibited to force non-trivial re-selection.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2169,
+    "completion_tokens": 3605,
+    "total_tokens": 5774,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3136,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

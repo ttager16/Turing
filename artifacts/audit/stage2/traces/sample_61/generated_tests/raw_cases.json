@@ -1,0 +1,151 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        [
+          "insert",
+          30
+        ],
+        [
+          "insert",
+          10
+        ],
+        [
+          "insert",
+          20
+        ],
+        [
+          "search",
+          20
+        ],
+        [
+          "insert",
+          40
+        ],
+        [
+          "insert",
+          50
+        ],
+        [
+          "search",
+          50
+        ],
+        [
+          "delete",
+          10
+        ],
+        [
+          "search",
+          10
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[\"insert\", 30], [\"insert\", 10], [\"insert\", 20], [\"search\", 20], [\"insert\", 40], [\"insert\", 50], [\"search\", 50], [\"delete\", 10], [\"search\", 10]]"
+    ],
+    "focus": "Triggers LR rotation (30,10,20), then further inserts to exercise rebalancing, searches and deletion; checks rotations and idempotence."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        [
+          "insert",
+          5
+        ],
+        [
+          "insert",
+          5
+        ],
+        [
+          "search",
+          5
+        ],
+        [
+          "delete",
+          5
+        ],
+        [
+          "delete",
+          5
+        ],
+        [
+          "search",
+          5
+        ],
+        [
+          "insert",
+          -10
+        ],
+        [
+          "search",
+          -10
+        ],
+        [
+          "delete",
+          -10
+        ],
+        [
+          "search",
+          -10
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[\"insert\", 5], [\"insert\", 5], [\"search\", 5], [\"delete\", 5], [\"delete\", 5], [\"search\", 5], [\"insert\", -10], [\"search\", -10], [\"delete\", -10], [\"search\", -10]]"
+    ],
+    "focus": "Duplicate inserts and repeated deletes including negative values; verifies idempotence and correct search behavior for removed/missing keys."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        [
+          "insert",
+          10
+        ],
+        [
+          "insert",
+          20
+        ],
+        [
+          "insert",
+          30
+        ],
+        [
+          "insert",
+          40
+        ],
+        [
+          "insert",
+          50
+        ],
+        [
+          "search",
+          30
+        ],
+        [
+          "delete",
+          40
+        ],
+        [
+          "search",
+          40
+        ],
+        [
+          "insert",
+          25
+        ],
+        [
+          "search",
+          25
+        ]
+      ]
+    ],
+    "input_lines": [
+      "[[\"insert\", 10], [\"insert\", 20], [\"insert\", 30], [\"insert\", 40], [\"insert\", 50], [\"search\", 30], [\"delete\", 40], [\"search\", 40], [\"insert\", 25], [\"search\", 25]]"
+    ],
+    "focus": "Ascending inserts to force RR rebalancing, deletion of an internal node and reinsertion in middle; checks balancing after deletes and subsequent inserts."
+  }
+]

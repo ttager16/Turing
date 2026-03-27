@@ -1,0 +1,304 @@
+from typing import List, Tuple, Dict, Any, Set
+from collections import defaultdict, deque
+from heapq import heappush, heappop, heapify
+
+
+def manage_road_network(
+    roads: List[List[int]],
+    intersections: List[List[int]],
+    updates: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    parent: Dict[int, int] = {}
+    rank: Dict[int, int] = {}
+    comp_capacity: Dict[int, int] = {}
+    comp_size: Dict[int, int] = {}
+    merge_history: List[Tuple[int, int]] = []
+    max_tree_depth = 0
+
+    def make_set(x: int, capacity: int = 1):
+        nonlocal max_tree_depth
+        if x in parent:
+            return
+        parent[x] = x
+        rank[x] = 0
+        comp_capacity[x] = capacity
+        comp_size[x] = 1
+        if rank[x] > max_tree_depth:
+            max_tree_depth = rank[x]
+
+    def find(x: int) -> int:
+        if parent[x] != x:
+            parent[x] = find(parent[x])
+        return parent[x]
+
+    def union(a: int, b: int) -> bool:
+        nonlocal max_tree_depth
+        ra = find(a)
+        rb = find(b)
+        if ra == rb:
+            return False
+        merge_history.append((ra, rb))
+        # union by rank: attach shorter to taller; on equal, make second root child and increment surviving root's rank by 1.
+        if rank[ra] < rank[rb]:
+            ra, rb = rb, ra
+        # now ra has rank >= rb
+        parent[rb] = ra
+        comp_capacity[ra] = comp_capacity.get(ra, 0) + comp_capacity.get(rb, 0)
+        comp_size[ra] = comp_size.get(ra, 0) + comp_size.get(rb, 0)
+        # remove child entries
+        comp_capacity.pop(rb, None)
+        comp_size.pop(rb, None)
+        if rank[ra] == rank[rb]:
+            rank[ra] = rank[ra] + 1
+        if rank[ra] > max_tree_depth:
+            max_tree_depth = rank[ra]
+        return True
+
+    # Road management structures
+    # road_map keyed by normalized tuple -> metadata
+    road_map: Dict[Tuple[int, int], Dict[str, Any]] = {}
+    adjacency: Dict[int, Set[Tuple[int, int]]] = defaultdict(set)
+    node_roads: Dict[int, Set[Tuple[int, int]]] = defaultdict(set)
+    nodes: Set[int] = set()
+    total_capacity = 0
+    deactivated_roads = 0
+    # priority queue: min-heap with negative index to make earlier roads higher priority
+    priority_heap: List[Tuple[int, Tuple[int, int]]] = []
+
+    def normalize(road):
+        a, b = road
+        return (a, b) if a <= b else (b, a)
+
+    # Initialize intersections (only nodes, default capacity 1)
+    for u, v in intersections:
+        make_set(u, 1)
+        make_set(v, 1)
+        nodes.add(u)
+        nodes.add(v)
+
+    # Insert roads
+    for idx, r in enumerate(roads):
+        a, b = r
+        na = normalize(r)
+        # per-road capacity default 1
+        make_set(a, 1)
+        make_set(b, 1)
+        # If nodes already exist in union-find, their comp_capacity currently counts their singleton capacities.
+        # For road capacity system, we track separately.
+        road_meta = {'capacity': 1, 'active': True, 'priority': idx}
+        road_map[na] = road_meta
+        adjacency[na[0]].add(na)
+        adjacency[na[1]].add(na)
+        node_roads[na[0]].add(na)
+        node_roads[na[1]].add(na)
+        nodes.add(na[0])
+        nodes.add(na[1])
+        total_capacity += 1
+        heappush(priority_heap, (-idx, na))
+        union(na[0], na[1])
+
+    # Helper to compute neighbors: endpoints of roads incident to given node, excluding node itself
+    def get_neighbors(node: int) -> Set[int]:
+        neigh = set()
+        for rd in node_roads.get(node, ()):
+            a, b = rd
+            if a != node:
+                neigh.add(a)
+            if b != node:
+                neigh.add(b)
+        return neigh
+
+    # Process updates
+    for upd in updates:
+        typ = upd.get('type')
+        if typ == 'reclassify':
+            road = upd.get('road')
+            if not road:
+                continue
+            na = normalize(road)
+            if na in road_map:
+                newc = int(upd.get('new_capacity', road_map[na]['capacity']))
+                oldc = road_map[na]['capacity']
+                road_map[na]['capacity'] = newc
+                total_capacity += newc - oldc
+            else:
+                # intersections cannot be reclassified per spec; skip silently
+                continue
+        elif typ == 'expand':
+            road = upd.get('road')
+            extended = upd.get('extended_road')
+            if not road or not extended:
+                continue
+            na = normalize(road)
+            nb = normalize(extended)
+            # insert extended as road if not present
+            a, b = nb
+            # create nodes
+            make_set(a, 1)
+            make_set(b, 1)
+            nodes.add(a)
+            nodes.add(b)
+            if nb not in road_map:
+                road_map[nb] = {'capacity': 1, 'active': True, 'priority': len(roads) + len(merge_history)}
+                adjacency[nb[0]].add(nb)
+                adjacency[nb[1]].add(nb)
+                node_roads[nb[0]].add(nb)
+                node_roads[nb[1]].add(nb)
+                total_capacity += 1
+                heappush(priority_heap, (-road_map[nb]['priority'], nb))
+                union(nb[0], nb[1])
+            # ensure connectivity between original road endpoints and extended if they share nodes or are different: union non-connected pairs
+            if na in road_map:
+                endpoints_orig = na
+            else:
+                endpoints_orig = tuple(road)
+            for x in endpoints_orig:
+                for y in nb:
+                    if x not in parent:
+                        make_set(x, 1)
+                        nodes.add(x)
+                    if y not in parent:
+                        make_set(y, 1)
+                        nodes.add(y)
+                    union(x, y)
+        elif typ == 'merge_levels':
+            road = upd.get('road')
+            adj_road = upd.get('adjacent_road')
+            threshold = upd.get('distance_threshold', 0)
+            if not road or not adj_road:
+                continue
+            # BFS-style propagation: treat threshold as number of hops allowed; we'll use it as hop budget
+            start = normalize(road)
+            target = normalize(adj_road)
+            # collect nodes from roads
+            if start not in road_map:
+                # if start is intersection, still consider its nodes
+                s_nodes = set(start)
+            else:
+                s_nodes = set(start)
+            if target not in road_map:
+                t_nodes = set(target)
+            else:
+                t_nodes = set(target)
+            # BFS over road graph up to threshold hops; merge components when nodes are within threshold hops by road adjacency
+            # Build road adjacency graph (roads connected if share node)
+            road_graph: Dict[Tuple[int, int], Set[Tuple[int, int]]] = defaultdict(set)
+            for rd in road_map.keys():
+                a, b = rd
+                for nb_rd in node_roads.get(a, ()):
+                    if nb_rd != rd:
+                        road_graph[rd].add(nb_rd)
+                for nb_rd in node_roads.get(b, ()):
+                    if nb_rd != rd:
+                        road_graph[rd].add(nb_rd)
+            # BFS from start road nodes
+            visited_roads: Set[Tuple[int, int]] = set()
+            q = deque()
+            if start in road_map:
+                q.append((start, 0))
+                visited_roads.add(start)
+            else:
+                # if start not in road_map, start from any road incident to its endpoints
+                for node in s_nodes:
+                    for rd in node_roads.get(node, ()):
+                        if rd not in visited_roads:
+                            visited_roads.add(rd)
+                            q.append((rd, 0))
+            reachable_nodes: Set[int] = set()
+            while q:
+                cur_rd, dist = q.popleft()
+                # include endpoints
+                reachable_nodes.update(cur_rd)
+                if dist < threshold:
+                    for nbr in road_graph.get(cur_rd, ()):
+                        if nbr not in visited_roads:
+                            visited_roads.add(nbr)
+                            q.append((nbr, dist + 1))
+            # If any reachable node intersects target nodes, merge all reachable nodes into one component
+            if reachable_nodes & t_nodes:
+                # union all reachable nodes together
+                rlist = list(reachable_nodes)
+                for i in range(1, len(rlist)):
+                    union(rlist[0], rlist[i])
+        elif typ == 'close_partial':
+            road = upd.get('road')
+            lanes = int(upd.get('lanes_closed', 0))
+            if not road:
+                continue
+            na = normalize(road)
+            if na in road_map:
+                oldc = road_map[na]['capacity']
+                newc = oldc - lanes
+                if newc <= 0:
+                    if road_map[na]['active']:
+                        road_map[na]['active'] = False
+                        deactivated_roads += 1
+                    total_capacity -= oldc
+                    road_map[na]['capacity'] = 0
+                else:
+                    road_map[na]['capacity'] = newc
+                    total_capacity += (newc - oldc)
+            else:
+                continue
+        elif typ == 'optimize':
+            k = int(upd.get('k', 0))
+            boost = bool(upd.get('boost_priority_roads', False))
+            # extract k highest-priority roads: earlier roads have higher priority -> priority stored as smaller index
+            # priority_heap stores (-priority_index, road)
+            temp = []
+            selected = []
+            found = 0
+            while priority_heap and found < k:
+                pr, rd = heappop(priority_heap)
+                # pr is negative original index
+                if rd in road_map and road_map[rd]['active']:
+                    selected.append(rd)
+                    found += 1
+                temp.append((pr, rd))
+            for item in temp:
+                heappush(priority_heap, item)
+            # optionally boost
+            if boost:
+                for rd in selected:
+                    # increment capacity by 1
+                    oldc = road_map[rd]['capacity']
+                    road_map[rd]['capacity'] = oldc + 1
+                    total_capacity += 1
+        else:
+            # unknown update type: skip
+            continue
+
+    # After all updates, build components list
+    if not nodes:
+        return {'components': [], 'statistics': {'total_merge_count': 0, 'num_components': 0, 'component_sizes': [], 'total_network_capacity': 0, 'max_tree_depth': 0, 'fragmentation_index': 0.0, 'deactivated_roads_count': 0, 'component_capacities': []}}
+    # Ensure all nodes in parent
+    for n in list(nodes):
+        if n not in parent:
+            make_set(n, 1)
+    comps: Dict[int, List[int]] = defaultdict(list)
+    for n in nodes:
+        root = find(n)
+        comps[root].append(n)
+    components = [sorted(v) for v in comps.values()]
+    # sort components by first element for consistency
+    components.sort(key=lambda x: x[0] if x else 0)
+    num_components = len(components)
+    component_sizes = [len(c) for c in components]
+    # component capacities from comp_capacity aligned with components
+    comp_caps = []
+    for c in components:
+        root = find(c[0])
+        comp_caps.append(comp_capacity.get(root, 0))
+    total_network_capacity = sum(md['capacity'] for md in road_map.values() if md.get('active', False))
+    fragmentation_index = round(num_components / len(nodes), 4) if len(nodes) > 0 else 0.0
+    stats = {
+        'total_merge_count': len(merge_history),
+        'num_components': num_components,
+        'component_sizes': component_sizes,
+        'total_network_capacity': total_network_capacity,
+        'max_tree_depth': max_tree_depth,
+        'fragmentation_index': fragmentation_index,
+        'deactivated_roads_count': deactivated_roads,
+        'component_capacities': comp_caps
+    }
+    return {'components': components, 'statistics': stats}

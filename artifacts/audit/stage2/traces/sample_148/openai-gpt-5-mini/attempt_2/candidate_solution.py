@@ -1,0 +1,163 @@
+def analyze_mandelbrot_invariants(
+    grid_resolution: int,
+    transformation_codes: List[int]
+) -> Dict[str, Any]:
+    # Build grid
+    N = max(1, int(grid_resolution))
+    if N == 1:
+        points = [(0.0 + 0.0j, 0)]  # single point
+        step = 0.0
+    else:
+        step = 4.0 / (N - 1)
+        points = []
+        idx = 0
+        for j in range(N):
+            y = j * step - 2.0
+            for i in range(N):
+                x = i * step - 2.0
+                points.append((complex(x, y), idx))
+                idx += 1
+
+    # Maps
+    coord_to_id = {p[0]: p[1] for p in points}
+    id_to_coord = {p[1]: p[0] for p in points}
+    total_points = len(points)
+
+    # Union-Find
+    parent = list(range(total_points))
+    rank = [0] * total_points
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    def union(a, b):
+        ra = find(a)
+        rb = find(b)
+        if ra == rb:
+            return
+        if rank[ra] < rank[rb]:
+            parent[ra] = rb
+        else:
+            parent[rb] = ra
+            if rank[ra] == rank[rb]:
+                rank[ra] += 1
+
+    # Transformation functions
+    def T_apply(code, z):
+        if code == 0:
+            return complex(z.real, -z.imag)
+        if code == 1:
+            return z * (0+1j)
+        if code == 2:
+            return z * 0.5
+        if code == 3:
+            return complex(z.real, 0.0)
+        if code == 4:
+            return -z
+        return None
+
+    # Current layer: list of complex points (unique)
+    current_set = [p[0] for p in points]
+
+    # Helper: snap
+    def snap(w):
+        if N == 1:
+            return 0.0 + 0.0j
+        rx = round((w.real + 2.0) / step) * step - 2.0
+        ry = round((w.imag + 2.0) / step) * step - 2.0
+        # clamp small -0.0 to 0.0, preserve exact boundaries
+        rx = 0.0 if abs(rx) == 0.0 else rx
+        ry = 0.0 if abs(ry) == 0.0 else ry
+        return complex(rx, ry)
+
+    # Apply transformations sequentially
+    for code in transformation_codes:
+        if code not in (0,1,2,3,4):
+            continue
+        next_layer = []
+        seen = set()
+        for z in current_set:
+            w = T_apply(code, z)
+            if w is None:
+                continue
+            if not (math.isfinite(w.real) and math.isfinite(w.imag)):
+                continue
+            # Check bounds
+            if w.real < -2.0 - 1e-12 or w.real > 2.0 + 1e-12 or w.imag < -2.0 - 1e-12 or w.imag > 2.0 + 1e-12:
+                continue
+            rw = snap(w)
+            # Ensure snapped in grid set
+            if rw in coord_to_id:
+                id_a = coord_to_id[z]
+                id_b = coord_to_id[rw]
+                union(id_a, id_b)
+                if rw not in seen:
+                    next_layer.append(rw)
+                    seen.add(rw)
+        # surviving points include previous surviving ones mapped? spec: update current layer to surviving points (deduplicated)
+        current_set = next_layer
+
+    # Extract clusters
+    clusters = {}
+    for idx in range(total_points):
+        r = find(idx)
+        clusters.setdefault(r, []).append(idx)
+
+    # Convert clusters to coordinate lists sorted lex
+    def coord_list_from_indices(indices):
+        pts = []
+        for i in indices:
+            c = id_to_coord[i]
+            pts.append([round(c.real, 10), round(c.imag, 10)])
+        # sort lexicographically by real then imag
+        pts.sort(key=lambda x: (x[0], x[1]))
+        # convert -0.0 to 0.0
+        for p in pts:
+            if abs(p[0]) == 0.0:
+                p[0] = 0.0
+            if abs(p[1]) == 0.0:
+                p[1] = 0.0
+        return pts
+
+    cluster_lists = [coord_list_from_indices(v) for v in clusters.values()]
+    # sort clusters: largest first, then by first point lex
+    cluster_lists.sort(key=lambda cl: (-len(cl), cl[0] if cl else [0.0,0.0]))
+
+    # Analysis summary heuristics
+    num_layers = len(transformation_codes) + 1
+    num_components = len(cluster_lists)
+    largest_size = max((len(c) for c in cluster_lists), default=0)
+
+    detected_symmetries = []
+    # Detect origin fixed?
+    origin = complex(0.0,0.0)
+    if origin in coord_to_id:
+        if find(coord_to_id[origin]) == find(coord_to_id[origin]):
+            # if origin maps to itself under all transformations heuristically check if its cluster size is 1
+            if any(source for source in cluster_lists if [0.0,0.0] in source):
+                # origin present; if its cluster size ==1 say fixed
+                for c in cluster_lists:
+                    if [0.0,0.0] in c:
+                        if len(c) == 1:
+                            detected_symmetries.append('origin_fixed')
+                        break
+    # Heuristic: 4-fold rotational symmetry on axes if conjugation, rotate present etc.
+    codes_set = set([c for c in transformation_codes if c in (0,1,2,3,4)])
+    if 1 in codes_set and 4 in codes_set or (1 in codes_set and (0 in codes_set or 2 in codes_set)):
+        detected_symmetries.append('4-fold_rotational_symmetry_on_axes')
+    # Remove duplicates
+    detected_symmetries = list(dict.fromkeys(detected_symmetries))
+
+    return {
+        'invariant_subgraphs': cluster_lists,
+        'analysis_summary': {
+            'total_points': total_points,
+            'num_layers': num_layers,
+            'num_invariant_components': num_components,
+            'largest_component_size': largest_size,
+            'detected_symmetries': detected_symmetries
+        }
+    }

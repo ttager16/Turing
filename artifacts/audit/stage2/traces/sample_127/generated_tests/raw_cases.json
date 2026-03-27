@@ -1,0 +1,265 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        {
+          "A": [
+            [
+              "B",
+              "lambda s: 1.0"
+            ],
+            [
+              "C",
+              "lambda s: 2.0"
+            ]
+          ],
+          "B": [
+            [
+              "A",
+              "lambda s: 1.0"
+            ],
+            [
+              "C",
+              "lambda s: 1.5"
+            ]
+          ],
+          "C": [
+            [
+              "A",
+              "lambda s: 2.0"
+            ],
+            [
+              "B",
+              "lambda s: 1.5"
+            ]
+          ],
+          "_state": {},
+          "_constraints": {
+            "required_edges": [
+              [
+                "A",
+                "B"
+              ],
+              [
+                "B",
+                "C"
+              ],
+              [
+                "A",
+                "C"
+              ]
+            ],
+            "forbidden_edges": [],
+            "degree_limits": {},
+            "phase_blocklist": [],
+            "round_cost_to": 3
+          }
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"A\": [[\"B\", \"lambda s: 1.0\"], [\"C\", \"lambda s: 2.0\"]], \"B\": [[\"A\", \"lambda s: 1.0\"], [\"C\", \"lambda s: 1.5\"]], \"C\": [[\"A\", \"lambda s: 2.0\"], [\"B\", \"lambda s: 1.5\"]], \"_state\": {}, \"_constraints\": {\"required_edges\": [[\"A\", \"B\"], [\"B\", \"C\"], [\"A\", \"C\"]], \"forbidden_edges\": [], \"degree_limits\": {}, \"phase_blocklist\": [], \"round_cost_to\": 3}}]"
+    ],
+    "focus": "required edges form a cycle -> should trigger \"Required edges form a cycle\" error"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        {
+          "0": [
+            [
+              "1",
+              "lambda s: 1"
+            ],
+            [
+              "2",
+              "lambda s: 2"
+            ]
+          ],
+          "1": [
+            [
+              "0",
+              "lambda s: 1"
+            ],
+            [
+              "2",
+              "lambda s: 2"
+            ]
+          ],
+          "2": [
+            [
+              "0",
+              "lambda s: 2"
+            ],
+            [
+              "1",
+              "lambda s: 2"
+            ]
+          ],
+          "_state": {},
+          "_constraints": {
+            "required_edges": [],
+            "forbidden_edges": [],
+            "degree_limits": {
+              "0": 1,
+              "1": 1,
+              "2": 1
+            },
+            "phase_blocklist": [],
+            "round_cost_to": 3
+          }
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"0\": [[\"1\", \"lambda s: 1\"], [\"2\", \"lambda s: 2\"]], \"1\": [[\"0\", \"lambda s: 1\"], [\"2\", \"lambda s: 2\"]], \"2\": [[\"0\", \"lambda s: 2\"], [\"1\", \"lambda s: 2\"]], \"_state\": {}, \"_constraints\": {\"required_edges\": [], \"forbidden_edges\": [], \"degree_limits\": {\"0\": 1, \"1\": 1, \"2\": 1}, \"phase_blocklist\": [], \"round_cost_to\": 3}}]"
+    ],
+    "focus": "degree limits infeasible (max degrees too small for any spanning structure) -> should trigger \"Degree limit infeasible\""
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        {
+          "0": [
+            [
+              "1",
+              "lambda s: 1.05"
+            ],
+            [
+              "2",
+              "lambda s: 1.04"
+            ],
+            [
+              "3",
+              "lambda s: 3.0"
+            ]
+          ],
+          "1": [
+            [
+              "0",
+              "lambda s: 1.05"
+            ],
+            [
+              "2",
+              "lambda s: 0.95"
+            ]
+          ],
+          "2": [
+            [
+              "0",
+              "lambda s: 1.04"
+            ],
+            [
+              "1",
+              "lambda s: 0.95"
+            ],
+            [
+              "3",
+              "lambda s: (1/0) if s.get('bad') else 0.95"
+            ]
+          ],
+          "3": [
+            [
+              "0",
+              "lambda s: 3.0"
+            ],
+            [
+              "2",
+              "lambda s: (1/0) if s.get('bad') else 0.95"
+            ],
+            [
+              "3",
+              "lambda s: 0.0"
+            ]
+          ],
+          "_state": {
+            "bad": false
+          },
+          "_constraints": {
+            "required_edges": [],
+            "forbidden_edges": [],
+            "degree_limits": {},
+            "phase_blocklist": [],
+            "round_cost_to": 1
+          }
+        },
+        {
+          "0": [
+            [
+              "1",
+              "lambda s: 1.05"
+            ],
+            [
+              "2",
+              "lambda s: 1.04"
+            ],
+            [
+              "3",
+              "lambda s: float('nan')"
+            ]
+          ],
+          "1": [
+            [
+              "0",
+              "lambda s: 1.05"
+            ],
+            [
+              "2",
+              "lambda s: 0.95"
+            ]
+          ],
+          "2": [
+            [
+              "0",
+              "lambda s: 1.04"
+            ],
+            [
+              "1",
+              "lambda s: 0.95"
+            ],
+            [
+              "3",
+              "lambda s: (1/0) if s.get('bad') else 0.95"
+            ]
+          ],
+          "3": [
+            [
+              "0",
+              "lambda s: float('nan')"
+            ],
+            [
+              "2",
+              "lambda s: (1/0) if s.get('bad') else 0.95"
+            ],
+            [
+              "3",
+              "lambda s: 0.0"
+            ]
+          ],
+          "_state": {
+            "bad": true
+          },
+          "_constraints": {
+            "required_edges": [],
+            "forbidden_edges": [],
+            "degree_limits": {},
+            "phase_blocklist": [
+              [
+                "0",
+                "2"
+              ]
+            ],
+            "round_cost_to": 1
+          }
+        }
+      ]
+    ],
+    "input_lines": [
+      "[{\"0\": [[\"1\", \"lambda s: 1.05\"], [\"2\", \"lambda s: 1.04\"], [\"3\", \"lambda s: 3.0\"]], \"1\": [[\"0\", \"lambda s: 1.05\"], [\"2\", \"lambda s: 0.95\"]], \"2\": [[\"0\", \"lambda s: 1.04\"], [\"1\", \"lambda s: 0.95\"], [\"3\", \"lambda s: (1/0) if s.get('bad') else 0.95\"]], \"3\": [[\"0\", \"lambda s: 3.0\"], [\"2\", \"lambda s: (1/0) if s.get('bad') else 0.95\"], [\"3\", \"lambda s: 0.0\"]], \"_state\": {\"bad\": false}, \"_constraints\": {\"required_edges\": [], \"forbidden_edges\": [], \"degree_limits\": {}, \"phase_blocklist\": [], \"round_cost_to\": 1}}, {\"0\": [[\"1\", \"lambda s: 1.05\"], [\"2\", \"lambda s: 1.04\"], [\"3\", \"lambda s: float('nan')\"]], \"1\": [[\"0\", \"lambda s: 1.05\"], [\"2\", \"lambda s: 0.95\"]], \"2\": [[\"0\", \"lambda s: 1.04\"], [\"1\", \"lambda s: 0.95\"], [\"3\", \"lambda s: (1/0) if s.get('bad') else 0.95\"]], \"3\": [[\"0\", \"lambda s: float('nan')\"], [\"2\", \"lambda s: (1/0) if s.get('bad') else 0.95\"], [\"3\", \"lambda s: 0.0\"]], \"_state\": {\"bad\": true}, \"_constraints\": {\"required_edges\": [], \"forbidden_edges\": [], \"degree_limits\": {}, \"phase_blocklist\": [[\"0\", \"2\"]], \"round_cost_to\": 1}}]"
+    ],
+    "focus": "multi-stage: label funcs that raise or return non-finite numbers, self-loop present, rounding ties (round_cost_to=1), and phase_blocklist removes an edge in stage 2; tests reevaluation and robust skipping of bad edges"
+  }
+]

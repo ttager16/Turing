@@ -1,0 +1,76 @@
+{
+  "id": "resp_03f16dffa9ae4d020069c31c03cca0819e87b6b5058dadf6a9",
+  "object": "response",
+  "created_at": 1774394371,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774394389,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_03f16dffa9ae4d020069c31c040ee0819eaa6754354058022a",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_03f16dffa9ae4d020069c31c046350819e9cd850a6f6694301",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "def find_nearest_depot(depots, target_distance, offline_depots=None, zero_capacity_depots=None, \n                      priority_levels=None, operating_hours=None, load_capacities=None, current_hour=12,\n                      weather_affected_depots=None, service_types=None, required_service_type=None,\n                      maintenance_schedules=None, depot_zones=None, allowed_zones=None, \n                      depot_costs=None, max_budget=None):\n\t\"\"\"Return index of nearest valid depot or -1.\"\"\"\n\t# Normalize \"empty\" params to None\n\tdef normalize(x):\n\t\tif x is None:\n\t\t\treturn None\n\t\tif isinstance(x, dict) and len(x) == 0:\n\t\t\treturn None\n\t\tif isinstance(x, (list, tuple)) and len(x) == 0:\n\t\t\treturn None\n\t\tif isinstance(x, (int, float)) and x == 0:\n\t\t\treturn None\n\t\treturn x\n\n\toffline_depots = normalize(offline_depots)\n\tzero_capacity_depots = normalize(zero_capacity_depots)\n\tpriority_levels = normalize(priority_levels)\n\toperating_hours = normalize(operating_hours)\n\tload_capacities = normalize(load_capacities)\n\tweather_affected_depots = normalize(weather_affected_depots)\n\tservice_types = normalize(service_types)\n\tmaintenance_schedules = normalize(maintenance_schedules)\n\tdepot_zones = normalize(depot_zones)\n\tallowed_zones = normalize(allowed_zones)\n\tdepot_costs = normalize(depot_costs)\n\tmax_budget = normalize(max_budget)\n\n\tn = len(depots)\n\t# Helper checks\n\toffline_set = set(offline_depots) if offline_depots is not None else set()\n\tzero_capacity_set = set(zero_capacity_depots) if zero_capacity_depots is not None else set()\n\tweather_set = set(weather_affected_depots) if weather_affected_depots is not None else set()\n\n\t# If priority_levels not given, default 1 for all\n\tif priority_levels is None:\n\t\tpriority_levels = [1] * n\n\telse:\n\t\t# pad or trim if wrong length\n\t\tif len(priority_levels) < n:\n\t\t\tpriority_levels = list(priority_levels) + [1] * (n - len(priority_levels))\n\t\telse:\n\t\t\tpriority_levels = list(priority_levels)[:n]\n\n\t# operating_hours: default 24/7\n\tif operating_hours is None:\n\t\toperating_hours = [[0, 24]] * n\n\telse:\n\t\toh = []\n\t\tfor i in range(n):\n\t\t\tif i < len(operating_hours) and operating_hours[i] is not None:\n\t\t\t\toh.append(list(operating_hours[i]))\n\t\t\telse:\n\t\t\t\toh.append([0, 24])\n\t\toperating_hours = oh\n\n\t# load capacities default large\n\tif load_capacities is None:\n\t\tload_capacities = [10**18] * n\n\telse:\n\t\tlc = []\n\t\tfor i in range(n):\n\t\t\tif i < len(load_capacities) and load_capacities[i] is not None:\n\t\t\t\tlc.append(load_capacities[i])\n\t\t\telse:\n\t\t\t\tlc.append(10**18)\n\t\tload_capacities = lc\n\n\t# service types default all\n\tif service_types is None:\n\t\tservice_types = [None] * n\n\telse:\n\t\tst = []\n\t\tfor i in range(n):\n\t\t\tif i < len(service_types):\n\t\t\t\tst.append(service_types[i])\n\t\t\telse:\n\t\t\t\tst.append(None)\n\t\tservice_types = st\n\n\t# maintenance schedules default none\n\tif maintenance_schedules is None:\n\t\tmaintenance_schedules = [None] * n\n\telse:\n\t\tms = []\n\t\tfor i in range(n):\n\t\t\tif i < len(maintenance_schedules):\n\t\t\t\tms.append(maintenance_schedules[i])\n\t\t\telse:\n\t\t\t\tms.append(None)\n\t\tmaintenance_schedules = ms\n\n\t# depot_zones default all allowed\n\tif depot_zones is None:\n\t\tdepot_zones = [None] * n\n\telse:\n\t\tdz = []\n\t\tfor i in range(n):\n\t\t\tif i < len(depot_zones):\n\t\t\t\tdz.append(depot_zones[i])\n\t\t\telse:\n\t\t\t\tdz.append(None)\n\t\tdepot_zones = dz\n\n\t# depot_costs default none (treat as 0/unbounded)\n\tif depot_costs is None:\n\t\tdepot_costs = [None] * n\n\telse:\n\t\tdc = []\n\t\tfor i in range(n):\n\t\t\tif i < len(depot_costs):\n\t\t\t\tdc.append(depot_costs[i])\n\t\t\telse:\n\t\t\t\tdc.append(None)\n\t\tdepot_costs = dc\n\n\t# Utility to check if hour is within [start, end). If end <= start, treat as wrap-around.\n\tdef in_hours(hour, start, end):\n\t\tif start is None or end is None:\n\t\t\treturn True\n\t\tstart = int(start)\n\t\tend = int(end)\n\t\thour = int(hour) % 24\n\t\tif start < end:\n\t\t\treturn start <= hour < end\n\t\tif start == end:\n\t\t\t# full day\n\t\t\treturn True\n\t\t# wrap\n\t\treturn hour >= start or hour < end\n\n\t# Validate each depot against constraints, collect candidates with metrics\n\tbest = None  # tuple (absdiff, -priority, index)\n\tbest_index = -1\n\n\tfor i in range(n):\n\t\t# Online\n\t\tif i in offline_set:\n\t\t\tcontinue\n\t\t# Zero capacity\n\t\tif i in zero_capacity_set:\n\t\t\tcontinue\n\t\t# load capacity > 0\n\t\tif load_capacities is not None and (load_capacities[i] is None or load_capacities[i] <= 0):\n\t\t\tcontinue\n\t\t# operating hours\n\t\tstart_end = operating_hours[i]\n\t\tif start_end is None:\n\t\t\tpass\n\t\telse:\n\t\t\tif not in_hours(current_hour, start_end[0], start_end[1]):\n\t\t\t\tcontinue\n\t\t# weather\n\t\tif i in weather_set:\n\t\t\tcontinue\n\t\t# service type compatibility\n\t\tif required_service_type is not None:\n\t\t\tst = service_types[i]\n\t\t\t# None in service_types means supports all\n\t\t\tif st is not None:\n\t\t\t\t# allow either exact match or list/collection containing required\n\t\t\t\tif isinstance(st, (list, tuple, set)):\n\t\t\t\t\tif required_service_type not in st:\n\t\t\t\t\t\tcontinue\n\t\t\t\telse:\n\t\t\t\t\tif st != required_service_type:\n\t\t\t\t\t\tcontinue\n\t\t# maintenance\n\t\tms = maintenance_schedules[i]\n\t\tif ms is not None:\n\t\t\t# assume single window [start,end)\n\t\t\tif len(ms) >= 2 and not (ms[0] is None or ms[1] is None):\n\t\t\t\tif in_hours(current_hour, ms[0], ms[1]):\n\t\t\t\t\tcontinue\n\t\t# zone\n\t\tif allowed_zones is not None:\n\t\t\tzone = depot_zones[i]\n\t\t\tif zone is not None:\n\t\t\t\tif zone not in allowed_zones:\n\t\t\t\t\tcontinue\n\t\t# budget\n\t\tif max_budget is not None:\n\t\t\tcost = depot_costs[i]\n\t\t\tif cost is None:\n\t\t\t\t# treat None as allowed (no cost info)\n\t\t\t\tpass\n\t\t\telse:\n\t\t\t\ttry:\n\t\t\t\t\tif cost > max_budget:\n\t\t\t\t\t\tcontinue\n\t\t\t\texcept:\n\t\t\t\t\tpass\n\n\t\t# Passed filters. Compute selection metrics.\n\t\tdist = depots[i]\n\t\tabsdiff = abs(dist - target_distance)\n\t\tpriority = priority_levels[i] if priority_levels is not None else 1\n\t\tmetric = (absdiff, -priority, i)\n\t\tif best is None or metric < best:\n\t\t\tbest = metric\n\t\t\tbest_index = i\n\n\treturn best_index if best_index is not None else -1"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1901,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1650,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3551
+  },
+  "user": null,
+  "metadata": {}
+}

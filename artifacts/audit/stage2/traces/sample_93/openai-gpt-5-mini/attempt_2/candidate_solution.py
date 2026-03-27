@@ -1,0 +1,439 @@
+def string_diff_algorithm(
+    baseline_files: Dict[str, str],
+    current_files: Dict[str, str],
+    dependencies: List[List[str]]
+) -> Dict[str, Any]:
+    # Helpers: format detection
+    def detect_format(s: str) -> str:
+        s_strip = s.lstrip()
+        if not s_strip:
+            return "yaml"
+        if s_strip[0] in ('{', '['):
+            return "json"
+        if s_strip[0] == '<':
+            return "xml"
+        return "yaml"
+
+    # JSON parse with fallback
+    def parse_json(s: str):
+        try:
+            return json.loads(s)
+        except Exception:
+            return {}
+
+    # YAML parser: stack-based simple parser
+    def parse_yaml(s: str):
+        result = {}
+        stack: List[Tuple[dict, int, Optional[str]]] = [(result, -1, None)]  # (container, indent, last_key)
+        for raw_line in s.splitlines():
+            line = raw_line.rstrip('\n')
+            if not line.strip():
+                continue
+            indent = len(line) - len(line.lstrip())
+            text = line.strip()
+            # key: value or - item
+            if text.startswith('- '):
+                # treat as list under last_key
+                val_text = text[2:].strip()
+                parent, p_indent, p_key = stack[-1]
+                # ensure list exists
+                if p_key is None or not isinstance(parent.get(p_key), list):
+                    parent[p_key] = [] if p_key is not None else []
+                lst = parent[p_key]
+                lst.append(_yaml_coerce(val_text))
+                continue
+            # key: value
+            if ':' in text:
+                key, rest = text.split(':', 1)
+                key = key.strip()
+                val = rest.strip()
+                # find correct parent by indent
+                while stack and indent <= stack[-1][1]:
+                    stack.pop()
+                parent = stack[-1][0]
+                if val == '':
+                    # nested mapping
+                    parent[key] = {}
+                    stack.append((parent[key], indent, None))
+                    # remember last inserted mapping as key context
+                    stack[-1] = (stack[-1][0], stack[-1][1], None)
+                    # For parent context, set last key so lists can refer
+                    stack[-2] = (stack[-2][0], stack[-2][1], key)
+                else:
+                    parent[key] = _yaml_coerce(val)
+                    # set last key for potential lists
+                    stack[-1] = (stack[-1][0], stack[-1][1], key)
+        return result
+
+    def _yaml_coerce(val: str):
+        v = val.strip()
+        if not v:
+            return ''
+        if (v[0] == v[-1]) and v[0] in ("'", '"') and len(v) >= 2:
+            return v[1:-1]
+        low = v.lower()
+        if low == 'true':
+            return True
+        if low == 'false':
+            return False
+        if low == 'null':
+            return None
+        # integers?
+        if re.fullmatch(r'-?\d+', v):
+            try:
+                return int(v)
+            except Exception:
+                pass
+        if re.fullmatch(r'-?\d+\.\d*', v):
+            try:
+                return float(v)
+            except Exception:
+                pass
+        return v
+
+    # XML parser: recursive
+    tag_re = re.compile(r'<([^!?/\s>]+)([^>]*)>(.*?)</\1\s*>', re.DOTALL)
+    self_close_re = re.compile(r'<([^!?/\s>]+)([^>]*)/>\s*', re.DOTALL)
+    attr_re = re.compile(r'(\w+)=(["\'])([^"\']*)\2')
+
+    def strip_xml_decl(s: str) -> str:
+        return re.sub(r'<\?xml[^>]*\?>', '', s)
+
+    def parse_xml(s: str):
+        s = strip_xml_decl(s).strip()
+        # parse entire string into dict if single root; otherwise try to parse fragments
+        res = {}
+        pos = 0
+        # iterative parse: find top-level tags
+        for m in re.finditer(r'<([^!?/\s>]+)([^>]*)>', s):
+            # Build full parse via recursive function
+            break
+        # Use recursive parser
+        def parse_fragment(text: str):
+            text = text.strip()
+            out = {}
+            # handle self-closing tags
+            while True:
+                m_sc = self_close_re.search(text)
+                m_tag = tag_re.search(text)
+                if m_sc and (not m_tag or m_sc.start() < m_tag.start()):
+                    tag = m_sc.group(1)
+                    attrs_str = m_sc.group(2)
+                    attrs = dict((a, b) for a, _, b in attr_re.findall(attrs_str))
+                    # empty self-closing -> empty string per constraint?
+                    val = ''
+                    merged = {}
+                    merged.update(attrs)
+                    if attrs:
+                        merged.update({'_value': val})
+                        out.setdefault(tag, []).append(merged)
+                    else:
+                        out.setdefault(tag, []).append(val)
+                    text = text[:m_sc.start()] + text[m_sc.end():]
+                    continue
+                if m_tag:
+                    tag = m_tag.group(1)
+                    attrs_str = m_tag.group(2)
+                    # find matching close tag for this opening
+                    # use regex tag_re that matches inner content; find first occurrence starting at m_tag.start()
+                    m_full = re.search(r'<%s\b([^>]*)>(.*?)</%s\s*>' % (re.escape(tag), re.escape(tag)), text, re.DOTALL)
+                    if not m_full:
+                        break
+                    attrs_str = m_full.group(1)
+                    inner = m_full.group(2)
+                    attrs = dict((a, b) for a, _, b in attr_re.findall(attrs_str))
+                    # if inner contains further tags, parse recursively
+                    if re.search(r'<[^>]+>', inner):
+                        child = parse_fragment(inner)
+                        merged = {}
+                        merged.update(attrs)
+                        # merge children into merged; if multiple children of same tag produce lists
+                        for k, v in child.items():
+                            merged[k] = v if not (k in merged) else v
+                        out.setdefault(tag, []).append(merged if attrs or isinstance(child, dict) else child)
+                    else:
+                        val = inner.strip()
+                        if val == '':
+                            val = ''
+                        merged = {}
+                        merged.update(attrs)
+                        if attrs:
+                            merged.update({'_value': val})
+                            out.setdefault(tag, []).append(merged)
+                        else:
+                            out.setdefault(tag, []).append(val)
+                    text = text[:m_full.start()] + text[m_full.end():]
+                    continue
+                break
+            # If out has single keys with single-item lists, simplify
+            simplified = {}
+            for k, v in out.items():
+                if len(v) == 1:
+                    simplified[k] = v[0]
+                else:
+                    simplified[k] = v
+            return simplified
+        parsed = parse_fragment(s)
+        # If single root, return its contents under that root
+        return parsed
+
+    # Flatten nested dicts to dot notation
+    def flatten(obj, prefix=''):
+        flat = {}
+        if isinstance(obj, dict):
+            for k in sorted(obj.keys()):
+                v = obj[k]
+                full = f"{prefix}.{k}" if prefix else k
+                if isinstance(v, dict):
+                    flat.update(flatten(v, full))
+                elif isinstance(v, list):
+                    # convert list to string representation
+                    flat[full] = json.dumps(v, sort_keys=True)
+                else:
+                    flat[full] = v
+        elif isinstance(obj, list):
+            flat[prefix] = json.dumps(obj, sort_keys=True)
+        else:
+            flat[prefix] = obj
+        return flat
+
+    # Build graphs
+    graph: Dict[str, List[str]] = defaultdict(list)  # node -> dependents
+    reverse_graph: Dict[str, List[str]] = defaultdict(list)  # node -> dependencies
+    for dep_pair in dependencies:
+        if len(dep_pair) != 2:
+            continue
+        dependent, dependency = dep_pair[0], dep_pair[1]
+        graph.setdefault(dependency, [])
+        reverse_graph.setdefault(dependent, [])
+        if dependent not in graph[dependency]:
+            graph[dependency].append(dependent)
+        if dependency not in reverse_graph[dependent]:
+            reverse_graph[dependent].append(dependency)
+    # Deterministic sorts
+    for k in list(graph.keys()):
+        graph[k] = sorted(graph[k])
+    for k in list(reverse_graph.keys()):
+        reverse_graph[k] = sorted(reverse_graph[k])
+
+    # All services
+    all_services = sorted(set(list(baseline_files.keys()) + list(current_files.keys())))
+
+    if not baseline_files and not current_files:
+        return {
+            "report": [],
+            "summary": {"total_services": 0, "affected_services": 0, "total_changes": 0, "services_with_dependents": 0},
+            "affected_services": [],
+            "impact_analysis": {}
+        }
+
+    # Parse configs
+    parsed_baseline: Dict[str, Dict[str, Any]] = {}
+    parsed_current: Dict[str, Dict[str, Any]] = {}
+    raw_baseline = {}
+    raw_current = {}
+    for svc in all_services:
+        b = baseline_files.get(svc, "") or ""
+        c = current_files.get(svc, "") or ""
+        raw_baseline[svc] = b
+        raw_current[svc] = c
+        # parse baseline
+        fmt_b = detect_format(b)
+        if fmt_b == "json":
+            parsed_baseline[svc] = parse_json(b)
+        elif fmt_b == "xml":
+            parsed_baseline[svc] = parse_xml(b)
+        else:
+            parsed_baseline[svc] = parse_yaml(b)
+        # parse current
+        fmt_c = detect_format(c)
+        if fmt_c == "json":
+            parsed_current[svc] = parse_json(c)
+        elif fmt_c == "xml":
+            parsed_current[svc] = parse_xml(c)
+        else:
+            parsed_current[svc] = parse_yaml(c)
+
+    # Flatten
+    flat_baseline = {s: flatten(parsed_baseline.get(s, {})) for s in all_services}
+    flat_current = {s: flatten(parsed_current.get(s, {})) for s in all_services}
+
+    # Line-by-line comparison, only report 'modified' lines
+    line_changes: Dict[str, List[Tuple[int, str, str]]] = defaultdict(list)
+    for svc in all_services:
+        b_raw = raw_baseline.get(svc, "") or ""
+        c_raw = raw_current.get(svc, "") or ""
+        b_lines = b_raw.split('\n')
+        c_lines = c_raw.split('\n')
+        maxl = max(len(b_lines), len(c_lines))
+        for i in range(maxl):
+            b_line = b_lines[i].strip() if i < len(b_lines) else ''
+            c_line = c_lines[i].strip() if i < len(c_lines) else ''
+            # modified only when both truthy and different
+            if b_line and c_line and b_line != c_line:
+                line_changes[svc].append((i+1, b_line, c_line))
+
+    # Structural changes
+    structural_changes: Dict[str, List[Tuple[str, Any, Any, str]]] = defaultdict(list)
+    # tuple: (field, old, new, change_type) change_type in {'modified','added','removed'}
+    for svc in all_services:
+        fb = flat_baseline.get(svc, {})
+        fc = flat_current.get(svc, {})
+        keys = sorted(set(list(fb.keys()) + list(fc.keys())))
+        for k in keys:
+            old = fb.get(k, None)
+            new = fc.get(k, None)
+            exists_old = k in fb
+            exists_new = k in fc
+            if not exists_old and exists_new:
+                structural_changes[svc].append((k, old, new, 'added'))
+            elif exists_old and not exists_new:
+                structural_changes[svc].append((k, old, new, 'removed'))
+            else:
+                # both exist; compare; treat lists converted to strings already
+                if old != new:
+                    structural_changes[svc].append((k, old, new, 'modified'))
+
+    # Transitive dependents BFS
+    def get_transitive_dependents(start: str):
+        visited = set()
+        q = deque()
+        results = []
+        # start from immediate dependents
+        for dep in sorted(graph.get(start, [])):
+            q.append(dep)
+        while q:
+            node = q.popleft()
+            if node in visited:
+                continue
+            visited.add(node)
+            results.append(node)
+            # add dependents of node
+            for d in sorted(graph.get(node, [])):
+                if d not in visited:
+                    q.append(d)
+        return results
+
+    # Topological sort for processing order: Kahn's algorithm using dependencies as edges dependency->dependent
+    nodes = set(all_services) | set(graph.keys()) | set(reverse_graph.keys())
+    indeg = {n: 0 for n in nodes}
+    for dep, dependents in graph.items():
+        for d in dependents:
+            indeg[d] = indeg.get(d, 0) + 1
+    zero = sorted([n for n in nodes if indeg.get(n, 0) == 0])
+    topo = []
+    q = deque(zero)
+    while q:
+        node = q.popleft()
+        topo.append(node)
+        for dep in sorted(graph.get(node, [])):
+            indeg[dep] -= 1
+            if indeg[dep] == 0:
+                # insert sorted
+                q_list = list(q)
+                q_list.append(dep)
+                q = deque(sorted(q_list))
+    # Add any remaining nodes not in topo deterministically
+    remaining = sorted(nodes - set(topo))
+    topo.extend(remaining)
+
+    # Build impact analysis for changed services
+    impact_analysis: Dict[str, List[str]] = {}
+    # Determine which services have changes
+    affected_set = set()
+    total_changes = 0
+    # Count structural changes and line modified changes
+    for svc in all_services:
+        lc = line_changes.get(svc, [])
+        sc = structural_changes.get(svc, [])
+        if lc or sc:
+            affected_set.add(svc)
+        total_changes += len(lc) + len(sc)
+
+    # services_with_dependents count
+    services_with_dependents = sum(1 for k in graph.keys() if graph.get(k))
+
+    # Prepare report: priority line-level modified first, then structural each service, process services in topo order then others
+    report: List[str] = []
+    processed_services = set()
+    # Build order list according to constraint 25: process services in topological order, then add services not in dependency graph sorted alphabetically
+    order = []
+    for s in topo:
+        if s in all_services:
+            order.append(s)
+    extras = [s for s in all_services if s not in order]
+    extras = sorted(extras)
+    order.extend(extras)
+
+    # Precompute impact strings per service
+    impact_strings = {}
+    for svc in all_services:
+        dependents = sorted(graph.get(svc, []))
+        if dependents:
+            # immediate dependent used in message: pick first deterministic?
+            # As per requirement 24, use "re-check needed for {immediate_dependent}." if dependents exist
+            impact_strings[svc] = f"re-check needed for {dependents[0]}."
+        else:
+            impact_strings[svc] = "no further dependents."
+    # Populate impact_analysis only if transitive list non-empty
+    for svc in all_services:
+        tr = get_transitive_dependents(svc)
+        if tr:
+            impact_analysis[svc] = tr
+
+    # Report generation with priority
+    # First, line-level modified entries across services in order
+    for svc in order:
+        for (num, old, new) in line_changes.get(svc, []):
+            impact = impact_strings.get(svc, "no further dependents.")
+            msg = f"{svc}: Line {num} changed from '{old}' to '{new}'; {impact}"
+            report.append(msg)
+            processed_services.add(svc)
+    # Then structural changes per service in same order
+    for svc in order:
+        scs = structural_changes.get(svc, [])
+        if not scs:
+            continue
+        for field, old, new, ctype in scs:
+            impact = impact_strings.get(svc, "no further dependents.")
+            if ctype == 'modified':
+                # represent booleans as capitalized per example? Use Python's str() which gives True/False
+                msg = f"{svc}: '{field}' changed from '{_to_str(old)}' to '{_to_str(new)}'; {impact}"
+            elif ctype == 'added':
+                msg = f"{svc}: New field '{field}' = '{_to_str(new)}'; ensures forward compatibility."
+            else:  # removed
+                msg = f"{svc}: Field '{field}' removed (was '{_to_str(old)}'); {impact}"
+            report.append(msg)
+            processed_services.add(svc)
+
+    # Affected services list sorted alphabetically per constraints
+    affected_services = sorted(list(affected_set))
+
+    summary = {
+        "total_services": len(all_services),
+        "affected_services": len(affected_services),
+        "total_changes": total_changes,
+        "services_with_dependents": services_with_dependents
+    }
+
+    return {
+        "report": report,
+        "summary": summary,
+        "affected_services": affected_services,
+        "impact_analysis": impact_analysis
+    }
+
+# Helper to convert values to string consistent with constraints
+def _to_str(v):
+    if v is None:
+        return 'None'
+    if isinstance(v, bool):
+        return 'True' if v else 'False'
+    if isinstance(v, (int, float)):
+        return str(v)
+    if isinstance(v, str):
+        return v
+    try:
+        return str(v)
+    except Exception:
+        return json.dumps(v)

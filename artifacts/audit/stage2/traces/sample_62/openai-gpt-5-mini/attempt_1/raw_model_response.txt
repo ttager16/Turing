@@ -1,0 +1,371 @@
+from typing import Any, Dict, List, Optional, Set
+from collections import defaultdict, deque
+
+class Node:
+    __slots__ = ('key','amount','desc','category','merchant_id','sequence','height','left','right','parent')
+    def __init__(self, key:int, amount:float, desc:str, category:str, merchant_id:int, sequence:int):
+        self.key = key
+        self.amount = amount
+        self.desc = desc
+        self.category = category
+        self.merchant_id = merchant_id
+        self.sequence = sequence
+        self.height = 1
+        self.left:Optional[Node]=None
+        self.right:Optional[Node]=None
+        self.parent:Optional[Node]=None
+
+def height(n:Optional[Node]) -> int:
+    return n.height if n else 0
+
+def update_height(n:Node):
+    n.height = 1 + max(height(n.left), height(n.right))
+
+def balance_factor(n:Node) -> int:
+    return height(n.left) - height(n.right)
+
+def rotate_right(y:Node) -> Node:
+    x = y.left
+    T2 = x.right
+    x.right = y
+    y.left = T2
+    if T2: T2.parent = y
+    x.parent = y.parent
+    y.parent = x
+    update_height(y)
+    update_height(x)
+    return x
+
+def rotate_left(x:Node) -> Node:
+    y = x.right
+    T2 = y.left
+    y.left = x
+    x.right = T2
+    if T2: T2.parent = x
+    y.parent = x.parent
+    x.parent = y
+    update_height(x)
+    update_height(y)
+    return y
+
+def rebalance(node:Node) -> Node:
+    update_height(node)
+    bf = balance_factor(node)
+    if bf > 1:
+        if balance_factor(node.left) < 0:
+            node.left = rotate_left(node.left)
+            node.left.parent = node
+        return rotate_right(node)
+    if bf < -1:
+        if balance_factor(node.right) > 0:
+            node.right = rotate_right(node.right)
+            node.right.parent = node
+        return rotate_left(node)
+    return node
+
+class AVLTree:
+    def __init__(self):
+        self.root:Optional[Node]=None
+        self.size = 0
+
+    def _insert_node(self, root:Optional[Node], node:Node) -> Node:
+        if root is None:
+            return node
+        if node.key < root.key:
+            root.left = self._insert_node(root.left, node)
+            root.left.parent = root
+        elif node.key > root.key:
+            root.right = self._insert_node(root.right, node)
+            root.right.parent = root
+        else:
+            # shouldn't happen in this insert path
+            pass
+        return rebalance(root)
+
+    def insert(self, node:Node):
+        self.root = self._insert_node(self.root, node)
+        self.root.parent = None
+        self.size += 1
+
+    def _min_value_node(self, n:Node) -> Node:
+        current = n
+        while current.left:
+            current = current.left
+        return current
+
+    def _delete_node(self, root:Optional[Node], key:int) -> Optional[Node]:
+        if root is None:
+            return None
+        if key < root.key:
+            root.left = self._delete_node(root.left, key)
+            if root.left: root.left.parent = root
+        elif key > root.key:
+            root.right = self._delete_node(root.right, key)
+            if root.right: root.right.parent = root
+        else:
+            # found
+            if not root.left or not root.right:
+                temp = root.left if root.left else root.right
+                if temp:
+                    temp.parent = root.parent
+                    root = temp
+                else:
+                    return None
+            else:
+                temp = self._min_value_node(root.right)
+                # copy data
+                root.key = temp.key
+                root.amount = temp.amount
+                root.desc = temp.desc
+                root.category = temp.category
+                root.merchant_id = temp.merchant_id
+                root.sequence = temp.sequence
+                root.right = self._delete_node(root.right, temp.key)
+                if root.right: root.right.parent = root
+        if root is None:
+            return None
+        return rebalance(root)
+
+    def delete(self, key:int):
+        before = self.size
+        self.root = self._delete_node(self.root, key)
+        self.root and setattr(self.root,'parent',None)
+        if self.size>0 and before!=self._count_nodes(self.root):
+            self.size = self._count_nodes(self.root)
+        else:
+            self.size = self._count_nodes(self.root)
+
+    def _count_nodes(self, n:Optional[Node]) -> int:
+        if n is None: return 0
+        return 1 + self._count_nodes(n.left) + self._count_nodes(n.right)
+
+    def find(self, key:int) -> Optional[Node]:
+        cur = self.root
+        while cur:
+            if key==cur.key: return cur
+            if key < cur.key: cur = cur.left
+            else: cur = cur.right
+        return None
+
+    def inorder(self) -> List[Node]:
+        res=[]
+        def dfs(n):
+            if not n: return
+            dfs(n.left); res.append(n); dfs(n.right)
+        dfs(self.root)
+        return res
+
+def design_fraud_detection_tree(commands: List[str]) -> Dict[str, Any]:
+    tree = AVLTree()
+    seq_counter = 1
+    alerts:List[int]=[]
+    # indexes
+    token_index:Dict[str, Set[int]] = defaultdict(set)  # token -> set of tx_ids
+    category_count:Dict[str,int] = defaultdict(int)
+    merchant_seqs:Dict[int, List[int]] = defaultdict(list)  # merchant -> list of sequences (sorted by insertion order)
+    txid_to_node:Dict[int, Node] = {}
+    VALID_CATS = {"TRANSFER","PURCHASE","REFUND","WITHDRAWAL","DEPOSIT"}
+
+    def tokenize(s:str):
+        return [t for t in s.lower().split()]
+
+    def add_indexes(node:Node):
+        for t in set(tokenize(node.desc)):
+            token_index[t].add(node.key)
+        if node.category in VALID_CATS:
+            category_count[node.category]+=1
+        merchant_seqs[node.merchant_id].append(node.sequence)
+        txid_to_node[node.key]=node
+
+    def remove_indexes_by_node(node:Node):
+        for t in set(tokenize(node.desc)):
+            s = token_index.get(t)
+            if s and node.key in s:
+                s.remove(node.key)
+                if not s:
+                    del token_index[t]
+        if node.category in VALID_CATS:
+            category_count[node.category]-=1
+            if category_count[node.category]==0:
+                del category_count[node.category]
+        # remove one occurrence of sequence from merchant_seqs
+        lst = merchant_seqs.get(node.merchant_id)
+        if lst:
+            try:
+                lst.remove(node.sequence)
+            except ValueError:
+                pass
+            if not lst:
+                del merchant_seqs[node.merchant_id]
+        if node.key in txid_to_node:
+            del txid_to_node[node.key]
+
+    def decay(current_seq:int, other_seq:int) -> float:
+        d = 1.0 - 0.01*(current_seq - other_seq)
+        return d if d>=0.5 else 0.5
+
+    def evaluate_rules_on(node:Node, is_update:bool=False) -> None:
+        total = 0.0
+        cur_seq = node.sequence
+        # C1
+        if node.amount >= 50000.0:
+            total += 100.0
+        # C2
+        if node.category=="REFUND" and node.amount>=5000.0:
+            total += 100.0
+        # C3
+        # Among 5 most recent prior inserts before this event, same merchant appears at least 3
+        # We need to inspect sequences less than current sequence, get the 5 most recent prior inserts globally.
+        all_nodes = sorted(txid_to_node.values(), key=lambda x: x.sequence)
+        prior = [n for n in all_nodes if n.sequence < cur_seq]
+        last5 = prior[-5:]
+        same = [n for n in last5 if n.merchant_id==node.merchant_id]
+        if len(same) >= 3:
+            ssum = sum(decay(cur_seq, n.sequence) for n in same)
+            total += 100.0 * ssum
+        # H1
+        if 10000.0 <= node.amount < 50000.0:
+            total += 50.0
+        # H2 Token frequency with decay
+        toks = set(tokenize(node.desc))
+        for t in toks:
+            nodes_with_t = token_index.get(t,set())
+            if len(nodes_with_t) >= 4:
+                # consider only other nodes
+                ssum = 0.0
+                for tx in nodes_with_t:
+                    if tx==node.key: continue
+                    other = txid_to_node.get(tx)
+                    if other:
+                        ssum += decay(cur_seq, other.sequence)
+                if ssum >= 3.0:
+                    total += 50.0
+                    break
+        # H3 Velocity pattern
+        # current node and at least 2 other nodes from same merchant inserted within seq window of 8
+        seqs = [n.sequence for n in txid_to_node.values() if n.merchant_id==node.merchant_id]
+        window = [s for s in seqs if cur_seq-8 <= s <= cur_seq]
+        if len(window) >= 3:
+            # consider prior qualifying nodes (exclude current sequence)
+            prior_nodes = [n for n in txid_to_node.values() if n.merchant_id==node.merchant_id and n.sequence < cur_seq and cur_seq-8 <= n.sequence <= cur_seq]
+            ssum = sum(decay(cur_seq, n.sequence) for n in prior_nodes)
+            total += 50.0 * ssum
+        # M1 Category concentration
+        total_nodes = tree.size
+        if total_nodes>0 and node.category in VALID_CATS:
+            count = category_count.get(node.category,0)
+            if count / total_nodes > 0.6:
+                total += 25.0
+        # M2 Amount proximity cluster
+        others = [n for n in txid_to_node.values() if n.key!=node.key]
+        prox = [n for n in others if abs(n.amount - node.amount) <= 0.05 * node.amount]
+        if len(prox) >= 3:
+            ssum = sum(decay(cur_seq, n.sequence) for n in prox)
+            total += 25.0 * ssum
+        # M3 Descriptor similarity
+        def jacc(a:set,b:set):
+            if not a and not b: return 0.0
+            inter = len(a & b)
+            uni = len(a | b)
+            return inter/uni if uni>0 else 0.0
+        tokset = toks
+        similar = []
+        for n in others:
+            if jacc(tokset, set(tokenize(n.desc))) >= 0.6:
+                similar.append(n)
+        if len(similar) >= 2:
+            ssum = sum(decay(cur_seq, n.sequence) for n in similar)
+            total += 25.0 * ssum
+        if total >= 100.0:
+            alerts.append(node.key)
+
+    for line in commands:
+        line = line.strip()
+        if not line: continue
+        if line.startswith("INSERT "):
+            parts = line.split()
+            if len(parts) < 6: continue
+            tx_id = int(parts[1])
+            amount = float(parts[2])
+            category = parts[3]
+            merchant_id = int(parts[4])
+            desc = ' '.join(parts[5:])
+            existing = tree.find(tx_id)
+            if existing:
+                # update fields, keep sequence
+                # remove indexes first
+                remove_indexes_by_node(existing)
+                existing.amount = amount
+                existing.category = category
+                existing.merchant_id = merchant_id
+                existing.desc = desc
+                # indexes after update
+                add_indexes(existing)
+                evaluate_rules_on(existing, is_update=True)
+            else:
+                seq = seq_counter
+                seq_counter += 1
+                node = Node(tx_id, amount, desc, category, merchant_id, seq)
+                tree.insert(node)
+                add_indexes(node)
+                evaluate_rules_on(node)
+        elif line.startswith("DELETE "):
+            parts = line.split()
+            if len(parts)<2: continue
+            tx_id = int(parts[1])
+            node = tree.find(tx_id)
+            if node:
+                remove_indexes_by_node(node)
+                tree.delete(tx_id)
+        elif line.startswith("REALLOCATE "):
+            parts = line.split()
+            if len(parts)<3: continue
+            old_id = int(parts[1])
+            new_id = int(parts[2])
+            node = tree.find(old_id)
+            if node:
+                # capture payload
+                payload_amount = node.amount
+                payload_desc = node.desc
+                payload_cat = node.category
+                payload_merchant = node.merchant_id
+                # remove old
+                remove_indexes_by_node(node)
+                tree.delete(old_id)
+                # insert new with new seq
+                seq = seq_counter; seq_counter+=1
+                newnode = Node(new_id, payload_amount, payload_desc, payload_cat, payload_merchant, seq)
+                tree.insert(newnode)
+                add_indexes(newnode)
+                evaluate_rules_on(newnode)
+        elif line.startswith("BATCH_REALLOCATE "):
+            rest = line[len("BATCH_REALLOCATE "):].strip()
+            mappings = []
+            for part in rest.split(','):
+                if '->' in part:
+                    a,b = part.split('->')
+                    old = int(a.strip())
+                    new = int(b.strip())
+                    mappings.append((old,new))
+            if not mappings: continue
+            # deletions first
+            preserved = []
+            for old,new in mappings:
+                node = tree.find(old)
+                if node:
+                    preserved.append((old,new,node.amount,node.desc,node.category,node.merchant_id,node.sequence))
+                    remove_indexes_by_node(node)
+                    tree.delete(old)
+            # insertions in ascending order of new id
+            preserved_sorted = sorted(preserved, key=lambda x: x[1])
+            for (_, new, amount, desc, category, merchant_id, _) in preserved_sorted:
+                seq = seq_counter; seq_counter+=1
+                node = Node(new, amount, desc, category, merchant_id, seq)
+                tree.insert(node)
+                add_indexes(node)
+                evaluate_rules_on(node)
+        else:
+            # ignore unknown
+            continue
+
+    return {"alerts": alerts, "size": tree.size}

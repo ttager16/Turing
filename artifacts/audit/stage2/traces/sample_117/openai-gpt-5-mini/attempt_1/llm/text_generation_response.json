@@ -1,0 +1,76 @@
+{
+  "id": "resp_08afb7ab48a4c8730069c339c52a1c819e95deece2e0549909",
+  "object": "response",
+  "created_at": 1774401989,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774402001,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_08afb7ab48a4c8730069c339c5a42c819eaacc2e724f833db2",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_08afb7ab48a4c8730069c339c5d008819e8afd46d200a66db4",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Tuple\nfrom collections import deque, defaultdict\nimport heapq\n\ndef optimize_logistics_flow(network: List[List[int]], source: int, sink: int) -> List[List[int]]:\n    # Build graph with adjacency list; allow multi-edges\n    # Edge: to, rev, cap, cost, orig_from, orig_to, idx\n    adj: Dict[int, List[Dict]] = defaultdict(list)\n    def add_edge(u, v, cap, cost, idx):\n        adj[u].append({'to': v, 'rev': len(adj[v]), 'cap': cap, 'cost': cost, 'idx': idx, 'from': u})\n        adj[v].append({'to': u, 'rev': len(adj[u]) - 1, 'cap': 0,   'cost': -cost, 'idx': None, 'from': v})\n    # incorporate priority as tie-breaker by slightly adjusting cost: lower effective cost for higher priority\n    # scale priorities small to not override costs: subtract priority * eps\n    EPS = 1e-6\n    for i, (u, v, cap, cost, priority) in enumerate(network):\n        eff_cost = cost - priority * EPS\n        add_edge(u, v, cap, eff_cost, i)\n    # min-cost max-flow using successive shortest augmenting path with potentials (Dijkstra)\n    N = max((max(u, v) for u, v, *_ in network), default=0) + 1\n    flow = 0\n    cost = 0.0\n    max_possible = sum(e for *_, e in [(e[2],) for e in network]) if network else 0\n    # initialize potential using Bellman-Ford (SPFA) to handle negative costs (there shouldn't be negative but safe)\n    potential = [0.0] * (N)\n    dist = [float('inf')] * N\n    dist[source] = 0.0\n    inq = [False]*N\n    q = deque([source])\n    inq[source] = True\n    while q:\n        u = q.popleft(); inq[u]=False\n        for e in adj[u]:\n            if e['cap']>0 and dist[e['to']] > dist[u] + e['cost']:\n                dist[e['to']] = dist[u] + e['cost']\n                if not inq[e['to']]:\n                    q.append(e['to']); inq[e['to']]=True\n    for i in range(N):\n        if dist[i] < float('inf'):\n            potential[i] = dist[i]\n    # main loop\n    parent = [None]*N\n    while True:\n        dist = [float('inf')]*N\n        parent = [None]*N\n        dist[source]=0\n        heap = [(0.0, source)]\n        while heap:\n            d,u = heapq.heappop(heap)\n            if d>dist[u]: continue\n            for ei, e in enumerate(adj[u]):\n                if e['cap']<=0: continue\n                v = e['to']\n                nd = d + e['cost'] + potential[u] - potential[v]\n                if nd < dist[v]:\n                    dist[v]=nd\n                    parent[v]=(u, ei)\n                    heapq.heappush(heap,(nd, v))\n        if parent[sink] is None:\n            break\n        for v in range(N):\n            if dist[v]<float('inf'):\n                potential[v]+=dist[v]\n        # augment\n        addf = float('inf')\n        v = sink\n        while v!=source:\n            u, ei = parent[v]\n            e = adj[u][ei]\n            addf = min(addf, e['cap'])\n            v = u\n        v = sink\n        path_cost = 0.0\n        while v!=source:\n            u, ei = parent[v]\n            e = adj[u][ei]\n            e['cap'] -= addf\n            adj[v][e['rev']]['cap'] += addf\n            path_cost += e['cost'] * addf\n            v = u\n        flow += addf\n        cost += path_cost\n    # After flow, compute min-cut from source in residual graph\n    visited = [False]*N\n    stack = [source]\n    while stack:\n        u = stack.pop()\n        if visited[u]: continue\n        visited[u]=True\n        for e in adj[u]:\n            if e['cap']>0 and not visited[e['to']]:\n                stack.append(e['to'])\n    # Edges from visited to not visited in original network are in min-cut\n    # Need to map original edges (u->v) - since multi-edges allowed, include unique pairs that are saturated across all parallel lanes?\n    # We'll consider an original provided edge as bottleneck if in residual, the corresponding forward edge has cap==0 (saturated) AND u in S, v not in S\n    bottlenecks = []\n    # Map original edges indices to their forward edge objects (they were added in order)\n    # iterate adjacency of original from-nodes to find edges with idx not None\n    for u in adj:\n        for e in adj[u]:\n            if e.get('idx') is None: continue\n            v = e['to']\n            idx = e['idx']\n            # find original parameters via network[idx]\n            orig = network[idx]\n            ou, ov = orig[0], orig[1]\n            if ou==u and ov==v:\n                if visited[u] and not visited[v]:\n                    # if forward capacity is 0 (saturated) consider bottleneck\n                    if e['cap'] == 0:\n                        pair = [u, v]\n                        if pair not in bottlenecks:\n                            bottlenecks.append(pair)\n    return bottlenecks"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1397,
+    "input_tokens_details": {
+      "cached_tokens": 1280
+    },
+    "output_tokens": 1254,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2651
+  },
+  "user": null,
+  "metadata": {}
+}

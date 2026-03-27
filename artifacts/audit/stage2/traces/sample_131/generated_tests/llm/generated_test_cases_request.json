@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: optimize_route_planning\n\nProblem Statement:\n### Problem Statement\n\nA global logistics company operates a vast transportation network that connects cities through routes with defined travel costs and optional capacity limits. The company needs a Python-based system capable of dynamically managing these routes by adding, removing, and updating connections, while efficiently handling route-related queries such as finding the shortest path between cities or determining whether two cities remain connected after a series of updates. The solution must preserve state consistency after every modification, rigorously enforce capacity constraints, and follow deterministic rules whenever multiple equal-cost paths exist. The overall focus of this problem is on correctness, determinism, and maintaining an update-aware graph structure, without involving concurrency or large-scale offline preprocessing.\n\n\n### Objectives\n\n1. Implement a dynamic, memory-efficient graph data structure that can:\n   * Add and remove edges (routes)\n   * Update edge weights and capacities\n   * Process shortest-path and connectivity queries in the current graph state\n2. Guarantee deterministic results:\n   * When multiple shortest paths share the same total cost, always choose the path whose next node ID is smallest (lexicographic tie-breaking).\n3. Correctly apply capacity constraints:\n   * If a shortest-path query specifies a required demand, any edge with capacity below that demand must be ignored.\n4. Maintain consistent graph state:\n   * After any update or deletion, all subsequent queries must reflect the new configuration.\n   * Removing an edge must immediately disconnect its endpoints if no alternate path exists.\n\n\n### Constraints\n\n* Must be implemented in pure Python, with no external libraries.\n* Graph state persists across all queries within one function call.\n* Deterministic ordering is mandatory for all equal-cost paths.\n* If both graph_data and queries are empty, return [] immediately.\n* Both graph_data and queries must be lists of lists.\n   - Each element of graph_data must be exactly [u, v, w].\n   - Each element of queries must be exactly [query_type, u, v, arg].\n   - On any structural violation, the function must return [] immediately\n* u and v must be integers greater than or equal to 1, any non-integer, negative, zero, or missing value must cause the function to return [] immediately.\n* w must be a finite float or int with a value greater than or equal to 0, negative value, or invalid type must cause the function to return [] immediately.\n* Query schema and types:\n   - The query_type must be one of (\"shortest_path\", \"connectivity_check\", \"add_edge\", \"remove_edge\", \"update_weight\", \"update_capacity\").\n   - For \"shortest_path\", the argument arg represents the demand (finite float or int >= 0), if None, it should be treated as 0.\n   - For \"connectivity_check\", the argument is ignored (0 or None allowed).\n   - For \"add_edge\" and \"update_weight\", the argument represents the edge weight (finite float or int >= 0).\n   - For \"update_capacity\", the argument represents the capacity (finite float or int >= 0).\n   - For \"remove_edge\", the argument is ignored (0 or None allowed).\n   - Any schema or type violation must cause the function to return [] immediately.\n   - In the special case where u == v:\n      1. \"shortest_path\" must return 0.0\n      2. \"connectivity_check\" must return True\n* Undirected semantics and self-loops:\n   - The graph is undirected, all operations apply symmetrically to (u, v) and (v, u).\n   - Edge self-loops are invalid:\n      1. Any edge in graph_data with u == v must cause the function to return [] immediately.\n      2. Any update that adds or modifies an edge with u == v must cause the function to return [] immediately.\n   - Queries where u == v are allowed and follow the special-case outputs defined above.\n* Canonical edge rule and updates:\n   - Multiple \"add_edge\" calls for the same unordered pair merge into one canonical edge with weight = min(all added weights) and capacity unchanged (default 0.0 until set by \"update_capacity\").\n   - \"update_weight\" and \"update_capacity\" overwrite the canonical edge directly.\n   - \"update_weight\" or \"update_capacity\" on a non-existent edge must return [] immediately, while \"remove_edge\" on a non-existent edge is ignored (no-op).\n* Capacity defaults and filtering:\n   - Default capacity is 0.0 for every edge unless set by \"update_capacity\".\n   - During \"shortest_path\", an edge is traversable only if capacity >= demand.\n   - Shortest-path queries must not change capacity values.\n* When two or more neighboring nodes have the same current distance during path calculation, always visit them in order of their node IDs from smallest to largest. This ensures that if multiple paths have the same total cost, the path with the smallest node IDs is chosen consistently.\n\n\n\n### Function Signature\n\n```python\ndef optimize_route_planning(\n    graph_data: List[List[Union[int, float]]],\n    queries: List[List[Union[str, int, float, None]]]\n) -> List[Union[float, bool]]:\n    \"\"\"\n    Handles dynamic route updates and queries.\n\n    query_type can be one of:\n      - \"shortest_path\" : compute minimal travel cost (considering demand if given)\n      - \"connectivity_check\" : return True/False\n      - \"add_edge\" : add a new edge (weight given in arg)\n      - \"remove_edge\" : remove an existing edge\n      - \"update_weight\" : change edge weight (arg)\n      - \"update_capacity\" : change edge capacity (arg)\n    \"\"\"\n    pass\n```\n\n\n### Sample Input\n\n```python\ngraph_data = [[1, 2, 5.0], [2, 3, 10.0], [1, 3, 15.0]]\nqueries = [\n    [\"shortest_path\", 1, 3, 0],\n    [\"connectivity_check\", 1, 3, 0]\n]\n```\n\n\n### Sample Output\n\n```\n[15.0, True]\n```\n\n\n### Expected Output Format\n\nThe function returns a list of results aligned with the query order:\n* Each \"shortest_path\" query returns a float representing the minimum travel cost. If no valid path exists, it must return -1.0\n* Each \"connectivity_check\" query returns a boolean.\n* Update queries (\"add_edge\", \"remove_edge\", \"update_weight\", \"update_capacity\") do not append results.\n\nStarter Code:\n```python\nfrom typing import List, Union\nimport math\nimport heapq\nfrom collections import deque, defaultdict\n\ndef optimize_route_planning(\n    graph_data: List[List[Union[int, float]]],\n    queries: List[List[Union[str, int, float, None]]]\n) -> List[Union[float, bool]]:\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[[1, 2, 5.0], [2, 3, 10.0], [1, 3, 15.0]]\\n[[\\\"shortest_path\\\", 1, 3, 0], [\\\"connectivity_check\\\", 1, 3, 0]]\",\n    \"output\": \"[15.0, true]\"\n  },\n  {\n    \"input\": \"[[1, 2, 5.0], [2, 3, 2.0], [1, 3, 10.0]]\\n[[\\\"shortest_path\\\", 1, 3, 0]]\",\n    \"output\": \"[7.0]\"\n  },\n  {\n    \"input\": \"[[1, 2, 3.0], [2, 3, 4.0]]\\n[[\\\"connectivity_check\\\", 1, 3, null]]\",\n    \"output\": \"[true]\"\n  }\n]\n"
+    }
+  ]
+}

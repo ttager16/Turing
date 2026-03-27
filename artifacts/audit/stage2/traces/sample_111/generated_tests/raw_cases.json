@@ -1,0 +1,178 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "0": [
+          {
+            "neighbor": 1,
+            "capacity": 10
+          },
+          {
+            "neighbor": 2,
+            "capacity": 5
+          }
+        ],
+        "1": [
+          {
+            "neighbor": 0,
+            "capacity": 3
+          },
+          {
+            "neighbor": 3,
+            "capacity": 7
+          },
+          {
+            "neighbor": 2,
+            "capacity": 2
+          }
+        ],
+        "2": [
+          {
+            "neighbor": 1,
+            "capacity": 4
+          },
+          {
+            "neighbor": 3,
+            "capacity": 8
+          }
+        ],
+        "3": [
+          {
+            "neighbor": 4,
+            "capacity": 10
+          }
+        ],
+        "4": []
+      },
+      0,
+      4
+    ],
+    "input_lines": [
+      "{\"0\": [{\"neighbor\": 1, \"capacity\": 10}, {\"neighbor\": 2, \"capacity\": 5}], \"1\": [{\"neighbor\": 0, \"capacity\": 3}, {\"neighbor\": 3, \"capacity\": 7}, {\"neighbor\": 2, \"capacity\": 2}], \"2\": [{\"neighbor\": 1, \"capacity\": 4}, {\"neighbor\": 3, \"capacity\": 8}], \"3\": [{\"neighbor\": 4, \"capacity\": 10}], \"4\": []}",
+      "0",
+      "4"
+    ],
+    "focus": "Anti-parallel edges (0↔1 and 1↔2) plus regular paths to sink: tests handling of separate flows per direction and correct residual updates."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "0": [
+          {
+            "neighbor": 1,
+            "capacity": 10
+          },
+          {
+            "neighbor": 2,
+            "capacity": 10
+          }
+        ],
+        "1": [
+          {
+            "neighbor": 2,
+            "capacity": 1
+          },
+          {
+            "neighbor": 4,
+            "capacity": 9
+          }
+        ],
+        "2": [
+          {
+            "neighbor": 3,
+            "capacity": 10
+          }
+        ],
+        "3": [
+          {
+            "neighbor": 1,
+            "capacity": 5
+          },
+          {
+            "neighbor": 4,
+            "capacity": 10
+          }
+        ],
+        "4": []
+      },
+      0,
+      4
+    ],
+    "input_lines": [
+      "{\"0\": [{\"neighbor\": 1, \"capacity\": 10}, {\"neighbor\": 2, \"capacity\": 10}], \"1\": [{\"neighbor\": 2, \"capacity\": 1}, {\"neighbor\": 4, \"capacity\": 9}], \"2\": [{\"neighbor\": 3, \"capacity\": 10}], \"3\": [{\"neighbor\": 1, \"capacity\": 5}, {\"neighbor\": 4, \"capacity\": 10}], \"4\": []}",
+      "0",
+      "4"
+    ],
+    "focus": "Forces use of residual/backward edges: early small-bottleneck augmenting path exists that should be later adjusted via residual edges to reach optimal flow."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "0": [
+          {
+            "neighbor": 1,
+            "capacity": 5
+          },
+          {
+            "neighbor": 2,
+            "capacity": 5
+          },
+          {
+            "neighbor": 3,
+            "capacity": 5
+          },
+          {
+            "neighbor": 4,
+            "capacity": 5
+          },
+          {
+            "neighbor": 5,
+            "capacity": 0
+          }
+        ],
+        "1": [
+          {
+            "neighbor": 6,
+            "capacity": 5
+          }
+        ],
+        "2": [
+          {
+            "neighbor": 6,
+            "capacity": 5
+          }
+        ],
+        "3": [
+          {
+            "neighbor": 6,
+            "capacity": 5
+          }
+        ],
+        "4": [
+          {
+            "neighbor": 6,
+            "capacity": 5
+          }
+        ],
+        "5": [
+          {
+            "neighbor": 6,
+            "capacity": 5
+          }
+        ],
+        "6": []
+      },
+      0,
+      6
+    ],
+    "input_lines": [
+      "{\"0\": [{\"neighbor\": 1, \"capacity\": 5}, {\"neighbor\": 2, \"capacity\": 5}, {\"neighbor\": 3, \"capacity\": 5}, {\"neighbor\": 4, \"capacity\": 5}, {\"neighbor\": 5, \"capacity\": 0}], \"1\": [{\"neighbor\": 6, \"capacity\": 5}], \"2\": [{\"neighbor\": 6, \"capacity\": 5}], \"3\": [{\"neighbor\": 6, \"capacity\": 5}], \"4\": [{\"neighbor\": 6, \"capacity\": 5}], \"5\": [{\"neighbor\": 6, \"capacity\": 5}], \"6\": []}",
+      "0",
+      "6"
+    ],
+    "focus": "Many equal-capacity disjoint paths from source to sink (tie-breaking) plus a zero-capacity branch: checks deterministic BFS selection and ignoring zero-capacity edges."
+  }
+]

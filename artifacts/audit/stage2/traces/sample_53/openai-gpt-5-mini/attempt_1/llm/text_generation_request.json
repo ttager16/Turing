@@ -1,0 +1,30 @@
+{
+  "model": "gpt-5-mini",
+  "input": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are a careful coding assistant. Return the best possible answer for the task."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Solve the following Python coding task.\n\nRequirements:\n- Return only Python code.\n- Implement the requested entry function exactly.\n- Do not include explanations before or after the code.\n- Use only the Python standard library unless the prompt explicitly permits otherwise.\n\nProblem Statement:\n### Problem Statement\n\nIn a multi-exchange high-frequency trading (HFT) ecosystem, traders must simultaneously track numerous assets with non-linear price dependencies, evolving correlation graphs, and regulatory constraints. This problem involves constructing a dynamic model that captures arbitrage potentials and transaction costs across multiple interconnected trading venues. The goal is to compute arbitrage differentials between assets after all price updates are applied.\n\nAt its core, you must design a graph-based arbitrage detection function that, after applying updates, evaluates the cost difference (arbitrage differential) between asset pairs. Each edge in the graph represents a possible trade path between two assets with an associated transaction fee or rebate. A rebate is represented as a negative edge weight.\n\n\n### Objectives\n\n1. Build a robust graph structure to represent trading venues, assets, and edges with transaction costs or rebates.\n2. Apply all price updates in order before processing any query.\n3. For each query, compute the arbitrage differential using the direct-edge preference rule. If no direct edge exists, compute the minimum summed fee path or detect if a negative cycle affects the route.\n4. Return the results for all queries in a single batch evaluation.\n\n### Constraints\n\n- Graph size: up to 10^4 nodes and 5×10^4 directed edges.\n- Apply all price updates before answering queries.\n- Edge weights are absolute fees or rebates (same currency as prices); negatives allowed.\n- Arbitrage differential and routing rule: diff(u, v) = price[v] − price[u] − fee(u→v), where fee(u→v) uses a direct edge if present; otherwise the minimum summed-fee path. If no path exists return −inf; if a negative cycle reachable from u can reach v return +inf.\n- The function returns a list of floats in the order of the input queries.\n- Implementation must use only the Python standard library.\n\n\n### Function Signature\n\n```python\ndef high_frequency_arbitrage_engine(\n    edges: List[Tuple[int, int, float]],\n    initial_prices: List[float],\n    updates: List[Tuple[int, float]],\n    queries: List[Tuple[int, int]]\n) -> List[float]:\n    \"\"\"\n    diff(u,v) = price[v] - price[u] - fee(u→v).\n    Direct-edge preference; negative fees allowed.\n    Apply all updates first. No path ⇒ -inf. \n    Negative cycle reachable ⇒ +inf.\n    \"\"\"\n    pass\n```\n\n### Sample Input/Output\n\n* Input:\n  • edges = [(0, 1, 0.1), (1, 2, 0.2), (2, 0, 0.05), (0, 2, 0.25), (1, 0, -2.25)]\n  • initial_prices = [100.0, 101.5, 99.8]\n  • updates = [(1, 102.3), (2, 100.2), (0, 99.9)]\n  • queries = [(0, 2), (1, 0)]\n\n* Explanation:\n  • edges describe a triangular cycle among three assets, each edge having a transaction cost or rebate.\n  • initial_prices sets the starting prices for each asset.\n  • updates simulate real-time price changes.\n  • queries request evaluations of potential arbitrage between specific pairs of assets.\n  • After applying all updates, final prices are [99.9, 102.3, 100.2].\n  • For (0, 2): fee(0→2) = 0.25 (direct edge), diff = 100.2 − 99.9 − 0.25 = 0.05.\n  • For (1, 0): fee(1→0) = −2.25 (rebate), diff = 99.9 − 102.3 − (−2.25) = −0.15.\n\n* Output:\n  [0.050000000, -0.150000000]\n\n### Expected Output Format\n\nThe function should return a list of floating-point values corresponding to each query. Each value represents the computed arbitrage differential between the specified assets after all updates. If a path is unreachable, return −inf. If a path can exploit a reachable negative cycle, return +inf.\n\nStarter Code:\n```python\nfrom typing import List, Tuple, Dict, Iterable\nimport math\n\ndef high_frequency_arbitrage_engine(\n    edges: List[Tuple[int, int, float]],\n    initial_prices: List[float],\n    updates: List[Tuple[int, float]],\n    queries: List[Tuple[int, int]],\n) -> List[float]:\n```\n"
+        }
+      ]
+    }
+  ],
+  "reasoning": {
+    "effort": "minimal"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 4096
+}

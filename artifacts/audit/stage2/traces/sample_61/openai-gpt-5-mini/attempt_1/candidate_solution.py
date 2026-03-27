@@ -1,0 +1,120 @@
+def __init__(self, key: int):
+        self.key = key
+        self.left: Optional['AVLNode'] = None
+        self.right: Optional['AVLNode'] = None
+        self.height: int = 1
+
+def height(node: Optional[AVLNode]) -> int:
+    return node.height if node else 0
+
+def update_height(node: AVLNode) -> None:
+    node.height = 1 + max(height(node.left), height(node.right))
+
+def balance_factor(node: Optional[AVLNode]) -> int:
+    return height(node.left) - height(node.right) if node else 0
+
+def rotate_right(y: AVLNode) -> AVLNode:
+    x = y.left
+    T2 = x.right
+    x.right = y
+    y.left = T2
+    update_height(y)
+    update_height(x)
+    return x
+
+def rotate_left(x: AVLNode) -> AVLNode:
+    y = x.right
+    T2 = y.left
+    y.left = x
+    x.right = T2
+    update_height(x)
+    update_height(y)
+    return y
+
+def rebalance(node: AVLNode) -> AVLNode:
+    update_height(node)
+    bf = balance_factor(node)
+    if bf > 1:
+        if balance_factor(node.left) < 0:
+            node.left = rotate_left(node.left)
+        return rotate_right(node)
+    if bf < -1:
+        if balance_factor(node.right) > 0:
+            node.right = rotate_right(node.right)
+        return rotate_left(node)
+    return node
+
+def avl_insert(node: Optional[AVLNode], key: int) -> AVLNode:
+    if node is None:
+        return AVLNode(key)
+    if key < node.key:
+        node.left = avl_insert(node.left, key)
+    elif key > node.key:
+        node.right = avl_insert(node.right, key)
+    else:
+        return node
+    return rebalance(node)
+
+def avl_find_min(node: AVLNode) -> AVLNode:
+    current = node
+    while current.left:
+        current = current.left
+    return current
+
+def avl_delete(node: Optional[AVLNode], key: int) -> Optional[AVLNode]:
+    if node is None:
+        return None
+    if key < node.key:
+        node.left = avl_delete(node.left, key)
+    elif key > node.key:
+        node.right = avl_delete(node.right, key)
+    else:
+        if node.left is None:
+            return node.right
+        elif node.right is None:
+            return node.left
+        else:
+            successor = avl_find_min(node.right)
+            node.key = successor.key
+            node.right = avl_delete(node.right, successor.key)
+    if node is None:
+        return None
+    return rebalance(node)
+
+def avl_search(node: Optional[AVLNode], key: int) -> Optional[int]:
+    current = node
+    while current:
+        if key == current.key:
+            return key
+        elif key < current.key:
+            current = current.left
+        else:
+            current = current.right
+    return None
+
+def handle_orders(operations: List[List]) -> List:
+    if not isinstance(operations, list):
+        return []
+    results: List = []
+    root: Optional[AVLNode] = None
+    for op in operations:
+        if not isinstance(op, list) or len(op) != 2:
+            return []
+        op_type, value = op
+        if not isinstance(op_type, str):
+            return []
+        typ = op_type.strip().lower()
+        if not isinstance(value, int):
+            return []
+        if typ == 'insert':
+            root = avl_insert(root, value)
+            results.append(None)
+        elif typ == 'delete':
+            root = avl_delete(root, value)
+            results.append(None)
+        elif typ == 'search':
+            res = avl_search(root, value)
+            results.append(res)
+        else:
+            return []
+    return results

@@ -1,0 +1,76 @@
+{
+  "id": "resp_076bdd38e17df3d30069c32bbd2f348195aa5b0c4a96025e87",
+  "object": "response",
+  "created_at": 1774398397,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398415,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_076bdd38e17df3d30069c32bbd7ac88195a383a9eff8648b18",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_076bdd38e17df3d30069c32bbda1c88195878dcb99008e2e56",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any\nimport heapq\nimport math\n\ndef optimize_traffic_batch(\n    city_network: List[List[Any]],\n    historical_data: List[List[Any]],\n    current_conditions: Dict[str, Any],\n    demands: List[List[Any]]\n) -> Dict[str, Any]:\n    # Build edges dict and adjacency\n    edges = {}  # edge_id -> dict with u,v,base_cost\n    adj = {}  # u -> list of (v, edge_id)\n    for item in city_network:\n        if len(item) < 3:\n            continue\n        u = str(item[0])\n        v = str(item[1])\n        try:\n            b = float(item[2])\n        except Exception:\n            continue\n        if b <= 0.0:\n            continue\n        edge_id = f\"{u}-{v}\"\n        edges[edge_id] = {\"u\": u, \"v\": v, \"base_cost\": b}\n        adj.setdefault(u, []).append((v, edge_id))\n    # Load historical and current signals for edges present\n    hist = {}\n    for rec in historical_data:\n        if not rec:\n            continue\n        key = str(rec[0])\n        try:\n            val = float(rec[1])\n        except Exception:\n            continue\n        if key in edges:\n            hist[key] = val\n    curr = {}\n    capacity_map = {}\n    if isinstance(current_conditions, dict):\n        for k, v in current_conditions.items():\n            if k == \"capacity_map\":\n                if isinstance(v, dict):\n                    for ek, ev in v.items():\n                        if ek in edges:\n                            try:\n                                capacity_map[ek] = int(ev)\n                            except Exception:\n                                pass\n                continue\n            if k in edges:\n                try:\n                    curr[k] = float(v)\n                except Exception:\n                    pass\n    # Initialize residual capacities\n    residual = {}\n    for eid in edges:\n        residual[eid] = int(capacity_map.get(eid, 1))\n    # Working mutable base costs\n    base_costs = {eid: edges[eid][\"base_cost\"] for eid in edges}\n    alpha = 0.6\n    routes = []\n    unserved = 0\n    layer_switches = 0\n    total_cost = 0.0\n\n    def layer_of(node: str) -> str:\n        if not isinstance(node, str):\n            return \"\"\n        parts = node.split(\":\", 1)\n        return parts[0] if parts else \"\"\n\n    # For each demand in order\n    for dem in demands:\n        if not isinstance(dem, (list, tuple)) or len(dem) < 5:\n            # malformed -> treat as unserved\n            routes.append([])\n            unserved += 1\n            continue\n        src = str(dem[0])\n        dst = str(dem[1])\n        # commodity = dem[2] unused\n        try:\n            units = int(dem[3])\n        except Exception:\n            units = 0\n        try:\n            priority = float(dem[4])\n        except Exception:\n            priority = 0.0\n        units = max(units, 0)\n        priority = max(0.0, min(1.0, priority))\n        # Precompute per-edge cost_for_demand based on current base_costs, hist, curr, layers, priority\n        edge_cost_for = {}\n        for eid, info in edges.items():\n            b = base_costs.get(eid, info[\"base_cost\"])\n            h = float(hist.get(eid, 0.0))\n            c = float(curr.get(eid, 0.0))\n            ema = alpha * c + (1 - alpha) * h\n            effective_ema = max(0.0, ema)\n            cost_base = b * (1.0 + effective_ema / 100.0)\n            u = info[\"u\"]\n            v = info[\"v\"]\n            layer_u = layer_of(u)\n            layer_v = layer_of(v)\n            layer_multiplier = 1.55 if layer_u != layer_v else 1.0\n            cost_after_layer = cost_base * layer_multiplier\n            cost_for_demand = cost_after_layer * (1.0 - 0.4 * priority)\n            if cost_for_demand < 1e-6:\n                cost_for_demand = 1e-6\n            edge_cost_for[eid] = cost_for_demand\n\n        # Modified Dijkstra that respects capacity feasibility: only consider edges with residual >= units\n        # Use heap of (cost, path_nodes_list, current_node)\n        # To support lexicographic tie-breaking on full path, include path tuple in state comparisons.\n        visited_best = {}  # node -> (best_cost, best_path_tuple)\n        heap = []\n        start_path = (src,)\n        heapq.heappush(heap, (0.0, start_path, src))\n        found = False\n        best_path = None\n        best_cost = None\n        while heap:\n            cost_so_far, path_tuple, node = heapq.heappop(heap)\n            # If we have a recorded better for node, skip if worse\n            rec = visited_best.get(node)\n            if rec is not None:\n                rec_cost, rec_path = rec\n                if cost_so_far > rec_cost + 1e-12:\n                    continue\n                if abs(cost_so_far - rec_cost) <= 1e-12 and path_tuple >= rec_path:\n                    continue\n            visited_best[node] = (cost_so_far, path_tuple)\n            if node == dst:\n                # first time we pop dst is minimal cost; but there could be equal cost with lexicographically smaller path discovered later?\n                # Because we push paths and compare path tuple in visited_best, we ensure lexicographically smallest stored.\n                found = True\n                best_path = list(path_tuple)\n                best_cost = cost_so_far\n                break\n            for (v, eid) in sorted(adj.get(node, []), key=lambda x: (x[0], x[1])):\n                # Check capacity feasibility for this edge\n                if residual.get(eid, 0) < units:\n                    continue\n                ec = edge_cost_for.get(eid)\n                if ec is None:\n                    continue\n                new_cost = cost_so_far + ec\n                new_path = path_tuple + (v,)\n                rec = visited_best.get(v)\n                push = False\n                if rec is None:\n                    push = True\n                else:\n                    rec_cost, rec_path = rec\n                    if new_cost < rec_cost - 1e-12:\n                        push = True\n                    elif abs(new_cost - rec_cost) <= 1e-12 and new_path < rec_path:\n                        push = True\n                if push:\n                    heapq.heappush(heap, (new_cost, new_path, v))\n        if not found or best_path is None:\n            routes.append([])\n            unserved += 1\n            continue\n        # Before accepting, double-check all edges along path have residual >= units (should hold)\n        path_nodes = best_path\n        path_edges = []\n        feasible = True\n        for i in range(len(path_nodes) - 1):\n            u = path_nodes[i]\n            v = path_nodes[i + 1]\n            eid = f\"{u}-{v}\"\n            if eid not in edges:\n                feasible = False\n                break\n            if residual.get(eid, 0) < units:\n                feasible = False\n                break\n            path_edges.append(eid)\n        if not feasible:\n            routes.append([])\n            unserved += 1\n            continue\n        # Accept route: update residuals and base_costs inflation and compute stats\n        routes.append(path_nodes)\n        # Count layer switches in this route\n        for eid in path_edges:\n            u = edges[eid][\"u\"]\n            v = edges[eid][\"v\"]\n            if layer_of(u) != layer_of(v):\n                layer_switches += 1\n        # Sum cost using edge_cost_for values that were in effect when routing\n        cost_sum = 0.0\n        for eid in path_edges:\n            cost_sum += edge_cost_for[eid]\n        total_cost += cost_sum\n        # Update residuals and base_costs\n        if units > 0:\n            for eid in path_edges:\n                residual[eid] = max(0, residual.get(eid, 0) - units)\n            # Inflate stored base costs\n            for eid in path_edges:\n                old = base_costs.get(eid, edges[eid][\"base_cost\"])\n                base_costs[eid] = old * (1.0 + 0.1 * units)\n        else:\n            # units == 0: capacities unchanged, inflation factor (1.0) effectively does nothing\n            for eid in path_edges:\n                old = base_costs.get(eid, edges[eid][\"base_cost\"])\n                base_costs[eid] = old * (1.0 + 0.1 * units)\n    # Clamp tiny negative noise\n    if not math.isfinite(total_cost) or total_cost < 0 and total_cost > -1e-9:\n        total_cost = 0.0\n    # Round total_cost not required; keep float\n    return {\n        \"routes\": routes,\n        \"unserved_demands\": unserved,\n        \"layer_switches\": layer_switches,\n        \"total_cost\": total_cost\n    }"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2991,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2005,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4996
+  },
+  "user": null,
+  "metadata": {}
+}

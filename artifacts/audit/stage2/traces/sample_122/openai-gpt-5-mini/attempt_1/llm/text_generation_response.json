@@ -1,0 +1,76 @@
+{
+  "id": "resp_06f73efcc4b170a20069c33b13cf0c81a3b774cbf257f8c942",
+  "object": "response",
+  "created_at": 1774402323,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774402344,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_06f73efcc4b170a20069c33b14595481a3a46f33c1037620dc",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_06f73efcc4b170a20069c33b148e0481a3a56df4193811acc6",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Tuple\nfrom collections import defaultdict, deque\nimport heapq\nimport math\n\ndef find_optimal_multilayer_network(\n    layer_graphs: List[Dict[str, Any]],\n    critical_nodes: Dict[str, float]\n) -> List[Dict[str, int]]:\n    # Build aggregated nodes balances and edges with adjusted costs\n    node_balance = defaultdict(float)\n    edges = []  # list of (layer_id, u, v, capacity, adj_cost, edge_id)\n    edge_id = 0\n    # Normalize critical node weights: priority_weight(node) = max(0.1, critical_nodes.get(node,1.0))\n    crit = {}\n    for k, v in critical_nodes.items():\n        try:\n            key = int(k)\n        except Exception:\n            key = k\n        crit[key] = max(0.1, float(v))\n    # Populate nodes and edges\n    for layer in layer_graphs:\n        lid = layer.get(\"layer_id\")\n        nodes = layer.get(\"nodes\", {})\n        for n, bal in nodes.items():\n            node_balance[n] += float(bal)\n        for e in layer.get(\"edges\", []):\n            u = e[\"from\"]\n            v = e[\"to\"]\n            base_cost = float(e[\"cost\"])\n            cap = float(e[\"capacity\"])\n            pw_u = crit.get(u, 1.0)\n            pw_v = crit.get(v, 1.0)\n            priority_factor = 1.0 / (pw_u * pw_v) if (pw_u * pw_v) != 0 else 1.0\n            adj_cost = base_cost * priority_factor\n            edges.append((lid, u, v, cap, adj_cost, edge_id, base_cost))\n            edge_id += 1\n\n    # Check global supply == total demand (within epsilon)\n    total_supply = sum(v for v in node_balance.values() if v > 0)\n    total_demand = -sum(v for v in node_balance.values() if v < 0)\n    if abs(total_supply - total_demand) > 1e-6:\n        return []\n\n    if total_supply == 0:\n        # nothing to route; but ensure critical nodes with non-zero balance none exist\n        for n, bal in node_balance.items():\n            if abs(bal) > 1e-9 and n in crit:\n                return []\n        return []\n\n    # Map nodes to indices\n    all_nodes = set(node_balance.keys())\n    for _, u, v, _, _, _, _ in edges:\n        all_nodes.add(u); all_nodes.add(v)\n    node_list = list(all_nodes)\n    nid = {n: i for i, n in enumerate(node_list)}\n    N = len(node_list)\n    # Build directed graph for flow: edges as forward/backward for residual\n    adj = [[] for _ in range(N)]\n    class Edge:\n        __slots__ = (\"to\",\"rev\",\"cap\",\"cost\",\"layer\",\"orig_u\",\"orig_v\",\"eid\",\"flow\")\n        def __init__(self, to, rev, cap, cost, layer, orig_u, orig_v, eid):\n            self.to = to; self.rev = rev; self.cap = cap; self.cost = cost\n            self.layer = layer; self.orig_u = orig_u; self.orig_v = orig_v; self.eid = eid\n            self.flow = 0.0\n\n    # add edges\n    for lid, u, v, cap, cost, eidv, base_cost in edges:\n        ui = nid[u]; vi = nid[v]\n        # forward\n        adj[ui].append(Edge(vi, len(adj[vi]), cap, cost, lid, u, v, eidv))\n        # backward\n        adj[vi].append(Edge(ui, len(adj[ui]) - 1, 0.0, -cost, lid, v, u, eidv))\n\n    # Build super source and sink by adding indices\n    S = N\n    T = N + 1\n    adj.append([]); adj.append([])\n    def add_edge(u, v, cap, cost, layer=None, orig_u=None, orig_v=None, eid=None):\n        adj[u].append(Edge(v, len(adj[v]), cap, cost, layer, orig_u, orig_v, eid))\n        adj[v].append(Edge(u, len(adj[u]) - 1, 0.0, -cost, layer, orig_v, orig_u, eid))\n\n    # Connect supplies to S and demands to T\n    for n, bal in node_balance.items():\n        i = nid[n]\n        if bal > 0:\n            add_edge(S, i, bal, 0.0)\n        elif bal < 0:\n            add_edge(i, T, -bal, 0.0)\n\n    # Min-cost max-flow (successive shortest augmenting path with potentials)\n    V = N + 2\n    INF = 1e18\n    potential = [0.0] * V\n    maxflow = 0.0\n    mincost = 0.0\n    flow_needed = total_supply\n\n    while maxflow + 1e-9 < flow_needed:\n        dist = [INF] * V\n        inq = [False] * V\n        prev_v = [-1] * V\n        prev_e = [-1] * V\n        dist[S] = 0.0\n        heap = [(0.0, S)]\n        while heap:\n            d, v = heapq.heappop(heap)\n            if d > dist[v] + 1e-12:\n                continue\n            for ei, e in enumerate(adj[v]):\n                if e.cap > 1e-12:\n                    nd = dist[v] + e.cost + potential[v] - potential[e.to]\n                    if nd + 1e-12 < dist[e.to]:\n                        dist[e.to] = nd\n                        prev_v[e.to] = v\n                        prev_e[e.to] = ei\n                        heapq.heappush(heap, (nd, e.to))\n        if dist[T] == INF:\n            # cannot send more flow\n            break\n        for v in range(V):\n            if dist[v] < INF/2:\n                potential[v] += dist[v]\n        # augment\n        addf = flow_needed - maxflow\n        v = T\n        while v != S:\n            e = adj[prev_v[v]][prev_e[v]]\n            addf = min(addf, e.cap)\n            v = prev_v[v]\n        if addf <= 0:\n            break\n        v = T\n        while v != S:\n            e = adj[prev_v[v]][prev_e[v]]\n            e.cap -= addf\n            adj[v][e.rev].cap += addf\n            # track flow on original edges if applicable\n            e.flow += addf\n            adj[v][e.rev].flow -= addf\n            v = prev_v[v]\n        maxflow += addf\n        mincost += addf * potential[T]\n\n    if abs(maxflow - flow_needed) > 1e-6:\n        return []\n\n    # After flow found, ensure critical nodes with non-zero balance are connected to at least one supply node in solution network.\n    # Build graph of used edges (forward edges with positive flow)\n    used_adj = defaultdict(list)\n    for u_idx in range(N):\n        for e in adj[u_idx]:\n            if e.flow > 1e-9:\n                used_adj[node_list[u_idx]].append(e.to if e.to < N else None)\n    # Find supply nodes that had supply >0\n    supplies = [n for n, b in node_balance.items() if b > 0]\n    # BFS from supplies over used edges (treat inter-layer via node ids)\n    reachable = set()\n    dq = deque()\n    for s in supplies:\n        reachable.add(s)\n        dq.append(s)\n    while dq:\n        cur = dq.popleft()\n        for to_idx in used_adj.get(cur, []):\n            if to_idx is None:\n                continue\n            to_node = node_list[to_idx]\n            if to_node not in reachable:\n                reachable.add(to_node)\n                dq.append(to_node)\n    # Check critical nodes with non-zero balance\n    for cn, weight in crit.items():\n        bal = node_balance.get(cn, 0.0)\n        if abs(bal) > 1e-9:\n            if cn not in reachable:\n                return []\n\n    # Collect edges used with positive flow and map back to layer and endpoints (unique)\n    selected = []\n    seen = set()\n    for u_idx in range(N):\n        u_node = node_list[u_idx]\n        for e in adj[u_idx]:\n            # original forward edges we added from graph creation have attributes layer not None and eid set\n            if e.layer is not None and e.flow > 1e-9:\n                key = (e.layer, e.orig_u, e.orig_v)\n                if key not in seen:\n                    seen.add(key)\n                    selected.append({\"layer_id\": e.layer, \"from\": e.orig_u, \"to\": e.orig_v})\n    return selected"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 3054,
+    "input_tokens_details": {
+      "cached_tokens": 2944
+    },
+    "output_tokens": 1952,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 5006
+  },
+  "user": null,
+  "metadata": {}
+}

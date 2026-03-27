@@ -1,0 +1,122 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+A global logistics company manages a network of regional distribution hubs that deliver multiple products across interconnected routes. Each hub maintains total inventory, serves regional demand, and may be affected by temporary disruptions such as weather or infrastructure failures.
+
+The company needs a Python-based system that determines how much inventory should be rerouted between centers when disruptions occur. The model should minimize overall imbalance (difference between available and required inventory) while ensuring no hub exceeds capacity or runs out of stock.
+
+The solution must produce deterministic outputs given the same inputs, based on simple, rule-based logic rather than stochastic or probabilistic modeling.
+
+#### Objectives
+
+1. **Forecast and Allocation Logic**
+   Use the provided demand forecasts to determine which hubs have surplus or deficit inventory. Surplus is `inventory - total_forecast` for that hub (aggregating all products at that location). Deficits are positive values of `total_forecast - inventory`.
+
+2. **Routing Optimization**
+   Transfer inventory from surplus hubs to deficit hubs using their connectivity graph (`connected_centers`). Transfers can occur only between directly connected hubs or via a single intermediate hub (one-hop).
+   When multiple candidate senders exist, prioritize in this order:
+
+   * Hubs with higher surplus.
+   * Routes with smaller absolute `center_id` difference (i.e., nearest).
+   * Demands with lower `priority` numbers.
+     This ensures consistent and deterministic routing without randomness.
+
+3. **Disruption Adjustment**
+   Each disruption has a `severity` in the range `[0, 1]`. The effective available inventory of any affected hub is reduced by `severity × inventory`.
+   For example, if severity = 0.4 and inventory = 1000, effective inventory = 600.
+
+4. **Inventory Update**
+   After transfers, recalculate new inventory levels at all centers. Ensure no hub’s new inventory exceeds its `capacity` or drops below zero.
+   The total number of units transferred across all products must equal the sum of adjusted deficits that could be fulfilled based on available surplus.
+
+5. **Output Structure**
+   The output must specify all transfers as “routes” and final inventories as “inventory_adjustments”.
+
+#### Constraints
+
+* Use only built-in Python modules.
+* Time complexity must not exceed O(N²), where N = number of centers.
+* All inventories and quantities are integers.
+* No route may exceed the sender’s available surplus.
+* The same function name, parameters, and output structure must be maintained.
+* Inputs and outputs must exactly match the specified format.
+
+#### Function Signature
+
+```python
+def optimize_supply_chain(resources: list, demand_forecasts: list, disruption_factors: list) -> dict:
+    """Compute optimal transfer routes and updated inventories after disruptions."""
+    pass
+```
+
+#### Sample Input
+
+```python
+resources = [
+    {'center_id': 1, 'inventory': 1000, 'location': 'North', 'capacity': 1300, 'connected_centers': [2]},
+    {'center_id': 2, 'inventory': 1800, 'location': 'South', 'capacity': 2000, 'connected_centers': [1, 3]},
+    {'center_id': 3, 'inventory': 500,  'location': 'East',  'capacity': 800,  'connected_centers': [2]}
+]
+
+demand_forecasts = [
+    {'product_id': 'A', 'forecast': 600, 'location': 'North', 'priority': 1},
+    {'product_id': 'B', 'forecast': 900, 'location': 'South', 'priority': 2},
+    {'product_id': 'A', 'forecast': 300, 'location': 'East',  'priority': 1}
+]
+
+disruption_factors = [
+    {'type': 'weather', 'severity': 0.4, 'affected_centers': [3]},
+    {'type': 'political', 'severity': 0.2, 'affected_centers': [2]},
+    {'type': 'infrastructure', 'severity': 0.1, 'affected_centers': [1, 2]}
+]
+```
+
+#### Deterministic Rules Used in Computation
+
+1. Effective inventory = `inventory × (1 − total_severity)` where total_severity is the sum of all severities affecting that center (capped at 1.0).
+2. Compute total forecast per location by summing forecasts of all products for that location.
+3. Deficit hubs request inventory from the most suitable surplus hub based on the priority order stated above.
+4. Transfers follow direct or one-hop paths only. When multiple one-hop paths exist, choose the one minimizing the total `center_id` distance.
+5. Results must reflect these fixed rules with no randomness or probabilistic behavior.
+
+#### Sample Output
+
+```json
+{
+  "routes": [
+    {"from": "North", "to": "East", "product_id": "A", "quantity": 200},
+    {"from": "South", "to": "East", "product_id": "A", "quantity": 100},
+    {"from": "South", "to": "North", "product_id": "B", "quantity": 150}
+  ],
+  "inventory_adjustments": [
+    {"center_id": 1, "new_inventory": 950},
+    {"center_id": 2, "new_inventory": 1550},
+    {"center_id": 3, "new_inventory": 800}
+  ]
+}
+```
+
+#### Expected Output Format
+
+Return a dictionary with:
+
+* `"routes"` – list of transfers with `"from"`, `"to"`, `"product_id"`, and `"quantity"`.
+* `"inventory_adjustments"` – list of dictionaries showing each `"center_id"` and its `"new_inventory"` after applying disruptions and transfers.
+
+Starter Code:
+```python
+from typing import List, Dict, Any, Tuple
+
+from collections import defaultdict
+
+def optimize_supply_chain(resources: list, demand_forecasts: list, disruption_factors: list) -> dict:
+    pass
+```

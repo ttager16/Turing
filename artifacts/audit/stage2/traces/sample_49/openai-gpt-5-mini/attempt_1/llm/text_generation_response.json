@@ -1,0 +1,76 @@
+{
+  "id": "resp_0507fedc7117b71a0069c3269c495881979ca9f6cd901a42b9",
+  "object": "response",
+  "created_at": 1774397084,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774397116,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0507fedc7117b71a0069c3269cbfc481978ec6369f7c09cccf",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0507fedc7117b71a0069c3269d06148197af8a5a5bc8dc48ec",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any\n\ndef optimize_supply_chain_routes(distribution_centers: List[Dict], destinations: List[Dict],\n                                 cost_matrix: List[List[float]], time_windows: List) -> Dict[str, Any]:\n    # Input validations\n    if not isinstance(distribution_centers, list) or not isinstance(destinations, list) or not isinstance(cost_matrix, list) or not isinstance(time_windows, list):\n        return {\"error\": \"Input is not valid\"}\n    if len(destinations) == 0:\n        return {\"error\": \"Empty destination list provided\"}\n    num_dc = len(distribution_centers)\n    num_dest = len(destinations)\n    # cost_matrix dimensions\n    if any(not isinstance(row, list) or len(row) != num_dest for row in cost_matrix) or len(cost_matrix) != num_dc:\n        return {\"error\": \"Invalid cost matrix dimensions\"}\n    # negative costs\n    for row in cost_matrix:\n        for v in row:\n            try:\n                if v < 0:\n                    return {\"error\": \"Negative cost detected in cost matrix\"}\n            except Exception:\n                return {\"error\": \"Input is not valid\"}\n    # time windows validation length\n    if len(time_windows) != num_dest:\n        return {\"error\": \"Input is not valid\"}\n    # validate time windows\n    try:\n        spans = []\n        for idx, tw in enumerate(time_windows):\n            if not (isinstance(tw, (list, tuple)) and len(tw) == 2):\n                return {\"error\": \"Input is not valid\"}\n            earliest, latest = tw\n            if not (isinstance(earliest, int) and isinstance(latest, int)):\n                return {\"error\": \"Input is not valid\"}\n            if earliest >= latest:\n                return {\"error\": f\"Invalid time window for destination {destinations[idx].get('id', idx)}\"}\n            spans.append(latest - earliest)\n    except Exception:\n        return {\"error\": \"Input is not valid\"}\n    # compute urgency multiplier\n    max_time_span = max(spans) if spans else 0\n    urgency_multiplier = 0.75 * max_time_span\n    # prepare DC lookup and capacities\n    dc_by_index = {}\n    for i, dc in enumerate(distribution_centers):\n        if not isinstance(dc, dict):\n            return {\"error\": \"Input is not valid\"}\n        if 'id' not in dc or 'capacity' not in dc or 'base_cost' not in dc or 'efficiency_factor' not in dc:\n            return {\"error\": \"Input is not valid\"}\n        dc_by_index[i] = {\n            \"id\": dc['id'],\n            \"capacity\": dc['capacity'],\n            \"remaining\": dc['capacity'],\n            \"base_cost\": float(dc['base_cost']),\n            \"efficiency_factor\": float(dc['efficiency_factor'])\n        }\n    # prepare destinations list with indices mapping\n    dest_list = []\n    for j, dest in enumerate(destinations):\n        if not isinstance(dest, dict) or 'id' not in dest or 'demand' not in dest or 'priority_level' not in dest:\n            return {\"error\": \"Input is not valid\"}\n        dest_list.append({\n            \"index\": j,\n            \"id\": dest['id'],\n            \"demand\": int(dest['demand']),\n            \"priority_level\": int(dest['priority_level']),\n            \"time_window\": time_windows[j]\n        })\n    # Feasibility: greedy loop\n    assignments = []\n    unassigned = []\n    assigned_flags = [False] * num_dest\n    total_system_cost = 0.0\n    # Precompute scheduled times (midpoints)\n    scheduled_times = []\n    for tw in time_windows:\n        scheduled_times.append((tw[0] + tw[1]) // 2)\n    # While unassigned remain, find best feasible (dc,dest) with minimal weighted_cost\n    remaining_to_assign = num_dest\n    # To ensure deterministic tie-breaking, sort by destination id then dc id where needed\n    while remaining_to_assign > 0:\n        best = None  # tuple (weighted_cost, priority_level, dest_index, dc_index, details)\n        for dest in dest_list:\n            idx = dest['index']\n            if assigned_flags[idx]:\n                continue\n            demand = dest['demand']\n            priority = dest['priority_level']\n            if priority <= 0:\n                return {\"error\": \"Input is not valid\"}\n            for i in range(num_dc):\n                dc = dc_by_index[i]\n                if demand > dc['remaining']:\n                    continue\n                try:\n                    trans_cost = float(cost_matrix[i][idx])\n                except Exception:\n                    return {\"error\": \"Input is not valid\"}\n                base_cost = dc['base_cost']\n                eff = dc['efficiency_factor']\n                operational_cost = base_cost * demand * eff\n                total_route_cost = trans_cost + operational_cost\n                urgency_weight = urgency_multiplier / (priority * 10.0)\n                weighted_cost = total_route_cost - urgency_weight\n                candidate = (weighted_cost, priority, dest['id'], dc['id'], {\n                    \"dc_index\": i,\n                    \"dest_index\": idx,\n                    \"transportation_cost\": trans_cost,\n                    \"operational_cost\": operational_cost,\n                    \"total_route_cost\": total_route_cost,\n                    \"scheduled_delivery_time\": scheduled_times[idx]\n                })\n                # Select minimal weighted_cost; tie-breaker: lower priority_level (higher priority), then lower dest id, then lower dc id\n                if best is None:\n                    best = candidate\n                else:\n                    if candidate[0] < best[0]:\n                        best = candidate\n                    elif abs(candidate[0] - best[0]) < 1e-9:\n                        # tie-break by priority (lower number better)\n                        if candidate[1] < best[1]:\n                            best = candidate\n                        elif candidate[1] == best[1]:\n                            if candidate[2] < best[2]:\n                                best = candidate\n                            elif candidate[2] == best[2]:\n                                if candidate[3] < best[3]:\n                                    best = candidate\n        if best is None:\n            # no feasible assignment remains\n            break\n        # assign best\n        details = best[4]\n        dc_idx = details['dc_index']\n        dest_idx = details['dest_index']\n        dc = dc_by_index[dc_idx]\n        demand = dest_list[dest_idx]['demand']\n        if demand > dc['remaining']:\n            return {\"error\": f\"Capacity exceeded for distribution center {dc['id']}\"}\n        dc['remaining'] -= demand\n        assigned_flags[dest_idx] = True\n        remaining_to_assign -= 1\n        assignment_record = {\n            \"distribution_center_id\": dc['id'],\n            \"destination_id\": dest_list[dest_idx]['id'],\n            \"transportation_cost\": round(details['transportation_cost'], 4),\n            \"operational_cost\": round(details['operational_cost'], 4),\n            \"total_route_cost\": round(details['total_route_cost'], 4),\n            \"scheduled_delivery_time\": details['scheduled_delivery_time']\n        }\n        assignments.append(assignment_record)\n        total_system_cost += details['total_route_cost']\n    # Any unassigned\n    for dest in dest_list:\n        if not assigned_flags[dest['index']]:\n            unassigned.append(dest['id'])\n    if unassigned:\n        # If unassigned due to capacity, check if any DC would be exceeded by attempting assignment (report first offending DC if known)\n        # The spec says to return capacity exceeded during assignment; here we return unassigned list in output\n        return {\n            \"assignments\": assignments,\n            \"total_system_cost\": round(total_system_cost, 4),\n            \"unassigned_destinations\": unassigned\n        }\n    return {\n        \"assignments\": assignments,\n        \"total_system_cost\": round(total_system_cost, 4),\n        \"unassigned_destinations\": []\n    }"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2173,
+    "input_tokens_details": {
+      "cached_tokens": 2048
+    },
+    "output_tokens": 1685,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3858
+  },
+  "user": null,
+  "metadata": {}
+}

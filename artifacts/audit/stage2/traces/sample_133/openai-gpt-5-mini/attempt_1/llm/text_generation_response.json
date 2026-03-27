@@ -1,0 +1,76 @@
+{
+  "id": "resp_0fcb8712fad876e40069c33e2afb9081a2908f0b26716e21a4",
+  "object": "response",
+  "created_at": 1774403115,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774403126,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0fcb8712fad876e40069c33e2b43a881a2be0c66e89951b34c",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0fcb8712fad876e40069c33e2b81b481a2a9afada37019629c",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "def find_minimal_vertex_cover(graph: dict, queries: list) -> list:\n    from itertools import combinations\n\n    # Parse layers: map layer_id -> dict(node -> set(dest))\n    layers = {}\n    for k, dests in graph.items():\n        # keys are strings like \"[1, 1]\" or could be list/list-like; handle string form\n        if isinstance(k, str):\n            try:\n                # safe parse assuming format \"[node, layer]\"\n                s = k.strip()\n                if s.startswith('[') and s.endswith(']'):\n                    a, b = s[1:-1].split(',')\n                    node = int(a.strip())\n                    layer = int(b.strip())\n                else:\n                    continue\n            except Exception:\n                continue\n        elif isinstance(k, (list, tuple)) and len(k) == 2:\n            node, layer = int(k[0]), int(k[1])\n        else:\n            continue\n        layers.setdefault(layer, {}).setdefault(node, set()).update(int(v) for v in dests)\n\n    results = []\n\n    for q_nodes, q_updates in queries:\n        # set of nodes referenced in query (initial)\n        qnode_set = set(int(x) for x in q_nodes)\n        # collect edges from any layer that contains at least one node referenced by the query\n        directed_edges = set()\n        # include edges from layers where any layer node is in qnode_set\n        for layer_dict in layers.values():\n            # if any node in this layer_dict intersects qnode_set\n            if any(node in qnode_set for node in layer_dict.keys()):\n                for u, dests in layer_dict.items():\n                    for v in dests:\n                        directed_edges.add((int(u), int(v)))\n        # apply query updates (add edges)\n        for e in q_updates:\n            if not e:\n                continue\n            u, v = int(e[0]), int(e[1])\n            directed_edges.add((u, v))\n            # ensure temporarily added nodes are considered\n            qnode_set.add(u)\n            qnode_set.add(v)\n        # build undirected edge set\n        undirected = set()\n        nodes_set = set()\n        for u, v in directed_edges:\n            a, b = (u, v) if u <= v else (v, u)\n            undirected.add((a, b))\n            nodes_set.add(u); nodes_set.add(v)\n        # also ensure nodes from q_nodes present even if isolated\n        nodes_set.update(qnode_set)\n\n        # If no edges, minimal cover is empty list\n        if not undirected:\n            results.append([])\n            continue\n\n        n = len(nodes_set)\n        # Map nodes to indices for bitmasking if small\n        nodes_list = sorted(nodes_set)\n        idx = {node: i for i, node in enumerate(nodes_list)}\n\n        # If small (<=40), do exact via bitmask search (branch and bound over increasing size)\n        if n <= 40:\n            # Precompute edge masks\n            edge_masks = []\n            for u, v in undirected:\n                m = (1 << idx[u]) | (1 << idx[v])\n                edge_masks.append(m)\n            total_edges = len(edge_masks)\n\n            # Try increasing sizes\n            found_cover = None\n            for k in range(0, n + 1):\n                # iterate combinations of indices of size k\n                for comb in combinations(range(n), k):\n                    mask = 0\n                    for i in comb:\n                        mask |= (1 << i)\n                    ok = True\n                    for em in edge_masks:\n                        if (mask & em) == 0:\n                            ok = False\n                            break\n                    if ok:\n                        found_cover = [nodes_list[i] for i in comb]\n                        break\n                if found_cover is not None:\n                    break\n            results.append(found_cover if found_cover is not None else [])\n        else:\n            # Approximation 2-approx via greedy maximal matching\n            remaining = set(undirected)\n            cover = set()\n            # build adjacency for quick removal\n            adj = {}\n            for u, v in undirected:\n                adj.setdefault(u, set()).add(v)\n                adj.setdefault(v, set()).add(u)\n            while remaining:\n                # take arbitrary edge\n                u, v = next(iter(remaining))\n                cover.add(u); cover.add(v)\n                # remove all edges incident to u or v\n                to_remove = []\n                for x, y in list(remaining):\n                    if x == u or x == v or y == u or y == v:\n                        remaining.discard((x, y))\n                # continue\n            results.append(sorted(cover))\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2340,
+    "input_tokens_details": {
+      "cached_tokens": 2304
+    },
+    "output_tokens": 997,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3337
+  },
+  "user": null,
+  "metadata": {}
+}

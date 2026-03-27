@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6aSdCXNvqQ47sCTRr9pvCxDXv6i",
+  "object": "chat.completion",
+  "created": 1774399236,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[[\\\"remove\\\", 0], [\\\"remove\\\", -1], [\\\"update\\\", 1, 5], [\\\"add\\\", 100], [\\\"query\\\", 1], [\\\"update\\\", 1, -150], [\\\"query\\\", 1], [\\\"add\\\", 50], [\\\"query\\\", 2]]\"],\"focus\":\"invalid removals/updates before any adds; updates that could drive stock negative; ensure operations are safely ignored or clamped and indices shift after adds\"},{\"input_lines\":[\"[[\\\"add\\\", 10], [\\\"add\\\", 20], [\\\"add\\\", 30], [\\\"add\\\", 40], [\\\"add\\\", 50], [\\\"query\\\", 5], [\\\"remove\\\", 3], [\\\"query\\\", 4], [\\\"update\\\", 2, 1000000], [\\\"add\\\", -100], [\\\"query\\\", 5], [\\\"remove\\\", 1], [\\\"remove\\\", 10], [\\\"query\\\", 3]]\"],\"focus\":\"middle removals that shift indices, very large delta update to test overflow handling, negative adds, and ignored out-of-range removal\"},{\"input_lines\":[\"[[\\\"query\\\", 1], [\\\"add\\\", 0], [\\\"add\\\", 0], [\\\"add\\\", 1], [\\\"update\\\", 3, -1], [\\\"query\\\", 3], [\\\"remove\\\", 3], [\\\"query\\\", 3], [\\\"add\\\", 5], [\\\"add\\\", 7], [\\\"remove\\\", 2], [\\\"update\\\", 3, 3], [\\\"query\\\", 10]]\"],\"focus\":\"format-sensitive sequences: queries on empty, zeros as values, removals at ends, updates on recently-removed indices, and queries beyond current size\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1273,
+    "completion_tokens": 1547,
+    "total_tokens": 2820,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1152,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

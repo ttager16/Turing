@@ -1,0 +1,114 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+A multinational logistics company operates a global network of warehouses and delivery hubs represented as a directed graph. Each location connects to others through transport routes, each having a defined capacity that represents the maximum amount of goods transferable per cycle. As supply and demand fluctuate, the company’s operations team uses an interactive graph-based optimization system to adjust route capacities in real time, for example, boosting high-demand corridors or lowering capacity on congested routes.
+
+Your task is to implement the core graph update module of this system. The function must process a batch of user-provided capacity adjustments while ensuring that the resulting graph remains valid, deterministic, and flow-ready for downstream optimization algorithms. The solution must validate input integrity, handle new or removed edges correctly, and maintain a consistent and independent graph structure suitable for large-scale operational use.
+
+
+### Objectives
+
+1. Apply Batched Capacity Adjustments
+   * Accept a directed graph and a list of capacity adjustments.
+   * Aggregate all deltas per edge before applying changes to ensure atomic, batch-level updates.
+2. Preserve Graph Validity
+   * Remove edges whose final capacity becomes less than or equal to zero only if they are affected by a non-zero aggregated delta. Pre-existing edges with zero capacity remain unchanged if untouched by the batch.
+   * Add new edges where positive capacity is introduced.
+   * Maintain all nodes that appear either in the original graph or the adjustments, even if they become isolated.
+3. Ensure Deterministic and Independent Output
+   * Guarantee lexicographically sorted keys for both nodes and edges.
+   * Enforce consistent structure and output ordering for reproducibility across runs.
+
+
+### Constraints
+
+* The solution must be implemented in pure Python with no external libraries.
+* The graph must be a dictionary mapping each warehouse (non-empty string) to another dictionary of outgoing edges.
+  - Each edge key must be a destination node (string), and the value must be an integer capacity (capacity >= 0).
+  - If this structure is violated, the function must return {}.
+* The adjustments list must contain lists of exactly three elements: [source, destination, delta].
+  - source and destination must be non-empty strings.
+  - delta must be an integer (positive or negative).
+  - If this structure is invalid, the function must return {}.
+* All capacity changes must follow batch-coalesced semantics:
+  - Compute the final capacity as final = current + sum_of_deltas.
+  - Intermediate negatives during aggregation are ignored.
+* Any self-loop (source == destination) in either the input graph or the adjustments must trigger an immediate {} return.
+* If both the input graph and the adjustment list are empty, the function must return {} immediately.
+* Every node name must consist only of uppercase English letters [A-Z], on violation, return {} immediately.
+* The output must include all nodes from both the original graph and adjustments (even those without outgoing edges).
+* Both outer and inner dictionaries must be sorted lexicographically.
+
+
+### Function Signature
+
+```python
+from typing import Dict, List
+
+def optimize_supply_chain_flow(
+    graph: Dict[str, Dict[str, int]],
+    user_adjustments: List[List]
+) -> Dict[str, Dict[str, int]]:
+    pass
+```
+
+
+### Sample Input
+
+Input:
+```python
+graph = {
+   'A': {'B': 10, 'C': 4},
+   'B': {'D': 8, 'E': 5},
+   'C': {'B': 2, 'E': 7},
+   'D': {'F': 6},
+   'E': {'F': 5},
+   'F': {}
+}
+
+user_adjustments = [
+   ['A', 'C', 3],
+   ['C', 'B', -1],
+   ['B', 'E', 10],
+   ['E', 'F', -2]
+   ]
+```
+
+### Sample Output
+```python
+Output:
+{
+   'A': {'B': 10, 'C': 7},
+   'B': {'D': 8, 'E': 15},
+   'C': {'B': 1, 'E': 7},
+   'D': {'F': 6},
+   'E': {'F': 3},
+   'F': {}
+}
+```
+### Expected Output Format
+
+* Return a dictionary of dictionaries reflecting all valid aggregated capacity updates.
+* Remove any edge whose final capacity after applying aggregated deltas is less than or equal to zero only if it was affected by a non-zero delta. Untouched edges remain as they are (including pre-existing zero-capacity edges).
+* Include every node from both the input and adjustments (even those with no outgoing edges).
+* Preserve lexicographic order for all keys.
+* Return {} for any invalid input, structure violation, or self-loop occurrence.
+
+Starter Code:
+```python
+from typing import Dict, List
+
+def optimize_supply_chain_flow(
+    graph: Dict[str, Dict[str, int]],
+    user_adjustments: List[List]
+) -> Dict[str, Dict[str, int]]:
+    pass
+```

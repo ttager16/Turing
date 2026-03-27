@@ -1,0 +1,50 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      1e-16,
+      0.0,
+      5,
+      0.0
+    ],
+    "input_lines": [
+      "1e-16",
+      "0.0",
+      "5",
+      "0.0"
+    ],
+    "focus": "division-safety-small-alpha-beta-sum"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      10.0,
+      0.5,
+      30,
+      1.0
+    ],
+    "input_lines": [
+      "10.0",
+      "0.5",
+      "30",
+      "1.0"
+    ],
+    "focus": "boundary-x-one-coefficient-sum-high-degree"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      -0.999999,
+      0.123456789,
+      3,
+      -1.0
+    ],
+    "input_lines": [
+      "-0.999999",
+      "0.123456789",
+      "3",
+      "-1.0"
+    ],
+    "focus": "alpha-near-minus-one-format-sensitive-x-minus-one"
+  }
+]

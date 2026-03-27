@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN7DnaYwkNwQG3i9bCII7TrPUwVWK",
+  "object": "chat.completion",
+  "created": 1774401675,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[0, 1, 2, 3, 4, 5, 6, 7]\",\n        \"[[0, 1, 40], [0, 2, 30], [1, 3, 25], [2, 3, 20], [3, 4, 50], [3, 5, 10], [4, 6, 30], [5, 6, 15], [6, 7, 45], [2, 5, 8], [1, 4, 12], [0, 3, 5]]\",\n        \"[0, 2]\",\n        \"7\",\n        \"[35, 20]\",\n        \"[[], [4]]\",\n        \"[1.0, 0.9, 1.0, 1.1, 0.95, 1.2, 1.0, 1.05, 0.9, 1.0, 1.4, 0.8]\",\n        \"\\\"dinic\\\"\"\n      ],\n      \"focus\": \"commodity-specific restriction forces one commodity off a high-capacity central edge onto a lower-capacity alternate path; non-uniform time multipliers; dinic\"\n    },\n    {\n      \"input_lines\": [\n        \"[0, 1, 2, 3, 4, 5]\",\n        \"[[0, 1, 10], [1, 2, 6], [2, 5, 10], [0, 3, 8], [3, 4, 5], [4, 5, 5]]\",\n        \"[0, 1]\",\n        \"5\",\n        \"[12, 8]\",\n        \"[[3], []]\",\n        \"[1.0, 1.0, 1.0, 0.8, 1.0, 1.2]\",\n        \"\\\"edmonds_karp\\\"\"\n      ],\n      \"focus\": \"small network with a narrow shared edge (1->2) creating capacity-limited behavior; one source blocked from direct shortcut; format-sensitive ordering; edmonds_karp\"\n    },\n    {\n      \"input_lines\": [\n        \"[0,1,2,3,4,5,6,7,8,9]\",\n        \"[[0,3,15],[0,4,10],[1,4,12],[1,5,10],[2,5,8],[3,6,10],[4,6,20],[5,7,9],[6,8,18],[7,8,10],[8,9,30],[4,5,5],[3,5,6],[7,6,4]]\",\n        \"[0,1,2]\",\n        \"9\",\n        \"[20,15,12]\",\n        \"[[6],[12],[11]]\",\n        \"[1.0, 1.2, 0.9, 1.1, 1.0, 0.95, 1.0, 1.3, 1.0, 0.8, 1.0, 1.0, 1.0, 1.0]\",\n        \"\\\"capacity_scaling\\\"\"\n      ],\n      \"focus\": \"three commodities with overlapping routes and asymmetric restrictions producing mixed limitations; capacity_scaling\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 4082,
+    "completion_tokens": 4521,
+    "total_tokens": 8603,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3776,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

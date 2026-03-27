@@ -1,0 +1,105 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement:
+You are managing a distributed IoT system where devices transition between states (active, standby, failed) and must be organised into clusters based on efficiency scores. Implement a solution using Union-Find with advanced data structures to handle dynamic cluster formation and state management.
+
+#### Objectives:
+1. **Dynamic Clustering:** Use Union-Find (optionally augmented with segment trees) to manage cluster merges and splits based on device efficiency.
+2. **State Management:** Handle device state transitions (active, standby, failed) that affect cluster membership.
+3. **Efficiency-Based Grouping:** Cluster devices based on compatibility rules and average efficiency thresholds.
+
+#### Constraints:
+- No external Python libraries allowed
+- All device IDs are unique positive integers
+- Efficiency scores are floats in the range [0.0, 1.0]
+- Operations processed sequentially
+
+#### Device States & Operations:
+- **Initial:** All input devices start in 'active' state
+- **'join':** Add new device in 'active' state (default efficiency: 0.80 if not in input)
+- **'fail':** Permanently remove device from all clusters
+- **'standby':** Temporarily exclude device from clusters (can be resumed)
+- **'resume':** Reactivate a 'standby' device back to 'active'
+
+#### Clustering Rules:
+1. Only 'active' devices appear in output clusters
+2. Devices with efficiency ≥ 0.75 can cluster together if their combined average efficiency ≥ 0.75
+3. Devices with efficiency < 0.75 form individual single-device clusters
+4. Output clusters sorted by minimum device_id; devices within clusters sorted ascending
+
+#### Edge Cases:
+- Operations on non-existent devices create them with efficiency 0.80
+- Duplicate operations (e.g., 'fail' twice) have no additional effect
+- 'resume' only works on 'standby' devices
+- Empty operations list returns clusters of all initial devices
+- All devices failed returning an empty list []
+
+#### Function Signature:
+```python
+def manage_device_clusters(devices: List[List], operations: List[List]) -> List[List[int]]:
+    """
+    Args:
+        devices: List of [device_id, efficiency_score] lists
+        operations: List of [operation_type, device_id] lists
+                   operation_type in ['join', 'fail', 'standby', 'resume']
+    
+    Returns:
+        List of clusters, each cluster is a sorted list of device IDs
+    """
+    pass
+```
+
+#### Example:
+**Input:**
+```python
+devices = [[1, 0.92], [2, 0.88], [3, 0.75], [4, 0.66]]
+operations = [
+    ['join', 5],
+    ['standby', 2],
+    ['fail', 3],
+    ['resume', 2]
+]
+```
+
+**Output:**
+```python
+[
+    [1, 2, 5],  # avg efficiency: (0.92+0.88+0.80)/3 = 0.867 ≥ 0.75
+    [4]         # efficiency 0.66 < 0.75, separate cluster
+]
+```
+
+**Explanation:**
+- Device 5 added with efficiency 0.80
+- Device 2 goes to standby, then resumes (back in cluster)
+- Device 3 failed (removed)
+- Device 4 has low efficiency, forms its own cluster
+
+#### Expected Output Format:
+Return a list of clusters where:
+- Each cluster is a list of device IDs in ascending order
+- Clusters are sorted by their minimum device_id
+- Only 'active' state devices are included
+
+Starter Code:
+```python
+from typing import List
+def manage_device_clusters(devices: List[List], operations: List[List]) -> List[List[int]]:
+    """
+    Args:
+        devices: List of [device_id, efficiency_score] lists
+        operations: List of [operation_type, device_id] lists
+                   operation_type in ['join', 'fail', 'standby', 'resume']
+    
+    Returns:
+        List of clusters, each cluster is a sorted list of device IDs
+    """
+    pass
+```

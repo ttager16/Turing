@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: compute_dynamic_shortest_paths\n\nProblem Statement:\n### Problem Statement\n\nA logistics company manages a network of directed roads connecting multiple cities. Each road has a base travel cost and several operational constraints, such as traffic congestion, maintenance level, capacity tier, and time-of-day availability. Over time, these constraints change as the company receives updates reflecting new road conditions or policy adjustments. The company must continually determine, for every city in the network, the most cost-effective route to any reachable destination city with no outgoing roads (a terminal).\n\nYour task is to build a deterministic system that maintains the directed graph of roads, applies constraint updates correctly, and computes the most efficient travel routes according to a precise cost formula. The system must handle overlapping updates, missing constraints, time-window restrictions, zero-cost edges, asymmetric links, and tie situations, always producing consistent and reproducible routes.\n\n\n### Objectives\n\n1. Dynamic Graph Management\n   * Represent the road network as a directed graph where each edge stores [base_cost, constraints_dict].\n   * Apply each update by merging its constraint keys into the existing edge’s dictionary (key-wise override, unmentioned keys persist).\n   * Do not create new edges for unknown pairs, such updates are ignored.\n2. Compound Edge Cost Evaluation\n   * Compute effective_cost for each available edge:\n     - effective_cost = base_cost × traffic(default=1.0) × maintenance(default=1.0) × (1 + 0.25 × max(capacity_tier(default=1) − 1, 0))\n   * Time windows control availability: an edge is usable only if time_window_start <= time_of_day <= time_window_end (inclusive).\n     * If either bound is missing, treat the edge as always available.\n     * If unavailable, treat it as having infinite cost (effectively absent).\n   * All edge costs are non-negative, zero is allowed.\n3. Efficient Route Computation\n   After applying all updates, compute the shortest path from every city to its nearest reachable terminal.\n   The process must yield deterministic results for identical inputs.\n4. Deterministic Route Output\n   For each origin city, return a list of city names representing its optimal route to a terminal.\n   * If no terminal is reachable, return [origin].\n   * Tie-breaking (strict):\n     1. Lowest total cost (within precision tolerance).\n     2. Lexicographically smallest full path.\n     3. Fewer hops.\n     4. Lexicographically smaller next hop.\n\n\n### Constraints\n\n- The solution must be implemented in pure Python, with no external libraries allowed.\n- The graph must be represented as a dictionary mapping each city (a nonempty string) to a list of outgoing edges. If the graph is not a dictionary, the function must return {}.\n- Each edge must be a list containing exactly three elements: the destination city (string), the base cost (integer), and a constraints dictionary. If any edge deviates from this structure, the function must return {}\n- The base cost for every edge must be a non-negative integer (base_cost >= 0). If any edge has a negative base cost, the function must return {}\n- Allowed constraint keys are strictly limited to traffic, maintenance, capacity_tier, time_window_start, and time_window_end. If a constraint dictionary contains invalid data types for these keys, the function must return {}.\n- The traffic and maintenance values must be positive floats, and capacity_tier must be an integer greater than or equal to 1. Any violation of these conditions must result in returning {}.\n- The time_window_start and time_window_end values must be integers representing valid hour boundaries (0 to 24). Invalid or non-integer time window values must cause the function to return {}.\n- time_of_day must be an integer 0 ≤ time_of_day < 24, otherwise return {}\n- Any unknown or unsupported constraint keys must be ignored silently and must not trigger an error.\n- The value 24 represents the end of the day and is valid only as an end bound for a time window. If used elsewhere, the function must return {}.\n- Any edge that connects a city to itself (a self-loop) must be ignored completely during computation. Encountering malformed self-loop definitions must result in {}.\n- Any edge that is unavailable due to its time window at the given time_of_day must be treated as having infinite cost and excluded from path calculations.\n- Edges with a zero cost must be supported correctly and must not cause infinite traversal loops.\n- If both the graph and the updates list are empty, the function must return an empty dictionary {} immediately.\n\n### Function Signature\n\n```python\ndef compute_dynamic_shortest_paths(\n    graph: Dict[str, List[List[Any]]],\n    updates: List[List[Any]],\n    time_of_day: int\n) -> Dict[str, List[str]]:\n    \"\"\"\n    Return a dict mapping each city to a list representing its optimal route to a terminal.\n    \"\"\"\n```\n\n### Sample Input\n\n```python\ngraph = {\n    \"A\": [\n        [\"B\", 10, {\"traffic\": 1.0, \"capacity_tier\": 1}],\n        [\"C\", 15, {\"traffic\": 1.5, \"time_window_start\": 8, \"time_window_end\": 20}]\n    ],\n    \"B\": [\n        [\"C\", 5, {\"traffic\": 1.0, \"maintenance\": 0.9}],\n        [\"D\", 20, {\"traffic\": 1.2, \"capacity_tier\": 2}]\n    ],\n    \"C\": [\n        [\"D\", 10, {\"traffic\": 1.1, \"maintenance\": 0.95}]\n    ],\n    \"D\": []\n}\ntime_of_day = 12\nupdates = [\n    [\"A\", \"B\", {\"capacity_tier\": 3}],\n    [\"B\", \"D\", {\"maintenance\": 0.7, \"time_window_start\": 10, \"time_window_end\": 18}]\n]\n```\n\n\n#### Sample Output\n\n```python\n{\n    \"A\": [\"A\", \"B\", \"C\", \"D\"],\n    \"B\": [\"B\", \"C\", \"D\"],\n    \"C\": [\"C\", \"D\"],\n    \"D\": [\"D\"]\n}\n```\n\n### Output\n\n- A dictionary mapping each city to its route (list of city names).\n- Every city appears once.\n- If a city cannot reach any terminal, output [city].\n\nStarter Code:\n```python\nfrom typing import Any, Dict, List\nimport heapq\n\ndef compute_dynamic_shortest_paths(\n    graph: Dict[str, List[List[Any]]],\n    updates: List[List[Any]],\n    time_of_day: int\n) -> Dict[str, List[str]]:\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"{\\\"A\\\": [[\\\"B\\\", 10, {\\\"traffic\\\": 1.0, \\\"capacity_tier\\\": 1}], [\\\"C\\\", 15, {\\\"traffic\\\": 1.5, \\\"time_window_start\\\": 8, \\\"time_window_end\\\": 20}]], \\\"B\\\": [[\\\"C\\\", 5, {\\\"traffic\\\": 1.0, \\\"maintenance\\\": 0.9}], [\\\"D\\\", 20, {\\\"traffic\\\": 1.2, \\\"capacity_tier\\\": 2}]], \\\"C\\\": [[\\\"D\\\", 10, {\\\"traffic\\\": 1.1, \\\"maintenance\\\": 0.95}]], \\\"D\\\": []}\\n[[\\\"A\\\", \\\"B\\\", {\\\"capacity_tier\\\": 3}], [\\\"B\\\", \\\"D\\\", {\\\"maintenance\\\": 0.7, \\\"time_window_start\\\": 10, \\\"time_window_end\\\": 18}]]\\n12\",\n    \"output\": \"{\\\"A\\\": [\\\"A\\\", \\\"B\\\", \\\"C\\\", \\\"D\\\"], \\\"B\\\": [\\\"B\\\", \\\"C\\\", \\\"D\\\"], \\\"C\\\": [\\\"C\\\", \\\"D\\\"], \\\"D\\\": [\\\"D\\\"]}\"\n  },\n  {\n    \"input\": \"{\\\"A\\\": [[\\\"B\\\", 5, {\\\"traffic\\\": 1}]], \\\"B\\\": []}\\n[]\\n9\",\n    \"output\": \"{\\\"A\\\": [\\\"A\\\", \\\"B\\\"], \\\"B\\\": [\\\"B\\\"]}\"\n  },\n  {\n    \"input\": \"{\\\"A\\\": [[\\\"B\\\", 3, {\\\"traffic\\\": 1}]], \\\"B\\\": [[\\\"C\\\", 2, {\\\"traffic\\\": 1}]], \\\"C\\\": []}\\n[]\\n10\",\n    \"output\": \"{\\\"A\\\": [\\\"A\\\", \\\"B\\\", \\\"C\\\"], \\\"B\\\": [\\\"B\\\", \\\"C\\\"], \\\"C\\\": [\\\"C\\\"]}\"\n  }\n]\n"
+    }
+  ]
+}

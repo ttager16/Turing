@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[]\n[]",
+    "output_text": "[]"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[\"zara\", \"amy\", \"bob\", \"carl\"]\n[[\"union\", \"zara\", \"amy\"], [\"union\", \"amy\", \"bob\"], [\"union\", \"bob\", \"zara\"], [\"split\", \"zara\", \"amy\"], [\"rekey\", \"bob\", \"carl\"], [\"find\", \"zara\", \"amy\"], [\"find\", \"amy\", \"carl\"], [\"union\", \"carl\", \"amy\"], [\"find\", \"carl\", \"zara\"]]",
+    "output_text": "[true, false, true]"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[\"a\", \"b\", \"c\", \"d\"]\n[[\"union\", \"a\", \"b\"], [\"union\", \"b\", \"c\"], [\"union\", \"c\", \"d\"], [\"find\", \"a\", \"d\"], [\"split\", \"b\", \"c\"], [\"find\", \"a\", \"d\"], [\"find\", \"a\", \"b\"], [\"find\", \"c\", \"d\"]]",
+    "output_text": "[true, false, true, true]"
+  }
+]

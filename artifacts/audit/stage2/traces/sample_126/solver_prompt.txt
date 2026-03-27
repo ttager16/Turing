@@ -1,0 +1,172 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### **Problem Statement**
+
+In a modern smart city, municipal agencies are coordinating multiple infrastructure networks such as roads, electricity grids, and rail systems. These networks are modeled as a **multi-layered graph**, where each **layer** represents a distinct infrastructure system.
+
+Each layer consists of **intersections** (nodes) connected by **conduits** (edges). Every conduit has an associated **cost**, representing maintenance, operation, or distance. Some conduits may be **mandatory** (must always remain active due to safety or regulation), while others may be **prohibited** (cannot be used regardless of cost benefit).
+
+The task is to build and dynamically maintain an **Integrated Multi-Layer Spanning Subgraph** — a structure that connects all intersections (across all layers) with the **minimum total cost**, while adapting to changes such as conduit cost updates, new conduit activations, or regulatory mandates.
+
+The algorithm must correctly update the subgraph after every change while maintaining validity (connectivity, minimal cost, and regulatory compliance).
+Performance should be computationally efficient and realistic for test cases (for example, within polynomial time).
+
+---
+
+### **Definitions**
+
+* **Layer**: A numbered level of infrastructure (e.g., 0 = roads, 1 = electric grid, 2 = rail network).
+* **Intersection (node)**: A unique integer representing a connection point in the infrastructure.
+* **Conduit (edge)**: A connection between two intersections in a given layer, represented as `[layer, node1, node2]`.
+* **Cost**: A non-negative integer representing the conduit’s weight or expense.
+* **Mandatory conduit**: A conduit that must always be included in the spanning subgraph.
+* **Prohibited conduit**: A conduit that must not be included in the subgraph under any circumstance.
+* **Integrated Multi-Layer Spanning Subgraph**: A minimal-cost set of conduits that ensures all intersections (in all layers) are connected, directly or indirectly, through at least one valid conduit.
+
+---
+
+### **Objectives**
+
+1. **Initial Construction**
+   Build the minimum-cost spanning subgraph across all layers that connects all intersections through available conduits.
+
+2. **Regulatory Enforcement**
+   Incorporate directives that can:
+
+   * Add **mandatory** conduits (which must be included).
+   * Add **prohibited** conduits (which must be excluded).
+
+3. **Dynamic Update Handling**
+   Efficiently update the spanning subgraph when:
+
+   * The cost of a conduit changes.
+   * A conduit is newly added or decommissioned.
+   * A regulatory rule marks a conduit as **MANDATORY** or **PROHIBITED**.
+
+4. **Scalability**
+   The algorithm must handle updates efficiently (e.g., logarithmic or near-logarithmic per update is ideal but not strictly required). The focus is on correctness and realistic performance, not hardware-dependent “real-time” constraints.
+
+---
+
+### **Constraints**
+
+* Each conduit is represented as a unique **list** `[layer, node1, node2]`.
+* Costs are **non-negative integers** and can change dynamically.
+* **Mandatory conduits** cannot be removed.
+* **Prohibited conduits** cannot be added to the spanning subgraph.
+* All updates are processed sequentially, and after each update, the subgraph must remain connected and valid.
+* If two conduits connect the same intersections in different layers, only one of them can be active at a time (to prevent redundant infrastructure overlap).
+* When a conduit becomes MANDATORY, any other conduit forming a cycle with it must have higher total cost before being considered for inclusion.
+
+---
+
+### **Function Signature**
+
+```python
+def dynamic_mst(
+    graph: Dict[str, int],
+    updates: List[List[Union[List[int], Union[int, str]]]]
+) -> List[List[int]]:
+    pass
+```
+
+---
+
+### **Input Format**
+
+* **graph**:
+  A dictionary where:
+
+  * Each key is a **string** form of the conduit list (e.g., `"[0, 1, 2]"`).
+  * Each value is an **integer** cost of that conduit.
+
+* **updates**:
+  A list of update instructions.
+  Each update is represented as a list:
+  `[ [layer, node1, node2], value ]`
+  where `value` can be:
+
+  * an **integer** (new cost), or
+  * a **string** directive (`"MANDATORY"` or `"PROHIBITED"`).
+
+---
+
+### **Output Format**
+
+A list of lists, where each inner list `[layer, nodeA, nodeB]` represents a conduit included in the current **minimum-cost integrated spanning subgraph** after all updates have been applied.
+
+The order of conduits in the output list does not matter.
+
+---
+
+### **Sample Input**
+
+```python
+graph = {
+    "[0, 1, 2]": 4,
+    "[0, 2, 3]": 7,
+    "[1, 1, 2]": 3,
+    "[1, 2, 3]": 5,
+    "[2, 3, 4]": 2
+}
+
+updates = [
+    [[1, 1, 2], 1],            # Update cost of conduit [1,1,2] to 1
+    [[2, 3, 4], "MANDATORY"]   # Make conduit [2,3,4] mandatory
+]
+```
+
+---
+
+### **Sample Output**
+
+```python
+[[1, 2, 3], [2, 3, 4], [1, 1, 2]]
+```
+
+---
+
+### **Explanation of Sample**
+
+1. **Initial Graph:**
+   The graph defines conduits across three layers, each with a cost representing its connection weight between intersections.
+
+2. **First Update – Cost Change:**
+   The update `[[1, 1, 2], 1]` lowers the cost of conduit `[1, 1, 2]` from 3 to 1, making it the most cost-efficient link between nodes 1 and 2.
+
+3. **Second Update – Mandatory Rule:**
+   The update `[[2, 3, 4], "MANDATORY"]` marks conduit `[2, 3, 4]` as mandatory, so it must always be part of the subgraph.
+
+4. **Final Subgraph Construction:**
+   After applying updates, the algorithm forms the minimum-cost spanning subgraph while ensuring full connectivity and compliance with the mandatory rule.
+   The resulting subgraph:
+
+   ```python
+   [[1, 2, 3], [2, 3, 4], [1, 1, 2]]
+   ```
+
+   * `[1, 1, 2]`: low-cost link (cost = 1).
+   * `[1, 2, 3]`: connects remaining intersections within the same layer.
+   * `[2, 3, 4]`: mandatory conduit ensuring inclusion of node 4.
+
+5. **Result:**
+   All intersections (1–4) remain connected with minimum total cost, following both update rules.
+
+Starter Code:
+```python
+from typing import Dict, List, Union, Set, Tuple, Optional
+import ast
+
+def dynamic_mst(
+    graph: Dict[str, int],
+    updates: List[List[Union[List[int], Union[int, str]]]]
+) -> List[List[int]]:
+    pass
+```

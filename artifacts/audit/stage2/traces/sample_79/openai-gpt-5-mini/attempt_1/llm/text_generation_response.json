@@ -1,0 +1,76 @@
+{
+  "id": "resp_0f48788bf9a799300069c32d7ae5a88196bdff067bd7cceb77",
+  "object": "response",
+  "created_at": 1774398842,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774398856,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0f48788bf9a799300069c32d7b35f88196a74cf0641f156a82",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0f48788bf9a799300069c32d7b617481969e0c13024aae8303",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List\n\nclass PairNode:\n    __slots__ = ('key','value','child','sibling')\n    def __init__(self, key, value):\n        self.key = key\n        self.value = value\n        self.child = None\n        self.sibling = None\n\ndef meld(a: PairNode, b: PairNode):\n    if a is None: return b\n    if b is None: return a\n    if a.key <= b.key:\n        # attach b as first child of a\n        b.sibling = a.child\n        a.child = b\n        return a\n    else:\n        a.sibling = b.child\n        b.child = a\n        return b\n\ndef insert_node(root: PairNode, node: PairNode):\n    return meld(root, node)\n\ndef pop_min_node(root: PairNode):\n    if root is None:\n        return None, None\n    min_node = root\n    # two-pass pairing of children\n    # first pass: pair siblings left to right\n    pairs = []\n    child = root.child\n    while child:\n        a = child\n        b = None\n        nextsib = child.sibling\n        if nextsib:\n            b = nextsib\n            child = nextsib.sibling\n        else:\n            child = None\n        a.sibling = None\n        if b:\n            b.sibling = None\n            pairs.append(meld(a, b))\n        else:\n            pairs.append(a)\n    # second pass: meld right-to-left\n    newroot = None\n    for node in reversed(pairs):\n        newroot = meld(newroot, node)\n    return min_node, newroot\n\ndef validate_order(o):\n    if not isinstance(o, list) or len(o) != 3:\n        return False\n    pr, side, price = o\n    if not isinstance(pr, int):\n        return False\n    if side not in ('buy','sell'):\n        return False\n    if not (isinstance(price, int) or isinstance(price, float)):\n        return False\n    if price < 0:\n        return False\n    return True\n\ndef meldable_priority_queue(order_streams: List[List]) -> List:\n    if not isinstance(order_streams, list):\n        return []\n    # per-stream heaps\n    per_buy_roots = []\n    per_sell_roots = []\n    arrival = 0\n    any_orders = False\n    for stream in order_streams:\n        if not isinstance(stream, list):\n            return []\n        buy_root = None\n        sell_root = None\n        for order in stream:\n            if not validate_order(order):\n                return []\n            any_orders = True\n            pr, side, price = order\n            # arrival index\n            arr = arrival\n            arrival += 1\n            # create entries for per-stream heaps\n            # buy heap: min-heap on (-price, priority, arrival)\n            # sell heap: min-heap on (price, priority, arrival)\n            if side == 'buy':\n                key = (-float(price), pr, arr)\n                node = PairNode(key, [pr, side, float(price), arr])\n                buy_root = insert_node(buy_root, node)\n            else:\n                key = (float(price), pr, arr)\n                node = PairNode(key, [pr, side, float(price), arr])\n                sell_root = insert_node(sell_root, node)\n        per_buy_roots.append(buy_root)\n        per_sell_roots.append(sell_root)\n    if not any_orders:\n        return []\n    # meld all per-stream heaps into global heaps\n    buy_root = None\n    sell_root = None\n    for r in per_buy_roots:\n        buy_root = meld(buy_root, r)\n    for r in per_sell_roots:\n        sell_root = meld(sell_root, r)\n    # matching: while best_buy.price >= best_sell.price\n    while buy_root is not None and sell_root is not None:\n        best_buy_node, buy_root_after = pop_min_node(buy_root)\n        best_sell_node, sell_root_after = pop_min_node(sell_root)\n        if best_buy_node is None or best_sell_node is None:\n            # restore and break\n            if best_buy_node:\n                buy_root = meld(best_buy_node, buy_root_after)\n            else:\n                buy_root = buy_root_after\n            if best_sell_node:\n                sell_root = meld(best_sell_node, sell_root_after)\n            else:\n                sell_root = sell_root_after\n            break\n        buy_price = -best_buy_node.key[0]\n        sell_price = best_sell_node.key[0]\n        if buy_price >= sell_price:\n            # match executed: discard both\n            buy_root = buy_root_after\n            sell_root = sell_root_after\n            continue\n        else:\n            # cannot match: put them back and stop\n            buy_root = meld(best_buy_node, buy_root_after)\n            sell_root = meld(best_sell_node, sell_root_after)\n            break\n    # collect remaining orders\n    remaining = []\n    # drain buy heap\n    while buy_root is not None:\n        node, buy_root = pop_min_node(buy_root)\n        if node:\n            remaining.append(node.value)\n    # drain sell heap\n    while sell_root is not None:\n        node, sell_root = pop_min_node(sell_root)\n        if node:\n            remaining.append(node.value)\n    if not remaining:\n        return []\n    # each value is [pr, side, price, arrival]\n    # global key: (priority ASC, side ('buy'<'sell'), price_aggressiveness, arrival_index ASC)\n    # price_aggressiveness: for buy -> -price; for sell -> +price\n    def global_key(v):\n        pr, side, price, arr = v\n        price_aggr = -price if side=='buy' else price\n        side_key = 0 if side=='buy' else 1\n        return (pr, side_key, price_aggr, arr)\n    remaining.sort(key=global_key)\n    # convert back to required [priority, side, price]\n    return [[v[0], v[1], v[2]] for v in remaining]"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1481,
+    "input_tokens_details": {
+      "cached_tokens": 1408
+    },
+    "output_tokens": 1318,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2799
+  },
+  "user": null,
+  "metadata": {}
+}

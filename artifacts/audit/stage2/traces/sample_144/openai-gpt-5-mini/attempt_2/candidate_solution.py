@@ -1,0 +1,273 @@
+def update_topological_order(
+    graph: Dict[str, Dict[str, int]],
+    node_states: Dict[str, Dict[str, Any]],
+    updates: List[Dict[str, Any]],
+    reconcile_policy: str = "abort_on_conflict"
+) -> Union[List[str], str]:
+    # Input type validations
+    if not isinstance(graph, dict) or not all(isinstance(k, str) and isinstance(v, dict) for k, v in graph.items()):
+        return "TypeError: InvalidInputError: 'graph' must be Dict[str, Dict[str, int]]"
+    total_nodes = len(graph)
+    total_edges = sum(len(neigh) for neigh in graph.values())
+    if total_nodes > 10 or total_edges > 10:
+        return f"ValueError: InputSizeError: graph has {total_nodes} nodes and {total_edges} edges; limits are max_nodes=10, max_edges=10"
+    if not isinstance(node_states, dict):
+        return "TypeError: InvalidInputError: 'node_states' must be Dict[str, Dict[str, Any]]"
+    for n in graph:
+        if n not in node_states:
+            return f"KeyError: InvalidInputError: missing node_states entry for node {n}"
+    if not isinstance(updates, list):
+        return "TypeError: InvalidInputError: 'updates' must be a list of update records"
+    if reconcile_policy not in ("abort_on_conflict", "ignore_with_skip"):
+        return "ValueError: InvalidInputError: reconcile_policy must be 'abort_on_conflict' or 'ignore_with_skip'"
+
+    # Defensive deep copies to allow atomic rollback
+    def copy_graph(g):
+        return {k: dict(v) for k, v in g.items()}
+    working_graph = copy_graph(graph)
+    working_states = {k: dict(v) for k, v in node_states}
+
+    # Helpers
+    def invalid_update(err):
+        if reconcile_policy == "abort_on_conflict":
+            return err
+        return None  # indicates skip
+
+    # Validate each update structure
+    allowed_ops = {"add_edge", "remove_edge", "capacity_change", "change_state"}
+    for i, upd in enumerate(updates):
+        if not isinstance(upd, dict):
+            return f"TypeError: InvalidUpdateError: update at index {i} must be a dict"
+        op = upd.get("op")
+        if not isinstance(op, str) or op not in allowed_ops:
+            return f"ValueError: InvalidUpdateError: update at index {i} has invalid op '{op}'"
+        # ts check
+        if "ts" in upd and not isinstance(upd["ts"], (int, float)):
+            return f"TypeError: InvalidUpdateError: update at index {i} has invalid 'ts' type; must be int or float"
+        # src presence for relevant ops
+        if op in ("add_edge", "remove_edge", "capacity_change", "change_state"):
+            src = upd.get("src")
+            if not isinstance(src, str):
+                return f"TypeError: InvalidUpdateError: update at index {i} missing or invalid 'src'"
+        if op in ("add_edge", "remove_edge", "capacity_change"):
+            dst = upd.get("dst")
+            if not isinstance(dst, str):
+                return f"TypeError: InvalidUpdateError: update at index {i} missing or invalid 'dst'"
+        if op == "capacity_change":
+            val = upd.get("value")
+            if not isinstance(val, int):
+                return f"TypeError: InvalidUpdateError: update at index {i} has invalid 'value' for op '{op}'"
+        if op == "change_state":
+            val = upd.get("value")
+            if not isinstance(val, dict):
+                return f"TypeError: InvalidUpdateError: update at index {i} has invalid 'value' for op '{op}'"
+
+    # Apply updates in batch on working copies, collecting semantic errors
+    for i, upd in enumerate(updates):
+        op = upd["op"]
+        src = upd.get("src")
+        dst = upd.get("dst")
+        val = upd.get("value")
+        # Unknown node check
+        if src not in working_graph:
+            err = f"RuntimeError: InvalidUpdateError: update at index {i} references unknown node {src}"
+            if reconcile_policy == "abort_on_conflict":
+                return err
+            else:
+                continue
+        if op in ("add_edge", "remove_edge", "capacity_change") and dst not in working_graph:
+            err = f"RuntimeError: InvalidUpdateError: update at index {i} references unknown node {dst}"
+            if reconcile_policy == "abort_on_conflict":
+                return err
+            else:
+                continue
+        if op == "add_edge":
+            # value must be int capacity
+            if not isinstance(val, int):
+                err = f"TypeError: InvalidUpdateError: update at index {i} has invalid 'value' for op '{op}'"
+                if reconcile_policy == "abort_on_conflict":
+                    return err
+                else:
+                    continue
+            # add edge (or overwrite capacity)
+            working_graph[src][dst] = val
+        elif op == "remove_edge":
+            if dst not in working_graph[src]:
+                err = f"RuntimeError: InvalidUpdateError: update at index {i} references non-existent edge {src}->{dst}"
+                if reconcile_policy == "abort_on_conflict":
+                    return err
+                else:
+                    continue
+            del working_graph[src][dst]
+        elif op == "capacity_change":
+            if dst not in working_graph[src]:
+                err = f"RuntimeError: InvalidUpdateError: update at index {i} references non-existent edge {src}->{dst}"
+                if reconcile_policy == "abort_on_conflict":
+                    return err
+                else:
+                    continue
+            working_graph[src][dst] = val
+        elif op == "change_state":
+            if not isinstance(val, dict):
+                err = f"TypeError: InvalidUpdateError: update at index {i} change_state 'value' must be a dict"
+                if reconcile_policy == "abort_on_conflict":
+                    return err
+                else:
+                    continue
+            # apply partial state update
+            st = working_states.get(src, {})
+            st.update(val)
+            working_states[src] = st
+
+    # After applying batch, detect cycles. Need to produce cycle nodes if any.
+    # Build adjacency
+    adj = {n: set(neigh.keys()) for n, neigh in working_graph.items()}
+
+    # Kahn's algorithm with priority tie-breakers: priority lower first then node id
+    # First compute indegrees
+    indeg = {n: 0 for n in adj}
+    for u in adj:
+        for v in adj[u]:
+            indeg[v] = indeg.get(v, 0) + 1
+
+    # Use list as priority queue by scanning small n (<=10). Build initial zero indeg set.
+    zero = [n for n, d in indeg.items() if d == 0]
+    def sort_zero(lst):
+        return sorted(lst, key=lambda x: (working_states.get(x, {}).get("priority", 0), int(x) if x.isdigit() else x))
+    order = []
+    zero = sort_zero(zero)
+    q = deque(zero)
+    # We'll emulate deterministic behavior by popping left
+    local_indeg = dict(indeg)
+    while q:
+        u = q.popleft()
+        order.append(u)
+        for v in sorted(adj[u], key=lambda x: (working_states.get(x, {}).get("priority", 0), int(x) if x.isdigit() else x)):
+            local_indeg[v] -= 1
+            if local_indeg[v] == 0:
+                # insert maintaining order determinism by appending and resorting queue
+                q.append(v)
+        # maintain deterministic queue ordering
+        q = deque(sort_zero(list(q)))
+
+    if len(order) != len(adj):
+        # There is a cycle. Need to find cycle nodes. Use DFS to find one cycle.
+        visited = set()
+        recstack = []
+        cycle_nodes = []
+
+        def dfs(u):
+            visited.add(u)
+            recstack.append(u)
+            for v in adj[u]:
+                if v not in visited:
+                    if dfs(v):
+                        return True
+                elif v in recstack:
+                    # found cycle from v to end
+                    idx = recstack.index(v)
+                    cycle_nodes.extend(recstack[idx:])
+                    return True
+            recstack.pop()
+            return False
+
+        for n in adj:
+            if n not in visited:
+                if dfs(n):
+                    break
+        # ensure unique list retained
+        unique_cycle = []
+        for x in cycle_nodes:
+            if x not in unique_cycle:
+                unique_cycle.append(x)
+        if reconcile_policy == "abort_on_conflict":
+            return f"RuntimeError: CycleDetectedError: batch creates cycle involving nodes {unique_cycle}; failed_update_index={0}"
+        else:
+            # ignore_with_skip: need to revert edges that caused cycle. Simpler: attempt to remove any added edges from updates that were add_edge until acyclic.
+            # We'll attempt incremental rollback by reapplying updates skipping add_edge ops that introduce cycle.
+            working_graph = copy_graph(graph)
+            working_states = {k: dict(v) for k, v in node_states.items()}
+            for i, upd in enumerate(updates):
+                op = upd["op"]
+                src = upd.get("src")
+                dst = upd.get("dst")
+                val = upd.get("value")
+                # validate nodes again for skip semantics
+                if op in ("add_edge", "remove_edge", "capacity_change", "change_state"):
+                    if not (isinstance(src, str) and src in working_graph):
+                        continue
+                if op in ("add_edge", "remove_edge", "capacity_change") and not (isinstance(dst, str) and dst in working_graph):
+                    continue
+                if op == "add_edge":
+                    if not isinstance(val, int):
+                        continue
+                    working_graph[src][dst] = val
+                elif op == "remove_edge":
+                    if dst not in working_graph[src]:
+                        continue
+                    del working_graph[src][dst]
+                elif op == "capacity_change":
+                    if dst not in working_graph[src]:
+                        continue
+                    working_graph[src][dst] = val
+                elif op == "change_state":
+                    if not isinstance(val, dict):
+                        continue
+                    st = working_states.get(src, {})
+                    st.update(val)
+                    working_states[src] = st
+                # after each add_edge, check cycle; if cycle created and policy is ignore_with_skip, undo that op
+                # Quick cycle check after mutation:
+                adj2 = {n: set(neigh.keys()) for n, neigh in working_graph.items()}
+                indeg2 = {n: 0 for n in adj2}
+                for u in adj2:
+                    for v in adj2[u]:
+                        indeg2[v] = indeg2.get(v, 0) + 1
+                z = [n for n, d in indeg2.items() if d == 0]
+                ord_tmp = []
+                q2 = deque(sorted(z, key=lambda x: (working_states.get(x, {}).get("priority", 0), int(x) if x.isdigit() else x)))
+                local_indeg2 = dict(indeg2)
+                while q2:
+                    u2 = q2.popleft()
+                    ord_tmp.append(u2)
+                    for v2 in sorted(adj2[u2], key=lambda x: (working_states.get(x, {}).get("priority", 0), int(x) if x.isdigit() else x)):
+                        local_indeg2[v2] -= 1
+                        if local_indeg2[v2] == 0:
+                            q2.append(v2)
+                    q2 = deque(sorted(list(q2), key=lambda x: (working_states.get(x, {}).get("priority", 0), int(x) if x.isdigit() else x)))
+                if len(ord_tmp) != len(adj2):
+                    # undo last op if it was add_edge (or capacity_change causing new edge? capacity_change won't create new edge)
+                    if op == "add_edge":
+                        if dst in working_graph[src]:
+                            del working_graph[src][dst]
+                    elif op == "remove_edge":
+                        # shouldn't cause cycles
+                        pass
+                    elif op == "capacity_change":
+                        # should not create edges
+                        pass
+                    # for change_state, state can't introduce edges; ignore
+            # final compute topo order deterministically
+            adj = {n: set(neigh.keys()) for n, neigh in working_graph.items()}
+            indeg = {n: 0 for n in adj}
+            for u in adj:
+                for v in adj[u]:
+                    indeg[v] = indeg.get(v, 0) + 1
+            zero = [n for n, d in indeg.items() if d == 0]
+            def sort_zero2(lst):
+                return sorted(lst, key=lambda x: (working_states.get(x, {}).get("priority", 0), int(x) if x.isdigit() else x))
+            order = []
+            q = deque(sort_zero2(zero))
+            local_indeg = dict(indeg)
+            while q:
+                u = q.popleft()
+                order.append(u)
+                for v in sorted(adj[u], key=lambda x: (working_states.get(x, {}).get("priority", 0), int(x) if x.isdigit() else x)):
+                    local_indeg[v] -= 1
+                    if local_indeg[v] == 0:
+                        q.append(v)
+                q = deque(sort_zero2(list(q)))
+            return order
+
+    # Successful ordering
+    return order

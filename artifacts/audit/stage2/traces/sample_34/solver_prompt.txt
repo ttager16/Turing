@@ -1,0 +1,291 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+In a high-frequency trading platform, a quantitative analyst must implement a sophisticated recursive decision tree optimizer that employs divide-and-conquer with union-find for correlation clustering, dynamic programming with state-based memoization for overlapping subproblems, alpha-beta pruning with iterative deepening for optimal branch elimination, and constraint checking with backtracking. The system must evaluate portfolio combinations across market segments while maintaining efficient complexity through intelligent caching and pruning strategies.
+
+---
+
+#### Objectives:
+
+1. State-Based Memoization with Collision Handling: Implement recursive decision tree with states identified by asset allocations. Use frozenset for state keys with FNV-1a hash collision detection. Cache stores (optimal_strategy_dict, sharpe_ratio) tuples where optimal_strategy_dict maps asset_id to allocation. When collision detected, apply linear probing. Track cache_hits, cache_misses, collisions.
+
+2. Union-Find Correlation Clustering with Path Compression: Partition assets using union-find where union triggers when correlation > 0.7. Implement path compression during find() and union-by-rank for O(α(n)) complexity. Each cluster forms independent recursive subproblem. Detect cross-segment correlations > 0.8 as arbitrage candidates.
+
+3. Alpha-Beta Pruning with Iterative Deepening: Start depth limit 2, iteratively increase to 8. Apply alpha-beta pruning where alpha = best_sharpe_found and beta = theoretical_max_sharpe. Prune branch when node_upper_bound ≤ alpha. Count prune_operations.
+
+4. Constraint Checking with Backtracking: Check critical constraints (sector concentration limits) during recursion to prune infeasible branches early. When hard constraint violated, backtrack to parent node. Post-process final strategy with iterative rebalancing to handle soft constraints. Track backtrack_count.
+
+5. Path Reconstruction with Decision History: Maintain decision_path list storing (depth, asset_chosen, allocation, sharpe_delta, constraints_active) at each recursive call. After finding optimal strategy, reconstruct complete decision sequence from root to leaves. If multiple paths yield same Sharpe (within 0.001), prefer path with fewer trades.
+
+6. Cross-Segment Arbitrage with Conflict Resolution: After per-segment optimization, detect arbitrage for correlated pairs (ρ > 0.8) across segments where |return_A - return_B| / |ρ| > 5%. Resolve conflicts when segments suggest opposing positions (long/short) on correlated assets with ρ > 0.7 using Sharpe-weighted merge. Record resolved_conflicts list.
+
+7. Iterative Rebalancing with Convergence Criteria: After initial strategy, iteratively rebalance if constraints violated. Each iteration: identify worst violator, redistribute allocation proportional to Sharpe contribution, validate constraints, recompute portfolio metrics. Converge when max_violation < 0.001 or max_iterations (15) reached. Track iteration_history.
+
+---
+
+#### Calculation Formulas:
+
+**Expected Return:**
+```
+For each asset:
+  returns = [(price[i] - price[i-1]) / price[i-1] for all i]
+  avg_return = mean(returns)
+
+Portfolio expected_return = Σ(allocation_i × avg_return_i)
+```
+
+**Portfolio Volatility:**
+```
+variance = Σ(w_i² × σ_i²) + ΣΣ(w_i × w_j × σ_i × σ_j × ρ_ij)
+  where:
+    w_i = weight/allocation of asset i
+    σ_i = volatility of asset i (from asset_data)
+    ρ_ij = correlation between assets i and j (from correlation_matrix)
+
+portfolio_volatility = sqrt(variance)
+```
+
+**Sharpe Ratio:**
+```
+sharpe_ratio = expected_return / portfolio_volatility
+  (assumes risk-free rate = 0)
+```
+
+**Theoretical Max Sharpe (for beta in alpha-beta pruning):**
+```
+For available assets:
+  max_returns = [max(returns) for each asset]
+  min_volatilities = [volatility for each asset]
+
+theoretical_max_sharpe = max(max_returns) / min(min_volatilities)
+```
+
+**Node Upper Bound (for pruning):**
+```
+At each node with current_sharpe:
+  theoretical_max = calculate_theoretical_max_sharpe(remaining_assets)
+  node_upper_bound = min(current_sharpe + theoretical_max × 0.5, theoretical_max)
+
+Prune when: node_upper_bound ≤ alpha
+```
+
+---
+
+#### Constraints:
+
+- Asset universe: 100 assets across 5 sectors, correlation matrix with 500+ pairs
+- Recursive tree: max depth 8, state memoization with FNV-1a hashing, collision detection via linear probing
+- Complexity bounds: O(n²k) for tree construction where k is max tree depth, O(n²) for variance computation, O(nα(n)) for clustering
+- Portfolio limits: max_position_size (%), max_sector_concentration (%), min_liquidity (1-100), max_portfolio_volatility (σ)
+- Memoization: cache states as frozenset((asset, alloc)) with precision 3 decimals, detect collisions, track statistics
+- Pruning: alpha-beta with bounds propagation, iterative deepening from depth 2→8, early termination on convergence
+- Arbitrage detection: correlated pairs (ρ > 0.8) diverge > 5% in returns
+- Convergence: rebalancing converges when max(constraint_violations) < 0.001 or iterations > 15
+- Error conditions: return {'error': reason} if no feasible solution, clustering fails, rebalancing diverges, or depth exhausted
+- Output requirements: must include decision_path, cache_statistics, convergence_metrics
+- Standard library only: no NumPy, SciPy, or optimization packages
+
+---
+
+#### Function Signature
+
+```python
+def optimize_trading_strategy(
+    asset_data: Dict[str, Dict[str, Any]], 
+    correlation_matrix: List[Dict[str, Any]], 
+    portfolio_constraints: Dict[str, float]
+) -> Dict[str, Any]:
+    """
+    Expert-level recursive optimizer with memoization, pruning, and constraint propagation.
+    
+    Args:
+        asset_data: Dict mapping asset_id to properties
+            - 'prices': List[float] (≤500 historical prices)
+            - 'volatility': float (annualized std deviation)
+            - 'liquidity_score': int (1-100 market depth)
+            - 'current_price': float (execution price)
+            - 'sector': str (sector/segment identifier)
+            
+        correlation_matrix: List[Dict[str, Any]]
+            - List of correlation pairs, each with:
+                - 'asset_pair': List[str] containing [asset_id_1, asset_id_2] where asset_id_1 < asset_id_2 lexicographically
+                - 'correlation': float (-1.0 to 1.0)
+            - Used for: clustering (>0.7), arbitrage detection (>0.8)
+            
+        portfolio_constraints: Dict[str, float]
+            - 'max_position_size': float (per-asset allocation limit)
+            - 'max_sector_concentration': float (per-sector allocation limit)
+            - 'min_liquidity': int (minimum liquidity threshold)
+            - 'total_capital': float (total investment amount)
+            - 'max_portfolio_volatility': float (optional risk ceiling)
+    
+    Returns:
+        Dict[str, Any] containing:
+        
+        REQUIRED FIELDS:
+        - 'trades': List[Dict] with asset_id, action, quantity, price, allocation
+        - 'expected_return': float
+        - 'portfolio_volatility': float
+        - 'sharpe_ratio': float
+        - 'segments': List[str] (correlation cluster IDs)
+        
+        ALGORITHM METRICS:
+        - 'tree_depth': int (maximum recursion depth)
+        - 'cache_statistics': Dict with keys:
+            - 'memoization_hits': int (cache hits)
+            - 'memoization_misses': int (cache misses)
+            - 'collision_count': int (hash collisions detected)
+        - 'prune_operations': int (branches pruned)
+        - 'backtrack_count': int (backtracking operations)
+        
+        ADVANCED FEATURES:
+        - 'decision_path': List[Dict] with depth, asset, allocation, sharpe_delta, constraints
+        - 'arbitrage_opportunities': List[Dict] with asset_pair, divergence, action
+        - 'resolved_conflicts': List[Dict] with pair, conflict_type, resolution
+        - 'rebalancing_iterations': int
+        - 'convergence_metrics': Dict with final_violation, iterations, converged
+        
+        Or {'error': str} on failure
+    """
+    pass
+```
+
+---
+
+#### Sample Input/Output
+
+**Sample Input:**
+
+```python
+asset_data = {
+    "AAPL": {
+        "prices": [150.0, 152.0, 155.0],
+        "volatility": 0.25,
+        "liquidity_score": 80,
+        "current_price": 155.0,
+        "sector": "tech"
+    },
+    "MSFT": {
+        "prices": [300.0, 302.0, 305.0],
+        "volatility": 0.22,
+        "liquidity_score": 85,
+        "current_price": 305.0,
+        "sector": "tech"
+    },
+    "GOLD": {
+        "prices": [1800.0, 1820.0, 1850.0],
+        "volatility": 0.18,
+        "liquidity_score": 90,
+        "current_price": 1850.0,
+        "sector": "commodity"
+    }
+}
+
+correlation_matrix = [
+    {"asset_pair": ["AAPL", "MSFT"], "correlation": 0.75},
+    {"asset_pair": ["AAPL", "GOLD"], "correlation": 0.1},
+    {"asset_pair": ["GOLD", "MSFT"], "correlation": 0.05}
+]
+
+portfolio_constraints = {
+    "max_position_size": 0.6,
+    "max_sector_concentration": 0.8,
+    "min_liquidity": 50,
+    "total_capital": 100000.0
+}
+```
+
+**Expected Output:**
+
+```python
+{
+    "trades": [
+        {
+            "asset_id": "AAPL",
+            "action": "BUY",
+            "quantity": 258,
+            "price": 155.0,
+            "allocation": 0.40
+        },
+        {
+            "asset_id": "MSFT",
+            "action": "BUY",
+            "quantity": 131,
+            "price": 305.0,
+            "allocation": 0.40
+        },
+        {
+            "asset_id": "GOLD",
+            "action": "BUY",
+            "quantity": 10,
+            "price": 1850.0,
+            "allocation": 0.18
+        }
+    ],
+    "expected_return": 0.028,
+    "portfolio_volatility": 0.19,
+    "sharpe_ratio": 1.47,
+    "segments": ["segment_0", "segment_1"],
+    "tree_depth": 4,
+    "cache_statistics": {
+        "memoization_hits": 12,
+        "memoization_misses": 8,
+        "collision_count": 1
+    },
+    "prune_operations": 5,
+    "backtrack_count": 2,
+    "decision_path": [
+        {"depth": 1, "asset_chosen": "AAPL", "allocation": 0.40, "sharpe_delta": 0.8, "constraints_active": ["position_limit"]},
+        {"depth": 2, "asset_chosen": "MSFT", "allocation": 0.40, "sharpe_delta": 0.5, "constraints_active": ["sector_concentration"]},
+        {"depth": 3, "asset_chosen": "GOLD", "allocation": 0.18, "sharpe_delta": 0.17, "constraints_active": []}
+    ],
+    "arbitrage_opportunities": [],
+    "resolved_conflicts": [],
+    "rebalancing_iterations": 3,
+    "convergence_metrics": {
+        "final_violation": 0.0005,
+        "iterations": 3,
+        "converged": True
+    }
+}
+```
+
+**Explanation:**
+- Assets are clustered into 2 segments (AAPL+MSFT high correlation 0.75, GOLD low correlation)
+- Recursive tree explores allocation combinations up to depth 4
+- Memoization caches 20 states with 1 hash collision resolved via linear probing
+- Alpha-beta pruning eliminates 5 suboptimal branches
+- 2 backtracking operations when constraints violated
+- Portfolio achieves Sharpe ratio of 1.47 with 0.19 volatility
+- Rebalancing converges after 3 iterations with max violation < 0.001
+
+**Error Conditions:**
+
+Returns `{'error': 'description'}` when:
+- `{'error': 'No assets provided'}` - Empty asset_data
+- `{'error': 'All assets below minimum liquidity threshold'}` - All assets filtered by min_liquidity
+- `{'error': 'Insufficient capital'}` - total_capital <= 0
+- `{'error': 'Unsolvable sector concentration constraints'}` - Constraints cannot be satisfied
+
+Starter Code:
+```python
+from typing import Dict, List, Tuple, Any, Optional, FrozenSet
+from collections import defaultdict
+import math
+import json
+
+
+def optimize_trading_strategy(
+    asset_data: Dict[str, Dict[str, Any]],
+    correlation_matrix: List[Dict[str, Any]],
+    portfolio_constraints: Dict[str, float],
+) -> Dict[str, Any]:
+```

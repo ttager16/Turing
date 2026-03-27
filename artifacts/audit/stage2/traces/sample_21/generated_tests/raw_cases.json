@@ -1,0 +1,137 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      17039496,
+      [
+        {
+          "plan_name": "Seafood Rich",
+          "required_bits": 262144,
+          "excluded_bits": 16777216,
+          "base_nutrients": {},
+          "customizable": false
+        },
+        {
+          "plan_name": "Allergen-Friendly Mix",
+          "required_bits": 0,
+          "excluded_bits": 0,
+          "base_nutrients": {},
+          "customizable": true
+        }
+      ],
+      {
+        "genetic_markers": {
+          "3": "Lactase persistence",
+          "7": "Iron absorption variant"
+        },
+        "dietary_preferences": {
+          "16": "Vegan",
+          "18": "Pescatarian"
+        },
+        "allergies": {
+          "24": "Tree nuts",
+          "25": "Shellfish"
+        }
+      }
+    ],
+    "input_lines": [
+      "17039496",
+      "[{\"plan_name\": \"Seafood Rich\", \"required_bits\": 262144, \"excluded_bits\": 16777216, \"base_nutrients\": {}, \"customizable\": false}, {\"plan_name\": \"Allergen-Friendly Mix\", \"required_bits\": 0, \"excluded_bits\": 0, \"base_nutrients\": {}, \"customizable\": true}]",
+      "{\"genetic_markers\": {\"3\": \"Lactase persistence\", \"7\": \"Iron absorption variant\"}, \"dietary_preferences\": {\"16\": \"Vegan\", \"18\": \"Pescatarian\"}, \"allergies\": {\"24\": \"Tree nuts\", \"25\": \"Shellfish\"}}"
+    ],
+    "focus": "Non-customizable plan should be skipped due to an allergy conflict (excluded_bits intersects user allergies). Tests fallback to a customizable plan and partial matching across genetics/dietary segments."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      0,
+      [
+        {
+          "plan_name": "Default Minimal",
+          "required_bits": 0,
+          "excluded_bits": 0,
+          "base_nutrients": {},
+          "customizable": true
+        },
+        {
+          "plan_name": "Dairy Sensitive",
+          "required_bits": 0,
+          "excluded_bits": 16777216,
+          "base_nutrients": {},
+          "customizable": true
+        }
+      ],
+      {
+        "genetic_markers": {},
+        "dietary_preferences": {},
+        "allergies": {
+          "24": "Dairy (treated as allergen flag for test)"
+        }
+      }
+    ],
+    "input_lines": [
+      "0",
+      "[{\"plan_name\": \"Default Minimal\", \"required_bits\": 0, \"excluded_bits\": 0, \"base_nutrients\": {}, \"customizable\": true}, {\"plan_name\": \"Dairy Sensitive\", \"required_bits\": 0, \"excluded_bits\": 16777216, \"base_nutrients\": {}, \"customizable\": true}]",
+      "{\"genetic_markers\": {}, \"dietary_preferences\": {}, \"allergies\": {\"24\": \"Dairy (treated as allergen flag for test)\"}}"
+    ],
+    "focus": "Empty user profile (no active bits). Ensures system handles zero-profile, returns defaults, and that alternative_plans remains empty when fewer than 3 alternatives are available."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      4294967295,
+      [
+        {
+          "plan_name": "Complete Harmony",
+          "required_bits": 16777215,
+          "excluded_bits": 0,
+          "base_nutrients": {},
+          "customizable": false
+        },
+        {
+          "plan_name": "No-Allergen Plan",
+          "required_bits": 0,
+          "excluded_bits": 251658240,
+          "base_nutrients": {},
+          "customizable": false
+        },
+        {
+          "plan_name": "Custom Elimination",
+          "required_bits": 0,
+          "excluded_bits": 4278190080,
+          "base_nutrients": {},
+          "customizable": true
+        }
+      ],
+      {
+        "genetic_markers": {
+          "0": "Lactose intolerance",
+          "1": "MTHFR variant",
+          "15": "Slow caffeine metabolism"
+        },
+        "dietary_preferences": {
+          "16": "Vegan",
+          "17": "Vegetarian",
+          "18": "Gluten-free",
+          "23": "Ketogenic"
+        },
+        "allergies": {
+          "24": "Tree nuts",
+          "25": "Shellfish",
+          "26": "Peanuts",
+          "27": "Dairy",
+          "28": "Soy",
+          "29": "Eggs",
+          "30": "Wheat",
+          "31": "Sesame"
+        }
+      }
+    ],
+    "input_lines": [
+      "4294967295",
+      "[{\"plan_name\": \"Complete Harmony\", \"required_bits\": 16777215, \"excluded_bits\": 0, \"base_nutrients\": {}, \"customizable\": false}, {\"plan_name\": \"No-Allergen Plan\", \"required_bits\": 0, \"excluded_bits\": 251658240, \"base_nutrients\": {}, \"customizable\": false}, {\"plan_name\": \"Custom Elimination\", \"required_bits\": 0, \"excluded_bits\": 4278190080, \"base_nutrients\": {}, \"customizable\": true}]",
+      "{\"genetic_markers\": {\"0\": \"Lactose intolerance\", \"1\": \"MTHFR variant\", \"15\": \"Slow caffeine metabolism\"}, \"dietary_preferences\": {\"16\": \"Vegan\", \"17\": \"Vegetarian\", \"18\": \"Gluten-free\", \"23\": \"Ketogenic\"}, \"allergies\": {\"24\": \"Tree nuts\", \"25\": \"Shellfish\", \"26\": \"Peanuts\", \"27\": \"Dairy\", \"28\": \"Soy\", \"29\": \"Eggs\", \"30\": \"Wheat\", \"31\": \"Sesame\"}}"
+    ],
+    "focus": "All 32 bits set (max boundary). Validates perfect-match scoring, rejection of non-customizable plans with allergen exclusions, and generation of multiple modification strings for a fully conflicting customizable plan."
+  }
+]

@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[[\"insert\", {\"id\": 1001, \"ward\": \"ICU\", \"priority\": 3, \"emergency\": false, \"duration\": 120, \"resources\": [\"Ventilator\"]}], [\"insert\", {\"id\": 1002, \"ward\": \"Ward-A\", \"priority\": 4, \"emergency\": false, \"duration\": 240}], [\"insert\", {\"id\": 1003, \"ward\": \"ER\", \"priority\": 1, \"emergency\": true, \"duration\": 45}], [\"insert\", {\"id\": 1004, \"ward\": \"ER\", \"priority\": 2, \"emergency\": false, \"duration\": 30}], [\"insert\", {\"id\": 1005, \"ward\": \"Ward-A\", \"priority\": 5, \"emergency\": false, \"duration\": 300}], [\"reorder\", {\"id\": 1003, \"new_priority\": 0, \"simulate_mass_update\": true}], [\"transfer\", {\"id\": 1004, \"new_ward\": \"Ward-A\"}], [\"transfer\", {\"id\": 1002, \"new_ward\": \"ICU\"}], [\"reorder\", {\"id\": 1001, \"new_priority\": 1}], [\"ward_status\", {\"ward\": \"ICU\"}]]",
+    "output_text": "[\"Patient 1001 added to ward ICU\", \"Patient 1002 added to ward Ward-A\", \"Patient 1003 added to ward ER\", \"Patient 1004 added to ward ER\", \"Patient 1005 added to ward Ward-A\", \"Patient 1003 updated to priority 0 with mass update simulation\", \"Patient 1004 transferred to ward Ward-A\", \"Patient 1002 transferred to ward ICU\", \"Patient 1001 updated to priority 1\", \"Ward ICU: 2 patients, 0 emergencies\"]"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[[\"insert\", {\"id\": 5000000, \"ward\": \"ER-Outpost\", \"priority\": 5, \"emergency\": false, \"duration\": 30}], [\"delete\", {\"id\": 5000000}], [\"transfer\", {\"id\": 5000000, \"new_ward\": \"ICU\"}], [\"delete\", {\"id\": 5000000}], [\"patient_info\", {\"id\": 5000000}], [\"insert\", {\"id\": 5000001, \"ward\": \"ICU\", \"priority\": 999999, \"emergency\": true, \"duration\": 100000}], [\"patient_info\", {\"id\": 5000001}]]",
+    "output_text": "[\"Patient 5000000 added to ward ER-Outpost\", \"Patient 5000000 removed from system\", \"Error: Patient 5000000 not found\", \"Error: Patient 5000000 not found\", \"Error: Patient 5000000 not found\", \"Patient 5000001 added to ward ICU\", \"Patient 5000001: ward=ICU, priority=999999, emergency=True, duration=100000\"]"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[[\"insert\", {\"id\": 99999999, \"ward\": \"Cardiology - East Wing\", \"priority\": 0, \"emergency\": false, \"duration\": 0}], [\"insert\", {\"id\": 1000000000, \"ward\": \"Neuro/ICU 🧠\", \"priority\": 10, \"emergency\": true, \"duration\": 1000000}], [\"reorder\", {\"id\": 99999999, \"new_priority\": 500000, \"simulate_mass_update\": false}], [\"reorder\", {\"id\": 99999999, \"new_priority\": 1}], [\"transfer\", {\"id\": 1000000000, \"new_ward\": \"Cardiology - East Wing\"}], [\"ward_status\", {\"ward\": \"Cardiology - East Wing\"}], [\"ward_status\", {\"ward\": \"Neuro/ICU 🧠\"}]]",
+    "output_text": "[\"Patient 99999999 added to ward Cardiology - East Wing\", \"Patient 1000000000 added to ward Neuro/ICU 🧠\", \"Patient 99999999 updated to priority 500000\", \"Patient 99999999 updated to priority 1\", \"Patient 1000000000 transferred to ward Cardiology - East Wing\", \"Ward Cardiology - East Wing: 2 patients, 1 emergencies\", \"Ward Neuro/ICU 🧠: 0 patients, 0 emergencies\"]"
+  }
+]

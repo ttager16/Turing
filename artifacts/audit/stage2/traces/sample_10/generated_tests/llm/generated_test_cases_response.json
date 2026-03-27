@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5CKwDBluuMlbjsbLQsGBzBtVjZm",
+  "object": "chat.completion",
+  "created": 1774393896,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[{\\\"phases\\\": [{\\\"required_skills\\\": [\\\"python\\\"], \\\"deadline\\\": 3}, {\\\"required_skills\\\": [\\\"security\\\"], \\\"deadline\\\": 5}], \\\"project_deadline\\\": 5}]\",\"[{\\\"members\\\": [{\\\"name\\\": \\\"A\\\", \\\"skills\\\": [\\\"python\\\", \\\"java\\\"]}], \\\"base_availability\\\": 3}, {\\\"members\\\": [{\\\"name\\\": \\\"B\\\", \\\"skills\\\": []}], \\\"base_availability\\\": 10}, {\\\"members\\\": [{\\\"name\\\": \\\"C\\\", \\\"skills\\\": [\\\"security\\\"]}], \\\"base_availability\\\": 5}]\"], \"focus\":\"Single project with an irrelevant/empty-skill team and a team whose skills exactly match a phase — tests ignoring unusable teams and tight skill coverage.\"},{\"input_lines\":[\"[{\\\"phases\\\": [{\\\"required_skills\\\": [\\\"python\\\", \\\"testing\\\"], \\\"deadline\\\": 7}], \\\"project_deadline\\\": 7}, {\\\"phases\\\": [{\\\"required_skills\\\": [\\\"java\\\", \\\"ml\\\"], \\\"deadline\\\": 7}, {\\\"required_skills\\\": [\\\"docker\\\"], \\\"deadline\\\": 6}], \\\"project_deadline\\\": 8}]\",\"[{\\\"members\\\": [{\\\"name\\\": \\\"T1M1\\\", \\\"skills\\\": [\\\"python\\\", \\\"java\\\"]}, {\\\"name\\\": \\\"T1M2\\\", \\\"skills\\\": [\\\"testing\\\"]}], \\\"base_availability\\\": 7}, {\\\"members\\\": [{\\\"name\\\": \\\"T2M1\\\", \\\"skills\\\": [\\\"ml\\\", \\\"docker\\\"]}], \\\"base_availability\\\": 6}, {\\\"members\\\": [{\\\"name\\\": \\\"T3M1\\\", \\\"skills\\\": [\\\"python\\\", \\\"ml\\\", \\\"testing\\\", \\\"docker\\\", \\\"java\\\"]}], \\\"base_availability\\\": 4}]\"], \"focus\":\"Multiple projects with overlapping deadlines and one powerful but low-availability team — distinguishes scheduling-aware feasibility from naive skill-coverage checks.\"},{\"input_lines\":[\"[{\\\"phases\\\": [{\\\"required_skills\\\": [\\\"python\\\", \\\"React\\\"], \\\"deadline\\\": 10}], \\\"project_deadline\\\": 10}]\",\"[{\\\"members\\\": [{\\\"name\\\": \\\"X\\\", \\\"skills\\\": [\\\"Python\\\", \\\"react\\\"]}], \\\"base_availability\\\": 10}, {\\\"members\\\": [{\\\"name\\\": \\\"Y\\\", \\\"skills\\\": [\\\"python\\\", \\\"React\\\"]}], \\\"base_availability\\\": 5}, {\\\"members\\\": [{\\\"name\\\": \\\"Z\\\", \\\"skills\\\": [\\\"React\\\"]}], \\\"base_availability\\\": 10}]\"], \"focus\":\"Case-sensitivity and partial matches: skill name casing differs across teams; ensures solutions treat skill strings exactly and handle combining partial skill sets.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1605,
+    "completion_tokens": 2761,
+    "total_tokens": 4366,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2176,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6bCxFm40DZv59mlSl2XeLyafoxM",
+  "object": "chat.completion",
+  "created": 1774399282,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"6\",\n        \"[[\\\"range_update\\\", 0, 5, 5.0, 0.0, 1], [\\\"update\\\", 3, 100.0, 10.0, 2], [\\\"conditional_check\\\", 0, 2, 0.0, 4, 5, 1.0, 50.0], [\\\"query\\\", 0, 5], [\\\"snapshot\\\", \\\"s1\\\", 10], [\\\"range_update\\\", 3, 4, -50.0, 0.0, 12], [\\\"rollback\\\", 2, 12, [\\\"price\\\"]], [\\\"query\\\", 0, 5]]\"\n      ],\n      \"focus\": \"Zero-volume elements ignored for MPD/WAP, rollback of only 'price' metric within timestamp range, and ensuring snapshots do not interfere.\"\n    },\n    {\n      \"input_lines\": [\n        \"4\",\n        \"[[\\\"update\\\", 0, 10.0, 5.0, 5], [\\\"update\\\", 1, 20.0, 0.0, 5], [\\\"update\\\", 2, 30.0, 10.0, 6], [\\\"snapshot\\\", \\\"dup\\\", 7], [\\\"snapshot\\\", \\\"dup\\\", 8], [\\\"range_update\\\", 0, 3, 5.0, 5.0, 9], [\\\"rollback\\\", 5, 9], [\\\"query\\\", 0, 3], [\\\"restore\\\", \\\"unknown\\\"], [\\\"query\\\", 0, 3]]\"\n      ],\n      \"focus\": \"Multiple updates with identical timestamps, snapshot overwrite behavior, full rollback (no metrics_to_rollback arg), and restoring an unknown snapshot (no-op).\"\n    },\n    {\n      \"input_lines\": [\n        \"7\",\n        \"[[\\\"update\\\", 1, 100.12345, 15.678, 1], [\\\"update\\\", 2, 120.87655, 0.0, 2], [\\\"update\\\", 5, 80.5, 10.25, 3], [\\\"conditional_check\\\", 1, 2, 10.0, 4, 6, 20.0, 5.5], [\\\"range_update\\\", 4, 6, 2.345, 5.0, 4], [\\\"conditional_check\\\", 1, 5, 15.0, 4, 5, 20.0, 10.0], [\\\"snapshot\\\", \\\"snapA\\\", 5], [\\\"update\\\", 5, 200.0, 20.0, 6], [\\\"rollback\\\", 6, 6], [\\\"restore\\\", \\\"snapA\\\"], [\\\"query\\\", 4, 6]]\"\n      ],\n      \"focus\": \"Precision-sensitive floating prices, conditional_check that should trigger a price_boost across a destination range, snapshot+rollback interactions, and final query verifying derived metrics and rounding.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2369,
+    "completion_tokens": 3052,
+    "total_tokens": 5421,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2368,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

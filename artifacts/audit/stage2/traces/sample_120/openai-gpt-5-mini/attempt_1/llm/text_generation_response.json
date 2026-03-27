@@ -1,0 +1,76 @@
+{
+  "id": "resp_017be42b9b6c0db70069c33a9569cc81a2b023bbc4163ffbb4",
+  "object": "response",
+  "created_at": 1774402197,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774402210,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_017be42b9b6c0db70069c33a95abac81a28d277098c9a00667",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_017be42b9b6c0db70069c33a95d3fc81a29c52a92db296e25d",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any\n\ndef optimize_network_mst(\n    nodes: List[str],\n    edges: List[Dict[str, Any]],\n    bandwidth_threshold: int,\n    latency_threshold: int,\n    reliability_threshold: float\n) -> List[Dict[str, str]]:\n    # Edge-case checks\n    if not nodes or len(nodes) <= 1:\n        return []\n    if not edges:\n        return []\n    tol = 1e-9\n    MAX_LAT = 10**9\n\n    # Normalize nodes to a set for quick lookup and preserve given node names\n    node_set = set(nodes)\n\n    # Helper: normalize unordered pair key\n    def pair_key(a: str, b: str):\n        return (a, b) if a <= b else (b, a)\n\n    # Filter edges according to validation rules and collect lowest-cost valid parallel edge per unordered pair\n    best_edge = {}  # key -> (cost, original_edge)\n    for e in edges:\n        try:\n            a = e.get('start')\n            b = e.get('end')\n            if a is None or b is None:\n                continue\n            if a == b:\n                continue  # self-loop ignore\n            if a not in node_set or b not in node_set:\n                continue  # ignore edges referencing unknown nodes\n            cost = e.get('cost', 0)\n            bw = e.get('bandwidth')\n            lat = e.get('latency')\n            rel = e.get('reliability')\n            # Validate presence\n            if bw is None or lat is None or rel is None:\n                continue\n            # Numeric validations\n            try:\n                bw_v = float(bw)\n                lat_v = float(lat)\n                rel_v = float(rel)\n            except Exception:\n                continue\n            # Reject invalid numeric values\n            if bw_v <= 0:\n                continue\n            if lat_v < 0 or lat_v >= MAX_LAT:\n                continue\n            if bw_v < bandwidth_threshold:\n                continue\n            if lat_v > latency_threshold:\n                continue\n            if rel_v + tol < reliability_threshold:\n                continue\n            # Edge passes filters; consider for parallel-edge reduction\n            key = pair_key(a, b)\n            # For deterministic tie-breaking when costs equal, use lexicographic of start,end\n            existing = best_edge.get(key)\n            if existing is None:\n                best_edge[key] = (float(cost), a, b, e)\n            else:\n                existing_cost = existing[0]\n                if float(cost) < existing_cost:\n                    best_edge[key] = (float(cost), a, b, e)\n                elif float(cost) == existing_cost:\n                    # deterministic: pick one with (min start,end) tuple\n                    # Compare (a,b) normalized vs existing normalized\n                    ex_a, ex_b = existing[1], existing[2]\n                    if (min(a, b), max(a, b)) < (min(ex_a, ex_b), max(ex_a, ex_b)):\n                        best_edge[key] = (float(cost), a, b, e)\n\n        except Exception:\n            continue\n\n    filtered = []\n    for k, v in best_edge.items():\n        cost, a, b, e = v\n        # store normalized endpoints as returned in original orientation (use a,b as in stored)\n        filtered.append((cost, a, b))\n\n    if not filtered:\n        return []\n\n    # Map node names to indices for Union-Find\n    name_to_idx = {name: i for i, name in enumerate(nodes)}\n    parent = list(range(len(nodes)))\n    rank = [0] * len(nodes)\n\n    def find(x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n\n    def union(x, y):\n        rx = find(x); ry = find(y)\n        if rx == ry:\n            return False\n        if rank[rx] < rank[ry]:\n            parent[rx] = ry\n        else:\n            parent[ry] = rx\n            if rank[rx] == rank[ry]:\n                rank[rx] += 1\n        return True\n\n    # Kruskal: sort by cost, deterministic tie-breaker by node names\n    filtered.sort(key=lambda t: (t[0], min(t[1], t[2]), max(t[1], t[2])))\n    mst = []\n    edges_used = 0\n    for cost, a, b in filtered:\n        ia = name_to_idx.get(a)\n        ib = name_to_idx.get(b)\n        if ia is None or ib is None:\n            continue\n        if union(ia, ib):\n            mst.append({'start': a, 'end': b})\n            edges_used += 1\n            if edges_used == len(nodes) - 1:\n                break\n\n    # Verify connectivity: all nodes that are present in nodes list must be connected via used edges\n    if edges_used != len(nodes) - 1:\n        return []\n\n    return mst"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2653,
+    "input_tokens_details": {
+      "cached_tokens": 2560
+    },
+    "output_tokens": 1072,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3725
+  },
+  "user": null,
+  "metadata": {}
+}

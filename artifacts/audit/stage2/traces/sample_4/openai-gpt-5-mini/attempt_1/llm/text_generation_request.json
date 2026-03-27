@@ -1,0 +1,30 @@
+{
+  "model": "gpt-5-mini",
+  "input": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are a careful coding assistant. Return the best possible answer for the task."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Solve the following Python coding task.\n\nRequirements:\n- Return only Python code.\n- Implement the requested entry function exactly.\n- Do not include explanations before or after the code.\n- Use only the Python standard library unless the prompt explicitly permits otherwise.\n\nProblem Statement:\n# Polynomial Multiplication using Fast Fourier Transform\n\n## Problem Statement\n\nImplement an efficient polynomial multiplication function using the Fast Fourier Transform (FFT) algorithm. Given two polynomials represented as lists of integer coefficients, compute their product polynomial.\n\nPolynomials are represented with the constant term first. For example, `[2, 0, 1, 3]` represents the polynomial `2 + 0x + 1x² + 3x³` or simply `2 + x² + 3x³`.\n\n## Objectives\n\n1. **Implement FFT-based Multiplication**  \n   Use the Fast Fourier Transform (FFT) algorithm to efficiently multiply two polynomials.\n\n2. **Handle Integer Coefficients**  \n   Work with integer coefficients in the range [-10⁶, 10⁶]. FFT operates on complex numbers, so results must be rounded back to integers with proper precision handling.\n\n3. **Comprehensive Edge Case Handling**  \n   The solution must correctly handle various edge cases including zero polynomials, single coefficients, negative values, and large inputs.\n\n## Constraints\n\n- Polynomials can have up to **10⁵ coefficients**\n- Coefficients range from **-10⁶ to 10⁶**\n- No third-party libraries (e.g., `numpy`, `scipy`) allowed\n\n## Edge Cases to Handle\n\n1. **Zero Polynomials**: Product of any polynomial with `[0]` or `[]` is `[0]`\n2. **Single Coefficients**: `[k] × poly` should efficiently compute scalar multiplication\n3. **Negative Coefficients**: Correctly handle sign propagation.\n4. **Trailing Zeros**: Trim trailing zeros from the result.\n5. **Empty Inputs**: Treat `[]` as `[0]`\n6. **Different Sizes**: Handle polynomials with significantly different degrees\n7. **Floating-Point Precision**: Round FFT results carefully to avoid precision errors\n8. **Large Coefficients**: Product coefficients may exceed the input range.\n9. **Internal Zero Coefficients**: Handle polynomials where multiplication produces exact zeros in the middle of the result. These internal zeros must be preserved and not trimmed like trailing zeros. FFT rounding must produce exact integer zeros, not near-zero values like `0.0000001`\n\n## Function Signature\n\n```python\ndef fft_integer_multiplication(poly1: List[int], poly2: List[int]) -> List[int]:\n    \"\"\"\n    Multiply two polynomials using Fast Fourier Transform.\n    \n    Args:\n        poly1: List of integer coefficients (constant term first)\n        poly2: List of integer coefficients (constant term first)\n    \n    Returns:\n        List of integer coefficients representing the product polynomial\n    \n    \"\"\"\n    pass\n```\n\n## Sample Input/Output\n\n### Example 1: Basic Multiplication\n**Input:**\n```python\npoly1 = [2, 0, 1, 3]  # 2 + x² + 3x³\npoly2 = [4, 5, 0, 1]  # 4 + 5x + x³\n```\n\n**Output:**\n```python\n[8, 10, 4, 19, 15, 1, 3]\n# Explanation: (2 + x² + 3x³)(4 + 5x + x³) = 8 + 10x + 4x² + 19x³ + 15x⁴ + x⁵ + 3x⁶\n```\n\n## Expected Output Format\n\nThe function returns a list of integers representing the product polynomial's coefficients in ascending degree order (constant term first). The output must:\n\n1. **Be trimmed**: Remove trailing zeros (e.g., `[1, 2, 0, 0]` → `[1, 2]`)\n2. **Handle zero result**: Return `[0]` for zero polynomials, not `[]`\n3. **Use integers**: All coefficients must be integers (properly rounded from FFT)\n4. **Correct degree**: Result degree should be deg(poly1) + deg(poly2)\n\nStarter Code:\n```python\nfrom typing import List\nimport cmath\n\n\ndef fft_integer_multiplication(poly1: List[int], poly2: List[int]) -> List[int]:\n    pass\n```\n"
+        }
+      ]
+    }
+  ],
+  "reasoning": {
+    "effort": "minimal"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 4096
+}

@@ -1,0 +1,64 @@
+Traceback (most recent call last):
+  File "C:\Users\Tristan\Dropbox\Documents\Turing\Takehome\src\turing_takehome\stages\sample_efficacy_analysis\runner.py", line 607, in _generate_candidate
+    payload = generate_text_for_target(
+        target_name,
+        prompt,
+        trace_dir=attempt_dir / "llm",
+    )
+  File "C:\Users\Tristan\Dropbox\Documents\Turing\Takehome\src\turing_takehome\llm.py", line 327, in generate_text_for_target
+    return _generate_openai_family_text(
+        config=config,
+    ...<3 lines>...
+        trace_dir=trace_dir,
+    )
+  File "C:\Users\Tristan\Dropbox\Documents\Turing\Takehome\src\turing_takehome\llm.py", line 689, in _generate_openai_family_text
+    return _generate_openai_responses_text(
+        config=config,
+    ...<3 lines>...
+        trace_dir=trace_dir,
+    )
+  File "C:\Users\Tristan\Dropbox\Documents\Turing\Takehome\src\turing_takehome\llm.py", line 753, in _generate_openai_responses_text
+    payload = _http_json(
+        url="https://api.openai.com/v1/responses",
+    ...<7 lines>...
+        trace_stem="text_generation",
+    )
+  File "C:\Users\Tristan\Dropbox\Documents\Turing\Takehome\src\turing_takehome\llm.py", line 1028, in _http_json
+    with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tristan\AppData\Local\Programs\Python\Python314\Lib\urllib\request.py", line 187, in urlopen
+    return opener.open(url, data, timeout)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tristan\AppData\Local\Programs\Python\Python314\Lib\urllib\request.py", line 487, in open
+    response = self._open(req, data)
+  File "C:\Users\Tristan\AppData\Local\Programs\Python\Python314\Lib\urllib\request.py", line 504, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+                              '_open', req)
+  File "C:\Users\Tristan\AppData\Local\Programs\Python\Python314\Lib\urllib\request.py", line 464, in _call_chain
+    result = func(*args)
+  File "C:\Users\Tristan\AppData\Local\Programs\Python\Python314\Lib\urllib\request.py", line 1369, in https_open
+    return self.do_open(http.client.HTTPSConnection, req,
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        context=self._context)
+                        ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tristan\AppData\Local\Programs\Python\Python314\Lib\urllib\request.py", line 1325, in do_open
+    r = h.getresponse()
+  File "C:\Users\Tristan\AppData\Local\Programs\Python\Python314\Lib\http\client.py", line 1450, in getresponse
+    response.begin()
+    ~~~~~~~~~~~~~~^^
+  File "C:\Users\Tristan\AppData\Local\Programs\Python\Python314\Lib\http\client.py", line 336, in begin
+    version, status, reason = self._read_status()
+                              ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Tristan\AppData\Local\Programs\Python\Python314\Lib\http\client.py", line 297, in _read_status
+    line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
+               ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "C:\Users\Tristan\AppData\Local\Programs\Python\Python314\Lib\socket.py", line 725, in readinto
+    return self._sock.recv_into(b)
+           ~~~~~~~~~~~~~~~~~~~~^^^
+  File "C:\Users\Tristan\AppData\Local\Programs\Python\Python314\Lib\ssl.py", line 1304, in recv_into
+    return self.read(nbytes, buffer)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "C:\Users\Tristan\AppData\Local\Programs\Python\Python314\Lib\ssl.py", line 1138, in read
+    return self._sslobj.read(len, buffer)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+TimeoutError: The read operation timed out

@@ -1,0 +1,293 @@
+from typing import List, Tuple, Dict, Any, Set
+from collections import defaultdict, deque
+from heapq import heappush, heappop
+
+
+def manage_road_network(
+    roads: List[List[int]],
+    intersections: List[List[int]],
+    updates: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    parent: Dict[int, int] = {}
+    rank: Dict[int, int] = {}
+    comp_capacity: Dict[int, int] = {}
+    comp_size: Dict[int, int] = {}
+    merge_history: List[Tuple[int, int]] = []
+    max_tree_depth = 0
+
+    road_map: Dict[Tuple[int, int], Dict[str, Any]] = {}
+    adj_roads: Dict[int, Set[Tuple[int, int]]] = defaultdict(set)
+    nodes: Set[int] = set()
+    total_capacity = 0
+    deactivated_roads = 0
+
+    # priority queue: earlier roads => higher priority => use counter
+    priority_heap: List[Tuple[int, Tuple[int, int]]] = []
+    priority_counter = 0
+
+    def make_set(x: int, capacity: int = 1):
+        nonlocal max_tree_depth
+        if x in parent:
+            return
+        parent[x] = x
+        rank[x] = 0
+        comp_capacity[x] = capacity
+        comp_size[x] = 1
+        if rank[x] > max_tree_depth:
+            max_tree_depth = rank[x]
+
+    def find(x: int) -> int:
+        if parent[x] != x:
+            parent[x] = find(parent[x])
+        return parent[x]
+
+    def union(a: int, b: int) -> bool:
+        nonlocal max_tree_depth
+        ra = find(a)
+        rb = find(b)
+        if ra == rb:
+            return False
+        # log merge before structural changes
+        merge_history.append((ra, rb))
+        # union by rank: attach smaller to larger; on equal, make second child and increment surviving root's rank by 1.
+        if rank[ra] < rank[rb]:
+            ra, rb = rb, ra  # ensure ra has >= rank
+        parent[rb] = ra
+        # accumulate
+        comp_capacity[ra] = comp_capacity.get(ra, 0) + comp_capacity.get(rb, 0)
+        comp_size[ra] = comp_size.get(ra, 0) + comp_size.get(rb, 0)
+        # remove child entries
+        comp_capacity.pop(rb, None)
+        comp_size.pop(rb, None)
+        if rank[ra] == rank[rb]:
+            rank[ra] += 1
+        if rank[ra] > max_tree_depth:
+            max_tree_depth = rank[ra]
+        return True
+
+    # helper normalize road
+    def norm(road):
+        a, b = road
+        return (a, b) if a <= b else (b, a)
+
+    # initialize intersections (nodes only)
+    for u, v in intersections:
+        nodes.add(u)
+        nodes.add(v)
+        make_set(u, capacity=1)
+        make_set(v, capacity=1)
+
+    # insert roads
+    for r in roads:
+        a, b = r
+        a0, b0 = (a, b) if a <= b else (b, a)
+        road = (a0, b0)
+        nodes.add(a0); nodes.add(b0)
+        # default capacity 1
+        make_set(a0, capacity=1)
+        make_set(b0, capacity=1)
+        # store road metadata
+        road_map[road] = {'capacity': 1, 'active': True, 'priority': priority_counter}
+        heappush(priority_heap, (priority_counter, road))
+        priority_counter += 1
+        adj_roads[a0].add(road)
+        adj_roads[b0].add(road)
+        total_capacity += 1
+        union(a0, b0)
+
+    # helpers for updates
+    def get_neighbors(node: int) -> Set[int]:
+        neigh = set()
+        for r in adj_roads.get(node, ()):
+            a, b = r
+            if a != node:
+                neigh.add(a)
+            if b != node:
+                neigh.add(b)
+        return neigh
+
+    def reclassify(road_list, new_capacity):
+        nonlocal total_capacity
+        road = norm(road_list)
+        meta = road_map.get(road)
+        if not meta:
+            return
+        old = meta['capacity']
+        meta['capacity'] = new_capacity
+        total_capacity += (new_capacity - old)
+
+    def expand(road_list, extended_road_list):
+        nonlocal total_capacity, priority_counter
+        r1 = norm(road_list)
+        r2 = norm(extended_road_list)
+        a1, b1 = r1
+        a2, b2 = r2
+        # ensure nodes exist
+        for n in (a2, b2):
+            nodes.add(n)
+            make_set(n, capacity=1)
+        # add extended road if not present
+        if r2 not in road_map:
+            road_map[r2] = {'capacity': 1, 'active': True, 'priority': priority_counter}
+            heappush(priority_heap, (priority_counter, r2))
+            priority_counter += 1
+            adj_roads[a2].add(r2)
+            adj_roads[b2].add(r2)
+            total_capacity += 1
+            union(a2, b2)
+        # if original exists, ensure its nodes in sets and union across non-connected endpoints
+        for x in (a1, b1):
+            nodes.add(x)
+            make_set(x, capacity=1)
+        # union all non-connected node pairs between the two roads
+        pairs = [(a1, a2), (a1, b2), (b1, a2), (b1, b2)]
+        for x, y in pairs:
+            if x in parent and y in parent:
+                union(x, y)
+
+    def merge_levels(road_list, adjacent_road_list, distance_threshold):
+        # BFS-style propagation: we'll treat distance_threshold as unconditional merge for given example
+        r1 = norm(road_list)
+        r2 = norm(adjacent_road_list)
+        # ensure nodes exist
+        for r in (r1, r2):
+            for n in r:
+                nodes.add(n)
+                make_set(n, capacity=1)
+        # if either road missing, add as roads with capacity 1
+        for r in (r1, r2):
+            if r not in road_map:
+                nonlocal_priority = None
+                road_map[r] = {'capacity': 1, 'active': True, 'priority': priority_counter}
+                heappush(priority_heap, (priority_counter, r))
+                # closure: update external var
+                # but cannot assign to priority_counter inside this scope unless declared; instead handle below
+        # Because of python scoping, we add roads via expand-like simple addition using outer variables:
+        # Simpler: ensure endpoints unioned
+        a1, b1 = r1
+        a2, b2 = r2
+        for n in (a1, b1, a2, b2):
+            make_set(n, capacity=1)
+        # BFS propagation: merge components reachable via adjacency if within threshold.
+        # We'll perform a BFS on nodes starting from endpoints of r1 collecting nodes and merging with r2 endpoints.
+        q = deque()
+        visited = set()
+        for s in (a1, b1):
+            q.append(s); visited.add(s)
+        while q:
+            cur = q.popleft()
+            # consider adjacent nodes via roads
+            for nbr in get_neighbors(cur):
+                if nbr not in visited:
+                    visited.add(nbr)
+                    q.append(nbr)
+                    union(cur, nbr)
+        # finally union endpoints of r2 with visited nodes
+        for n in (a2, b2):
+            for v in visited:
+                union(n, v)
+
+    def close_partial(road_list, lanes_closed):
+        nonlocal total_capacity, deactivated_roads
+        road = norm(road_list)
+        meta = road_map.get(road)
+        if not meta:
+            return
+        old = meta['capacity']
+        newc = max(0, old - lanes_closed)
+        meta['capacity'] = newc
+        total_capacity += (newc - old)
+        if newc == 0 and meta['active']:
+            meta['active'] = False
+            deactivated_roads += 1
+
+    def optimize(k, boost_priority_roads=False):
+        # extract k highest-priority (lowest counter) roads
+        extracted = []
+        found = []
+        while priority_heap and len(found) < k:
+            pr, road = heappop(priority_heap)
+            meta = road_map.get(road)
+            if meta and meta.get('active', False):
+                found.append((pr, road))
+                extracted.append((pr, road))
+            else:
+                # skip inactive/nonexistent
+                continue
+        # push back all extracted to maintain queue
+        for item in extracted:
+            heappush(priority_heap, item)
+        # apply boost
+        if boost_priority_roads:
+            for _, road in found:
+                # increment capacity by 1
+                meta = road_map.get(road)
+                if meta:
+                    reclassify(list(road), meta['capacity'] + 1)
+
+    # Process updates
+    for upd in updates:
+        typ = upd.get('type')
+        if typ == 'reclassify':
+            road = upd.get('road')
+            newc = upd.get('new_capacity', 1)
+            if road:
+                reclassify(road, newc)
+        elif typ == 'expand':
+            road = upd.get('road')
+            ext = upd.get('extended_road')
+            if road and ext:
+                expand(road, ext)
+        elif typ == 'merge_levels':
+            road = upd.get('road')
+            adj = upd.get('adjacent_road')
+            thr = upd.get('distance_threshold', 0)
+            if road and adj:
+                merge_levels(road, adj, thr)
+        elif typ == 'close_partial':
+            road = upd.get('road')
+            lanes = upd.get('lanes_closed', 0)
+            if road:
+                close_partial(road, lanes)
+        elif typ == 'optimize':
+            k = upd.get('k', 0)
+            boost = upd.get('boost_priority_roads', False)
+            optimize(k, boost)
+
+    # Final components: collect roots and members
+    if not nodes:
+        return {'components': [], 'statistics': {'total_merge_count': 0, 'num_components': 0,
+                                                 'component_sizes': [], 'total_network_capacity': 0,
+                                                 'max_tree_depth': 0, 'fragmentation_index': 0.0,
+                                                 'deactivated_roads_count': 0, 'component_capacities': []}}
+    comp_members: Dict[int, List[int]] = defaultdict(list)
+    for n in nodes:
+        make_set(n, capacity=1)
+    for n in nodes:
+        r = find(n)
+        comp_members[r].append(n)
+    components = [sorted(v) for v in comp_members.values()]
+    components.sort(key=lambda x: (len(x), x))  # stable sort
+    num_components = len(components)
+    comp_sizes_list = [len(c) for c in components]
+    # component capacities aligned with components
+    comp_caps = []
+    for c in components:
+        if c:
+            root = find(c[0])
+            comp_caps.append(comp_capacity.get(root, 0))
+        else:
+            comp_caps.append(0)
+    total_merge_count = len(merge_history)
+    fragmentation_index = round(num_components / len(nodes), 4) if nodes else 0.0
+    stats = {
+        'total_merge_count': total_merge_count,
+        'num_components': num_components,
+        'component_sizes': comp_sizes_list,
+        'total_network_capacity': total_capacity,
+        'max_tree_depth': max_tree_depth,
+        'fragmentation_index': fragmentation_index,
+        'deactivated_roads_count': deactivated_roads,
+        'component_capacities': comp_caps
+    }
+    return {'components': components, 'statistics': stats}

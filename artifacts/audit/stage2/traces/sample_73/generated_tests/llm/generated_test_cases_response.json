@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6OoKtZshLF9jSQooLzWsKohn7WU",
+  "object": "chat.completion",
+  "created": 1774398514,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"{\\\"linguistics\\\": {\\\"mode\\\": \\\"set\\\", \\\"normalize_key\\\": \\\"case_insensitive\\\"}}\",\n        \"[{\\\"op\\\": \\\"add\\\", \\\"ns\\\": \\\"linguistics\\\", \\\"key\\\": \\\"Quechua\\\"}, {\\\"op\\\": \\\"add\\\", \\\"ns\\\": \\\"linguistics\\\", \\\"key\\\": \\\"QUECHUA\\\"}, {\\\"op\\\": \\\"add\\\", \\\"ns\\\": \\\"linguistics\\\", \\\"key\\\": \\\"n\\\\u0303ahuatl\\\"}, {\\\"op\\\": \\\"add\\\", \\\"ns\\\": \\\"linguistics\\\", \\\"key\\\": \\\"\\\\u00f1ahuatl\\\"}, {\\\"op\\\": \\\"add\\\", \\\"ns\\\": \\\"linguistics\\\", \\\"key\\\": \\\"Cafe\\\\u0301\\\"}, {\\\"op\\\": \\\"add\\\", \\\"ns\\\": \\\"linguistics\\\", \\\"key\\\": \\\"CAF\\\\u00c9\\\"}, {\\\"op\\\": \\\"snapshot\\\"}]\"\n      ],\n      \"focus\": \"Unicode NFC normalization and case-insensitive deduplication (combining marks vs precomposed; mixed case)\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"artifacts\\\": {\\\"mode\\\": \\\"map\\\"}}\",\n        \"[{\\\"op\\\": \\\"bulk_load\\\", \\\"ns\\\": \\\"artifacts\\\", \\\"entries\\\": [[1, {\\\"name\\\": \\\"Item-1\\\"}], [2, {\\\"name\\\": \\\"Item-2\\\"}], [3, {\\\"name\\\": \\\"Item-3\\\"}], [4, {\\\"name\\\": \\\"Item-4\\\"}], [5, {\\\"name\\\": \\\"Item-5\\\"}], [5, {\\\"name\\\": \\\"Item-5b\\\"}], [6, {\\\"name\\\": \\\"Item-6\\\"}], [7, {\\\"name\\\": \\\"Item-7\\\"}], [8, {\\\"name\\\": \\\"Item-8\\\"}], [9, {\\\"name\\\": \\\"Item-9\\\"}], [10, {\\\"name\\\": \\\"Item-10\\\"}], [11, {\\\"name\\\": \\\"Item-11\\\"}], [12, {\\\"name\\\": \\\"Item-12\\\"}], [13, {\\\"name\\\": \\\"Item-13\\\"}], [14, {\\\"name\\\": \\\"Item-14\\\"}], [15, {\\\"name\\\": \\\"Item-15\\\"}], [16, {\\\"name\\\": \\\"Item-16\\\"}]]}, {\\\"op\\\": \\\"put\\\", \\\"ns\\\": \\\"artifacts\\\", \\\"key\\\": 5, \\\"value\\\": {\\\"name\\\": \\\"Item-5-updated\\\"}}, {\\\"op\\\": \\\"snapshot\\\"}]\"\n      ],\n      \"focus\": \"bulk_load with many entries (including duplicate key) to exercise deterministic insertion order, resizing, and update semantics\"\n    },\n    {\n      \"input_lines\": [\n        \"{\\\"genetics\\\": {\\\"mode\\\": \\\"map\\\", \\\"normalize_key\\\": \\\"none\\\"}}\",\n        \"[{\\\"op\\\": \\\"put\\\", \\\"ns\\\": \\\"genetics\\\", \\\"key\\\": 3.14, \\\"value\\\": {\\\"freq\\\": 0.12}}, {\\\"op\\\": \\\"snapshot\\\"}]\"\n      ],\n      \"focus\": \"Invalid/unsupported key type (float) to validate explicit error handling for unsupported key types\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2757,
+    "completion_tokens": 4343,
+    "total_tokens": 7100,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3648,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

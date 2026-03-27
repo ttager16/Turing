@@ -1,0 +1,50 @@
+{
+  "model": "gpt-5-mini",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "generated_test_cases",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input_lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "focus": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_lines",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You design compact, high-value coding benchmark tests. Return only valid JSON matching the schema."
+    },
+    {
+      "role": "user",
+      "content": "Generate 3 additional Python function test inputs for this benchmark sample.\n\nRules:\n- Return only test inputs, not expected outputs.\n- Focus on edge cases, boundary conditions, format-sensitive cases, and cases likely to separate strong from merely pattern-matching solutions.\n- Do not require external libraries.\n- Keep inputs valid under the problem statement.\n- Match the existing function-call argument shape.\n- Each input_lines item must be one JSON-encoded argument value, matching how the existing tests are stored.\n\nFunction name: design_metro_system\n\nProblem Statement:\n### **Problem Statement**\n\nThe city of Metropolia is designing a new subway system to connect its key districts. As the lead urban planner, your task is to create a network layout that minimizes the average commute time for its citizens, all while staying within a strict construction budget.\n\nThe city has identified $N$ potential locations for stations. You are given:\n\n1.  A **demand matrix**, where `demand[i][j]` is the number of passengers traveling from station `i` to station `j` each day.\n2.  A **cost matrix**, where `cost[i][j]` is the expense of building a direct tunnel between station `i` and `j`.\n\nYour goal is to select a set of tunnels to build. The total cost of these tunnels must not exceed the given **budget**. Once the network is built, the travel time between any two connected stations is the number of stops (or edges) on the shortest path between them. The objective is to produce a network design where the **average travel time** across all passengers is as low as possible.\n\n-----\n\n### **Objectives**\n\n1.  **Model Formulation:**\n      * Represent the potential stations and tunnels as a graph.\n      * Use the demand and cost matrices to guide your decision-making.\n2.  **Heuristic Network Design:**\n      * Implement an efficient **heuristic algorithm** to select which tunnels to build. Exact algorithms with high time complexity are not encouraged.\n      * The algorithm must intelligently choose tunnels that provide the best value, considering both their cost and their impact on the travel times of a large number of passengers.\n3.  **Feasibility Reporting:**\n      * After designing the network, calculate the resulting average travel time.\n      * **Crucially, if any pair of stations `(i, j)` with non-zero demand is not connected in your final network, the design is considered a failure.**\n      * The function must return `True` if a valid, connected network is built within budget and its average time is less than or equal to `max_avg_time`. Otherwise, it must return `False`.\n\n-----\n\n### **Implementation Guidance**\n\n  * This is a network design problem, a class of problems that is typically NP-hard. An exhaustive search trying all combinations of tunnels is computationally infeasible and will time out.\n  * You are expected to implement a **heuristic-based or greedy algorithm**. A good heuristic might prioritize building tunnels that offer the largest reduction in total travel time for the lowest cost.\n  * After your heuristic selects the tunnels, you will need to calculate all-pairs shortest paths on the resulting graph to find the travel time for each pair of stations. An algorithm like Breadth-First Search (BFS) starting from each node or the Floyd-Warshall algorithm is suitable for this.\n  * The `max_avg_time` threshold provided in the test cases is **intentionally conservative**. This means a well-designed heuristic that finds a good, but not necessarily perfect, network should be sufficient to pass. \n\n#### **Edge Case Handling**\n\n  * **Unserviceable Demand:** If your final network design leaves any two stations `i` and `j` disconnected, but `demand[i][j] > 0`, the average travel time is effectively **infinite**. Your function must return `False`.\n  * **Zero Budget:** Be mindful of scenarios where `budget = 0`. If there is any demand between two *different* stations in this case (i.e., `demand[i][j] > 0` for `i != j`), it's impossible to build a connecting tunnel, so the function should return `False`.\n\n-----\n\n### **Constraints**\n\n  * The number of potential stations, $N$, will be up to 50.\n  * Demand and cost values will be non-negative integers.\n  * The solution should not be an exhaustive brute-force \n  * No external libraries (e.g., numpy, scipy, networkx) are permitted.\n\n-----\n\n### **Function Signature**\n\n```python\nfrom typing import List\n\ndef design_metro_system(\n    demand_matrix: List[List[int]],\n    cost_matrix: List[List[int]],\n    budget: int,\n    max_avg_time: float\n) -> bool:\n```\n\n-----\n\n### **Sample Input/Output**\n\n**Input:**\n\n```python\n# 4 stations. High demand between 0 and 3.\ndemand_matrix = [\n    [0, 1, 5, 100],\n    [1, 0, 1, 5],\n    [5, 1, 0, 1],\n    [100, 5, 1, 0]\n]\n\n# Costs to connect stations. A direct link (0-3) is very expensive.\n# The path 0-1-2-3 is cheaper.\ncost_matrix = [\n    [0, 10, 99, 100],\n    [10, 0, 10, 99],\n    [99, 10, 0, 10],\n    [100, 99, 10, 0]\n]\n\n# Total budget for construction.\nbudget = 30\n\n# The required average travel time performance.\nmax_avg_time = 2.0\n```\n\n**Output:**\n\n```python\nTrue\n```\n\n**Reasoning:**\n\nA smart heuristic would aim to connect the high-demand stations (0 and 3) efficiently within the budget.\n\n1.  **Analyze Options:**\n\n      * The direct tunnel `(0, 3)` costs 100, which is over the budget of 30.\n      * The path `0-1-2-3` provides a complete connection for all passengers. The total cost is `cost(0,1) + cost(1,2) + cost(2,3) = 10 + 10 + 10 = 30`. This uses the entire budget.\n\n2.  **Construct Network:**\n\n      * A greedy heuristic that prioritizes connecting the network cheaply would choose to build the tunnels `(0,1)`, `(1,2)`, and `(2,3)`. The final network is a line: `0 -- 1 -- 2 -- 3`. This network connects all pairs with non-zero demand.\n\n3.  **Calculate Average Time:**\n\n      * Total passengers: `1 + 5 + 100 + 1 + 1 + 5 + ... = 220`.\n      * Calculate total travel time for all passengers on this network:\n          * **Trip (0 -\\> 3):** 100 passengers, time = 3 stops. Total = `100 * 3 = 300`.\n          * **Trip (3 -\\> 0):** 100 passengers, time = 3 stops. Total = `100 * 3 = 300`.\n          * **Trip (0 -\\> 2):** 5 passengers, time = 2 stops. Total = `5 * 2 = 10`.\n          * ... and so on for all other demand pairs.\n      * The sum of all travel times is approximately 400.\n      * Average time = `Total Time / Total Passengers` = `400 / 220 ≈ 1.82`.\n\nSince the calculated average time `1.82` is less than `max_avg_time` of `2.0`, the function returns `True`.\n\nStarter Code:\n```python\nimport math\nimport random\nimport time\nfrom typing import List, Set, FrozenSet\n\ndef design_metro_system(\n    demand_matrix: List[List[int]],\n    cost_matrix: List[List[int]],\n    budget: int,\n    max_avg_time: float\n) -> bool:\n    pass\n```\n\nPublic test examples:\n[\n  {\n    \"input\": \"[[0]]\\n[[0]]\\n100\\n1.0\",\n    \"output\": \"true\"\n  },\n  {\n    \"input\": \"[[0, 0, 0], [0, 0, 0], [0, 0, 0]]\\n[[0, 10, 10], [10, 0, 10], [10, 10, 0]]\\n15\\n1.0\",\n    \"output\": \"true\"\n  },\n  {\n    \"input\": \"[[0, 1, 1, 500], [1, 0, 1, 1], [1, 1, 0, 1], [500, 1, 1, 0]]\\n[[0, 40, 40, 100], [40, 0, 40, 1], [40, 40, 0, 1], [100, 1, 1, 0]]\\n100\\n2.5\",\n    \"output\": \"true\"\n  }\n]\n"
+    }
+  ]
+}

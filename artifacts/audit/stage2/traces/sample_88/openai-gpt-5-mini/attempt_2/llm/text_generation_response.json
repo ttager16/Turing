@@ -1,0 +1,76 @@
+{
+  "id": "resp_08121887e440f4ef0069c3303dcea88194a7f31612ffb8f1e3",
+  "object": "response",
+  "created_at": 1774399549,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774399591,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_08121887e440f4ef0069c3303e2e208194b20a147615ec74df",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_08121887e440f4ef0069c3303e7edc8194b63bc421e99034e7",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Optional\nfrom threading import Lock\n\nclass PSTNode:\n    __slots__ = ('l','r','left','right','sum','mx','mn')\n    def __init__(self, l, r):\n        self.l = l; self.r = r\n        self.left: Optional['PSTNode'] = None\n        self.right: Optional['PSTNode'] = None\n        self.sum = 0\n        self.mx = 0\n        self.mn = 0\n\ndef build(arr, l, r):\n    node = PSTNode(l, r)\n    if l == r:\n        v = arr[l]\n        node.sum = v; node.mx = v; node.mn = v\n        return node\n    m = (l + r) // 2\n    node.left = build(arr, l, m)\n    node.right = build(arr, m+1, r)\n    pull(node)\n    return node\n\ndef pull(node):\n    node.sum = node.left.sum + node.right.sum\n    node.mx = max(node.left.mx, node.right.mx)\n    node.mn = min(node.left.mn, node.right.mn)\n\ndef point_update(node: PSTNode, idx: int, val: int) -> PSTNode:\n    if idx < node.l or idx > node.r:\n        return node\n    n = PSTNode(node.l, node.r)\n    if node.l == node.r:\n        n.left = n.right = None\n        n.sum = val; n.mx = val; n.mn = val\n        return n\n    n.left = node.left; n.right = node.right\n    m = (node.l + node.r)//2\n    if idx <= m:\n        n.left = point_update(node.left, idx, val)\n    else:\n        n.right = point_update(node.right, idx, val)\n    pull(n)\n    return n\n\ndef range_query(node: PSTNode, l, r):\n    if node is None or l > node.r or r < node.l or l>r:\n        return (0, -10**18, 10**18, 0)  # sum, max, min, count\n    if l <= node.l and node.r <= r:\n        cnt = node.r - node.l + 1\n        return (node.sum, node.mx, node.mn, cnt)\n    s1, M1, m1, c1 = range_query(node.left, l, r)\n    s2, M2, m2, c2 = range_query(node.right, l, r)\n    return (s1+s2, max(M1,M2), min(m1,m2), c1+c2)\n\ndef collect_values(node: PSTNode, l, r, out):\n    if node is None or l > node.r or r < node.l or l>r:\n        return\n    if node.l == node.r:\n        if l <= node.l <= r:\n            out.append((node.l, node.sum))\n        return\n    collect_values(node.left, l, r, out)\n    collect_values(node.right, l, r, out)\n\ndef batch_point_updates(root: PSTNode, updates: List[tuple]) -> PSTNode:\n    # apply list of (idx,newval) updates atomically producing new root\n    newroot = root\n    for idx,val in updates:\n        if idx < newroot.l or idx > newroot.r:\n            continue\n        newroot = point_update(newroot, idx, val)\n    return newroot\n\nclass VersionedUnionFind:\n    def __init__(self, n):\n        self.n = n\n        self.versions = []  # each version stores parent list and size list\n        parent = list(range(n))\n        size = [1]*n\n        self.versions.append((parent, size))\n    def clone_version(self, ver):\n        p,s = self.versions[ver]\n        return (p.copy(), s.copy())\n    def union(self, ver, a, b):\n        p,s = self.clone_version(ver)\n        ra = self.find_in(p, a)\n        rb = self.find_in(p, b)\n        if ra == rb: \n            self.versions.append((p,s)); return len(self.versions)-1\n        if s[ra] < s[rb]:\n            ra,rb = rb,ra\n        p[rb] = ra\n        s[ra] += s[rb]\n        self.versions.append((p,s))\n        return len(self.versions)-1\n    def unlink(self, ver, x):\n        p,s = self.clone_version(ver)\n        rx = self.find_in(p, x)\n        if p[x] == x and s[rx]==1:\n            self.versions.append((p,s)); return len(self.versions)-1\n        # make x singleton: reduce size of root, set x parent to itself\n        if p[x] == x:\n            # root but size>1: need to pick a new root for others: keep same root but decrement size\n            s[rx] -= 1\n            p[x] = x\n        else:\n            p[x] = x\n            s[rx] -= 1\n        self.versions.append((p,s))\n        return len(self.versions)-1\n    def find_in(self, parent, x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n    def get_root(self, ver, x):\n        p,s = self.versions[ver]\n        return self.find_in(p, x)\n    def members(self, ver, x):\n        p,s = self.versions[ver]\n        root = self.find_in(p, x)\n        return [i for i in range(self.n) if self.find_in(p,i)==root]\n\ndef ultra_advanced_risk_analytics(\n    initial_data: List[int],\n    queries: List[List]\n) -> List[int]:\n    n = len(initial_data)\n    lock = Lock()\n    if n==0:\n        return []\n    arr = {i: initial_data[i] for i in range(n)}\n    root0 = build(arr, 0, n-1)\n    roots = [root0]\n    uf = VersionedUnionFind(n)\n    # initial UF version 0 corresponds to initial segment tree version 0\n    # We'll align versions: roots[i] corresponds to uf.versions[i]\n    results = []\n    for q in queries:\n        qt = q[0]\n        if qt == \"update\":\n            _, idx, newv = q\n            if not (0 <= idx < n):\n                # copy previous version\n                roots.append(roots[-1]); uf.versions.append(uf.versions[-1][0].copy() if False else uf.versions[-1][0].copy() if False else uf.versions[-1])\n                continue\n            with lock:\n                ver = len(roots)-1\n                # operate on latest uf version\n                # find group members in latest UF\n                members = uf.members(ver, idx)\n                updates = []\n                oldx = range_query(roots[ver], idx, idx)[0]\n                if oldx == 0:\n                    # skip cascade, just point update that index\n                    updates = [(idx, newv)]\n                else:\n                    for m in members:\n                        oldm = range_query(roots[ver], m, m)[0]\n                        if m == idx:\n                            updates.append((m, newv))\n                        else:\n                            # proportional: new = (oldm * newv) // oldx\n                            nv = (oldm * newv) // oldx\n                            updates.append((m, nv))\n                newroot = batch_point_updates(roots[ver], updates)\n                roots.append(newroot)\n                # UF version unchanged structure - clone previous\n                prev_p, prev_s = uf.versions[-1]\n                uf.versions.append((prev_p.copy(), prev_s.copy()))\n        elif qt == \"range_query\":\n            _, l, r, mode, version = q\n            if not (0 <= version < len(roots)) or l>r or l<0 or r>=n:\n                results.append(0); continue\n            node = roots[version]\n            s,mx,mn,c = range_query(node, l, r)\n            if mode == \"sum\":\n                results.append(s)\n            elif mode == \"max\":\n                results.append(mx if c>0 else 0)\n            elif mode == \"min\":\n                results.append(mn if c>0 else 0)\n            elif mode == \"avg\":\n                results.append(s//c if c>0 else 0)\n            else:\n                results.append(0)\n        elif qt == \"link\":\n            _, a, b = q\n            if not (0<=a<n and 0<=b<n) or a==b:\n                # still create new version copies\n                roots.append(roots[-1]); prev_p, prev_s = uf.versions[-1]; uf.versions.append((prev_p.copy(), prev_s.copy()))\n                continue\n            # union on latest version index\n            newver_idx = uf.union(len(uf.versions)-1, a, b)\n            # ensure roots list aligned: add copy of latest root\n            roots.append(roots[-1])\n        elif qt == \"unlink\":\n            _, x = q\n            if not (0<=x<n):\n                roots.append(roots[-1]); prev_p, prev_s = uf.versions[-1]; uf.versions.append((prev_p.copy(), prev_s.copy()))\n                continue\n            newver_idx = uf.unlink(len(uf.versions)-1, x)\n            roots.append(roots[-1])\n        elif qt == \"conditional_update\":\n            # [\"conditional_update\", start, end, condition, threshold, new_value]\n            # for between: threshold is lower bound, new_value is upper bound, and actual new_value is in next param\n            with lock:\n                if len(q) < 6:\n                    roots.append(roots[-1]); uf.versions.append((uf.versions[-1][0].copy(), uf.versions[-1][1].copy()))\n                    continue\n                _, l, r, cond = q[0], q[1], q[2], q[3]\n                if not (0<=l<=r<n):\n                    roots.append(roots[-1]); uf.versions.append((uf.versions[-1][0].copy(), uf.versions[-1][1].copy()))\n                    continue\n                ver = len(roots)-1\n                node = roots[ver]\n                vals = []\n                collect_values(node, l, r, vals)\n                updates = []\n                if cond == \"gt\":\n                    thr = q[4]; newv = q[5]\n                    for idx, val in vals:\n                        if val > thr:\n                            updates.append((idx, newv))\n                elif cond == \"lt\":\n                    thr = q[4]; newv = q[5]\n                    for idx, val in vals:\n                        if val < thr:\n                            updates.append((idx, newv))\n                elif cond == \"eq\":\n                    thr = q[4]; newv = q[5]\n                    for idx, val in vals:\n                        if val == thr:\n                            updates.append((idx, newv))\n                elif cond == \"between\":\n                    low = q[4]; high = q[5]; newv = q[6]\n                    for idx, val in vals:\n                        if low <= val <= high:\n                            updates.append((idx, newv))\n                newroot = batch_point_updates(roots[ver], updates)\n                roots.append(newroot)\n                prev_p, prev_s = uf.versions[-1]\n                uf.versions.append((prev_p.copy(), prev_s.copy()))\n        elif qt == \"group_query\":\n            _, idx, version = q\n            if not (0<=idx<n) or not (0<=version < len(roots)):\n                results.append(0); continue\n            # get group members at that version (uf version aligned by index)\n            if version >= len(uf.versions):\n                results.append(0); continue\n            members = uf.members(version, idx)\n            s = 0\n            for m in members:\n                s += range_query(roots[version], m, m)[0]\n            results.append(s)\n        elif qt == \"version_count\":\n            # versions are count of roots (they are aligned with uf.versions)\n            results.append(len(roots))\n        else:\n            # unknown: ignore\n            pass\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1872,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2657,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4529
+  },
+  "user": null,
+  "metadata": {}
+}

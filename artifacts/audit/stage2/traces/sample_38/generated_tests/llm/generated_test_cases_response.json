@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5jedvwObBtQeazL1fiFTbN8PBB3",
+  "object": "chat.completion",
+  "created": 1774395962,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[{\\\"symbol\\\": 123, \\\"price\\\": 10.0, \\\"volatility\\\": null, \\\"correlated_with\\\": null}, {\\\"price\\\": 5.0}, {\\\"symbol\\\": \\\"X\\\", \\\"price\\\": 1.0, \\\"volatility\\\": 0.9, \\\"correlated_with\\\": [\\\"123\\\", null]}]\",\"0.01\",\"null\",\"null\"],\"focus\":\"Missing and null fields, non-string symbol conversion, and behavior when transaction costs are disabled (None). Tests defaults and .get()/or [] handling.\"},{\"input_lines\":[\"[{\\\"symbol\\\": \\\"A\\\", \\\"price\\\": 100.0, \\\"volatility\\\": 0.1, \\\"correlated_with\\\": [\\\"B\\\", \\\"C\\\"]}, {\\\"symbol\\\": \\\"B\\\", \\\"price\\\": 50.0, \\\"volatility\\\": 0.12, \\\"correlated_with\\\": [\\\"A\\\"]}, {\\\"symbol\\\": \\\"C\\\", \\\"price\\\": 20.0, \\\"volatility\\\": 0.2, \\\"correlated_with\\\": [\\\"A\\\"]}]\",\"0.001\",\"0.75\",\"1.0\"],\"focus\":\"Tight risk tolerance with very limited transaction cost budget to exercise budget checks, backtracking, and selection when only one unit can be afforded.\"},{\"input_lines\":[\"[{\\\"symbol\\\": \\\"S1\\\", \\\"price\\\": 10.0, \\\"volatility\\\": 0.0, \\\"correlated_with\\\": [\\\"S2\\\", \\\"S3\\\"]}, {\\\"symbol\\\": \\\"S2\\\", \\\"price\\\": 20.0, \\\"volatility\\\": 0.15, \\\"correlated_with\\\": [\\\"S1\\\", \\\"S1\\\"]}, {\\\"symbol\\\": \\\"S3\\\", \\\"price\\\": 5.0, \\\"volatility\\\": 0.25, \\\"correlated_with\\\": [\\\"S4\\\"]}, {\\\"symbol\\\": \\\"S4\\\", \\\"price\\\": 8.0, \\\"volatility\\\": 0.5, \\\"correlated_with\\\": [\\\"S3\\\", \\\"MISSING\\\"]}, {\\\"symbol\\\": \\\"S5\\\", \\\"price\\\": 2.0, \\\"volatility\\\": 0.05, \\\"correlated_with\\\": []}, {\\\"symbol\\\": \\\"S6\\\", \\\"price\\\": 1.0, \\\"volatility\\\": 0.02, \\\"correlated_with\\\": [\\\"S7\\\"]}, {\\\"symbol\\\": \\\"S7\\\", \\\"price\\\": 3.0, \\\"volatility\\\": 0.07, \\\"correlated_with\\\": [\\\"S6\\\"]}]\",\"0.25\",\"1.0\",\"10.0\"],\"focus\":\"Odd number of stocks (forces next power-of-two segment tree), duplicate correlations, missing referenced symbols, and moderate budget to exercise rebalance and HHI/concentration effects.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2708,
+    "completion_tokens": 2589,
+    "total_tokens": 5297,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1984,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

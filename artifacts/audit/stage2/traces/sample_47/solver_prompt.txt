@@ -1,0 +1,88 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+You're a senior network engineer at **Verizon Wireless**, working on the Network Performance Operations team responsible for maintaining quality of service across the national 5G and LTE infrastructure. Your team monitors thousands of cell tower transmission channels that route voice, data, and video traffic through directional microwave links and fiber connections between towers, switching centers, and core network nodes.
+
+During peak traffic hours and network events, certain transmission channels experience signal degradation due to interference, equipment aging, weather conditions, or capacity saturation. When channel quality drops below operational thresholds, the automatic response is to shut down those channels. However, this creates a critical problem: shutting down too many channels can fragment the network topology, creating isolated clusters of towers that lose connectivity to the core network, resulting in widespread service outages for customers.
+
+Your manager has tasked you with implementing an intelligent adaptive filter for the **Wireless Network Performance monitoring system** that dynamically adjusts quality thresholds across channels and makes smart decisions about which degraded channels to keep active to preserve network connectivity, even when they're slightly below quality standards. The system must analyze the network's directed graph topology in real-time, identifying critical junction points, bridge connections between network segments, source towers feeding traffic into the network, and sink nodes terminating at customer-facing base stations.
+
+The filter needs to process threshold updates efficiently using a segment tree with lazy propagation because network operations frequently adjust quality requirements across entire geographic regions (ranges of channels) during maintenance windows, special events, or emergency situations. For example, during a major concert or sporting event, engineers might temporarily lower thresholds for a region of 50 towers to maintain connectivity under extreme load.
+
+```python
+def multi_stage_adaptive_filter(  
+    channels: List[float],  
+    edges: List[List[int]],  
+    threshold_updates: List[List[float]],  
+    max_latency_ms: float  
+) -> List[float]:
+```
+
+**Real-world example from the Chicago metro network:**
+```python
+channels = [0.9, 1.2, 0.4, 1.0]  # Signal quality scores (0-2 scale) for 4 transmission links
+edges = [[0, 1], [1, 2], [2, 3], [3, 0]]  # Directional microwave links forming a redundant ring
+threshold_updates = [[2, 0.6], [0, 1.1], [3, 0.5]]  # Quality requirements updated by NOC
+max_latency_ms = 50.0  # Must process in under 50ms for real-time operation
+
+Output: [0.9, 1.2, 0.0, 1.0]
+# Channel 2 suppressed (quality too low, not critical to topology)
+# Channel 0 preserved despite being below threshold (bridge node maintaining ring connectivity)
+```
+
+## Constraints
+
+- `channels` represents measured signal quality scores from network monitoring probes; must handle equipment reporting errors (NaN), saturation values (infinity), and invalid negative readings
+- `edges` defines the physical or logical directional connections between transmission channels; duplicate entries represent redundant paths; self-loops represent loopback test channels
+- `threshold_updates` contains quality requirements pushed from the Network Operations Center as either `[channel_index, threshold]` for individual links or `[start_index, end_index, threshold]` for regional updates affecting tower clusters
+- `max_latency_ms` defines the real-time processing budget since the system must keep pace with 100ms monitoring intervals without causing data backlog
+- Channels meeting or exceeding their quality threshold are always kept active
+- Bridge channels (whose shutdown would partition the network into disconnected segments) with quality ratio between 0.81 and 0.82 are preserved to maintain network integrity
+- Critical junction channels (handling both incoming and outgoing traffic, part of redundant ring topologies) with ratio between 0.79 and 0.81 AND connecting to at least 2 active neighbors are preserved to maintain redundancy
+- Source channels (tower uplinks with no incoming connections) with ratio above 0.85 AND feeding at least 1 active downstream channel are preserved to maintain coverage origination points
+- Sink channels (customer-facing endpoints with no outgoing connections) with ratio between 0.75 and 0.78 AND receiving from at least 3 active sources are preserved to maintain service delivery
+- All other channels are shut down (suppressed to 0.0)
+- Rules are evaluated in priority order with first match winning
+- Quality ratio calculated as measured_quality / threshold with zero-threshold cases handled to avoid system crashes
+- Single-channel threshold updates apply immediately to the specified channel index
+- Range threshold updates apply to inclusive index ranges with automatic index ordering and boundary clamping for robustness against operations team input errors
+- Most recent threshold update wins when multiple updates target the same channel during a processing cycle
+- Malformed update commands are logged and ignored to prevent system instability
+- Out-of-bounds indices in topology data or updates are silently ignored to handle equipment database synchronization delays
+- Network topology analysis computes ingress and egress connection counts with duplicate paths counted individually
+- Strongly connected component detection uses standard graph algorithms to identify network clusters
+- Bridge node detection identifies channels whose removal increases network fragmentation
+- Ring topology detection uses cycle-finding algorithms to identify redundant paths
+- Segment tree uses compact array representation to minimize memory footprint in embedded monitoring hardware
+- Lazy propagation ensures efficient batch updates during maintenance windows
+- Pure Python implementation required for deployment compatibility across heterogeneous monitoring infrastructure
+- Returns new channel state list without modifying input data to maintain audit trail
+- Execution time tracked and performance warnings logged when processing exceeds latency budget to alert operations team
+- Time complexity O(m + n log n + k log n) ensures scalability to metro networks with 10,000+ channels
+- Space complexity O(n + m) fits within memory constraints of monitoring appliances
+- Amortized O(log n) update performance handles burst update scenarios during major network reconfigurations
+- Handles edge cases including network islands, redundant rings, tree topologies, and mesh configurations
+
+Starter Code:
+```python
+import logging
+import math
+import time
+from typing import List, Dict, Optional
+
+def multi_stage_adaptive_filter(  
+    channels: List[float],  
+    edges: List[List[int]],  
+    threshold_updates: List[List[float]],  
+    max_latency_ms: float  
+) -> List[float]:
+    pass
+```

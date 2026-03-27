@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6R1y7zQPmsBzvq7dze7wBVSM1Z7",
+  "object": "chat.completion",
+  "created": 1774398651,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[[1, 1], [2, 1], [3, 1], [4, 1]]\",\"1\"],\"focus\":\"alternating parity with equal initial severities to exercise tie-breaks and aging flips\"},{\"input_lines\":[\"[[10, 0], [11, 5], [12, 5]]\",\"6\"],\"focus\":\"large aging_interval causing severities to go negative and reorder\"},{\"input_lines\":[\"[[1000001, 3], [2, 4], [3, 3], [4, 4], [5, 3]]\",\"2\"],\"focus\":\"mix of very large odd ID, tie-breakers, and cascading aging effects\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1096,
+    "completion_tokens": 1701,
+    "total_tokens": 2797,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1536,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

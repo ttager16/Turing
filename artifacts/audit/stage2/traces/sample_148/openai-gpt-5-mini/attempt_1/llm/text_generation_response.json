@@ -1,0 +1,76 @@
+{
+  "id": "resp_0ef9dd519396c4eb0069c344d7af7c8197a559bc381f617202",
+  "object": "response",
+  "created_at": 1774404823,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774404852,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0ef9dd519396c4eb0069c344d8065c81978182ec63e2cbdf24",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0ef9dd519396c4eb0069c344d846f88197a798f21603f98ed7",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any\nimport math\n\ndef analyze_mandelbrot_invariants(\n    grid_resolution: int,\n    transformation_codes: List[int]\n) -> Dict[str, Any]:\n    # Build grid\n    N = max(1, int(grid_resolution))\n    if N == 1:\n        xs = [0.0]\n        ys = [0.0]\n        step = 0.0\n    else:\n        step = 4.0 / (N - 1)\n        xs = [i * step - 2.0 for i in range(N)]\n        ys = [j * step - 2.0 for j in range(N)]\n    points = []\n    for y in ys:\n        for x in xs:\n            points.append(complex(x, y))\n    total_points = len(points)\n    # Map point to ID\n    point_to_id = {points[i]: i for i in range(total_points)}\n    id_to_point = {i: points[i] for i in range(total_points)}\n    # Union-find\n    parent = list(range(total_points))\n    rank = [0] * total_points\n    def find(a):\n        while parent[a] != a:\n            parent[a] = parent[parent[a]]\n            a = parent[a]\n        return a\n    def union(a, b):\n        ra = find(a); rb = find(b)\n        if ra == rb: return\n        if rank[ra] < rank[rb]:\n            parent[ra] = rb\n        else:\n            parent[rb] = ra\n            if rank[ra] == rank[rb]:\n                rank[ra] += 1\n    # Transformation functions map\n    def T_apply(code, z):\n        if code == 0:\n            return complex(z.real, -z.imag)\n        if code == 1:\n            # multiply by i: (x+iy)*i = -y + ix\n            return complex(-z.imag, z.real)\n        if code == 2:\n            return complex(0.5 * z.real, 0.5 * z.imag)\n        if code == 3:\n            return complex(z.real, 0.0)\n        if code == 4:\n            return complex(-z.real, -z.imag)\n        return None\n    # Current layer: set of point IDs present\n    current_ids = set(range(total_points))\n    # Process each code\n    valid_codes = set([0,1,2,3,4])\n    for code in transformation_codes:\n        if code not in valid_codes:\n            continue\n        next_ids = set()\n        for pid in list(current_ids):\n            z = id_to_point[pid]\n            w = T_apply(code, z)\n            if w is None:\n                continue\n            # Skip invalid numeric\n            if not (math.isfinite(w.real) and math.isfinite(w.imag)):\n                continue\n            # Check bounds\n            if w.real < -2.0 - 1e-12 or w.real > 2.0 + 1e-12 or w.imag < -2.0 - 1e-12 or w.imag > 2.0 + 1e-12:\n                # point left bounds; do not include in next layer\n                continue\n            # If N==1 special snap to 0.0\n            if N == 1:\n                rx = 0.0\n                ry = 0.0\n            else:\n                rx = round((w.real + 2.0) / step) * step - 2.0\n                ry = round((w.imag + 2.0) / step) * step - 2.0\n                # Fix negative zero\n                if abs(rx) == 0.0:\n                    rx = 0.0\n                if abs(ry) == 0.0:\n                    ry = 0.0\n            rw = complex(rx, ry)\n            if rw in point_to_id:\n                other_id = point_to_id[rw]\n                union(pid, other_id)\n                next_ids.add(other_id)\n        # Surviving points are deduplicated next_ids\n        # Also include any points that map to themselves but weren't added? Spec says update to surviving points (deduplicated)\n        current_ids = next_ids\n    # Extract clusters\n    clusters = {}\n    for pid in range(total_points):\n        root = find(pid)\n        clusters.setdefault(root, []).append(pid)\n    # Convert clusters to list of point lists\n    cluster_lists = []\n    for comp in clusters.values():\n        pts = []\n        for pid in comp:\n            c = id_to_point[pid]\n            pts.append([float(c.real), float(c.imag)])\n        # sort points lexicographically (real, imag)\n        pts.sort(key=lambda p: (p[0], p[1]))\n        cluster_lists.append(pts)\n    # Sort clusters: largest first, then by first point lex\n    cluster_lists.sort(key=lambda cl: (-len(cl), cl[0] if cl else [0.0,0.0]))\n    num_components = len(cluster_lists)\n    largest_size = max((len(cl) for cl in cluster_lists), default=0)\n    # Heuristic symmetry detection\n    detected = []\n    # origin fixed?\n    origin = complex(0.0, 0.0)\n    origin_fixed = False\n    if origin in point_to_id:\n        oid = point_to_id[origin]\n        if find(oid) == find(oid):\n            # check if origin maps to itself under full chain: apply chain to origin and see snapped result equals origin\n            z = origin\n            step_local = step\n            survives = True\n            for code in transformation_codes:\n                if code not in valid_codes:\n                    continue\n                w = T_apply(code, z)\n                if w is None or not (math.isfinite(w.real) and math.isfinite(w.imag)):\n                    survives = False\n                    break\n                if w.real < -2.0 - 1e-12 or w.real > 2.0 + 1e-12 or w.imag < -2.0 - 1e-12 or w.imag > 2.0 + 1e-12:\n                    survives = False\n                    break\n                if N == 1:\n                    rx = 0.0; ry = 0.0\n                else:\n                    rx = round((w.real + 2.0) / step_local) * step_local - 2.0\n                    ry = round((w.imag + 2.0) / step_local) * step_local - 2.0\n                z = complex(rx, ry)\n            if survives and z == origin:\n                origin_fixed = True\n    if origin_fixed:\n        detected.append('origin_fixed')\n    # Detect 4-fold rotational symmetry: simple heuristic - check that for axis points their cluster sizes reflect 4-fold mapping\n    # Check points on axes at distance 1.0 if present: (1,0),(0,1),(-1,0),(0,-1) in same-sized clusters\n    def has_point(x,y):\n        return complex(x,y) in point_to_id\n    axis_pts = [complex(1.0,0.0), complex(0.0,1.0), complex(-1.0,0.0), complex(0.0,-1.0)]\n    if all(p in point_to_id for p in axis_pts):\n        ids = [point_to_id[p] for p in axis_pts]\n        roots = [find(i) for i in ids]\n        if len(set(roots)) <= 4:\n            detected.append('4-fold_rotational_symmetry_on_axes')\n    # Prepare output\n    out = {\n        'invariant_subgraphs': cluster_lists,\n        'analysis_summary': {\n            'total_points': total_points,\n            'num_layers': len([c for c in transformation_codes if c in valid_codes]) + 1,\n            'num_invariant_components': num_components,\n            'largest_component_size': largest_size,\n            'detected_symmetries': detected\n        }\n    }\n    return out"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1749,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1728,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3477
+  },
+  "user": null,
+  "metadata": {}
+}

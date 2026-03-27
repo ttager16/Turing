@@ -1,0 +1,76 @@
+{
+  "id": "resp_0014d02baac4065f0069c31a57775881a28e9a08e6ebf2c03c",
+  "object": "response",
+  "created_at": 1774393943,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774393956,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0014d02baac4065f0069c31a57ee7481a286846335659a1697",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0014d02baac4065f0069c31a58217881a28e8ea25453c31777",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Set, Tuple\n\ndef allocate_minimum_teams(projects: List[Dict[str, Any]], teams: List[Dict[str, Any]]) -> int:\n    # Build list of all phases with required skills and deadlines (use min of phase.deadline and project_deadline)\n    phases = []\n    for p in projects:\n        p_deadline = p.get('project_deadline', None)\n        for ph in p.get('phases', []):\n            d = ph.get('deadline')\n            if p_deadline is not None:\n                d = min(d, p_deadline)\n            phases.append({\n                'required_skills': set(ph.get('required_skills', [])),\n                'deadline': d\n            })\n    # Sort phases by deadline (earliest first) — greedy scheduling\n    phases.sort(key=lambda x: x['deadline'])\n    # Preprocess teams: compute skill sets and availability\n    team_skills = []\n    team_avail = []\n    for t in teams:\n        skills = set()\n        for m in t.get('members', []):\n            skills.update(m.get('skills', []))\n        team_skills.append(skills)\n        team_avail.append(int(t.get('base_availability', 0)))\n\n    n_teams = len(teams)\n    if not phases:\n        return 0\n    # Feasibility: can first k teams (best choice among teams) complete all phases?\n    # Since which teams chosen matters, for feasibility we should choose the k teams that maximize utility.\n    # Heuristic: pick k teams with largest availability and with broadest skill coverage. We'll try selecting top-k by combined score.\n    def feasible(k: int) -> bool:\n        if k <= 0:\n            return False\n        # Score teams by (availability, number of skills)\n        indices = list(range(n_teams))\n        indices.sort(key=lambda i: (team_avail[i], len(team_skills[i])), reverse=True)\n        chosen = indices[:k]\n        # Combine skills and availability\n        combined_skills = set()\n        for i in chosen:\n            combined_skills |= team_skills[i]\n        # Quick fail: if any phase requires skill not in combined_skills -> infeasible\n        for ph in phases:\n            if not ph['required_skills'].issubset(combined_skills):\n                return False\n        # We need to schedule phases into team time before their deadlines.\n        # Model: we have k teams each with avail days; a phase requires as many days as 1 unit (assume each phase takes 1 day)\n        # The problem statement doesn't give phase durations; assume each phase consumes 1 day of a team's availability.\n        # Assign each phase to one of chosen teams before its deadline.\n        # Greedy: for each phase (by earliest deadline), assign it to the chosen team with available time and that has all required skills.\n        # For fairness, try to use team with latest remaining availability that still meets deadline to balance load.\n        # Create remaining availability per chosen team\n        rem = {i: team_avail[i] for i in chosen}\n        # For each phase in order\n        for ph in phases:\n            req = ph['required_skills']\n            dl = ph['deadline']\n            # Among chosen teams that have skills superset and have at least 1 day remaining and availability >= 1 and dl >=1 (deadline not used per team)\n            # We must ensure the team can finish the phase before the phase deadline. Since we don't track current time, treat capacity as days that can be scheduled before deadlines.\n            # We'll assume all availability can be used up to the phase.deadline; so for heuristic, prefer teams with rem>0 and skills cover.\n            candidate = None\n            # choose team with maximum remaining availability that can do it\n            best_rem = -1\n            for i in chosen:\n                if rem[i] > 0 and req.issubset(team_skills[i]):\n                    if rem[i] > best_rem:\n                        candidate = i\n                        best_rem = rem[i]\n            if candidate is None:\n                return False\n            rem[candidate] -= 1\n        return True\n\n    # Binary search minimal k between 1 and n_teams\n    lo, hi = 1, n_teams\n    ans = n_teams + 1\n    while lo <= hi:\n        mid = (lo + hi) // 2\n        if feasible(mid):\n            ans = mid\n            hi = mid - 1\n        else:\n            lo = mid + 1\n    if ans == n_teams + 1:\n        # impossible: return total teams if even all teams can't do it, or 0 if no feasible\n        return n_teams if feasible(n_teams) else 0\n    return ans"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 930,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1027,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1957
+  },
+  "user": null,
+  "metadata": {}
+}

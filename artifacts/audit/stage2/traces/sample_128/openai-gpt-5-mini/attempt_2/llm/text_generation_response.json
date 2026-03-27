@@ -1,0 +1,76 @@
+{
+  "id": "resp_071d1049b2f572dc0069c33c978a448196bac840273e394072",
+  "object": "response",
+  "created_at": 1774402711,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774402742,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_071d1049b2f572dc0069c33c983aa08196bcd427bff99eb109",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_071d1049b2f572dc0069c33c9861608196921d1ef049a47a23",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import Any, Dict, List, Tuple\nfrom collections import defaultdict, deque\n\ndef determine_tree_centers(trees: List[Dict[str, Any]]) -> List[int]:\n    # We'll maintain disjoint-set of districts. Each district stores:\n    # nodes set, adjacency (edge weights), node_weights, capacities, active set.\n    n_d = len(trees)\n    parent = list(range(n_d))\n    alive = [True] * n_d  # whether district still root/exists\n\n    def find(x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n\n    # Data per root district\n    nodes_map = {}\n    adj_map = {}\n    node_weights_map = {}\n    capacity_map = {}\n    active_map = {}\n\n    # Initialize\n    for idx, t in enumerate(trees):\n        nodes = list(t.get(\"nodes\", []))\n        nodes_map[idx] = set(nodes)\n        adj = defaultdict(dict)\n        for u, v, w in t.get(\"edges\", []):\n            adj[u][v] = w\n            adj[v][u] = w\n        adj_map[idx] = adj\n        nw = {int(k): int(v) for k, v in t.get(\"node_weights\", {}).items()}\n        cap = {int(k): int(v) for k, v in t.get(\"capacity\", {}).items()}\n        node_weights_map[idx] = dict(nw)\n        capacity_map[idx] = dict(cap)\n        active_map[idx] = set(nodes)  # initially all active; activation event may refer to already active\n\n    # Apply events sequentially for each district; merges affect global structures\n    # We'll process events per district in input order; merges refer to district indices of original list.\n    # When merging, we unify sets and combine maps, and add connecting edge.\n    for idx, t in enumerate(trees):\n        events = t.get(\"events\", [])\n        for ev in events:\n            if not ev:\n                continue\n            typ = ev[0]\n            root_idx = find(idx)\n            if typ == \"deactivate_node\":\n                node = ev[1]\n                if node in active_map[root_idx]:\n                    active_map[root_idx].discard(node)\n            elif typ == \"activate_node\":\n                node = ev[1]\n                active_map[root_idx].add(node)\n                # ensure node exists in structures (if node absent, add)\n                if node not in nodes_map[root_idx]:\n                    nodes_map[root_idx].add(node)\n                    node_weights_map[root_idx].setdefault(node, 1)\n                    capacity_map[root_idx].setdefault(node, 1)\n                    # no edges unless events add them\n            elif typ == \"update_road\":\n                u, v, neww = ev[1], ev[2], ev[3]\n                # find which root contains this edge\n                # It should be in root_idx adjacency if both nodes present, else search other roots\n                r = root_idx\n                if u not in adj_map[r] or v not in adj_map[r][u]:\n                    # search all roots (small number of events relative)\n                    for r2 in range(n_d):\n                        if find(r2) != r2:\n                            continue\n                        if u in adj_map[r2] and v in adj_map[r2][u]:\n                            r = r2\n                            break\n                # update if present\n                if u in adj_map[r] and v in adj_map[r][u]:\n                    adj_map[r][u][v] = neww\n                    adj_map[r][v][u] = neww\n            elif typ == \"merge\":\n                # [\"merge\", district_index_to_merge, merge_node_in_this_district, merge_node_in_other_district, connecting_edge_weight]\n                other_idx, my_node, other_node, w = ev[1], ev[2], ev[3], ev[4]\n                r1 = find(idx)\n                r2 = find(other_idx)\n                if r1 == r2:\n                    # already merged\n                    continue\n                # We'll merge r2 into r1 (keep r1 as root)\n                # Combine nodes, adj, weights, capacities, active\n                # ensure nodes exist in maps\n                # attach edge between my_node and other_node\n                # union\n                parent[r2] = r1\n                alive[r2] = False\n\n                # combine nodes\n                for n in nodes_map.get(r2, ()):\n                    nodes_map[r1].add(n)\n                # combine node_weights and capacities: if conflict, keep existing r1 values; else set defaults\n                for k, v in node_weights_map.get(r2, {}).items():\n                    node_weights_map[r1].setdefault(k, v)\n                for k, v in capacity_map.get(r2, {}).items():\n                    capacity_map[r1].setdefault(k, v)\n                # combine active\n                for n in active_map.get(r2, set()):\n                    active_map[r1].add(n)\n                # combine adjacencies\n                adj1 = adj_map[r1]\n                adj2 = adj_map[r2]\n                for u, neigh in adj2.items():\n                    if u not in adj1:\n                        adj1[u] = dict()\n                    for v, wt in neigh.items():\n                        adj1[u][v] = wt\n                # add connecting edge\n                adj1.setdefault(my_node, {})[other_node] = w\n                adj1.setdefault(other_node, {})[my_node] = w\n                # ensure nodes present\n                nodes_map[r1].add(my_node)\n                nodes_map[r1].add(other_node)\n                node_weights_map[r1].setdefault(my_node, 1)\n                node_weights_map[r1].setdefault(other_node, 1)\n                capacity_map[r1].setdefault(my_node, 1)\n                capacity_map[r1].setdefault(other_node, 1)\n                # cleanup r2 maps to save memory\n                adj_map[r2] = {}\n                nodes_map[r2] = set()\n                node_weights_map[r2] = {}\n                capacity_map[r2] = {}\n                active_map[r2] = set()\n\n    # After all events, compute optimal hub per surviving district root.\n    # For each root, we must consider only active nodes in its component.\n    # F(h) = sum_{i in V_active} T_i * d(h,i) / C_h\n    # For each candidate hub h (must be a node in the component and have capacity), compute sum of weighted distances.\n    # Efficient approach: for tree, we can compute all pair distances via one BFS per hub would be expensive.\n    # But sizes up to 10k per tree and events limited; we can for each component run multi-source to compute distances from a node using Dijkstra since weights small.\n    # We'll compute for each root: for each node h in nodes_map[root], run Dijkstra over tree once per h.\n    # To optimize, we instead compute single all-pairs by performing one tree DP to get sum of weighted distances for one root then rerooting.\n    # Implement tree DP: choose arbitrary root r0; compute subtree sums of traffic and subtree weighted distances.\n    # Then reroot to obtain total weighted distance for every node.\n    # Note that deactivated nodes are excluded from sums/distances (they don't contribute T_i). But distances still computed over topology: deactivated nodes are \"removed\" meaning their incident edges removed too.\n    # So we must build adjacency restricted to active nodes only.\n    results = [-1] * n_d\n\n    # For each current root (find unique roots)\n    roots = set(find(i) for i in range(n_d))\n    for r in roots:\n        if not alive[r]:\n            continue\n        nodes = nodes_map.get(r, set())\n        if not nodes:\n            # empty component\n            # find original index that is this root: pick smallest original index mapping to r\n            for i in range(n_d):\n                if find(i) == r:\n                    results[i] = -1\n            continue\n        active_nodes = set(active_map.get(r, set()))\n        # If no active nodes, cannot place hub; choose -1 for all constituent original districts\n        if not active_nodes:\n            for i in range(n_d):\n                if find(i) == r:\n                    results[i] = -1\n            continue\n        # Build adjacency restricted to active nodes\n        full_adj = adj_map.get(r, {})\n        adj = defaultdict(list)\n        for u in full_adj:\n            if u not in active_nodes:\n                continue\n            for v, w in full_adj[u].items():\n                if v in active_nodes:\n                    adj[u].append((v, w))\n        # The resulting structure should be a forest; but constraints guarantee tree after merges; deactivations may split into forest.\n        # We'll process each connected active component separately: hub must be within that connected active component; but definition D is district after deactivations V_active, so distances between components are infinite -> cannot reach. But we treat each component separately: if active nodes form multiple components, hub computed per component but district hub must be in some component minimizing overall F(h). Since unreachable nodes excluded (they are inactive), so each component independent. We'll compute per connected component.\n        visited = set()\n        # Precompute traffic weights for active nodes\n        tw = node_weights_map.get(r, {})\n        capmap = capacity_map.get(r, {})\n        # For each connected component, compute weighted distances reroot DP\n        # We'll gather candidates with their F(h)\n        best_node = None\n        best_value = None\n\n        for start in list(active_nodes):\n            if start in visited:\n                continue\n            # BFS to get nodes in this active component and build parent tree for DP\n            comp_nodes = []\n            parent_node = {}\n            parent_edge_w = {}\n            stack = [start]\n            visited.add(start)\n            parent_node[start] = None\n            parent_edge_w[start] = 0\n            while stack:\n                u = stack.pop()\n                comp_nodes.append(u)\n                for v, w in adj.get(u, []):\n                    if v not in visited:\n                        visited.add(v)\n                        parent_node[v] = u\n                        parent_edge_w[v] = w\n                        stack.append(v)\n            # Build rooted tree at start. Compute subtree traffic sums and subtree dist sums.\n            subtree_T = {}\n            subtree_dist = {}\n            order = []\n            # post-order\n            q = comp_nodes[:]\n            # create children lists\n            children = defaultdict(list)\n            for v in comp_nodes:\n                p = parent_node.get(v)\n                if p is not None:\n                    children[p].append(v)\n            # get postorder via stack\n            st = [start]\n            post = []\n            while st:\n                u = st.pop()\n                post.append(u)\n                for c in children.get(u, []):\n                    st.append(c)\n            for u in reversed(post):\n                T_u = tw.get(u, 0)\n                sT = T_u\n                sDist = 0\n                for c in children.get(u, []):\n                    sT += subtree_T[c]\n                    w = parent_edge_w[c]\n                    sDist += subtree_dist[c] + subtree_T[c] * w\n                subtree_T[u] = sT\n                subtree_dist[u] = sDist\n            totalT = subtree_T[start]\n            # Now reroot to compute total weighted distance for every node in component\n            total_dist = {}\n            # DFS\n            stack2 = [start]\n            total_dist[start] = subtree_dist[start]\n            while stack2:\n                u = stack2.pop()\n                for c in children.get(u, []):\n                    w = parent_edge_w[c]\n                    # moving root from u to c:\n                    # total_dist[c] = total_dist[u] - subtree_T[c]*w + (totalT - subtree_T[c])*w\n                    total_dist[c] = total_dist[u] - subtree_T[c] * w + (totalT - subtree_T[c]) * w\n                    stack2.append(c)\n            # For each node in component, compute F(h) = total_dist[h] / C_h\n            for h in comp_nodes:\n                C = capmap.get(h, 1)\n                val = total_dist.get(h, 0) / C\n                # tie-breaker smallest node id\n                if best_value is None or val < best_value or (abs(val - best_value) < 1e-12 and h < best_node):\n                    best_value = val\n                    best_node = h\n\n        # assign best_node to all original indices mapping to this root; other merged-in districts entries -1\n        for i in range(n_d):\n            if find(i) == r:\n                results[i] = best_node if i == r else -1\n        # ensure root index r gets the hub\n        results[r] = best_node\n\n    # For any indices that were merged into others, ensure -1\n    for i in range(n_d):\n        if find(i) != i:\n            results[i] = -1\n    return results"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1885,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2771,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4656
+  },
+  "user": null,
+  "metadata": {}
+}

@@ -1,0 +1,146 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+# Problem Statement
+
+A financial technology company needs a real-time fraud detection system that stores incoming transactions as nodes in a balanced binary tree. The system supports rapid reallocation of nodes while maintaining balance for fast operations. Implement a Python binary search tree with explicit reallocation, insert, delete, cascading anomaly detection with time-decay risk scoring, and pattern-based rule evaluation, with deterministic behavior and no external libraries.
+
+## Objectives
+
+### 1) Balanced Binary Search Tree Core
+Use an AVL tree keyed by `transaction_id` (int). Each node stores:
+- `transaction_id: int`
+- `amount: float`
+- `desc: str`
+- `category: str` (one of: TRANSFER, PURCHASE, REFUND, WITHDRAWAL, DEPOSIT)
+- `merchant_id: int`
+- `sequence: int` (insert order, starting from 1)
+- `height: int` for AVL balancing
+
+### 2) Reallocation
+Provide `reallocate` that changes a node key to a new `transaction_id`. It is equivalent to deleting the old key and inserting the same payload under the new key. The reallocated node receives a new sequence number.
+
+### 3) Anomaly Detection With Time-Decay Risk Scoring
+Risk scoring is computed on:
+- Every insert (including inserts created by reallocation and batch reallocation).
+- Every update event where an `INSERT` targets an existing key.
+
+For rules that examine other nodes, apply a decay factor based on sequence distance.
+
+Time-decay formula:
+```
+
+decay_factor = max(0.5, 1.0 - 0.01 * (current_sequence - other_sequence))
+
+````
+
+#### Tier 1 (Critical, 100 points base each)
+- C1 Extreme amount: `amount >= 50000.00`.
+- C2 Category-amount mismatch: `category == "REFUND"` and `amount >= 5000.00`.
+- C3 Rapid merchant reuse: Among the 5 most recent prior inserts (by sequence) before this event, the same `merchant_id` appears in at least 3 nodes. Apply time-decay to each of those prior nodes and multiply the base by the sum of their decays.
+
+#### Tier 2 (High, 50 points base each)
+- H1 High amount: `10000.00 <= amount < 50000.00`.
+- H2 Token frequency with decay:
+  - After the node is present in the tree, if any token from the lowercased, whitespace-split `desc` appears in at least 4 distinct nodes currently in the tree, this rule may trigger.
+  - Tokenization: split on ASCII whitespace only; do not strip punctuation. Example: `vendor,` is distinct from `vendor`.
+  - For the weighted sum, consider only the other nodes containing the token (exclude the current node). Apply time-decay and sum. If the weighted sum is at least 3.0, add the base points.
+- H3 Velocity pattern: If the current node and at least 2 other nodes from the same `merchant_id` were inserted within a sequence window of 8, i.e., all have sequence in `[current_sequence - 8, current_sequence]`, apply time-decay to each prior qualifying node and add `base * sum(decays)`.
+
+#### Tier 3 (Medium, 25 points base each)
+- M1 Category concentration: After the event, if the inserted or updated transaction's `category` represents more than 60% of all nodes in the tree, add the base points.
+- M2 Amount proximity cluster: After the event, if there exist at least 3 other nodes in the tree with amounts within 5% of this node's amount, i.e., `abs(other.amount - node.amount) <= 0.05 * node.amount`, apply time-decay to each such other node and add `base * sum(decays)`.
+- M3 Descriptor similarity: After the event, if there exist at least 2 other nodes whose descriptor token sets have Jaccard similarity at least 0.6 with the current node, apply time-decay to each such other node and add `base * sum(decays)`. Jaccard for sets A and B is `|A ∩ B| / |A ∪ B|`.
+
+Flagging threshold: if the total risk score (sum of all rule contributions after decay) is at least 100, record the transaction id as an alert for that event. Record alerts in the order events are processed.
+
+### 4) Batch Reallocation
+Provide `BATCH_REALLOCATE` that accepts a list of `old->new` transaction id mappings and applies them atomically:
+- Perform all deletions first.
+- Perform all insertions in ascending order of the new transaction id.
+- Each reinserted node gets a new sequence number.
+- Evaluate anomaly rules for each reinserted node.
+
+## Constraints
+- Use only the Python standard library.
+- The tree must be AVL-balanced after every structural change (insert, delete, reallocate, batch_reallocate).
+- Operations execute strictly in the given order with no randomness or wall-clock dependencies.
+- Sequence numbers:
+  - Assigned consecutively starting from 1 on every insert (including reinsertions from reallocation and batch reallocation).
+  - Updates do not change sequence numbers.
+
+## Function Signature
+```python
+def design_fraud_detection_tree(commands: List[str]) -> Dict[str, Any]:
+    """
+    Implements an AVL tree with insert, delete, reallocate, and batch_reallocate,
+    plus anomaly detection with time-decay risk scoring on insert and update.
+    Returns {"alerts": [...], "size": <int>}.
+    """
+````
+
+## Command Language
+
+Each command is one line:
+
+* `INSERT <tx_id:int> <amount:float> <category:str> <merchant_id:int> <desc:str...>`
+  The remainder after `<merchant_id>` is the description and may contain spaces.
+  Accepted categories: TRANSFER, PURCHASE, REFUND, WITHDRAWAL, DEPOSIT.
+  If `<tx_id>` exists, treat as an update of `amount`, `category`, `merchant_id`, and `desc` for that key, keep its original sequence, rebalance if needed, and compute risk scoring for that update.
+
+* `DELETE <tx_id:int>`
+
+* `REALLOCATE <old_tx_id:int> <new_tx_id:int>`
+  If `old_tx_id` exists, delete it and insert the same payload under `new_tx_id` with a new sequence number.
+
+* `BATCH_REALLOCATE <old1:int>-><new1:int>,<old2:int>-><new2:int>,...`
+  Example: `BATCH_REALLOCATE 1001->2001,1003->2003`
+  Apply deletions first, then insertions in ascending order of the new ids. Evaluate rules on each insertion.
+
+## Operational Details
+
+* AVL rotations: standard single and double rotations. Null child height is 0; leaf height is 1.
+* Token tracking for H2: maintain `dict[token] -> set_of_node_ids_containing_token`. Update this index after the node is in the tree before evaluating H2, and exclude the current node from the weighted sum.
+* Category tracking for M1: maintain counts of each category across all nodes.
+* Merchant tracking for C3 and H3: maintain structures to get recent and windowed sequences by merchant.
+* Deterministic behavior only. Invalid categories are ignored and have no effect.
+
+## Sample
+
+Sample commands:
+
+```
+INSERT 1001 450.75 PURCHASE 501 Payment to vendor A
+INSERT 1002 55000.00 TRANSFER 502 Wire vendor A urgent
+INSERT 1003 15.00 REFUND 501 refund vendor a
+INSERT 1004 460.00 PURCHASE 501 fee vendor a payment
+INSERT 1005 455.00 PURCHASE 503 payment processing
+INSERT 1006 12.00 PURCHASE 501 small vendor a transaction
+REALLOCATE 1004 1007
+INSERT 1008 6000.00 REFUND 504 large refund case
+INSERT 1009 0.01 PURCHASE 501 vendor a
+DELETE 1003
+INSERT 1010 462.00 PURCHASE 505 payment task
+BATCH_REALLOCATE 1001->2001,1005->2005
+INSERT 1011 458.00 PURCHASE 506 payment order
+```
+
+Expected return:
+
+```python
+{"alerts": [1002, 1006, 1008, 1009, 2001, 2005], "size": 9}
+```
+
+Starter Code:
+```python
+from typing import Any, Dict, List, Optional, Set
+from collections import deque, defaultdict
+
+def design_fraud_detection_tree(commands: List[str]) -> Dict[str, Any]:
+```

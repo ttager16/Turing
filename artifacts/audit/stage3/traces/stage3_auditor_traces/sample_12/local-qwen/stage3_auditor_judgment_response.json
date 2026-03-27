@@ -1,0 +1,25 @@
+{
+  "id": "chatcmpl-2hb9rlx471p6k0umv0lyji",
+  "object": "chat.completion",
+  "created": 1774406853,
+  "model": "qwen/qwen3-coder-next",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"dataset_utility_label\": \"strong\", \"primary_risk\": \"none\", \"audit_priority\": \"normal\"}",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 207,
+    "completion_tokens": 25,
+    "total_tokens": 232
+  },
+  "stats": {},
+  "system_fingerprint": "qwen/qwen3-coder-next"
+}

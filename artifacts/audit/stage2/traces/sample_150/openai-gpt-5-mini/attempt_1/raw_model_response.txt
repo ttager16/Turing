@@ -1,0 +1,220 @@
+import math
+
+def _validate_inputs(n, num_layers, risk_threshold, concurrent_updates):
+    # Validate in order: n, num_layers, risk_threshold, concurrent_updates
+    if not (isinstance(n, int)):
+        return False, "n must be a non-negative integer"
+    if n < 0:
+        return False, "n must be a non-negative integer"
+    if not (isinstance(num_layers, int)):
+        return False, "num_layers must be a positive integer"
+    if num_layers <= 0:
+        return False, "num_layers must be a positive integer"
+    if not (isinstance(risk_threshold, (int, float))):
+        return False, "risk_threshold must be a non-negative number"
+    if risk_threshold < 0:
+        return False, "risk_threshold must be a non-negative number"
+    if not (isinstance(concurrent_updates, int)):
+        return False, "concurrent_updates must be a non-negative integer"
+    if concurrent_updates < 0:
+        return False, "concurrent_updates must be a non-negative integer"
+    return True, None
+
+def _catalan_sequence_dp(n):
+    # DP array size n+1, initialize first two elements to 1 per constraints
+    seq = [1] * (n + 1)
+    if n >= 2:
+        for i in range(2, n + 1):
+            total = 0
+            for j in range(i):
+                total += seq[j] * seq[i - 1 - j]
+            seq[i] = total
+    return seq
+
+def _bell_number(n):
+    # Bell triangle method, returns Bell(n)
+    if n == 0:
+        return 1
+    bell = [1]
+    for i in range(1, n + 1):
+        row = [bell[-1]]
+        for j in range(1, i + 1):
+            row.append(row[-1] + (bell[j - 1] if j - 1 < len(bell) else 0))
+        bell = row
+    return bell[0]
+
+def count_non_crossing_partitions_analysis(n: int, num_layers: int = 3, 
+                                           risk_threshold: float = 0.5,
+                                           concurrent_updates: int = 10) -> dict:
+    valid, err = _validate_inputs(n, num_layers, risk_threshold, concurrent_updates)
+    input_params = {
+        "n": n,
+        "num_layers": num_layers,
+        "risk_threshold": risk_threshold,
+        "concurrent_updates": concurrent_updates
+    }
+    if not valid:
+        return {
+            "success": False,
+            "error": err,
+            "input_parameters": input_params
+        }
+    # Catalan sequence
+    seq = _catalan_sequence_dp(n)
+    primary_count = seq[n]
+    primary_desc = f"Number of valid non-crossing partitions for {n} nodes"
+    catalan_section = {
+        "sequence": seq,
+        "length": len(seq),
+        "description": "Sequence of Catalan numbers from C_0 to C_n"
+    }
+    # Layer analysis
+    layer_partitions = []
+    if n == 0:
+        base_alloc = 0
+        remainder = 0
+    else:
+        base_alloc = n // num_layers
+        remainder = n % num_layers
+    total_distributions = 1
+    for li in range(num_layers):
+        nodes_in_layer = base_alloc + (1 if li < remainder else 0)
+        # partitions for that layer is Catalan(nodes_in_layer)
+        # ensure DP supports needed index; compute small DP if necessary
+        part = _catalan_sequence_dp(nodes_in_layer)[nodes_in_layer]
+        layer_partitions.append({
+            "layer_index": li,
+            "nodes": nodes_in_layer,
+            "partitions": part
+        })
+        total_distributions *= part
+    avg_nodes = round((n / num_layers) if num_layers > 0 else 0.0, 3)
+    layer_analysis = {
+        "valid": True,
+        "total_distributions": total_distributions,
+        "average_nodes_per_layer": avg_nodes,
+        "layer_partitions": layer_partitions
+    }
+    # Growth analysis
+    growth = {"current_value": primary_count}
+    if n < 2:
+        growth["growth_ratio"] = None
+        growth["growth_trend"] = "insufficient_data"
+    else:
+        prev = seq[n - 1]
+        growth["previous_value"] = prev
+        if prev <= 0:
+            ratio = None
+        else:
+            ratio = round(primary_count / prev, 5)
+        growth["growth_ratio"] = ratio
+        if ratio is None:
+            trend = "insufficient_data"
+        else:
+            if ratio < 2:
+                trend = "subexponential"
+            elif ratio >= 3.5:
+                trend = "approaching_asymptotic_limit"
+            else:
+                trend = "exponential"
+        growth["growth_trend"] = trend
+    # Risk assessment
+    total_partitions = primary_count
+    diversity_raw = 0.0
+    try:
+        diversity_raw = math.log(total_partitions + 1)
+    except Exception:
+        diversity_raw = 0.0
+    diversity = diversity_raw / 23.0
+    if diversity > 1.0:
+        diversity = 1.0
+    diversity = round(diversity, 6)
+    risk_score = round(1.0 - diversity, 4)
+    thr_rounded = round(risk_threshold, 2)
+    if risk_score < (risk_threshold / 2.0):
+        level = "low"
+    elif risk_score < risk_threshold:
+        level = "moderate"
+    elif risk_score < (1.5 * risk_threshold):
+        level = "high"
+    else:
+        level = "critical"
+    risk_assessment = {
+        "total_partitions": total_partitions,
+        "diversity_score": diversity,
+        "risk_score": risk_score,
+        "risk_level": level,
+        "threshold": thr_rounded
+    }
+    # Structural metrics
+    if n == 0:
+        avg_partition_size = 0.0
+    else:
+        avg_partition_size = (n + 1) / 2.0
+    avg_partition_size = round(avg_partition_size, 1)
+    first_derivative = None
+    second_derivative = None
+    if n >= 2:
+        first_derivative = seq[n] - seq[n - 1]
+    if n >= 3:
+        fd_n1 = seq[n - 1] - seq[n - 2]
+        second_derivative = (seq[n] - seq[n - 1]) - fd_n1
+    structural = {
+        "total_nodes": n,
+        "total_partitions": total_partitions,
+        "average_partition_size": avg_partition_size,
+        "first_derivative": first_derivative,
+        "second_derivative": second_derivative,
+        "complexity_class": "exponential"
+    }
+    # Concurrent analysis
+    if n == 0:
+        base_complexity = 1.0
+    else:
+        base_complexity = n * math.log(n + 1)
+    base_complexity_r = round(base_complexity, 8)
+    total_complexity = base_complexity * concurrent_updates
+    total_complexity_r = round(total_complexity, 9)
+    estimated_throughput = None
+    if total_complexity > 0:
+        estimated_throughput = round(1000000.0 / total_complexity, 10)
+    concurrent = {
+        "nodes": n,
+        "concurrent_updates": concurrent_updates,
+        "base_complexity": base_complexity_r,
+        "total_complexity": total_complexity_r,
+        "estimated_throughput": estimated_throughput
+    }
+    # Bell comparison
+    bell_comp = None
+    if 0 <= n <= 20:
+        bell_n = _bell_number(n)
+        crossing = bell_n - primary_count
+        ratio = None
+        if bell_n != 0:
+            ratio = round(primary_count / bell_n, 7)
+        else:
+            ratio = None
+        bell_comp = {
+            "non_crossing_partitions": primary_count,
+            "total_partitions": bell_n,
+            "non_crossing_ratio": ratio,
+            "crossing_partitions": crossing
+        }
+    result = {
+        "success": True,
+        "input_parameters": input_params,
+        "primary_result": {
+            "non_crossing_partitions": primary_count,
+            "description": primary_desc
+        },
+        "catalan_sequence": catalan_section,
+        "layer_analysis": layer_analysis,
+        "growth_analysis": growth,
+        "risk_assessment": risk_assessment,
+        "structural_metrics": structural,
+        "concurrent_analysis": concurrent
+    }
+    if bell_comp is not None:
+        result["bell_comparison"] = bell_comp
+    return result

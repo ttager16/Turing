@@ -1,0 +1,32 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      "The FooBar climbs in 2021."
+    ],
+    "input_lines": [
+      "\"The FooBar climbs in 2021.\""
+    ],
+    "focus": "heuristic: non-sentence-initial mixed-case single word should be ENTITY; numeric literal (2021) is not VALUE"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      "Mega Inc., reported profits of $ 1,000 thousand; meanwhile, USD/JPY dropped."
+    ],
+    "input_lines": [
+      "\"Mega Inc., reported profits of $ 1,000 thousand; meanwhile, USD/JPY dropped.\""
+    ],
+    "focus": "company merge with trailing-comma stripping; currency value merge with spaces and thousands separator; semicolon dropped; lowercase 'meanwhile' (tagging vs preservation); currency-pair merge USD/JPY"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      "Meanwhile, Alpha Co. announced a 12.5% rise and £10 Million investment; usd/eur is unaffected."
+    ],
+    "input_lines": [
+      "\"Meanwhile, Alpha Co. announced a 12.5% rise and £10 Million investment; usd/eur is unaffected.\""
+    ],
+    "focus": "discourse-marker comma preservation (case-sensitive); Co. company merge with period retained; percentage and currency merges (decimal percent, magnitude case-insensitive); lowercase currency pair should NOT match pattern"
+  }
+]

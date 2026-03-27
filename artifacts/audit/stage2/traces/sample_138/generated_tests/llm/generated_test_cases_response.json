@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN7j71Bh0t4zmQoT4B9Lzg8Zdy3ED",
+  "object": "chat.completion",
+  "created": 1774403617,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"4\",\n        \"[[\\\"ADD\\\", \\\"1\\\", \\\"2\\\", \\\"3\\\", \\\"0\\\"], [\\\"ADD\\\", \\\"2\\\", \\\"3\\\", \\\"2\\\", \\\"1\\\"], [\\\"QUERY\\\"], [\\\"ADD\\\", \\\"3\\\", \\\"3\\\", \\\"10\\\", \\\"0\\\"], [\\\"QUERY\\\"], [\\\"ADD\\\", \\\"1\\\", \\\"4\\\", \\\"1\\\", \\\"0\\\"], [\\\"QUERY\\\"], [\\\"ROLLBACK\\\", \\\"2\\\"], [\\\"QUERY\\\"]]\"\n      ],\n      \"focus\": \"Self-loop invalidation and rollback back to a prior valid state\"\n    },\n    {\n      \"input_lines\": [\n        \"3\",\n        \"[[\\\"ADD\\\", \\\"1\\\", \\\"2\\\", \\\"5\\\", \\\"0\\\"], [\\\"QUERY\\\"], [\\\"REMOVE\\\", \\\"2\\\", \\\"3\\\"], [\\\"QUERY\\\"], [\\\"ADD\\\", \\\"1\\\", \\\"2\\\", \\\"3\\\", \\\"1\\\"], [\\\"QUERY\\\"], [\\\"ROLLBACK\\\", \\\"100\\\"], [\\\"QUERY\\\"], [\\\"ROLLBACK\\\", \\\"1\\\"], [\\\"QUERY\\\"]]\"\n      ],\n      \"focus\": \"Remove non-existent edge causing invalid state, update existing edge, invalid rollback index\"\n    },\n    {\n      \"input_lines\": [\n        \"6\",\n        \"[[\\\"ADD\\\", \\\"1\\\", \\\"2\\\", \\\"4\\\", \\\"0\\\"], [\\\"ADD\\\", \\\"2\\\", \\\"3\\\", \\\"3\\\", \\\"0\\\"], [\\\"ADD\\\", \\\"3\\\", \\\"4\\\", \\\"2\\\", \\\"1\\\"], [\\\"ADD\\\", \\\"4\\\", \\\"5\\\", \\\"2\\\", \\\"0\\\"], [\\\"ADD\\\", \\\"5\\\", \\\"6\\\", \\\"1\\\", \\\"0\\\"], [\\\"ADD\\\", \\\"1\\\", \\\"6\\\", \\\"5\\\", \\\"0\\\"], [\\\"QUERY\\\"], [\\\"REMOVE\\\", \\\"2\\\", \\\"3\\\"], [\\\"QUERY\\\"], [\\\"ADD\\\", \\\"2\\\", \\\"3\\\", \\\"1\\\", \\\"0\\\"], [\\\"QUERY\\\"], [\\\"ROLLBACK\\\", \\\"7\\\"], [\\\"QUERY\\\"]]\"\n      ],\n      \"focus\": \"Small exact-optimization instance with priorities and rollback to earlier snapshot\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1542,
+    "completion_tokens": 2462,
+    "total_tokens": 4004,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1984,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

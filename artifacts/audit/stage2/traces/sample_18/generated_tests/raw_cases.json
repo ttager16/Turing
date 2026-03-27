@@ -1,0 +1,76 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        10
+      ]
+    ],
+    "input_lines": [
+      "[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]",
+      "[10]"
+    ],
+    "focus": "All-zero demands (multiple nodes) — tests handling of zero total demand and that solution doesn't allocate unnecessary companies."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        1000
+      ],
+      [
+        300,
+        200,
+        250,
+        300
+      ]
+    ],
+    "input_lines": [
+      "[1000]",
+      "[300, 200, 250, 300]"
+    ],
+    "focus": "Single-node demand much larger than any single capacity — forces splitting a single region across multiple companies; capacities are unsorted to catch ordering assumptions."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        12,
+        0,
+        15,
+        7,
+        5,
+        9,
+        6
+      ],
+      [
+        15,
+        20,
+        10,
+        9
+      ]
+    ],
+    "input_lines": [
+      "[12, 0, 15, 7, 5, 9, 6]",
+      "[15, 20, 10, 9]"
+    ],
+    "focus": "Mixed tree with internal zero-demand node and varied leaf demands; capacities sum equals total demand, requiring careful ancestor-descendant path packing."
+  }
+]

@@ -1,0 +1,17 @@
+[
+  {
+    "case_index": 0,
+    "input_text": "[]",
+    "output_text": "[]"
+  },
+  {
+    "case_index": 1,
+    "input_text": "[[\"push\", 10], [\"push\", 20], [\"merge_clusters\", null], [\"push\", 5], [\"push\", 30], [\"get_min\", null], [\"range_sum\", 0], [\"range_sum\", 1], [\"pop\", null], [\"get_max\", null], [\"pop\", null], [\"get_min\", 1], [\"get_max\", 0]]",
+    "output_text": "[null, null, null, null, null, 5, 30, 30, null, 20, null, 5, 10]"
+  },
+  {
+    "case_index": 2,
+    "input_text": "[[\"push\", 1000000000], [\"push\", -1000000000], [\"push\", 500], [\"push\", 500], [\"get_min\", 0], [\"merge_clusters\", null], [\"push\", 500], [\"get_max\", 1], [\"pop\", null], [\"get_min\", 1], [\"merge_clusters\", null], [\"push\", -1000000000], [\"pop\", null], [\"get_min\", null], [\"pop\", null], [\"pop\", null], [\"pop\", null], [\"pop\", null], [\"get_min\", 0], [\"get_max\", null], [\"range_sum\", 0]]",
+    "output_text": "[null, null, null, null, -1000000000, null, null, 1000000000, null, -1000000000, null, null, null, -1000000000, null, null, null, null, -1000000000, 1000000000, 1000]"
+  }
+]

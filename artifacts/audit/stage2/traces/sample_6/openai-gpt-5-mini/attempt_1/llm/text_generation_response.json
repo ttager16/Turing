@@ -1,0 +1,76 @@
+{
+  "id": "resp_0c0260ab4c12f12f0069c318842a60819c8637d2a7a6a12362",
+  "object": "response",
+  "created_at": 1774393476,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774393508,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0c0260ab4c12f12f0069c318846ea4819c8f39510c4f16ba7c",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0c0260ab4c12f12f0069c31884afdc819cbc54a30035a7d27b",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Tuple, Union\nfrom collections import defaultdict, deque\nimport heapq\n\ndef advanced_multi_commodity_flow_solver(\n    base_graph: List[List[List[Union[int, float]]]],\n    commodities: List[Dict[str, Any]],\n    time_windows: List[List[Union[int, int]]],\n    node_storage_caps: List[float]\n) -> List[Union[List[List[float]], float]]:\n    # Build edge list and adjacency with edge indices\n    n = len(base_graph)\n    edges = []  # (u,v,cost)\n    adj = [[] for _ in range(n)]\n    for u, nbrs in enumerate(base_graph):\n        for v_cost in nbrs:\n            v, cost = int(v_cost[0]), float(v_cost[1])\n            idx = len(edges)\n            edges.append((u, v, cost))\n            adj[u].append((v, cost, idx))\n    m = len(edges)\n\n    # Commodity priority order\n    priority_order = {\"electronics\": 0, \"pharmaceuticals\": 1, \"perishables\": 2, \"textiles\": 3, \"chemicals\": 4}\n    # incompatibilities mapping\n    incompatible = {\n        \"chemicals\": set([\"perishables\", \"pharmaceuticals\"]),\n        \"perishables\": set([\"chemicals\"]),\n        \"pharmaceuticals\": set([\"chemicals\"])\n    }\n\n    K = len(commodities)\n    # initialize flows per commodity per edge\n    flow_matrix = [[0.0 for _ in range(m)] for _ in range(K)]\n    total_cost = 0.0\n\n    # track which commodity types occupy nodes (set of types) and their adjacency reservations\n    node_types = [set() for _ in range(n)]\n    node_reserved_adj = [set() for _ in range(n)]  # set of types that cannot use this node due to adjacent occupation\n\n    # helper: check if commodity type can use node (respecting adjacent rule)\n    def can_use_node(node: int, ctype: str) -> bool:\n        # direct incompatible present?\n        for t in node_types[node]:\n            if t in incompatible.get(ctype, set()) or ctype in incompatible.get(t, set()):\n                return False\n        # adjacent restriction: if any adjacent node has incompatible type, can't use this node\n        for t in node_reserved_adj[node]:\n            if t in incompatible.get(ctype, set()) or ctype in incompatible.get(t, set()):\n                return False\n        return True\n\n    # helper to reserve node for a type (update adjacency reservations)\n    def reserve_path_nodes(path_nodes: List[int], ctype: str):\n        for node in path_nodes:\n            node_types[node].add(ctype)\n        # For each node used, mark neighbors as reserved for adjacency\n        for node in path_nodes:\n            for v,_,_ in adj[node]:\n                node_reserved_adj[v].add(ctype)\n\n    # Simple shortest path respecting capacities and node constraints using Dijkstra, returns path nodes and edge indices\n    def shortest_path_with_constraints(src:int, dst:int, ctype:str, edge_caps: List[float], edge_costs: List[float], time_penalty_factor: float):\n        dist = [float('inf')]*n\n        prev = [(-1,-1)]*n  # (prev_node, edge_idx)\n        dist[src]=0\n        pq=[(0,src)]\n        while pq:\n            d,u = heapq.heappop(pq)\n            if d!=dist[u]: continue\n            if u==dst: break\n            for v,cost,idx in adj[u]:\n                if edge_caps[idx] <= 0: continue\n                if not can_use_node(v, ctype) and v!=dst:\n                    continue\n                # cost adjusted\n                nd = d + (cost*time_penalty_factor)\n                if nd < dist[v]:\n                    dist[v]=nd\n                    prev[v]=(u,idx)\n                    heapq.heappush(pq,(nd,v))\n        if dist[dst]==float('inf'):\n            return None\n        # reconstruct path\n        path_nodes=[]\n        path_edges=[]\n        cur=dst\n        while cur!=src:\n            pu, eidx = prev[cur]\n            if pu==-1:\n                return None\n            path_nodes.append(cur)\n            path_edges.append(eidx)\n            cur=pu\n        path_nodes.append(src)\n        path_nodes.reverse()\n        path_edges.reverse()\n        return path_nodes, path_edges\n\n    # process commodities in priority order\n    order = sorted(list(range(K)), key=lambda i: priority_order.get(commodities[i].get(\"type_of_good\",\"\"), 100))\n    # Precompute original edge costs\n    base_edge_costs = [c for (_,_,c) in edges]\n\n    for i in order:\n        com = commodities[i]\n        src = int(com[\"source\"])\n        dst = int(com[\"sink\"])\n        demand = float(com[\"demand\"])\n        ctype = com.get(\"type_of_good\",\"\")\n        daily_changes = com.get(\"daily_capacity_changes\", [])\n        tstart, tend = time_windows[i] if i < len(time_windows) else (0,0)\n        # Apply time window urgency adjustments\n        time_penalty = 1.0\n        cap_time_factor = 1.0\n        days_allowed = max(0, tend - tstart + 1)\n        if ctype==\"perishables\" and days_allowed < 2:\n            cap_time_factor *= 0.5\n            time_penalty *= 1.5  # cost increase\n        if ctype==\"pharmaceuticals\" and days_allowed < 3:\n            cap_time_factor *= 0.8\n            time_penalty *= 1.2\n        # Build day-by-day cumulative capacity multipliers for edges\n        # Start with 1.0, for each day apply daily_changes and degradation\n        edge_caps = [float('inf')]*m  # start as infinite unless daily caps restrict\n        # We'll interpret daily_capacity_changes as available capacity amounts on source per day for commodity\n        # For simplicity, compute total available capacity as sum of daily_changes * degradation\n        total_available = 0.0\n        deg_cum = 1.0\n        for day, val in enumerate(daily_changes):\n            deg = max(0.1, 1.0 - ((day)*0.1))\n            deg_cum *= deg\n            total_available += float(val)*deg_cum\n        # apply time window cap factor\n        total_available *= cap_time_factor\n        # Also cap by demand\n        available = min(total_available if total_available>0 else demand, demand)\n        # Minimum flow threshold check\n        if available < 0.2 * demand:\n            # set flow zero and continue\n            continue\n        # For routing, we greedily find shortest path and push as much as possible up to available and edge capacities.\n        # Edge capacities initially set to available for edges outgoing from source, large elsewhere\n        # For simplicity, set all edges cap to available (simulate free edges), but respect node storage caps later\n        edge_caps = [available for _ in range(m)]\n        edge_costs = base_edge_costs[:]\n        # Try to find path and assign flow\n        remaining = available\n        # Reserve source and sink nodes for this com type\n        if not can_use_node(src, ctype):\n            # cannot start, skip\n            continue\n        if not can_use_node(dst, ctype):\n            continue\n        reserve_path_nodes([src, dst], ctype)\n        # Iteratively find shortest path and push flows until remaining exhausted\n        attempts = 0\n        while remaining > 1e-9 and attempts <  n*2:\n            res = shortest_path_with_constraints(src, dst, ctype, edge_caps, edge_costs, time_penalty)\n            if not res:\n                break\n            path_nodes, path_edges = res\n            # Determine bottleneck\n            bottleneck = min(edge_caps[e] for e in path_edges)\n            push = min(bottleneck, remaining)\n            if push <= 0:\n                break\n            # Check node storage caps for intermediate nodes\n            intermediates = [node for node in path_nodes if node!=src and node!=dst]\n            ok = True\n            for node in intermediates:\n                if node_storage_caps[node] < push:\n                    ok = False\n                    break\n            if not ok:\n                # try to push smaller amount: reduce to min storage cap\n                mincap = min((node_storage_caps[node] for node in intermediates), default=push)\n                if mincap < 1e-9:\n                    break\n                push = min(push, mincap)\n            # assign flow\n            for e in path_edges:\n                flow_matrix[i][e] += push\n                edge_caps[e] -= push\n            # reserve nodes used by this path (including intermediates)\n            reserve_path_nodes(path_nodes, ctype)\n            # compute costs: transportation + storage for intermediates\n            trans_cost = sum(push * base_edge_costs[e] for e in path_edges)\n            storage_cost = 0.1 * push * max(0, len(intermediates))\n            total_cost += trans_cost + storage_cost\n            remaining -= push\n            attempts += 1\n\n    # After all commodities processed, return flow matrix and total cost\n    # Ensure flows are floats\n    flow_matrix = [[float(x) for x in row] for row in flow_matrix]\n    return [flow_matrix, float(total_cost)]"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2465,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2034,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4499
+  },
+  "user": null,
+  "metadata": {}
+}

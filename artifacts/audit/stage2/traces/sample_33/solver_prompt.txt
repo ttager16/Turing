@@ -1,0 +1,127 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+In a smart city environment, urban developers aim to manage and optimize traffic flow across a network of roads and intersections. The goal is to create a Python-based algorithm that processes live sensor data from multiple intersections, dynamically adjusts traffic signal timings, and suggests alternate routes to reduce congestion and improve travel efficiency. The algorithm should analyze vehicle density, speed, and congestion metrics to make real-time, data-driven decisions for smoother city-wide mobility.
+
+---
+
+### Objectives
+
+1. Build a simple traffic model that uses sensor data to monitor vehicle counts and congestion levels at each intersection.
+2. Automatically adjust signal timings based on congestion and flow rate using a proportional control mechanism.
+3. Ensure that the system updates within one second in response to new data while keeping computation efficient.
+
+---
+
+### Constraints
+
+* Input includes sensor data from multiple intersections (each with `vehicle_count`, `average_speed`, and `congestion_level`).
+* The algorithm must handle up to 100 intersections efficiently.
+* Processing time per update must be under one second.
+* Alternate route suggestions should reflect realistic, less-congested paths.
+
+---
+
+### Proportional Control Definition
+
+The signal adjustment factor should be calculated using the following formula:
+
+```python
+signal_adjustment = max(0.1, min(1.0,
+    1 - (0.5 * congestion_level + 0.3 * (vehicle_count / 300) - 0.2 * (average_speed / 60))
+))
+```
+
+This ensures higher signal durations (closer to 1.0) for intersections with higher congestion and vehicle counts but lower average speeds.
+
+---
+
+### Route Generation Definition
+
+The city’s intersections are modeled as a **simple sequential network**:
+
+```
+A1 → B2 → C3 → D4 → E5 → F6 → ...
+```
+
+**Alternate Route Rules:**
+
+* Identify the **most congested intersection** in the dataset.
+* For each other intersection, suggest an alternate route that bypasses the most congested one.
+* The alternate route should connect to the next **two consecutive intersections ahead** in the sequence, if available.
+* If there are **fewer than three intersections**, or if the next two nodes are not available, no alternate route should be generated for that intersection.
+
+**Example Logic:**
+
+* If “B2” is the most congested intersection, then routes from other intersections should skip “B2” and connect through the next two available nodes.
+* For instance, if the sequence is A1 → B2 → C3 → D4 → E5, and B2 is most congested:
+
+  * Alternate route for A1 = “From A1 to D4 via C3”
+  * Alternate route for C3 = “From C3 to E5 via D4”
+  * Intersections near the end (with not enough following nodes) will not have an alternate route.
+
+---
+
+### Function Signature
+
+```python
+def optimize_traffic_flow(sensor_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    pass
+```
+
+---
+
+### Sample Input
+
+```python
+sensor_data = [
+    {"intersection_id": "A1", "vehicle_count": 150, "average_speed": 25, "congestion_level": 0.7},
+    {"intersection_id": "B2", "vehicle_count": 230, "average_speed": 18, "congestion_level": 0.85},
+    {"intersection_id": "C3", "vehicle_count": 180, "average_speed": 30, "congestion_level": 0.6},
+    {"intersection_id": "D4", "vehicle_count": 120, "average_speed": 40, "congestion_level": 0.4},
+    {"intersection_id": "E5", "vehicle_count": 90,  "average_speed": 45, "congestion_level": 0.3}
+]
+```
+
+---
+
+### Sample Output
+
+```python
+{
+    "signal_adjustments": [
+        {"intersection_id": "A1", "signal_adjustment": 0.63},
+        {"intersection_id": "B2", "signal_adjustment": 0.49},
+        {"intersection_id": "C3", "signal_adjustment": 0.70},
+        {"intersection_id": "D4", "signal_adjustment": 0.81},
+        {"intersection_id": "E5", "signal_adjustment": 0.88}
+    ],
+    "alternate_routes": [
+        "Alternate Route: From A1 to D4 via C3",
+        "Alternate Route: From C3 to E5 via D4"
+    ]
+}
+```
+
+---
+
+### Expected Output Format
+
+* **`signal_adjustments`** — A list of dictionaries showing each intersection’s computed signal adjustment factor.
+* **`alternate_routes`** — A list of text-based route suggestions describing detours that bypass the most congested intersection.
+* If there are fewer than three intersections, `"alternate_routes"` should be an empty list.
+
+Starter Code:
+```python
+from typing import List, Dict, Any
+
+def optimize_traffic_flow(sensor_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    pass
+```

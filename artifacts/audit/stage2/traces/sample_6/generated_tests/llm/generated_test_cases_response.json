@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN54dBWYmIu0lhld04h5unYRtnGD9",
+  "object": "chat.completion",
+  "created": 1774393419,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[[[1, 1.0], [2, 2.0]], [[3, 2.0], [2, 0.5]], [[3, 1.0]], [[4, 1.5]], []]\",\"[{\\\"source\\\": 0, \\\"sink\\\": 4, \\\"demand\\\": 8.0, \\\"type_of_good\\\": \\\"chemicals\\\", \\\"daily_capacity_changes\\\": [5, 5, 5]}, {\\\"source\\\": 0, \\\"sink\\\": 4, \\\"demand\\\": 6.0, \\\"type_of_good\\\": \\\"perishables\\\", \\\"daily_capacity_changes\\\": [6, 6, 6]}]\",\"[[0, 3], [0, 1]]\",\"[2.0, 2.0, 2.0, 1.0, 0.0]\"],\"focus\":\"Cross-contamination adjacency: perishable (higher priority) vs chemical (lower priority) competing for overlapping/adjacent nodes; tight time-window on perishables forcing capacity/cost adjustments and potential zeroing of lower-priority flow.\"},{\"input_lines\":[\"[[[1, 1.0], [3, 5.0]], [[2, 1.0]], [[3, 1.0]], []]\",\"[{\\\"source\\\": 0, \\\"sink\\\": 3, \\\"demand\\\": 4.0, \\\"type_of_good\\\": \\\"pharmaceuticals\\\", \\\"daily_capacity_changes\\\": [0, 0]}, {\\\"source\\\": 0, \\\"sink\\\": 3, \\\"demand\\\": 10.0, \\\"type_of_good\\\": \\\"textiles\\\", \\\"daily_capacity_changes\\\": [5, 5]}]\",\"[[0, 2], [0, 3]]\",\"[0.0, 0.0, 0.0, 0.0]\"],\"focus\":\"Minimum-flow threshold and zero storage nodes: pharmaceuticals have effectively zero daily capacity causing fallback-to-zero; textiles must route with no storage capacity available and may need expensive direct arc.\"},{\"input_lines\":[\"[[[1, 1.0], [2, 1.2]], [[3, 0.8], [2, 0.2]], [[3, 0.6]], [[4, 1.0]], []]\",\"[{\\\"source\\\": 0, \\\"sink\\\": 4, \\\"demand\\\": 50.0, \\\"type_of_good\\\": \\\"electronics\\\", \\\"daily_capacity_changes\\\": [20, 20, 20, 20, 20]}, {\\\"source\\\": 0, \\\"sink\\\": 4, \\\"demand\\\": 30.0, \\\"type_of_good\\\": \\\"pharmaceuticals\\\", \\\"daily_capacity_changes\\\": [10, 10, 10, 10, 10]}, {\\\"source\\\": 2, \\\"sink\\\": 4, \\\"demand\\\": 10.0, \\\"type_of_good\\\": \\\"chemicals\\\", \\\"daily_capacity_changes\\\": [5, 5, 5]}]\",\"[[0, 4], [0, 2], [0, 3]]\",\"[100.0, 5.0, 5.0, 10.0, 0.0]\"],\"focus\":\"Cumulative capacity degradation and priority preemption: long daily degradation lists (flooring at 0.1), electronics (highest priority) vs pharmaceuticals (tight time-window) vs chemicals (lowest priority) creating adjacency-based blocking and rerouting pressure.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3010,
+    "completion_tokens": 3381,
+    "total_tokens": 6391,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2624,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

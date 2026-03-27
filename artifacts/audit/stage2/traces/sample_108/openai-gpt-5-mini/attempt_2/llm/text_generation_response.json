@@ -1,0 +1,76 @@
+{
+  "id": "resp_0c7cb208cba52a640069c336f910a08190a9025ebd3654c3fa",
+  "object": "response",
+  "created_at": 1774401273,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774401292,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0c7cb208cba52a640069c336f99dd88190895b101ad2c3815b",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0c7cb208cba52a640069c336f9d3a8819094db332fa3973584",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Dict, Any, Tuple\n\ndef calculate_total_cost(\n        demand_schedule: List[float],\n        usines: List[Dict[str, Any]],\n        on_off_schedule: List[List[bool]]\n) -> float:\n    T = len(demand_schedule)\n    if T != len(on_off_schedule):\n        return float('inf')\n    N = len(usines)\n    for row in on_off_schedule:\n        if len(row) != N:\n            return float('inf')\n    # Preprocess ramping curves: for each usine, map consecutive_on -> effective pmax\n    ramp_maps = []\n    abs_pmax = []\n    for u in usines:\n        curve = sorted(u.get('ramping_curve', []), key=lambda x: x[0])\n        # Ensure covers increasing keys; we'll treat values for >= last key as last value\n        ramp_maps.append(curve)\n        abs_pmax.append(u.get('p_max', float('inf')))\n    # Check T_on / T_off constraints\n    # For each plant, find transitions and lengths\n    for i, u in enumerate(usines):\n        t_on = u.get('t_on', 1)\n        t_off = u.get('t_off', 1)\n        prev = False\n        run_len = 0\n        off_len = 0\n        # Determine initial off_len or on run_len from start\n        for t in range(T):\n            state = bool(on_off_schedule[t][i])\n            if state:\n                # was off before?\n                if not prev:\n                    # check off_len >= t_off unless this is start (off_len counts previous consecutive offs)\n                    if t > 0 and off_len < t_off:\n                        return float('inf')\n                    run_len = 1\n                else:\n                    run_len += 1\n                prev = True\n                off_len = 0\n            else:\n                if prev:\n                    # was on before, check run_len >= t_on\n                    if run_len < t_on:\n                        return float('inf')\n                    off_len = 1\n                else:\n                    off_len += 1\n                prev = False\n                run_len = 0\n        # After end, if last state was on, ensure final run_len >= t_on\n        if prev and run_len < t_on:\n            return float('inf')\n        # If last state was off, no need to check trailing off constraint per typical formulation\n    total_cost = 0.0\n    # For tracking consecutive on counts for ramping\n    consec_on = [0]*N\n    for t in range(T):\n        demand = demand_schedule[t]\n        if demand < -1e-9:\n            return float('inf')\n        # update consec_on based on schedule at time t\n        for i in range(N):\n            if on_off_schedule[t][i]:\n                consec_on[i] += 1\n            else:\n                consec_on[i] = 0\n        # For each plant that is on, determine effective pmin and pmax\n        plant_info = []\n        for i, u in enumerate(usines):\n            is_on = bool(on_off_schedule[t][i])\n            if not is_on:\n                plant_info.append({'i': i, 'is_on': False, 'pmin': 0.0, 'pmax': 0.0, 'cost': u.get('cost_per_kwh', 0.0)})\n                continue\n            pmin = float(u.get('p_min', 0.0))\n            # Determine ramped pmax from curve based on consec_on[i]\n            ramp = ramp_maps[i]\n            eff_pmax = None\n            k = consec_on[i]\n            eff_pmax = None\n            for steps, val in ramp:\n                if k <= steps:\n                    eff_pmax = val\n                    break\n            if eff_pmax is None:\n                # k greater than all keys -> take last value\n                if ramp:\n                    eff_pmax = ramp[-1][1]\n                else:\n                    eff_pmax = abs_pmax[i]\n            # enforce absolute p_max cap\n            eff_pmax = min(eff_pmax, abs_pmax[i])\n            # check that pmin <= eff_pmax\n            if pmin - eff_pmax > 1e-9:\n                return float('inf')\n            plant_info.append({'i': i, 'is_on': True, 'pmin': pmin, 'pmax': eff_pmax, 'cost': u.get('cost_per_kwh', 0.0)})\n        # Must meet demand exactly using economic dispatch: sort on cost ascending\n        # First sum minimum contributions of on plants\n        total_min = sum(p['pmin'] for p in plant_info if p['is_on'])\n        total_max = sum(p['pmax'] for p in plant_info if p['is_on'])\n        if demand + 1e-9 < total_min or demand - 1e-9 > total_max:\n            return float('inf')\n        # Start by assigning pmin to all on plants, then allocate remaining demand to cheapest up to pmax\n        allocation = [0.0]*N\n        rem = demand\n        # assign mins\n        for p in plant_info:\n            if p['is_on']:\n                allocation[p['i']] = p['pmin']\n                rem -= p['pmin']\n        # allocate remaining rem >= 0\n        # sort indices of on plants by cost then by larger pmax (tie-break)\n        on_plants_sorted = sorted([p for p in plant_info if p['is_on']], key=lambda x: (x['cost'], -x['pmax']))\n        for p in on_plants_sorted:\n            if rem <= 1e-9:\n                break\n            i = p['i']\n            avail = p['pmax'] - allocation[i]\n            take = min(avail, rem)\n            allocation[i] += take\n            rem -= take\n        if rem > 1e-6:\n            return float('inf')\n        # Validate allocations within bounds\n        for p in plant_info:\n            i = p['i']\n            if not p['is_on']:\n                if abs(allocation[i]) > 1e-9:\n                    return float('inf')\n            else:\n                if allocation[i] + 1e-9 < p['pmin'] or allocation[i] - 1e-9 > p['pmax']:\n                    return float('inf')\n        # Compute cost for this time step\n        for i in range(N):\n            if allocation[i] > 1e-9:\n                cost_rate = usines[i].get('cost_per_kwh', 0.0)\n                total_cost += allocation[i] * cost_rate\n    return total_cost"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1477,
+    "input_tokens_details": {
+      "cached_tokens": 1408
+    },
+    "output_tokens": 1442,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2919
+  },
+  "user": null,
+  "metadata": {}
+}

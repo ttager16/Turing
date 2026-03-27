@@ -1,0 +1,76 @@
+{
+  "id": "resp_0f6fe4fb10f01dc30069c33993b61c819696c58f33a11a7d09",
+  "object": "response",
+  "created_at": 1774401939,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774401963,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0f6fe4fb10f01dc30069c3399407848196b5110e9fc34c225a",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0f6fe4fb10f01dc30069c3399443fc8196bc1b5b3ddba59965",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "def optimize_multicommodity_flow(\n    graph: dict[str, dict[str, list[int]]],\n    demands: dict[str, dict[str, list[int]]],\n    source: str,\n    sinks: list[str],\n    commodities: list[str]\n) -> dict[str, dict[str, int]] | dict[str, str]:\n    # Validation types\n    if not isinstance(graph, dict) or not isinstance(demands, dict) or not isinstance(source, str) or not isinstance(sinks, list) or not isinstance(commodities, list):\n        return {'error': 'Invalid input type'}\n    if not graph or not demands or not sinks or not commodities:\n        return {'error': 'Empty input data'}\n    # Validate edges and build adjacency per commodity\n    adj_by_comm = {c: {} for c in commodities}\n    nodes = set()\n    for edge_key, val in graph.items():\n        if not isinstance(edge_key, str) or edge_key.count(\",\") != 1:\n            return {'error': 'Invalid edge format'}\n        u, v = edge_key.split(\",\", 1)\n        if u == v:\n            return {'error': 'Constraint violation'}\n        nodes.add(u); nodes.add(v)\n        if not isinstance(val, dict):\n            return {'error': 'Invalid input type'}\n        for c, pair in val.items():\n            if not isinstance(c, str) or not isinstance(pair, list) or len(pair) != 2:\n                return {'error': 'Invalid input type'}\n            cap, cost = pair\n            if not (isinstance(cap, int) and isinstance(cost, int)):\n                return {'error': 'Invalid input type'}\n            if cap < 1 or cost < 1:\n                return {'error': 'Constraint violation'}\n            if c in commodities:\n                adj_by_comm[c].setdefault(u, []).append((v, cap, cost))\n    # Validate demands structure and ranges\n    for sink, dmap in demands.items():\n        if not isinstance(sink, str) or not isinstance(dmap, dict):\n            return {'error': 'Invalid input type'}\n        for c, pair in dmap.items():\n            if not isinstance(c, str) or not isinstance(pair, list) or len(pair) != 2:\n                return {'error': 'Invalid input type'}\n            mn, mx = pair\n            if not (isinstance(mn, int) and isinstance(mx, int)):\n                return {'error': 'Invalid input type'}\n            if mn < 0 or mn > mx:\n                return {'error': 'Constraint violation'}\n    # Helper: find all simple paths from source to sink up to reasonable limit using DFS\n    def find_paths(adj, s, t, limit=1000, max_len=20):\n        paths = []\n        stack = [(s, [s])]\n        visited_sets = set()\n        while stack and len(paths) < limit:\n            node, path = stack.pop()\n            if len(path) > max_len:\n                continue\n            if node == t:\n                paths.append(path)\n                continue\n            for nei, _, _ in adj.get(node, []):\n                if nei not in path:  # simple path\n                    stack.append((nei, path + [nei]))\n        return paths\n    # For each commodity and sink, compute max deliverable within capacities with min cost among max delivery.\n    # We'll treat edges independently per commodity (no coupling across commodities).\n    result = {}\n    for sink in sinks:\n        result[sink] = {}\n        for c in commodities:\n            # default fallback min demand if sink not in demands or commodity not specified\n            mn = 0\n            mx = 0\n            if sink in demands and c in demands[sink]:\n                mn, mx = demands[sink][c]\n            else:\n                # If not specified, treat as 0..0\n                mn, mx = 0, 0\n            # Build adjacency for commodity c\n            adj = adj_by_comm.get(c, {})\n            # If source or sink not in nodes of this commodity graph, unreachable\n            if source not in adj and all(source != u for u in adj):\n                # still maybe source has no outgoing edges for this commodity\n                # check reachability via edges\n                pass\n            # Find simple paths\n            paths = find_paths(adj, source, sink, limit=200, max_len=20)\n            if not paths:\n                # unreachable, assign min demand\n                result[sink][c] = mn\n                continue\n            # For each path, compute bottleneck capacity and path cost per unit\n            path_infos = []\n            for p in paths:\n                # derive sequence of edges u->v\n                bottleneck = float('inf')\n                total_cost = 0\n                valid = True\n                for i in range(len(p)-1):\n                    u = p[i]; v = p[i+1]\n                    # find edge entry in adj[u] for v\n                    found = False\n                    for nei, cap, cost in adj.get(u, []):\n                        if nei == v:\n                            found = True\n                            bottleneck = min(bottleneck, cap)\n                            total_cost += cost\n                            break\n                    if not found:\n                        valid = False\n                        break\n                if valid and bottleneck > 0:\n                    path_infos.append({'path': p, 'cap': bottleneck, 'cost': total_cost})\n            if not path_infos:\n                result[sink][c] = mn\n                continue\n            # We want to push flow along multiple edge-disjoint? edges share capacities; need simple greedy augmentation:\n            # We'll treat edges capacities and allow multiple paths to share edges reducing caps.\n            # Greedy: repeatedly pick path with lowest cost per unit and push as much as possible up to remaining demand and path bottleneck.\n            # Initialize residual capacities dict per edge (u,v)\n            residual = {}\n            for edge_key, val in graph.items():\n                u,v = edge_key.split(\",\",1)\n                if c in val:\n                    residual[(u,v)] = val[c][0]\n            delivered = 0\n            assign = {}\n            # sort path_infos by cost ascending\n            path_infos.sort(key=lambda x: x['cost'])\n            # attempt to reach up to mx, but at least mn if possible\n            target = mx\n            for info in path_infos:\n                if delivered >= target:\n                    break\n                p = info['path']\n                # compute current path bottleneck from residual\n                cur_bottleneck = float('inf')\n                for i in range(len(p)-1):\n                    e = (p[i], p[i+1])\n                    cap = residual.get(e, 0)\n                    cur_bottleneck = min(cur_bottleneck, cap)\n                if cur_bottleneck <= 0:\n                    continue\n                take = min(cur_bottleneck, target - delivered)\n                # apply\n                for i in range(len(p)-1):\n                    e = (p[i], p[i+1])\n                    residual[e] = residual.get(e, 0) - take\n                delivered += take\n                assign[tuple(p)] = assign.get(tuple(p), 0) + take\n            # After greedy, if delivered < mn but there exists any path (we already had), we might try to push more even if cost higher:\n            if delivered < mn:\n                # try any remaining capacity regardless of cost to reach mn\n                for info in sorted(path_infos, key=lambda x: x['cost']):\n                    if delivered >= mn:\n                        break\n                    p = info['path']\n                    cur_bottleneck = float('inf')\n                    for i in range(len(p)-1):\n                        e = (p[i], p[i+1])\n                        cap = residual.get(e, 0)\n                        cur_bottleneck = min(cur_bottleneck, cap)\n                    if cur_bottleneck <= 0:\n                        continue\n                    take = min(cur_bottleneck, mn - delivered)\n                    for i in range(len(p)-1):\n                        e = (p[i], p[i+1])\n                        residual[e] = residual.get(e, 0) - take\n                    delivered += take\n                    assign[tuple(p)] = assign.get(tuple(p), 0) + take\n            # If still < mn, fallback to mn per spec (assign min)\n            if delivered < mn:\n                result[sink][c] = mn\n            else:\n                # delivered is between mn and mx\n                result[sink][c] = delivered\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 1371,
+    "input_tokens_details": {
+      "cached_tokens": 1280
+    },
+    "output_tokens": 1789,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 3160
+  },
+  "user": null,
+  "metadata": {}
+}

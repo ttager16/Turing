@@ -1,0 +1,254 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+#### Problem Statement
+
+A telecommunications company must build a **minimum-cost connected network** across multiple hubs, where each link has **cost, bandwidth, latency, and reliability**. The solution must respect **all three thresholds simultaneously** and return a **spanning tree** using only edges that satisfy the constraints.
+
+The system operates in a **dynamic environment** with frequent edge updates. While the **function computes a single snapshot**, the chosen algorithm should be **efficient enough for repeated calls** in real-time systems (e.g., reuse Union-Find, avoid full recomputation).
+
+### Objectives:
+
+1. **Multi-Graph Representation:**  #### Problem Statement
+
+A telecommunications company must build a **minimum-cost connected network** across multiple hubs, where each link has **cost, bandwidth, latency, and reliability**. The solution must respect **all three thresholds simultaneously** and return a **spanning tree** using only edges that satisfy the constraints.
+
+The system operates in a **dynamic environment** with frequent edge updates. While the **function computes a single snapshot**, the chosen algorithm should be **efficient enough for repeated calls** in real-time systems (e.g., reuse Union-Find, avoid full recomputation).
+
+### Objectives:
+
+1. **Multi-Graph Representation:**  
+   Support **parallel edges** between same nodes with different attributes.
+
+2. **Adaptive Constraint Filtering:**  
+   Filter edges by **all three constraints at once**; recheck on any update.
+
+3. **Flow and Connectivity Algorithm Implementation:**  
+   Use **dynamic MST** or **incremental connectivity** (e.g., Union-Find with rollback, HLD, etc.).
+
+4. **Efficiency:** Design for **fast repeated execution** on updated inputs.
+
+---
+
+### Constraints:
+
+- Up to **100 nodes**, **1,000 edges**
+- No external libraries
+- Graph is **undirected**
+- Return `[]` if **no feasible connected subgraph exists**
+
+### Edge Validation Rules:
+
+An edge is **invalid** and must be rejected if:
+- **Bandwidth ≤ 0** (zero or negative)
+- **Latency < 0** (negative) or **Latency ≥ 10⁹** (unreasonably large)
+- **Bandwidth < bandwidth_threshold**
+- **Latency > latency_threshold**
+- **Reliability < reliability_threshold** (use tolerance ≈1e-9 for float comparison)
+
+---
+
+### Edge Cases (Must Handle):
+
+| # | Case | Hint |
+|---|------|------|
+| 1 | Parallel edges | Use **lowest-cost valid** per pair |
+| 2 | Self-loops | Ignore |
+| 3 | `(A,B)` = `(B,A)` | Normalize direction |
+| 4 | Disconnected | Return `[]` |
+| 5 | ≤1 node | Return `[]` |
+| 6 | Empty edges | Return `[]` |
+| 7 | All edges invalid | Return `[]` |
+| 8 | Float precision | Use tolerance (≈1e-9) for reliability |
+| 9 | Negative values | Reject neg BW/latency; allow neg cost |
+| 10 | Zero BW / huge latency | Reject BW≤0 or latency≥10⁹ |
+| 11 | Special node names | Exact string match |
+| 12 | Case-sensitive | `"A"` ≠ `"a"` |
+| 13 | Orphaned nodes | Ignore invalid edges |
+| 14 | No valid path | Return `[]` |
+| 15 | Multiple MSTs | Any valid one accepted |
+| 16 | **Equal-cost cycles** | Deterministic tie-breaking; avoid cycles |
+| 17 | **Constraint fragmentation** | Filtering may disconnect graph → `[]` |
+| 18 | **Extreme cost ranges** | Handle costs from -10⁶ to 10⁶ stably |
+
+> **Note:** Function is **stateless** — computes MST from current input.  
+> **Efficiency** should support **real-time repeated calls**.
+
+---
+
+### Function Signature:
+```python
+from typing import List, Dict, Any
+
+def optimize_network_mst(
+    nodes: List[str],
+    edges: List[Dict[str, Any]],
+    bandwidth_threshold: int,
+    latency_threshold: int,
+    reliability_threshold: float
+) -> List[Dict[str, str]]:
+    """
+    Input edge keys: 'start', 'end', 'cost', 'bandwidth', 'latency', 'reliability'
+    Output: list of {'start': ..., 'end': ...}
+    """
+    pass
+```
+
+---
+
+### Sample Input:
+```python
+nodes = ['HubA', 'HubB', 'HubC', 'HubD', 'HubE']
+edges = [
+    {'start': 'HubA', 'end': 'HubB', 'cost': 5,  'bandwidth': 200, 'latency': 5,  'reliability': 0.98},
+    {'start': 'HubB', 'end': 'HubC', 'cost': 10, 'bandwidth': 180, 'latency': 10, 'reliability': 0.95},
+    {'start': 'HubA', 'end': 'HubC', 'cost': 12, 'bandwidth': 250, 'latency': 15, 'reliability': 0.95},
+    {'start': 'HubC', 'end': 'HubD', 'cost': 20, 'bandwidth': 300, 'latency': 12, 'reliability': 0.99},
+    {'start': 'HubB', 'end': 'HubD', 'cost': 25, 'bandwidth': 150, 'latency': 10, 'reliability': 0.92},
+    {'start': 'HubD', 'end': 'HubE', 'cost': 15, 'bandwidth': 200, 'latency': 12, 'reliability': 0.95},
+    {'start': 'HubC', 'end': 'HubE', 'cost': 30, 'bandwidth': 280, 'latency': 14, 'reliability': 0.92}
+]
+bandwidth_threshold = 150
+latency_threshold = 15
+reliability_threshold = 0.90
+```
+
+### Expected Output:
+```python
+[
+    {'start': 'HubA', 'end': 'HubB'},
+    {'start': 'HubB', 'end': 'HubC'},
+    {'start': 'HubC', 'end': 'HubD'},
+    {'start': 'HubD', 'end': 'HubE'}
+]
+```
+
+### Expected Behavior:
+- All edges satisfy: **BW ≥ 150, Lat ≤ 15, Rel ≥ 0.90**
+- **Minimum total cost**
+- **Connected spanning tree**
+   Support **parallel edges** between same nodes with different attributes.
+
+2. **Adaptive Constraint Filtering:**  
+   Filter edges by **all three constraints at once**; recheck on any update.
+
+3. **Flow and Connectivity Algorithm Implementation:**  
+   Use **dynamic MST** or **incremental connectivity** (e.g., Union-Find with rollback, HLD, etc.).
+
+4. **Efficiency:** Design for **fast repeated execution** on updated inputs.
+
+---
+
+### Constraints:
+
+- Up to **100 nodes**, **1,000 edges**
+- No external libraries
+- Graph is **undirected**
+- Return `[]` if **no feasible connected subgraph exists**
+
+### Edge Validation Rules:
+
+An edge is **invalid** and must be rejected if:
+- **Bandwidth ≤ 0** (zero or negative)
+- **Latency < 0** (negative) or **Latency ≥ 10⁹** (unreasonably large)
+- **Bandwidth < bandwidth_threshold**
+- **Latency > latency_threshold**
+- **Reliability < reliability_threshold** (use tolerance ≈1e-9 for float comparison)
+
+---
+
+### Edge Cases (Must Handle):
+
+| # | Case | Hint |
+|---|------|------|
+| 1 | Parallel edges | Use **lowest-cost valid** per pair |
+| 2 | Self-loops | Ignore |
+| 3 | `(A,B)` = `(B,A)` | Normalize direction |
+| 4 | Disconnected | Return `[]` |
+| 5 | ≤1 node | Return `[]` |
+| 6 | Empty edges | Return `[]` |
+| 7 | All edges invalid | Return `[]` |
+| 8 | Float precision | Use tolerance (≈1e-9) for reliability |
+| 9 | Negative values | Reject neg BW/latency; allow neg cost |
+| 10 | Zero BW / huge latency | Reject BW≤0 or latency≥10⁹ |
+| 11 | Special node names | Exact string match |
+| 12 | Case-sensitive | `"A"` ≠ `"a"` |
+| 13 | Orphaned nodes | Ignore invalid edges |
+| 14 | No valid path | Return `[]` |
+| 15 | Multiple MSTs | Any valid one accepted |
+
+> **Note:** Function is **stateless** — computes MST from current input.  
+> **Efficiency** should support **real-time repeated calls**.
+
+---
+
+### Function Signature:
+```python
+from typing import List, Dict, Any
+
+def optimize_network_mst(
+    nodes: List[str],
+    edges: List[Dict[str, Any]],
+    bandwidth_threshold: int,
+    latency_threshold: int,
+    reliability_threshold: float
+) -> List[Dict[str, str]]:
+    """
+    Input edge keys: 'start', 'end', 'cost', 'bandwidth', 'latency', 'reliability'
+    Output: list of {'start': ..., 'end': ...}
+    """
+    pass
+```
+
+---
+
+### Sample Input:
+```python
+nodes = ['HubA', 'HubB', 'HubC', 'HubD', 'HubE']
+edges = [
+    {'start': 'HubA', 'end': 'HubB', 'cost': 5,  'bandwidth': 200, 'latency': 5,  'reliability': 0.98},
+    {'start': 'HubB', 'end': 'HubC', 'cost': 10, 'bandwidth': 180, 'latency': 10, 'reliability': 0.95},
+    {'start': 'HubA', 'end': 'HubC', 'cost': 12, 'bandwidth': 250, 'latency': 15, 'reliability': 0.95},
+    {'start': 'HubC', 'end': 'HubD', 'cost': 20, 'bandwidth': 300, 'latency': 12, 'reliability': 0.99},
+    {'start': 'HubB', 'end': 'HubD', 'cost': 25, 'bandwidth': 150, 'latency': 10, 'reliability': 0.92},
+    {'start': 'HubD', 'end': 'HubE', 'cost': 15, 'bandwidth': 200, 'latency': 12, 'reliability': 0.95},
+    {'start': 'HubC', 'end': 'HubE', 'cost': 30, 'bandwidth': 280, 'latency': 14, 'reliability': 0.92}
+]
+bandwidth_threshold = 150
+latency_threshold = 15
+reliability_threshold = 0.90
+```
+
+### Expected Output:
+```python
+[
+    {'start': 'HubA', 'end': 'HubB'},
+    {'start': 'HubB', 'end': 'HubC'},
+    {'start': 'HubC', 'end': 'HubD'},
+    {'start': 'HubD', 'end': 'HubE'}
+]
+```
+
+### Expected Behavior:
+- All edges satisfy: **BW ≥ 150, Lat ≤ 15, Rel ≥ 0.90**
+- **Minimum total cost**
+- **Connected spanning tree**
+
+Starter Code:
+```python
+from typing import List, Dict, Any
+
+def optimize_network_mst(
+    nodes: List[str],
+    edges: List[Dict[str, Any]],
+    bandwidth_threshold: int,
+    latency_threshold: int,
+    reliability_threshold: float
+) -> List[Dict[str, str]]:
+```

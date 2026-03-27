@@ -1,0 +1,145 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      [
+        [
+          "a",
+          10.0
+        ],
+        [
+          "BROKER_FEE",
+          -0.01
+        ],
+        [
+          "B",
+          20.0
+        ],
+        [
+          "b",
+          18.0
+        ],
+        [
+          "C6",
+          5.0
+        ],
+        [
+          "D",
+          50.0
+        ],
+        [
+          "D",
+          null
+        ],
+        [
+          "BROKER_FEE",
+          0.002
+        ],
+        [
+          "xlonger",
+          5.0
+        ],
+        [
+          "E",
+          0.0
+        ],
+        [
+          "A",
+          12.0
+        ]
+      ],
+      1000.0,
+      0.3,
+      100.0
+    ],
+    "input_lines": [
+      "[[\"a\", 10.0], [\"BROKER_FEE\", -0.01], [\"B\", 20.0], [\"b\", 18.0], [\"C6\", 5.0], [\"D\", 50.0], [\"D\", null], [\"BROKER_FEE\", 0.002], [\"xlonger\", 5.0], [\"E\", 0.0], [\"A\", 12.0]]",
+      "1000.0",
+      "0.3",
+      "100.0"
+    ],
+    "focus": "Case sensitivity, invalid updates (negative, null, zero), non-alphabetic and overlength tickers, last-valid-wins preservation, default fee behavior"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      [
+        [
+          "BROKER_FEE",
+          0.005
+        ],
+        [
+          "BROKER_FEE",
+          0.0
+        ],
+        [
+          "CCC",
+          40.0
+        ],
+        [
+          "AAA",
+          50.0
+        ],
+        [
+          "BBB",
+          50.0
+        ],
+        [
+          "CCC",
+          -1.0
+        ],
+        [
+          "DDD!",
+          30.0
+        ]
+      ],
+      15000.0,
+      0.3333,
+      1000.0
+    ],
+    "input_lines": [
+      "[[\"BROKER_FEE\", 0.005], [\"BROKER_FEE\", 0.0], [\"CCC\", 40.0], [\"AAA\", 50.0], [\"BBB\", 50.0], [\"CCC\", -1.0], [\"DDD!\", 30.0]]",
+      "15000.0",
+      "0.3333",
+      "1000.0"
+    ],
+    "focus": "Tie on score (identical prices), deterministic tie-break order (alphabetical), fee invalidation not overriding prior valid fee, cap and lot rounding interactions"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      [
+        [
+          "BROKER_FEE",
+          0.1
+        ],
+        [
+          "A",
+          10.0
+        ],
+        [
+          "ZZZZZ",
+          20.0
+        ],
+        [
+          "TOOLONG",
+          1.0
+        ],
+        [
+          "ok1",
+          5.0
+        ]
+      ],
+      99.99,
+      0.5,
+      100.0
+    ],
+    "input_lines": [
+      "[[\"BROKER_FEE\", 0.1], [\"A\", 10.0], [\"ZZZZZ\", 20.0], [\"TOOLONG\", 1.0], [\"ok1\", 5.0]]",
+      "99.99",
+      "0.5",
+      "100.0"
+    ],
+    "focus": "Budget smaller than min_lot -> entire budget becomes RESERVE; validates ticker length 5 allowed and non-alpha rejected"
+  }
+]

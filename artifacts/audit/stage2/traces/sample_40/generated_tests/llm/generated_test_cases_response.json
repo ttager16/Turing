@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5muXNt0iuhStca7JeO3y7N9cBso",
+  "object": "chat.completion",
+  "created": 1774396164,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"cases\": [\n    {\n      \"input_lines\": [\n        \"[[\\\"C1\\\", 0, 3], [\\\"C2\\\", 1, 5], [\\\"C3\\\", 2, 6], [\\\"C4\\\", 0, 12], [\\\"C5\\\", 4, 9], [\\\"C6\\\", 3, 7], [\\\"C7\\\", 5, 11], [\\\"C8\\\", 6, 14], [\\\"C9\\\", 8, 16], [\\\"C10\\\", 9, 18], [\\\"C11\\\", 10, 20], [\\\"C12\\\", 7, 13], [\\\"C13\\\", 6, 12], [\\\"C14\\\", 11, 15], [\\\"C15\\\", 0, 24], [\\\"C16\\\", 2, 4], [\\\"C17\\\", 1, 2], [\\\"C18\\\", 13, 18]]\",\n        \"[[101, 120], [102, 80], [103, 150], [104, 60], [105, 200], [106, 90], [107, 110], [108, 70], [109, 130], [110, 50], [111, 160], [112, 40]]\",\n        \"{\\\"C1-C2\\\": 10, \\\"C2-C3\\\": 15, \\\"C3-C4\\\": 20, \\\"C4-C5\\\": 25, \\\"C5-C6\\\": 0, \\\"C6-C7\\\": 12, \\\"C7-C8\\\": 30, \\\"C8-C9\\\": 5, \\\"C9-C10\\\": 10, \\\"C10-C11\\\": 15, \\\"C11-C12\\\": 20, \\\"C12-C13\\\": 25, \\\"C13-C14\\\": 8, \\\"C2-C5\\\": 40, \\\"C15-C1\\\": 50, \\\"C16-C17\\\": 2, \\\"C17-C3\\\": 3, \\\"C14-C18\\\": 18}\",\n        \"{\\\"C3\\\": 60, \\\"C5\\\": 40, \\\"C9\\\": 80, \\\"C12\\\": 20}\",\n        \"{\\\"C3\\\": 100, \\\"C5\\\": 50, \\\"C9\\\": 80, \\\"C12\\\": 20}\",\n        \"[[\\\"C1-C2\\\", null], [\\\"C2-C3\\\", 5], [\\\"C5-C6\\\", 0], [\\\"C8-C9\\\", 1], [\\\"C15-C1\\\", 45]]\",\n        \"[{\\\"C3\\\": 30, \\\"C5\\\": 20}, {\\\"C9\\\": 50}, {\\\"C12\\\": 10, \\\"C3\\\": 10}]\"\n      ],\n      \"focus\": \"Boundary small-instance DP with 18 cities and 12 vehicles; zero-time edge, removals/additions, overlapping windows, and phased demands to exercise DP, update ordering, and persistent routes.\"\n    },\n    {\n      \"input_lines\": [\n        \"[[\\\"A\\\", 8, 12], [\\\"B\\\", 7, 11], [\\\"C\\\", 6, 10], [\\\"D\\\", 9, 13], [\\\"E\\\", 5, 9], [\\\"F\\\", 0, 4], [\\\"G\\\", 14, 18], [\\\"H\\\", 13, 17], [\\\"I\\\", 10, 14], [\\\"J\\\", 11, 15]]\",\n        \"[[1, 100], [2, 100], [3, 50], [4, 100], [5, 50], [6, 100], [7, 100], [8, 75], [9, 75], [10, 100], [11, 50], [12, 100], [13, 50], [14, 100], [15, 100]]\",\n        \"{}\",\n        \"null\",\n        \"null\",\n        \"[[\\\"A-B\\\", null], [\\\"A-B\\\", 25], [\\\"B-C\\\", 0], [\\\"C-D\\\", 15], [\\\"E-F\\\", 5]]\",\n        \"null\"\n      ],\n      \"focus\": \"Greedy-heuristic trigger: >12 vehicles, empty initial graph with updates that remove then add an edge, zero-time edge addition, and many identical capacities to test tie-breaking by (capacity,id).\"\n    },\n    {\n      \"input_lines\": [\n        \"[[\\\"HubA\\\", 8, 8], [\\\"HubB\\\", 7, 10], [\\\"Isolated\\\", 12, 12], [\\\"Late\\\", 20, 22], [\\\"Early\\\", 0, 1]]\",\n        \"[[10, 200], [20, 50], [30, 100]]\",\n        \"{\\\"HubA-HubB\\\": 5, \\\"HubB-Late\\\": 60, \\\"Early-HubA\\\": 10}\",\n        \"{\\\"HubB\\\": 30, \\\"Isolated\\\": 10, \\\"Late\\\": 20}\",\n        \"{\\\"HubB\\\": 25, \\\"Isolated\\\": 5, \\\"Late\\\": 20}\",\n        \"[[\\\"HubA-HubB\\\", null], [\\\"HubB-Late\\\", 40]]\",\n        \"[{\\\"HubB\\\": 20}, {\\\"Late\\\": 10}]\"\n      ],\n      \"focus\": \"Format-sensitive and disconnected case: start==end window, isolated city with insufficient hub_capacity vs demand, update removing a key edge before phase 2 to test persistent routes and no-feasible-route empty assignments.\"\n    }\n  ]\n}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2943,
+    "completion_tokens": 4362,
+    "total_tokens": 7305,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3136,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

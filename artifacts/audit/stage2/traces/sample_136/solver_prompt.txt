@@ -1,0 +1,181 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+
+A multinational logistics conglomerate wants to upgrade its urban delivery platform to handle concurrently evolving conditions across a multi-layered transportation network. Each city map is modeled as an integrated Directed Acyclic Multi-Graph (DAMG) merged from:
+- Road segments (vehicle-accessible paths).
+- Pedestrian/bicycle pathways.
+- Privately-owned connectors with dynamic tolling rules.
+
+Each edge maintains compound attributes that dictate access and cost:
+- Vehicle permissions (with sub-conditions for engine/drive types).  
+- Fluctuating time-based constraints (e.g., peak-hour closures, off-peak discounts).  
+- Environmental adaptation levels (flood zones, snow drifts).
+
+**Your task is to implement the function `compute_multilayer_min_cost_route`** that computes the minimum-cost route between two nodes in this multi-layered graph, subject to multiple constraints.
+
+**Cost Metric:** Minimize the sum of `base_cost` values across all edges in the path. When environmental hazards are present (e.g., edge requires `{'icy': True}` and current `environment_state` has `{'icy': True}`), the edge's cost is multiplied by a hazard factor (typically 2.0).
+
+### Implementation Considerations (Optional)
+
+The following are suggestions for implementation approaches, not strict requirements:
+
+1. **Graph Representation**  
+   - Consider using adjacency list structures that preserve multiple overlapping subgraph layers (e.g., roads and alternative pathways).  
+   - For advanced implementations, data structures like segment trees or compressed tries could handle fine-grained edge attribute updates efficiently.
+
+2. **Pathfinding Algorithm**  
+   - A standard approach is Dijkstra's algorithm or A* with appropriate edge filtering based on constraints.
+   - For more dynamic scenarios, consider algorithms that support incremental updates without full recomputation.
+
+3. **Constraint Handling**  
+   - The function should check vehicle access permissions, time windows, capacity limits, and environmental hazards for each edge before considering it in the path.
+
+### Edge Attributes and Constraints
+
+Each edge in the graph has the following attributes that must be validated before use:
+
+- **vehicle_access**: List of vehicle types allowed (e.g., `['electric', 'bicycle']`). Only edges matching the query's `vehicle_type` can be used.
+- **time_windows**: List of time ranges `[[start, end], ...]` when the edge is accessible. The `current_time` must fall within at least one window. Empty list means always accessible.
+- **capacity**: Maximum concurrent vehicles allowed. Must check against `concurrency_tracker` to ensure current usage is below capacity.
+- **env_limits**: Dictionary of environmental hazard conditions affecting the edge (e.g., `{'icy': True}`). An edge is always traversable regardless of `env_limits` values. However, when both `env_limits` and `environment_state` have the same hazard key set to `True`, a cost multiplier (typically 2.0) is applied to that edge's `base_cost`. If a hazard key is in `env_limits` but not in `environment_state`, or if values don't match, no multiplier is applied.
+- **base_cost**: Base traversal cost. This is the primary optimization metric (minimize sum across path).
+
+### System Context
+
+The broader system handles:
+- High concurrency with thousands of simultaneous path queries
+- Dynamic updates to edge attributes over time
+- Large-scale graphs with tens of thousands of nodes and edges
+- Real-time capacity tracking across multiple vehicles
+
+### Function Signature
+
+```python
+def compute_multilayer_min_cost_route(
+    layered_graph: Dict[str, List[Dict[str, Any]]],
+    vehicle_type: str,
+    start_node: int,
+    end_node: int,
+    current_time: int,
+    environment_state: Dict[str, Any],
+    concurrency_tracker: Dict[str, int]
+) -> List[int]:
+    """
+    Calculate a minimum-cost route through a multi-layer DAG under:
+    1) Vehicle-type access restrictions.
+    2) Time-window constraints.
+    3) Reactive capacity updates tracked in concurrency_tracker.
+    4) Dynamic environmental hazards.
+
+    Args:
+        layered_graph: Graph as dict mapping node_id (str) to list of edges.
+                       Each edge is [neighbor_id, attributes_dict].
+        vehicle_type: Type of vehicle (e.g., 'electric', 'diesel', 'bicycle').
+        start_node: Starting node ID (int).
+        end_node: Destination node ID (int).
+        current_time: Current time for checking time_windows (int).
+        environment_state: Current environmental conditions (dict).
+        concurrency_tracker: Maps edge keys 'node1,node2' to current usage count.
+
+    Returns:
+        List of node IDs forming the minimum-cost path from start to end.
+        Returns empty list [] if no valid path exists.
+    """
+```
+
+### Sample Input/Output
+
+**Input:**
+```python
+layered_graph = {
+    "0": [
+        [1, {
+            'vehicle_access': ['electric', 'bicycle'],
+            'time_windows': [[0, 5], [10, 15]],
+            'env_limits': {'flooded': False},
+            'base_cost': 5,
+            'capacity': 2
+        }],
+        [2, {
+            'vehicle_access': ['diesel', 'electric'],
+            'time_windows': [[0, 24]],
+            'env_limits': {'icy': True},
+            'base_cost': 7,
+            'capacity': 3
+        }]
+    ],
+    "1": [
+        [3, {
+            'vehicle_access': ['electric'],
+            'time_windows': [[10, 20]],
+            'env_limits': {'flooded': False},
+            'base_cost': 2,
+            'capacity': 1
+        }]
+    ],
+    "2": [
+        [3, {
+            'vehicle_access': ['diesel', 'electric'],
+            'time_windows': [[0, 8], [16, 24]],
+            'env_limits': {'icy': True},
+            'base_cost': 3,
+            'capacity': 2
+        }]
+    ],
+    "3": []
+}
+
+vehicle_type = 'electric'
+start_node = 0
+end_node = 3
+current_time = 11
+environment_state = {'flooded': False, 'icy': True}
+concurrency_tracker = {
+    '0,1': 1,   # Currently 1 vehicle is on edge (0->1)
+    '0,2': 0,
+    '1,3': 0,
+    '2,3': 0
+}
+```
+
+**Output:**
+```python
+[0, 1, 3]
+```
+
+**Output Description:**
+The resulting path `[0, 1, 3]` uses edges (0→1) and (1→3), respecting all constraints:  
+• Vehicle type "electric" has access to both edges.  
+• At current_time=11, edge (0→1) is accessible (within window [10, 15]) and edge (1→3) is accessible (within window [10, 20]).  
+• Edge (0→1) has 1 current user but capacity 2, so still available.
+• Edge (1→3) has 0 current users and capacity 1, so available.
+• **Total cost**: Edge (0→1) has base_cost=5, no hazard multiplier applies (env_limits={'flooded': False} doesn't match environment_state={'icy': True}). Edge (1→3) has base_cost=2, no hazard multiplier. Total = 5 + 2 = 7.
+• The alternative path [0, 2, 3] would have cost: Edge (0→2) base_cost=7 with icy hazard × 2.0 = 14, plus edge (2→3) base_cost=3 with icy hazard × 2.0 = 6. Total = 20, which is higher.
+
+Therefore, `[0, 1, 3]` is the minimum-cost valid path.
+
+Starter Code:
+```python
+from typing import Dict, List, Tuple, Any
+import heapq
+from collections import defaultdict
+
+def compute_multilayer_min_cost_route(
+    layered_graph: Dict[str, List[Dict[str, Any]]],
+    vehicle_type: str,
+    start_node: int,
+    end_node: int,
+    current_time: int,
+    environment_state: Dict[str, Any],
+    concurrency_tracker: Dict[str, int]
+) -> List[int]:
+    pass
+```

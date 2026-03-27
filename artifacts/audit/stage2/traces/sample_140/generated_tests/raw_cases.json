@@ -1,0 +1,210 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "X": [
+          [
+            "A",
+            5,
+            {}
+          ],
+          [
+            "B",
+            5,
+            {}
+          ]
+        ],
+        "A": [
+          [
+            "T",
+            5,
+            {}
+          ],
+          [
+            "A",
+            1,
+            {
+              "traffic": 1.0
+            }
+          ]
+        ],
+        "B": [
+          [
+            "T",
+            5,
+            {}
+          ]
+        ],
+        "T": []
+      },
+      [
+        [
+          "B",
+          "S",
+          {
+            "traffic": 1.1
+          }
+        ],
+        [
+          "X",
+          "A",
+          {
+            "traffic": 1.0
+          }
+        ]
+      ],
+      8
+    ],
+    "input_lines": [
+      "{\"X\": [[\"A\", 5, {}], [\"B\", 5, {}]], \"A\": [[\"T\", 5, {}], [\"A\", 1, {\"traffic\": 1.0}]], \"B\": [[\"T\", 5, {}]], \"T\": []}",
+      "[[\"B\", \"S\", {\"traffic\": 1.1}], [\"X\", \"A\", {\"traffic\": 1.0}]]",
+      "8"
+    ],
+    "focus": "equal-cost tie with lexicographic full-path tie-break; includes a self-loop and an ignored update to a non-existent edge"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "P": [
+          [
+            "Q",
+            0,
+            {}
+          ]
+        ],
+        "Q": [
+          [
+            "P",
+            0,
+            {}
+          ],
+          [
+            "T",
+            1,
+            {}
+          ]
+        ],
+        "A": [
+          [
+            "B",
+            3,
+            {
+              "time_window_start": 0,
+              "time_window_end": 6
+            }
+          ],
+          [
+            "T",
+            2,
+            {
+              "time_window_end": 24
+            }
+          ]
+        ],
+        "B": [
+          [
+            "T",
+            5,
+            {}
+          ]
+        ],
+        "T": []
+      },
+      [
+        [
+          "Q",
+          "T",
+          {
+            "traffic": 0.5
+          }
+        ]
+      ],
+      23
+    ],
+    "input_lines": [
+      "{\"P\": [[\"Q\", 0, {}]], \"Q\": [[\"P\", 0, {}], [\"T\", 1, {}]], \"A\": [[\"B\", 3, {\"time_window_start\": 0, \"time_window_end\": 6}], [\"T\", 2, {\"time_window_end\": 24}]], \"B\": [[\"T\", 5, {}]], \"T\": []}",
+      "[[\"Q\", \"T\", {\"traffic\": 0.5}]]",
+      "23"
+    ],
+    "focus": "time-window boundaries (inclusive) and end=24 validity; zero-cost cycle between P and Q to ensure no infinite loops"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "S": [
+          [
+            "M",
+            10,
+            {
+              "traffic": 1.2,
+              "capacity_tier": 2
+            }
+          ],
+          [
+            "N",
+            5,
+            {}
+          ],
+          [
+            "T",
+            14,
+            {}
+          ]
+        ],
+        "M": [
+          [
+            "T",
+            5,
+            {
+              "maintenance": 0.8
+            }
+          ]
+        ],
+        "N": [
+          [
+            "T",
+            10,
+            {
+              "time_window_start": 9,
+              "time_window_end": 17
+            }
+          ]
+        ],
+        "T": []
+      },
+      [
+        [
+          "S",
+          "M",
+          {
+            "traffic": 1.0
+          }
+        ],
+        [
+          "S",
+          "M",
+          {
+            "capacity_tier": 1
+          }
+        ],
+        [
+          "X",
+          "Y",
+          {
+            "traffic": 2.0
+          }
+        ]
+      ],
+      9
+    ],
+    "input_lines": [
+      "{\"S\": [[\"M\", 10, {\"traffic\": 1.2, \"capacity_tier\": 2}], [\"N\", 5, {}], [\"T\", 14, {}]], \"M\": [[\"T\", 5, {\"maintenance\": 0.8}]], \"N\": [[\"T\", 10, {\"time_window_start\": 9, \"time_window_end\": 17}]], \"T\": []}",
+      "[[\"S\", \"M\", {\"traffic\": 1.0}], [\"S\", \"M\", {\"capacity_tier\": 1}], [\"X\", \"Y\", {\"traffic\": 2.0}]]",
+      "9"
+    ],
+    "focus": "overlapping updates merging (key-wise override), tie between direct and two-step routes resolved lexicographically; includes an ignored update for unknown edge"
+  }
+]

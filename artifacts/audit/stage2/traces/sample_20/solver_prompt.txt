@@ -1,0 +1,285 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+In advanced ophthalmology research, automated diagnostic systems require sophisticated algorithms to analyze high-resolution retinal images for early detection of diseases such as diabetic retinopathy and glaucoma. You are tasked with developing a cutting-edge bitmask-based framework that efficiently processes pixel-level retinal data to identify and track subtle pathological patterns.
+
+The system must handle complex retinal image matrices where each pixel represents specific anatomical features, and use advanced bit manipulation techniques to encode, analyze, and correlate multiple diagnostic markers simultaneously. This framework will enable ophthalmologists to detect microscopic changes in retinal structures that are often invisible to traditional analysis methods.
+
+## Core Requirements
+
+Your solution must implement a **pure Python** bit manipulation algorithm (no external libraries) that processes retinal imaging data and generates comprehensive diagnostic analysis results. The algorithm should utilize sophisticated bitmask operations to efficiently encode multiple retinal features and detect pathological patterns through advanced bitwise correlation analysis.
+
+### Key Diagnostic Constraints
+
+1. **Feature Encoding Constraints**: Each pixel encodes exactly 4 retinal features using 2 bits per feature (bits 0-1, 2-3, 4-5, 6-7), allowing representation of 4 different states per feature
+2. **Pattern Correlation Constraints**: Pathological patterns must be detected using bitwise AND operations between pixel values and predefined diagnostic templates
+3. **Spatial Analysis Constraints**: Adjacent pixel correlation analysis must be performed using XOR operations to identify edge discontinuities, where adjacent pixels are those sharing a side (4-way connectivity)
+4. **Severity Classification Constraints**: Disease severity levels must be calculated using population count (popcount) operations on aggregated feature bitmasks
+5. **Memory Efficiency Constraints**: All intermediate calculations must use bitwise operations to minimize memory footprint and maximize processing speed
+
+### Advanced Algorithmic Requirements
+
+The bit manipulation framework must implement a multi-layered analysis approach using this composite diagnostic scoring function:
+
+**Diagnostic Score = (Pattern Match Count × Feature Weight) + (Edge Discontinuity Count × Severity Modifier)**
+
+Where:
+- Pattern Match Count: Number of pixels in region matching template using bitwise AND operations
+- Feature Weight: Template-specific diagnostic importance multiplier from feature_templates
+- Edge Discontinuity Count: Number of XOR mismatches between adjacent pixels in the region
+- Severity Modifier: Region-specific severity adjustment factor from diagnostic_masks
+
+The algorithm must also incorporate severity threshold analysis, where the base severity threshold is **60%** of the maximum possible diagnostic score for any single template-mask combination. The maximum possible diagnostic score is calculated using the maximum values from the current input: max_possible_score = (max_region_pixel_count × max_feature_weight) + (max_adjacent_pairs_in_any_region × max_severity_modifier).
+
+**Severity Classification Formula**:
+- base_threshold = 0.6 × max_possible_score
+- risk_weight = (patient_age_group × 0.3) + (genetic_predisposition × 0.4) + (environmental_exposure × 0.2) + (previous_diagnosis_history × 0.1)
+- final_severity_score = diagnostic_score × risk_weight
+- classification_level = min(4, int(final_severity_score / base_threshold))
+
+The framework must classify findings into severity levels (0=normal, 1=mild, 2=moderate, 3=severe, 4=critical) based on the calculated classification_level, where higher diagnostic scores indicate more severe pathological findings.
+
+## Function Signature
+
+```python
+def analyze_retinal_patterns(pixel_matrix, feature_templates, diagnostic_masks, risk_factors):
+    """
+    Analyzes retinal patterns using advanced bit manipulation framework.
+    Returns: Dictionary with diagnostic analysis results and severity classifications
+    """
+    pass
+```
+
+## Input Specifications
+
+**pixel_matrix**: 2D list of integers representing retinal image pixels, where each integer encodes 4 retinal features using 2 bits per feature (integers 0-255, matrix dimensions 8x8 to 16x16)
+
+**feature_templates**: List of dictionaries, each containing:
+- template_id: Unique identifier for diagnostic template (integer, 0-15)
+- pattern_mask: 8-bit integer representing pathological pattern template (integer, 0-255)
+- feature_weight: Diagnostic importance multiplier (float, 0.1-2.0)
+- correlation_threshold: Minimum correlation required for positive match (float, 0.3-0.9)
+
+**diagnostic_masks**: List of dictionaries, each containing:
+- mask_id: Unique identifier for diagnostic region (integer, 0-7)
+- region_coordinates: List of [row, col] coordinates defining analysis region (integers within matrix bounds)
+- severity_modifier: Region-specific severity adjustment factor (float, 0.5-1.5)
+- analysis_priority: Processing priority level (integer, 1-5)
+
+**risk_factors**: Dictionary containing:
+- patient_age_group: Age classification affecting risk weighting (integer, 1-5, where 1=young, 5=elderly)
+- genetic_predisposition: Hereditary risk factor (float, 0.0-1.0)
+- environmental_exposure: Environmental risk factor (float, 0.0-1.0)
+- previous_diagnosis_history: Prior diagnostic findings influence (float, 0.0-1.0)
+
+## Output Specification
+
+Return a dictionary containing:
+
+```python
+{
+    "diagnostic_results": [
+        {
+            "template_id": int,
+            "mask_id": int,
+            "pattern_matches": int,
+            "correlation_score": float,
+            "edge_discontinuities": int,
+            "diagnostic_score": float,
+            "severity_level": int,
+            "feature_density": float
+        },
+        # ... more diagnostic results for all template-mask combinations
+    ],
+    "overall_assessment": {
+        "total_diagnostic_score": float,
+        "highest_severity_detected": int,
+        "risk_adjusted_score": float,
+        "recommended_followup": str
+    },
+    "analysis_metadata": {
+        "processed_regions": int,
+        "total_pattern_matches": int,
+        "average_correlation": float,
+        "processing_efficiency": float
+    }
+}
+```
+
+Where risk_adjusted_score = total_diagnostic_score × risk_weight.
+
+## Constraint Requirements
+
+**Matrix Validation**: Return {"error": "Invalid pixel matrix dimensions"} if pixel_matrix is not rectangular or dimensions are outside 8x8 to 16x16 range
+
+**Template Validation**: Return {"error": "Invalid pattern mask value for template {template_id}"} if any pattern_mask is outside 0-255 range
+
+**Coordinate Validation**: Return {"error": "Region coordinates exceed matrix bounds for mask {mask_id}"} if any region_coordinates specify locations outside the pixel_matrix dimensions
+
+**Risk Factor Validation**: Return {"error": "Invalid risk factor values detected"} if any risk factor values are outside their specified ranges
+
+**Empty Input Validation**: Return {"error": "Empty pixel matrix provided"} if pixel_matrix is empty or contains no valid data
+
+**Feature Weight Validation**: Return {"error": "Feature weight out of range for template {template_id}"} if any feature_weight is outside 0.1-2.0 range
+
+**Threshold Validation**: Return {"error": "Correlation threshold invalid for template {template_id}"} if any correlation_threshold is outside 0.3-0.9 range
+
+**General Input Validation**: For other input parameter violations, return {"error": "Input is not valid"}
+
+## Sample Input/Output
+
+**Input:**
+
+```python
+pixel_matrix = [
+    [45, 67, 89, 123, 156, 78, 234, 145],
+    [67, 89, 123, 156, 78, 234, 145, 67],
+    [89, 123, 156, 78, 234, 145, 67, 89],
+    [123, 156, 78, 234, 145, 67, 89, 123],
+    [156, 78, 234, 145, 67, 89, 123, 156],
+    [78, 234, 145, 67, 89, 123, 156, 78],
+    [234, 145, 67, 89, 123, 156, 78, 234],
+    [145, 67, 89, 123, 156, 78, 234, 145]
+]
+
+feature_templates = [
+    {"template_id": 0, "pattern_mask": 42, "feature_weight": 1.2, "correlation_threshold": 0.6},
+    {"template_id": 1, "pattern_mask": 156, "feature_weight": 1.5, "correlation_threshold": 0.7}
+]
+
+diagnostic_masks = [
+    {"mask_id": 0, "region_coordinates": [[0, 0], [0, 1], [1, 0], [1, 1]], "severity_modifier": 1.0, "analysis_priority": 1},
+    {"mask_id": 1, "region_coordinates": [[2, 2], [2, 3], [3, 2], [3, 3]], "severity_modifier": 1.3, "analysis_priority": 2}
+]
+
+risk_factors = {
+    "patient_age_group": 3,
+    "genetic_predisposition": 0.4,
+    "environmental_exposure": 0.2,
+    "previous_diagnosis_history": 0.1
+}
+```
+
+**Expected Output:**
+
+```python
+{
+    "diagnostic_results": [
+        {
+            "template_id": 0,
+            "mask_id": 0,
+            "pattern_matches": 0,
+            "correlation_score": 0.0,
+            "edge_discontinuities": 16,
+            "diagnostic_score": 16.0,
+            "severity_level": 2,
+            "feature_density": 0.219
+        },
+        {
+            "template_id": 0,
+            "mask_id": 1,
+            "pattern_matches": 1,
+            "correlation_score": 0.25,
+            "edge_discontinuities": 14,
+            "diagnostic_score": 19.4,
+            "severity_level": 3,
+            "feature_density": 0.219
+        },
+        {
+            "template_id": 1,
+            "mask_id": 0,
+            "pattern_matches": 0,
+            "correlation_score": 0.0,
+            "edge_discontinuities": 16,
+            "diagnostic_score": 16.0,
+            "severity_level": 2,
+            "feature_density": 0.219
+        },
+        {
+            "template_id": 1,
+            "mask_id": 1,
+            "pattern_matches": 1,
+            "correlation_score": 0.25,
+            "edge_discontinuities": 14,
+            "diagnostic_score": 19.7,
+            "severity_level": 3,
+            "feature_density": 0.219
+        }
+    ],
+    "overall_assessment": {
+        "total_diagnostic_score": 71.1,
+        "highest_severity_detected": 3,
+        "risk_adjusted_score": 78.9,
+        "recommended_followup": "immediate_consultation"
+    },
+    "analysis_metadata": {
+        "processed_regions": 2,
+        "total_pattern_matches": 2,
+        "average_correlation": 0.125,
+        "processing_efficiency": 0.0
+    }
+}
+```
+
+## Implementation Guidelines
+
+**Bit Manipulation Strategy**: Use bitwise AND operations for pattern matching between pixel values and template masks, XOR operations for edge discontinuity detection, and population count operations for feature density calculations
+
+**Feature Extraction**: Extract 2-bit feature segments from each pixel value using bitwise operations: feature_0 = pixel & 0x03, feature_1 = (pixel >> 2) & 0x03, feature_2 = (pixel >> 4) & 0x03, feature_3 = (pixel >> 6) & 0x03
+
+**Pattern Matching**: Count matches by performing (pixel & template_mask) and checking if result equals template_mask for each pixel in the region
+
+**Correlation Calculation**: Calculate correlation score as (actual_matches / total_pixels_in_region), where actual_matches is count of pixels where (pixel & template_mask) == template_mask
+
+**Edge Detection**: For each adjacent pixel pair in region, calculate discontinuity = popcount(pixel1 ^ pixel2), where popcount counts the number of set bits
+
+**Feature Density**: Calculate as popcount(aggregated_region_pixels) / (total_pixels_in_region × 8), where aggregated_region_pixels is the bitwise OR of all pixels in the region
+
+**Severity Calculation**: Apply classification_level = min(4, int((diagnostic_score × risk_weight) / base_threshold)) where base_threshold = 0.6 × max_possible_score
+
+**Risk Weight Calculation**: Calculate as (patient_age_group × 0.3) + (genetic_predisposition × 0.4) + (environmental_exposure × 0.2) + (previous_diagnosis_history × 0.1)
+
+**Followup Logic**: 
+- severity 0: "routine_monitoring"
+- severity 1: "routine_monitoring" 
+- severity 2: "increased_monitoring"
+- severity 3: "immediate_consultation"
+- severity 4: "urgent_intervention"
+
+**Processing Efficiency**: Calculate as (successful_operations / total_operations) where successful_operations counts template-mask combinations that meet correlation_threshold
+
+**Deterministic Processing**: Process templates and masks in ascending order of their IDs to ensure consistent results across multiple executions
+
+## Algorithm Flow
+
+1. Calculate max_possible_score dynamically from current inputs: max_possible_score = (max_region_pixel_count × max_feature_weight) + (max_adjacent_pairs_in_any_region × max_severity_modifier)
+2. Calculate base_threshold = 0.6 × max_possible_score
+3. Calculate risk_weight using the risk factor formula
+4. For each diagnostic_mask region and each feature_template combination:
+   a. Extract pixel values from the specified region coordinates
+   b. Count pattern matches using bitwise AND operations
+   c. Calculate correlation score as matches/total_pixels
+   d. Count edge discontinuities using XOR operations on adjacent pixels
+   e. Calculate diagnostic score using the composite formula
+   f. Apply severity classification using the severity formula
+   g. Calculate feature density using population count operations
+5. Aggregate results and generate overall assessment metrics
+6. Return a comprehensive output dictionary with all diagnostic results and metadata
+
+The algorithm should provide a detailed analysis of retinal patterns while maintaining high performance through efficient bit manipulation techniques and deterministic processing for reliable diagnostic results.
+
+Starter Code:
+```python
+from typing import List, Dict, Any
+
+def analyze_retinal_patterns(pixel_matrix: List[List[int]], feature_templates: List[Dict], 
+                           diagnostic_masks: List[Dict], risk_factors: Dict) -> Dict[str, Any]:
+```

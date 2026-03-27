@@ -1,0 +1,218 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "budget": 50.0,
+        "bids": [
+          [
+            "f1",
+            0.0,
+            5.0,
+            [
+              1
+            ]
+          ],
+          [
+            "f2",
+            0.0,
+            4.0,
+            [
+              2
+            ]
+          ],
+          [
+            "b1",
+            25.0,
+            10.0,
+            [
+              1,
+              2
+            ]
+          ],
+          [
+            "b2",
+            30.0,
+            8.0,
+            [
+              3
+            ]
+          ]
+        ],
+        "synergy": [
+          {
+            "pair": [
+              1,
+              2
+            ],
+            "penalty": 6.0
+          },
+          {
+            "pair": [
+              1,
+              3
+            ],
+            "penalty": 1.0
+          }
+        ],
+        "segment_roi_cap": {
+          "1": 5.0,
+          "2": 4.0,
+          "3": 100.0
+        }
+      }
+    ],
+    "input_lines": [
+      "{\"budget\":50.0,\"bids\":[[\"f1\",0.0,5.0,[1]],[\"f2\",0.0,4.0,[2]],[\"b1\",25.0,10.0,[1,2]],[\"b2\",30.0,8.0,[3]]],\"synergy\":[{\"pair\":[1,2],\"penalty\":6.0},{\"pair\":[1,3],\"penalty\":1.0}],\"segment_roi_cap\":{\"1\":5.0,\"2\":4.0,\"3\":100.0}}"
+    ],
+    "focus": "zero_cost_bids_vs_paid_bids_with_tight_per-segment_caps_and_large_pair_penalty"
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "budget": 200.0,
+        "bids": [
+          [
+            "a",
+            100.0,
+            50.0,
+            [
+              1
+            ]
+          ],
+          [
+            "b",
+            100.0,
+            50.0,
+            [
+              1
+            ]
+          ],
+          [
+            "c",
+            50.0,
+            20.0,
+            [
+              1,
+              2
+            ]
+          ],
+          [
+            "d",
+            10.0,
+            5.0,
+            [
+              2
+            ]
+          ]
+        ],
+        "synergy": [
+          {
+            "pair": [
+              1,
+              2
+            ],
+            "penalty": 5.0
+          }
+        ],
+        "segment_roi_cap": {
+          "1": 80.0,
+          "2": 10.0
+        }
+      }
+    ],
+    "input_lines": [
+      "{\"budget\":200.0,\"bids\":[[\"a\",100.0,50.0,[1]],[\"b\",100.0,50.0,[1]],[\"c\",50.0,20.0,[1,2]],[\"d\",10.0,5.0,[2]]],\"synergy\":[{\"pair\":[1,2],\"penalty\":5.0}],\"segment_roi_cap\":{\"1\":80.0,\"2\":10.0}}"
+    ],
+    "focus": "two_equal_big_bids_competing_for_same_segment_caps_with_smaller_complements_to_force_swap_logic"
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "budget": 500.0,
+        "bids": [
+          [
+            "big1",
+            400.0,
+            40.0,
+            [
+              1,
+              2,
+              3,
+              4
+            ]
+          ],
+          [
+            "big2",
+            300.0,
+            35.0,
+            [
+              2,
+              3
+            ]
+          ],
+          [
+            "small1",
+            50.0,
+            6.0,
+            [
+              4
+            ]
+          ],
+          [
+            "small2",
+            60.0,
+            7.0,
+            [
+              1
+            ]
+          ],
+          [
+            "small3",
+            90.0,
+            9.0,
+            [
+              1,
+              2
+            ]
+          ]
+        ],
+        "synergy": [
+          {
+            "pair": [
+              1,
+              2
+            ],
+            "penalty": 5.0
+          },
+          {
+            "pair": [
+              2,
+              3
+            ],
+            "penalty": 4.0
+          },
+          {
+            "pair": [
+              3,
+              4
+            ],
+            "penalty": 3.0
+          }
+        ],
+        "segment_roi_cap": {
+          "1": 20.0,
+          "2": 20.0,
+          "3": 10.0,
+          "4": 5.0
+        }
+      }
+    ],
+    "input_lines": [
+      "{\"budget\":500.0,\"bids\":[[\"big1\",400.0,40.0,[1,2,3,4]],[\"big2\",300.0,35.0,[2,3]],[\"small1\",50.0,6.0,[4]],[\"small2\",60.0,7.0,[1]],[\"small3\",90.0,9.0,[1,2]]],\"synergy\":[{\"pair\":[1,2],\"penalty\":5.0},{\"pair\":[2,3],\"penalty\":4.0},{\"pair\":[3,4],\"penalty\":3.0}],\"segment_roi_cap\":{\"1\":20.0,\"2\":20.0,\"3\":10.0,\"4\":5.0}}"
+    ],
+    "focus": "four_segment_bid_vs_combinations_with_mixed_pairwise_penalties_and_strict_caps"
+  }
+]

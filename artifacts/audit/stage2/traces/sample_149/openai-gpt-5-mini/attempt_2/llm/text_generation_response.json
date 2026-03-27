@@ -1,0 +1,76 @@
+{
+  "id": "resp_0959e6ce0bcb71350069c3453b5050819780ea44df69435159",
+  "object": "response",
+  "created_at": 1774404923,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774404977,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0959e6ce0bcb71350069c3453ba8848197b66cb71d8aaa0f72",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0959e6ce0bcb71350069c3453bf5608197830e4a4d6a74b2fc",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from typing import List, Tuple, Dict, Optional\nimport math\n\ndef main_trigger(input_data: Dict) -> Dict:\n    # Input validation\n    required = ['k', 'joint_lengths', 'start_config', 'target_config']\n    missing = [r for r in required if r not in input_data]\n    if missing:\n        return {\"error\": f\"Missing required keys: {', '.join(missing)}.\"}\n    k = input_data.get('k')\n    if not isinstance(k, int) or k <= 0:\n        return {\"error\": \"Parameter 'k' must be a positive integer.\"}\n    joint_lengths = input_data.get('joint_lengths')\n    if not isinstance(joint_lengths, list) or len(joint_lengths) != k:\n        return {\"error\": \"Parameter 'joint_lengths' must be a list of length 'k'.\"}\n    start_config = input_data.get('start_config')\n    if not isinstance(start_config, list) or len(start_config) != k:\n        return {\"error\": \"Parameter 'start_config' must be a list of length 'k'.\"}\n    target_config = input_data.get('target_config')\n    if not isinstance(target_config, list) or len(target_config) != k:\n        return {\"error\": \"Parameter 'target_config' must be a list of length 'k'.\"}\n\n    obstacles_in = input_data.get('obstacles') or []\n    obstacles: List[Dict] = []\n    for o in obstacles_in:\n        center = tuple(float(c) for c in o.get('center', [0.0,0.0,0.0]))\n        radius = float(o.get('radius', 0.0))\n        obstacles.append({'center': center, 'radius': radius})\n    max_steps = int(input_data.get('max_steps', 50))\n    max_steps = min(max_steps, 50) if max_steps > 0 else 50\n\n    # Workspace bounds default\n    total_reach = sum(float(x) for x in joint_lengths)\n    ws_bounds = input_data.get('workspace_bounds')\n    if ws_bounds:\n        workspace_bounds = [list(ws_bounds[0]), list(ws_bounds[1])]\n    else:\n        tr = 1.5 * total_reach\n        workspace_bounds = [[-tr, -tr, -tr], [tr, tr, tr]]\n\n    # Helper: forward kinematics\n    def forward_kinematics(config: List[Tuple[float,float]]) -> List[Tuple[float,float,float]]:\n        positions = []\n        x = y = z = 0.0\n        cum_xy = 0.0\n        cum_z = 0.0\n        for i, (angle, _) in enumerate(config):\n            if i % 2 == 0:\n                cum_xy += angle\n            else:\n                cum_z += angle * 0.3\n            L = float(joint_lengths[i])\n            dx = L * math.cos(cum_xy) * math.cos(cum_z)\n            dy = L * math.sin(cum_xy) * math.cos(cum_z)\n            dz = L * math.sin(cum_z)\n            x += dx; y += dy; z += dz\n            positions.append((x, y, z))\n        return positions\n\n    # Bounding box with margin 0.1\n    def compute_bbox(positions: List[Tuple[float,float,float]]):\n        xs = [p[0] for p in positions]\n        ys = [p[1] for p in positions]\n        zs = [p[2] for p in positions]\n        return [min(xs)-0.1, min(ys)-0.1, min(zs)-0.1], [max(xs)+0.1, max(ys)+0.1, max(zs)+0.1]\n\n    # Segment-sphere collision\n    def segment_sphere_collision(p1, p2, center, r):\n        (x1,y1,z1),(x2,y2,z2)= (p1,p2)\n        cx,cy,cz = center\n        dx = x2 - x1; dy = y2 - y1; dz = z2 - z1\n        fx = x1 - cx; fy = y1 - cy; fz = z1 - cz\n        a = dx*dx + dy*dy + dz*dz\n        b = 2*(fx*dx + fy*dy + fz*dz)\n        c = fx*fx + fy*fy + fz*fz - r*r\n        if a < 1e-9:\n            return c <= 0\n        disc = b*b - 4*a*c\n        if disc < 0:\n            return False\n        sd = math.sqrt(disc)\n        t1 = (-b - sd)/(2*a)\n        t2 = (-b + sd)/(2*a)\n        if (0 <= t1 <= 1) or (0 <= t2 <= 1) or (t1 < 0 and t2 > 1):\n            return True\n        return False\n\n    # Configuration collision check: any segment between joints colliding\n    def check_configuration_collision(config: List[Tuple[float,float]]):\n        positions = forward_kinematics(config)\n        prev = (0.0,0.0,0.0)\n        for p in positions:\n            for ob in obstacles:\n                if segment_sphere_collision(prev, p, ob['center'], ob['radius']):\n                    return True\n            prev = p\n        return False\n\n    # Spatial tree (used only minimally per spec)\n    class SegTreeNode:\n        def __init__(self, bounds_min, bounds_max, obs, depth=0):\n            self.min = bounds_min\n            self.max = bounds_max\n            self.obs = obs\n            self.left = None\n            self.right = None\n            self.depth = depth\n            self.subdivide()\n        def subdivide(self):\n            if self.depth >= 8 or len(self.obs) <= 4:\n                return\n            dx = self.max[0]-self.min[0]\n            dy = self.max[1]-self.min[1]\n            dz = self.max[2]-self.min[2]\n            if dx >= dy and dx >= dz:\n                axis = 0\n            elif dy >= dx and dy >= dz:\n                axis = 1\n            else:\n                axis = 2\n            mid = (self.min[axis] + self.max[axis]) / 2.0\n            left_max = list(self.max); right_min = list(self.min)\n            left_max[axis] = mid\n            right_min[axis] = mid\n            left_obs = []\n            right_obs = []\n            for o in self.obs:\n                if o['center'][axis] <= mid:\n                    left_obs.append(o)\n                else:\n                    right_obs.append(o)\n            self.left = SegTreeNode(self.min, left_max, left_obs, self.depth+1) if left_obs else None\n            self.right = SegTreeNode(right_min, self.max, right_obs, self.depth+1) if right_obs else None\n\n    _bbox_min = workspace_bounds[0]\n    _bbox_max = workspace_bounds[1]\n    segtree = SegTreeNode(_bbox_min, _bbox_max, obstacles, 0)\n\n    # Calibration error offsets deterministic\n    error_magnitude = 0.01\n    error_offsets = [math.sin(i * 0.7) * error_magnitude for i in range(k)]\n\n    # Interpolation path generation\n    def to_immutable(cfg):\n        return tuple((float(a), float(v)) for a,v in cfg)\n    s_cfg = [tuple(float(x) for x in pair) for pair in start_config]\n    t_cfg = [tuple(float(x) for x in pair) for pair in target_config]\n\n    num_steps = min(max_steps, 50)\n    raw_path = []\n    for step in range(num_steps + 1):\n        t = step / num_steps\n        cfg = []\n        for i in range(k):\n            a1, v1 = s_cfg[i]\n            a2, v2 = t_cfg[i]\n            a = a1 + t * (a2 - a1)\n            v = v1 + t * (v2 - v1)\n            cfg.append((a, v))\n        raw_path.append(cfg)\n\n    # Apply calibration: add offsets then compensate (effectively no change but must follow spec)\n    def apply_calibration(cfg):\n        angles = [a for a,_ in cfg]\n        offsets = error_offsets\n        applied = [(angles[i] + offsets[i], cfg[i][1]) for i in range(k)]\n        # compensation by subtracting offsets\n        compensated = [(applied[i][0] - offsets[i], applied[i][1]) for i in range(k)]\n        return compensated\n\n    calibrated_path = [apply_calibration(cfg) for cfg in raw_path]\n\n    # Collision filtering: keep only configs that are not colliding\n    filtered_path = []\n    for cfg in calibrated_path:\n        if not check_configuration_collision(cfg):\n            filtered_path.append(cfg)\n    # Ensure start/target presence\n    if not filtered_path or any(abs(filtered_path[0][i][0]-s_cfg[i][0])>1e-6 or abs(filtered_path[0][i][1]-s_cfg[i][1])>1e-6 for i in range(k)):\n        filtered_path.insert(0, s_cfg)\n    if not filtered_path or any(abs(filtered_path[-1][i][0]-t_cfg[i][0])>1e-6 or abs(filtered_path[-1][i][1]-t_cfg[i][1])>1e-6 for i in range(k)):\n        filtered_path.append(t_cfg)\n\n    # Collision check across transitions per spec: check config at i+1 against obstacles\n    collision_free = True\n    for i in range(len(filtered_path)-1):\n        if check_configuration_collision(filtered_path[i+1]):\n            collision_free = False\n\n    # Energy/time/distance calculations\n    total_energy = 0.0\n    total_time = 0.0\n    total_distance = 0.0\n    constraint_violations = 0\n    edges = []\n    # Union-find\n    class UF:\n        def __init__(self):\n            self.parent = {}\n            self.rank = {}\n        def add(self, x):\n            if x not in self.parent:\n                self.parent[x] = x\n                self.rank[x] = 0\n        def find(self, x):\n            if self.parent[x] != x:\n                self.parent[x] = self.find(self.parent[x])\n            return self.parent[x]\n        def union(self, a,b):\n            ra = self.find(a); rb = self.find(b)\n            if ra==rb: return\n            if self.rank[ra] < self.rank[rb]:\n                self.parent[ra] = rb\n            elif self.rank[ra] > self.rank[rb]:\n                self.parent[rb] = ra\n            else:\n                self.parent[rb] = ra\n                self.rank[ra] += 1\n    uf = UF()\n\n    max_velocity = 1.0\n    max_acceleration = 0.5\n    max_torque = 10.0\n    time_step = 0.1\n\n    def check_constraints(cfg1, cfg2):\n        # velocities and accelerations per joint; returns True if within limits\n        for i in range(k):\n            a1, v1 = cfg1[i]\n            a2, v2 = cfg2[i]\n            if abs(v2) > max_velocity + 1e-9:\n                return False\n            accel = abs(v2 - v1) / time_step\n            if accel > max_acceleration + 1e-9:\n                return False\n            mass_factor = float(joint_lengths[i]) * (k - i)\n            torque = mass_factor * accel\n            if torque > max_torque + 1e-9:\n                return False\n        return True\n\n    # Iterate transitions\n    for i in range(len(filtered_path)-1):\n        cfg1 = filtered_path[i]\n        cfg2 = filtered_path[i+1]\n        # energy per joint\n        step_energy = 0.0\n        step_time = 0.0\n        step_distance = 0.0\n        for j in range(k):\n            a1, v1 = cfg1[j]\n            a2, v2 = cfg2[j]\n            delta_angle = abs(a2 - a1)\n            avg_v = (abs(v1) + abs(v2)) / 2.0\n            avg_v_nonzero = max(avg_v, 0.01)\n            time_j = delta_angle / avg_v_nonzero\n            kinetic = 0.5 * (float(joint_lengths[j]) * (k - j)) * (v2*v2 - v1*v1)\n            delta_v = v2 - v1\n            mass_factor = float(joint_lengths[j]) * (k - j)\n            acceleration_energy = delta_v + 0.1\n            torque = mass_factor * acceleration_energy\n            work = torque * (a2 - a1)\n            penalty = 0.1 * (abs(v1) + abs(v2))\n            total_j = abs(kinetic) + work + penalty\n            step_energy += total_j\n            step_time = max(step_time, time_j)\n            step_distance += delta_angle\n        total_energy += step_energy\n        total_time += step_time\n        total_distance += step_distance\n        # constraints\n        ok = check_constraints(cfg1, cfg2)\n        if not ok:\n            constraint_violations += 1\n        # union-find nodes\n        key1 = str([round(x,3) for pair in cfg1 for x in pair])\n        key2 = str([round(x,3) for pair in cfg2 for x in pair])\n        uf.add(key1); uf.add(key2)\n        if ok:\n            uf.union(key1, key2)\n            edges.append((key1,key2))\n\n    # Path metrics\n    num_configurations = len(filtered_path)\n    # connectivity components count\n    roots = set()\n    for node in uf.parent:\n        roots.add(uf.find(node))\n    connectivity_components = len(roots)\n    # path efficiency: total_distance / direct angular distance\n    direct_dist = 0.0\n    for i in range(k):\n        direct_dist += abs(t_cfg[i][0] - s_cfg[i][0])\n    path_efficiency = total_distance / max(direct_dist, 0.01)\n    workspace_utilization = sum(float(x) for x in joint_lengths) / ((workspace_bounds[1][0] - workspace_bounds[0][0]) * 0.5)\n    angular_velocity = total_distance / max(total_time, 0.01)\n    average_energy_per_step = total_energy / max(len(filtered_path)-1,1)\n    average_time_per_step = total_time / max(len(filtered_path)-1,1)\n\n    # Rounding rules\n    total_energy = round(total_energy, 6)\n    total_time = round(total_time, 6)\n    total_distance = round(total_distance, 6)\n    # Round path angles to 2 decimals, velocities to 4 decimals\n    out_path = []\n    for cfg in filtered_path:\n        cfg_list = []\n        for a,v in cfg:\n            cfg_list.append([round(a,2), round(v,4)])\n        out_path.append(cfg_list)\n\n    metrics = {\n        'average_energy_per_step': round(average_energy_per_step,3),\n        'average_time_per_step': round(average_time_per_step,3),\n        'average_angular_velocity': round(angular_velocity,3),\n        'path_efficiency': round(path_efficiency,3),\n        'workspace_utilization': round(workspace_utilization,3),\n        'constraint_violations': int(constraint_violations),\n        'calibration_error_magnitude': round(error_magnitude,3),\n        'num_obstacles': int(len(obstacles))\n    }\n\n    result = {\n        'path': out_path,\n        'total_energy': total_energy,\n        'total_time': total_time,\n        'total_distance': total_distance,\n        'collision_free': bool(collision_free),\n        'num_configurations': int(num_configurations),\n        'connectivity_components': int(connectivity_components),\n        'metrics': metrics,\n        'workspace_bounds': [list(map(float, workspace_bounds[0])), list(map(float, workspace_bounds[1]))],\n        'num_obstacles': int(len(obstacles))\n    }\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 3367,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 3527,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 6894
+  },
+  "user": null,
+  "metadata": {}
+}

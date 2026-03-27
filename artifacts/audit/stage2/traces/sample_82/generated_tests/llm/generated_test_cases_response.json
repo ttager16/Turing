@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6WXtyHxyiUu3cLY1ec3CWOrEAhg",
+  "object": "chat.completion",
+  "created": 1774398993,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[{\\\"sensor\\\": \\\"temp_zoneX\\\", \\\"value\\\": 15.5}, {\\\"sensor\\\": \\\"humidity_zoneY\\\", \\\"value\\\": 40.0}]\",\"[0]\"],\"focus\":\"type_node_becomes_empty_after_invalidation_delete_hot_if_any\"}, {\"input_lines\":[\"[{\\\"sensor\\\": \\\"temperature_zone1\\\", \\\"value\\\": 20.0}, {\\\"sensor\\\": \\\"temperature_zone1\\\", \\\"value\\\": 21.5}, {\\\"sensor\\\": \\\"humidity_zone1\\\", \\\"value\\\": 50.0}, {\\\"sensor\\\": \\\"temperature_zone1\\\", \\\"value\\\": 19.8}]\",\"[3]\"],\"focus\":\"hot_segment_reverts_to_previous_latest_after_latest_reading_invalidated\"}, {\"input_lines\":[\"[{\\\"sensor\\\": \\\"temp_zone2\\\", \\\"value\\\": 10.0}, {\\\"sensor\\\": \\\"a_zone10\\\", \\\"value\\\": 5.3333}, {\\\"sensor\\\": \\\"temp_zone10\\\", \\\"value\\\": 20.0}, {\\\"sensor\\\": \\\"temp_zone2\\\", \\\"value\\\": 11.0}, {\\\"sensor\\\": \\\"a_zone10\\\", \\\"value\\\": 4.6667}]\",\"[]\"],\"focus\":\"lexicographic_zone_order_zone10_vs_zone2_and_type_ordering_with_promotions_and_rounding_edges\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3648,
+    "completion_tokens": 2338,
+    "total_tokens": 5986,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2048,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

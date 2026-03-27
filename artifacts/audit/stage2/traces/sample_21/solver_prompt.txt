@@ -1,0 +1,128 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+A health-tech company is developing a personalized nutrition planning system that uses bitmasking to efficiently match users with optimal dietary plans. The system encodes user profiles as bitmasks representing genetic markers, dietary preferences, and allergy information, allowing for rapid compatibility checking and plan generation. Your task is to implement a system that can efficiently match users to nutrition plans, handle dynamic profile updates, and generate personalized recommendations based on multiple constraint types.
+
+Each user profile is encoded as a bitmask with three segments: genetic markers (affecting nutrient metabolism), dietary preferences (vegan, pescatarian, keto, etc.), and allergy flags (common allergens like nuts, dairy, gluten). The system must efficiently match these profiles against available nutrition plans, handle conflicts between constraints, and support batch processing for multiple users while maintaining consistency.
+
+---
+
+#### Objectives:
+1. Bitmask Profile Management: Implement efficient encoding and decoding of user profiles into bitmasks with three distinct segments: 16 bits for genetic markers (metabolism types, vitamin deficiencies), 8 bits for dietary preferences (dietary restrictions and lifestyle choices), and 8 bits for allergy information (common allergen flags).
+2. Plan Compatibility Matching: Design a matching algorithm that uses bitwise operations to quickly determine compatibility between user profiles and available nutrition plans. Handle conflicts where genetic markers, dietary preferences, or allergies make certain plans unsuitable or require modifications.
+3. Dynamic Profile Updates: Support incremental updates to user profiles when new health data becomes available without requiring complete profile regeneration. Efficiently propagate these changes to existing plan assignments.
+4. Batch Processing and Optimization: Implement batch processing to handle multiple user profile queries efficiently. Use bitwise operations to identify groups of users with similar profiles who can share base nutrition plans with minor customizations.
+5. Plan Generation Logic: Generate personalized nutrition plan descriptions that account for all three constraint types. When conflicts arise, implement priority rules and suggest compensatory strategies.
+
+---
+
+#### Constraints:
+- System must handle up to 1000 user profiles and 100 nutrition plan templates
+- Genetic markers: 16 bits (positions 0-15) encoding metabolism types and nutrient processing capabilities
+- Dietary preferences: 8 bits (positions 16-23) encoding dietary restrictions and lifestyle choices
+- Allergy information: 8 bits (positions 24-31) encoding common allergen flags
+- Total bitmask: 32-bit integer for compact representation
+- Must work with Python standard library only (no external packages)
+- Use efficient bitwise operations (AND, OR, XOR, shifts) for compatibility checks
+- Plan matching should handle partial matches and provide compatibility scores
+- Support both exact matching and fuzzy matching with tolerance levels
+- Algorithm complexity: O(n) for single user matching, O(n times m) for batch processing where n is users and m is plans
+- Must handle edge cases: empty profiles, conflicting constraints, no matching plans available
+- Return empty alternative_plans list if fewer than 3 alternatives exist
+- Return compatibility score of 0.0 if no compatible plans found
+- Plan rejection logic: If a plan has excluded_bits that conflict with user profile AND customizable is False, skip that plan entirely. If customizable is True, include the plan but generate required_modifications
+- Priority weighting for scoring: Genetic markers (40%), dietary preferences (30%), allergy avoidance (30%)
+- Modification generation: For each conflict between user profile and excluded_bits in a customizable plan, generate a modification string describing the necessary adjustment
+
+---
+
+#### Function Signature
+```python
+def match_nutrition_plan(
+    user_profile: int,
+    available_plans: List[Dict[str, Any]],
+    profile_decoder: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Match a user profile to the best nutrition plan based on bitmask compatibility.
+    
+    Args:
+        user_profile: 32-bit integer encoding genetic markers, dietary prefs, and allergies
+        available_plans: List of nutrition plan dictionaries with required/excluded bitmasks
+        profile_decoder: Mapping of bit positions to their meanings for interpretation
+    
+    Returns:
+        Dictionary containing matched plan, compatibility score, and any modifications needed
+    """
+    pass
+```
+
+---
+
+#### Sample Input/Output
+Input:
+- user_profile: 32-bit integer (e.g., 0b00000001001000100100000100010011)
+  - Bits 0-15: Genetic markers (e.g., bit 1 = lactose intolerance, bit 4 = iron deficiency)
+  - Bits 16-23: Dietary preferences (e.g., bit 16 = vegan, bit 18 = gluten-free)
+  - Bits 24-31: Allergies (e.g., bit 24 = tree nuts, bit 26 = shellfish)
+
+- available_plans: List of dictionaries containing:
+  - plan_name (str): Name of the nutrition plan
+  - required_bits (int): Bitmask of required genetic/dietary compatibilities
+  - excluded_bits (int): Bitmask of incompatible features (allergies, conflicts)
+  - base_nutrients (Dict): Base nutritional profile
+  - customizable (bool): Whether plan allows modifications
+
+- profile_decoder: Dictionary mapping bit positions to meanings:
+  - genetic_markers (Dict): Maps bit positions 0-15 to genetic marker names
+  - dietary_preferences (Dict): Maps bit positions 16-23 to dietary preference names
+  - allergies (Dict): Maps bit positions 24-31 to allergen names
+
+Output:
+Dictionary containing:
+  - matched_plan (str): Name of the best matching nutrition plan
+  - compatibility_score (float): Score from 0.0 to 1.0 indicating match quality
+  - required_modifications (List): List of necessary adjustments due to constraints
+  - genetic_considerations (List): Genetic markers that influenced the match
+  - dietary_restrictions_applied (List): Active dietary restrictions from profile
+  - allergens_avoided (List): Allergens being avoided based on profile
+  - alternative_plans (List): Other compatible plans with lower scores
+
+---
+
+#### Expected Output Format
+The output should be a comprehensive dictionary structured as follows:
+
+1. matched_plan: The name of the nutrition plan that best matches the user's profile based on compatibility across all three constraint types (genetic, dietary, allergies). Return empty string if no compatible plans found.
+
+2. compatibility_score: A float value between 0.0 and 1.0 where 1.0 represents perfect compatibility. Calculated using weighted average: (genetic_score times 0.4 + dietary_score times 0.3 + allergy_score times 0.3) where genetic_score is fraction of required genetic bits matched, dietary_score is fraction of required dietary bits matched, and allergy_score is 1.0 minus fraction of excluded allergy bits present. Plans with conflicts requiring modifications have score multiplied by 0.9. If no plans are compatible, return score of 0.0.
+
+3. required_modifications: A list of strings describing necessary changes to the standard plan to accommodate the user's specific constraints (e.g., Replace dairy with fortified plant milk for calcium). Empty list if no modifications needed. Modifications should be generated when customizable plans have excluded_bits that conflict with user profile bits. For allergy conflicts, use format: "Remove [allergen] ingredients and substitute with safe alternatives". For dietary conflicts, use format: "Adjust plan to accommodate [dietary preference] restriction".
+
+4. genetic_considerations: List of genetic markers from the user profile that influenced the plan selection (e.g., Iron deficiency detected - plan includes iron-rich foods). Empty list if no genetic markers active.
+
+5. dietary_restrictions_applied: List of active dietary restrictions from the user's profile that were respected in plan selection (e.g., Vegan, Gluten-free). Empty list if no dietary restrictions.
+
+6. allergens_avoided: List of allergens identified in the user's profile that the selected plan avoids (e.g., Tree nuts, Shellfish, Dairy). Empty list if no allergens.
+
+7. alternative_plans: List of up to 3 alternative plans with their compatibility scores in case the user wants other options. Each entry should contain plan name and score. Empty list if fewer than 3 alternatives or no alternatives available.
+
+This structure enables health professionals and users to understand why a particular plan was recommended, what modifications are needed, and what alternatives are available based on their unique genetic profile, dietary choices, and allergy constraints.
+
+Starter Code:
+```python
+from typing import List, Dict, Tuple, Any
+
+def match_nutrition_plan(
+    user_profile: int,
+    available_plans: List[Dict[str, Any]],
+    profile_decoder: Dict[str, Any]
+) -> Dict[str, Any]:
+```

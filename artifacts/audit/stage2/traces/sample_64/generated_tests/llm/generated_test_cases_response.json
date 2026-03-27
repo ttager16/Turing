@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN6H2WjPQHh1mACG9DFoK4vEuyXOd",
+  "object": "chat.completion",
+  "created": 1774398032,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[{\\\"id\\\":4,\\\"type\\\":\\\"residential\\\",\\\"coordinates\\\":[[0,0],[2,0],[2,2],[0,2]],\\\"resources\\\":{\\\"water\\\":{\\\"capacity\\\":50,\\\"routes\\\":[[[1,1],[2,1]]]},\\\"roads\\\":{\\\"density\\\":1,\\\"connections\\\":[[[0,1],[2,1]]]}}},{\\\"id\\\":8,\\\"type\\\":\\\"residential\\\",\\\"coordinates\\\":[[2,2],[4,2],[4,4],[2,4]],\\\"resources\\\":{\\\"water\\\":{\\\"capacity\\\":50,\\\"routes\\\":[[[2,2],[4,3]]]},\\\"roads\\\":{\\\"density\\\":0,\\\"connections\\\":[]}}}]\"],\"focus\":\"touching_corner_overlap_should_merge_if_boundary_intersection_counted\"},{\"input_lines\":[\"[{\\\"id\\\":1,\\\"type\\\":\\\"park\\\",\\\"coordinates\\\":[[0,0],[3,0],[3,3],[0,3]],\\\"resources\\\":{\\\"water\\\":{\\\"capacity\\\":60,\\\"routes\\\":[],\\\"max_water_capacity\\\":100},\\\"roads\\\":{\\\"density\\\":1,\\\"connections\\\":[[[1,0],[2,0]]]}}},{\\\"id\\\":2,\\\"type\\\":\\\"park\\\",\\\"coordinates\\\":[[2,0],[5,0],[5,3],[2,3]],\\\"resources\\\":{\\\"water\\\":{\\\"capacity\\\":50,\\\"routes\\\":[]},\\\"roads\\\":{\\\"density\\\":2,\\\"connections\\\":[[[3,0],[4,0]]]}}},{\\\"id\\\":3,\\\"type\\\":\\\"park\\\",\\\"coordinates\\\":[[4,0],[7,0],[7,3],[4,3]],\\\"resources\\\":{\\\"water\\\":{\\\"capacity\\\":30,\\\"routes\\\":[]},\\\"roads\\\":{\\\"density\\\":1,\\\"connections\\\":[[[5,0],[6,0]]]}}}]\"],\"focus\":\"max_water_capacity_blocks_merge_but_allows_chain_merging_with_third_zone\"},{\"input_lines\":[\"[{\\\"id\\\":100,\\\"type\\\":\\\"industrial\\\",\\\"coordinates\\\":[[0,0],[5,0],[5,5],[0,5]],\\\"resources\\\":{\\\"water\\\":{\\\"capacity\\\":-10,\\\"routes\\\":[]},\\\"roads\\\":{\\\"density\\\":3,\\\"connections\\\":[],\\\"max_density\\\":4},\\\"electric\\\":{\\\"capacity\\\":40,\\\"lines\\\":[[[0,0],[1,1]]]}}},{\\\"id\\\":200,\\\"type\\\":\\\"industrial\\\",\\\"coordinates\\\":[[4,4],[9,4],[9,9],[4,9]],\\\"resources\\\":{\\\"water\\\":{\\\"capacity\\\":5,\\\"routes\\\":[]},\\\"roads\\\":{\\\"density\\\":2,\\\"connections\\\":[[[5,5],[8,8]]}],\\\"electric\\\":{\\\"capacity\\\":60,\\\"lines\\\":[[[2,2],[3,3]]]}}},{\\\"id\\\":300,\\\"type\\\":\\\"industrial\\\",\\\"coordinates\\\":[[8,8],[12,8],[12,12],[8,12]],\\\"resources\\\":{\\\"water\\\":{\\\"capacity\\\":0,\\\"routes\\\":[]},\\\"roads\\\":{\\\"density\\\":1,\\\"connections\\\":[]},\\\"electric\\\":{\\\"capacity\\\":20,\\\"lines\\\":[]}}}]\"],\"focus\":\"roads_max_density_prevents_merge_unknown_resources_aggregated_and_negative_capacity\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2678,
+    "completion_tokens": 3272,
+    "total_tokens": 5950,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2624,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

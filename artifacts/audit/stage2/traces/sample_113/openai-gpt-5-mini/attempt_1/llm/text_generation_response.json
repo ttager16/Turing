@@ -1,0 +1,76 @@
+{
+  "id": "resp_0dd1f317596974210069c338b3237481a09864e8f0ab158b8f",
+  "object": "response",
+  "created_at": 1774401715,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774401743,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_0dd1f317596974210069c338b366f881a0bcdcbf88b8cc86a9",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_0dd1f317596974210069c338b38cb881a08a9c436e86ba92e4",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import collections\nfrom collections import deque, defaultdict\nfrom typing import List, Dict, Tuple, Set, Any\n\ndef optimize_traffic_flow(nodes, edges, sources, sink, commodities, restrictions, time_multipliers, strategy):\n    # Build adjusted capacities and validate lengths\n    nset = set(nodes)\n    m = len(edges)\n    cap = {}\n    edge_idx = {}\n    for i, e in enumerate(edges):\n        u, v, c = e\n        c2 = max(1, int(round(c * time_multipliers[i])))\n        cap[(u, v, i)] = c2\n        edge_idx[(u, v, i)] = i\n\n    # adjacency per edge index\n    adj_edges = []\n    for i, (u, v, c) in enumerate(edges):\n        adj_edges.append((u, v, int(round(c * time_multipliers[i]))))\n\n    # Build base graph mapping from nodes to edge indices\n    out_edges = defaultdict(list)\n    in_edges = defaultdict(list)\n    for i, (u, v, c) in enumerate(adj_edges):\n        out_edges[u].append(i)\n        in_edges[v].append(i)\n\n    # Prepare residual capacities per edge index (shared among commodities)\n    residual = {}\n    for i, (u, v, c) in enumerate(adj_edges):\n        residual[i] = c\n\n    # Flow assignments per edge per commodity\n    K = len(commodities)\n    flow_per_edge = {i: [0]*K for i in range(m)}\n\n    augmenting_paths_count = 0\n\n    # Helper to get neighbors usable by commodity k (respecting restrictions)\n    def neighbors_for(k):\n        banned = set(restrictions[k])\n        nb = defaultdict(list)\n        for i, (u, v, c) in enumerate(adj_edges):\n            if i in banned: continue\n            if residual[i] > 0:\n                nb[u].append((v, i))\n            # also allow reverse edges if flow exists for this commodity? For multi-commodity sequential, allow general residual reverse from any previous flow (any commodity) as negative capacity not allowed.\n            # Implement standard residual allowing reverse with capacity equal to sum of flows on that edge (from all commodities) to possibly reroute earlier commodity? But requirement: sequential, commodity uses residual after previous routed: don't allow reversing previous commodity flows.\n        return nb\n\n    # For reverse edges in single-commodity run we allow reversing flows of same commodity in its own residual; but sequential model forbids touching previous commodities' flows. So we only use residual capacities (forward).\n    # Implement three strategies for finding augmenting paths per commodity.\n\n    def edmonds_karp_single(s, t, k, demand):\n        nonlocal augmenting_paths_count\n        flow_sent = 0\n        while flow_sent < demand:\n            # BFS on residual graph respecting restrictions\n            banned = set(restrictions[k])\n            prev = {}\n            prev_edge = {}\n            q = deque([s])\n            visited = set([s])\n            while q:\n                u = q.popleft()\n                for i in out_edges.get(u, []):\n                    if i in banned: continue\n                    if residual[i] <= 0: continue\n                    v = adj_edges[i][1]\n                    if v not in visited:\n                        visited.add(v)\n                        prev[v] = u\n                        prev_edge[v] = i\n                        q.append(v)\n                        if v == t: break\n                if t in visited: break\n            if t not in visited:\n                break\n            # Find bottleneck along path\n            path = []\n            v = t\n            bottleneck = demand - flow_sent\n            while v != s:\n                i = prev_edge[v]\n                bottleneck = min(bottleneck, residual[i])\n                path.append(i)\n                v = prev[v]\n            # augment\n            for i in path:\n                residual[i] -= bottleneck\n                flow_per_edge[i][k] += bottleneck\n            flow_sent += bottleneck\n            augmenting_paths_count += 1\n        return flow_sent\n\n    def capacity_scaling_single(s, t, k, demand):\n        nonlocal augmenting_paths_count\n        # delta scaling start from highest power of two <= max capacity\n        maxc = max((adj_edges[i][2] for i in range(m) if i not in restrictions[k]), default=0)\n        if maxc <= 0:\n            return 0\n        delta = 1\n        while delta * 2 <= maxc:\n            delta *= 2\n        flow_sent = 0\n        while delta >= 1 and flow_sent < demand:\n            # BFS but only edges with residual >= delta and not banned\n            banned = set(restrictions[k])\n            while flow_sent < demand:\n                prev = {}\n                prev_edge = {}\n                q = deque([s])\n                visited = set([s])\n                while q:\n                    u = q.popleft()\n                    for i in out_edges.get(u, []):\n                        if i in banned: continue\n                        if residual[i] < delta: continue\n                        v = adj_edges[i][1]\n                        if v not in visited:\n                            visited.add(v)\n                            prev[v] = u\n                            prev_edge[v] = i\n                            q.append(v)\n                            if v == t: break\n                    if t in visited: break\n                if t not in visited:\n                    break\n                # augment by min residual along path but at most remaining demand\n                path = []\n                bottleneck = demand - flow_sent\n                v = t\n                while v != s:\n                    i = prev_edge[v]\n                    bottleneck = min(bottleneck, residual[i])\n                    v = prev[v]\n                for i in []\n:\n                    pass\n                v = t\n                path_edges = []\n                while v != s:\n                    i = prev_edge[v]\n                    path_edges.append(i)\n                    v = prev[v]\n                for i in path_edges:\n                    residual[i] -= bottleneck\n                    flow_per_edge[i][k] += bottleneck\n                flow_sent += bottleneck\n                augmenting_paths_count += 1\n            delta //= 2\n        return flow_sent\n\n    def dinic_single(s, t, k, demand):\n        nonlocal augmenting_paths_count\n        flow_sent = 0\n        banned = set(restrictions[k])\n        # Build dynamic adjacency of edges with residual>0 and not banned\n        while flow_sent < demand:\n            level = {}\n            q = deque([s])\n            level[s] = 0\n            while q:\n                u = q.popleft()\n                for i in out_edges.get(u, []):\n                    if i in banned: continue\n                    if residual[i] <= 0: continue\n                    v = adj_edges[i][1]\n                    if v not in level:\n                        level[v] = level[u] + 1\n                        q.append(v)\n            if t not in level:\n                break\n            it = {u:0 for u in nodes}\n            def dfs(u, pushed):\n                nonlocal augmenting_paths_count\n                if u == t:\n                    return pushed\n                for idx in range(it.get(u,0), len(out_edges.get(u,[]))):\n                    it[u] = idx\n                    i = out_edges[u][idx]\n                    if i in banned: continue\n                    if residual[i] <= 0: continue\n                    v = adj_edges[i][1]\n                    if level.get(v, -1) != level.get(u, -1) + 1:\n                        continue\n                    tr = dfs(v, min(pushed, residual[i]))\n                    if tr > 0:\n                        residual[i] -= tr\n                        flow_per_edge[i][k] += tr\n                        augmenting_paths_count += 1\n                        return tr\n                return 0\n            pushed = dfs(s, demand - flow_sent)\n            if pushed == 0:\n                break\n            flow_sent += pushed\n        return flow_sent\n\n    # Route commodities sequentially\n    commodity_flows = []\n    for k, demand in enumerate(commodities):\n        s = sources[k] if k < len(sources) else sources[0]\n        if strategy == \"edmonds_karp\":\n            sent = edmonds_karp_single(s, sink, k, demand)\n        elif strategy == \"capacity_scaling\":\n            sent = capacity_scaling_single(s, sink, k, demand)\n        elif strategy == \"dinic\":\n            sent = dinic_single(s, sink, k, demand)\n        else:\n            sent = 0\n        commodity_flows.append(sent)\n\n    total_flow = sum(commodity_flows)\n\n    # Compute min cut in residual graph after routing: Run BFS from all sources to mark reachable\n    reachable = set()\n    q = deque(sources)\n    while q:\n        u = q.popleft()\n        if u in reachable: continue\n        reachable.add(u)\n        for i in out_edges.get(u, []):\n            if residual[i] > 0:\n                v = adj_edges[i][1]\n                if v not in reachable:\n                    q.append(v)\n    source_partition = sorted(list(reachable))\n    sink_partition = sorted([node for node in nodes if node not in reachable])\n\n    # min_cut edges are edges from reachable to non-reachable in original graph (regardless of residual)\n    min_cut_edges = []\n    min_cut_capacity = 0\n    for i, (u, v, c) in enumerate(adj_edges):\n        if u in reachable and v not in reachable:\n            min_cut_edges.append([u, v])\n            min_cut_capacity += residual[i]  # capacity in residual crossing? As per min-cut after routing, use original remaining capacity sum? Use residual capacity sum on cut\n    # Per directions, if sink reachable, min_cut_capacity = 0\n    if sink in reachable:\n        min_cut_capacity = 0\n        min_cut_edges = []\n\n    # flow_assignments\n    flow_assignments = []\n    for i, (u, v, c) in enumerate(adj_edges):\n        flows = flow_per_edge[i]\n        total = sum(flows)\n        flow_assignments.append({\"edge\":[u, v], \"flows\":flows.copy(), \"total\":total})\n\n    # bottleneck roads: saturated edges where total flow == original capacity\n    bottleneck_roads = []\n    for i, (u, v, c) in enumerate(adj_edges):\n        if sum(flow_per_edge[i]) >= c:\n            bottleneck_roads.append([u, v])\n\n    # residual_capacity_sum\n    residual_capacity_sum = sum(residual.values())\n\n    # flow_decomposition: For each commodity, decompose flows into simple paths greedily\n    flow_decomposition = {}\n    for k in range(K):\n        rem = {i: flow_per_edge[i][k] for i in range(m)}\n        paths = []\n        # attempt to find paths from source[k] to sink with positive rem\n        s = sources[k] if k < len(sources) else sources[0]\n        while True:\n            # DFS to find path with available rem\n            stack = [(s, [])]\n            visited = set()\n            found = None\n            while stack:\n                u, path = stack.pop()\n                if u == sink:\n                    found = path\n                    break\n                if u in visited: continue\n                visited.add(u)\n                for i in out_edges.get(u, []):\n                    if rem.get(i,0) > 0:\n                        v = adj_edges[i][1]\n                        stack.append((v, path + [i]))\n            if not found:\n                break\n            bott = min(rem[i] for i in found)\n            path_repr = []\n            for i in found:\n                u,v,c = adj_edges[i]\n                rem[i] -= bott\n                path_repr.append([u, v, bott])\n            paths.append(path_repr)\n        flow_decomposition[f\"commodity_{k}\"] = paths\n\n    # critical nodes: endpoints of at least one saturated edge excluding sources and sink\n    critical = set()\n    for i, (u, v, c) in enumerate(adj_edges):\n        if sum(flow_per_edge[i]) >= c:\n            if u not in sources and u != sink:\n                critical.add(u)\n            if v not in sources and v != sink:\n                critical.add(v)\n    critical_nodes = sorted(list(critical))\n\n    result = {\n        \"total_flow\": int(total_flow),\n        \"commodity_flows\": [int(x) for x in commodity_flows],\n        \"min_cut_capacity\": int(min_cut_capacity),\n        \"min_cut_edges\": min_cut_edges,\n        \"source_partition\": source_partition,\n        \"sink_partition\": sink_partition,\n        \"flow_assignments\": flow_assignments,\n        \"bottleneck_roads\": bottleneck_roads,\n        \"augmenting_paths_count\": int(augmenting_paths_count),\n        \"residual_capacity_sum\": int(residual_capacity_sum),\n        \"flow_decomposition\": flow_decomposition,\n        \"critical_nodes\": critical_nodes\n    }\n    return result"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2318,
+    "input_tokens_details": {
+      "cached_tokens": 2304
+    },
+    "output_tokens": 2751,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 5069
+  },
+  "user": null,
+  "metadata": {}
+}

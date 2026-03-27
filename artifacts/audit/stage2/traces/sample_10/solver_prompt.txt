@@ -1,0 +1,121 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem Statement
+A project manager at a software development company needs to allocate the minimum number of development teams to complete all projects. Each project has specific skill requirements and deadlines, and each team has members with various skills and limited availability.
+
+The challenge is to determine the minimum number of teams needed to complete all projects within their deadlines using binary search to optimize the allocation.
+
+#### Objectives
+Design a function `allocate_minimum_teams(projects, teams)` that:
+- Uses binary search to find the minimum number of teams required
+- Ensures all projects meet their skill requirements and deadlines
+- Validates that selected teams can cover all project needs
+
+#### Input Format
+- `projects`: A list of dictionaries, each containing:
+  - `'phases'`: A list of phase dictionaries, where each phase has:
+    - `'required_skills'`: A list of skills needed for that phase
+    - `'deadline'`: An integer sub-deadline for this phase
+  - `'project_deadline'`: An integer representing the overall project deadline
+  
+- `teams`: A list of dictionaries, each containing:
+  - `'members'`: A list of member dictionaries with:
+    - `'name'`: Member's name (string)
+    - `'skills'`: A list of skills the member possesses
+  - `'base_availability'`: An integer representing the maximum number of days the team is initially available
+
+#### Constraints
+- 1 ≤ number of projects ≤ 1000
+- 1 ≤ number of teams ≤ 1000
+- Each phase requires 1-10 skills
+- Each team member has 1-10 skills
+- Deadlines range from 1 to 100 days
+- Team availability ranges from 1 to 100 days
+- A team can work on multiple phases if their availability allows
+- All project phases must be completed within their respective deadlines
+- No external libraries allowed
+
+#### Function Signature
+```python
+def allocate_minimum_teams(projects: List[Dict[str, Any]], teams: List[Dict[str, Any]]) -> int:
+```
+#### Approach
+ Use binary search on the number of teams:
+- Set search range: minimum = 1, maximum = number of available teams
+- For each mid-point, check if that many teams can complete all project phases
+- Implement a feasibility function that validates if k teams can handle all phases considering:
+
+#### Sample Input
+```python
+projects = [
+    {
+        'phases': [
+            {
+                'required_skills': ['python', 'security'],
+                'deadline': 5
+            },
+            {
+                'required_skills': ['python', 'testing'],
+                'deadline': 10
+            }
+        ],
+        'project_deadline': 12
+    },
+    {
+        'phases': [
+            {
+                'required_skills': ['java', 'ml'],
+                'deadline': 8
+            }
+        ],
+        'project_deadline': 8
+    }
+]
+
+teams = [
+    {
+        'members': [
+            {'name': 'Alice', 'skills': ['python', 'java']},
+            {'name': 'Bob', 'skills': ['security', 'testing']}
+        ],
+        'base_availability': 10
+    },
+    {
+        'members': [
+            {'name': 'Charlie', 'skills': ['ml', 'testing']},
+            {'name': 'Diana', 'skills': ['java']}
+        ],
+        'base_availability': 8
+    }
+]
+```
+
+#### Sample Output
+```python
+2
+```
+
+#### Explanation
+Using binary search:
+
+- Try with 1 team: Not feasible (cannot cover all skill requirements within deadlines)
+- Try with 2 teams: Feasible (both teams together can cover all phases)
+- Minimum answer: 2 teams
+
+#### Output Format
+Return an integer representing the minimum number of teams required to complete all project phases within their deadlines.
+
+Starter Code:
+```python
+from typing import List, Dict, Any, Set, Tuple
+
+
+def allocate_minimum_teams(projects: List[Dict[str, Any]], teams: List[Dict[str, Any]]) -> int:
+```

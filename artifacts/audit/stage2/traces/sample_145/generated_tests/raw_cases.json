@@ -1,0 +1,135 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "1": []
+      },
+      [],
+      5.0,
+      1.0,
+      1,
+      1,
+      [
+        1
+      ]
+    ],
+    "input_lines": [
+      "{\"1\": []}",
+      "[]",
+      "5.0",
+      "1.0",
+      "1",
+      "1",
+      "[1]"
+    ],
+    "focus": "Start equals destination with mandatory inspection at the same node (zero-travel edge case; check if start satisfies inspection)."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "0": [
+          [
+            1,
+            6.0
+          ],
+          [
+            3,
+            15.0
+          ]
+        ],
+        "1": [
+          [
+            2,
+            6.0
+          ],
+          [
+            0,
+            6.0
+          ]
+        ],
+        "2": [
+          [
+            4,
+            4.0
+          ]
+        ],
+        "3": [
+          [
+            4,
+            20.0
+          ]
+        ],
+        "4": []
+      },
+      [
+        1
+      ],
+      10.0,
+      1.0,
+      0,
+      4,
+      [
+        2
+      ]
+    ],
+    "input_lines": [
+      "{\"0\": [[1, 6.0], [3, 15.0]], \"1\": [[2, 6.0], [0, 6.0]], \"2\": [[4, 4.0]], \"3\": [[4, 20.0]], \"4\": []}",
+      "[1]",
+      "10.0",
+      "1.0",
+      "0",
+      "4",
+      "[2]"
+    ],
+    "focus": "Requires refueling at an intermediate station and may involve cycles/backtracking; tests correct handling of fuel state and stations."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "0": [
+          [
+            1,
+            5.0
+          ]
+        ],
+        "1": [
+          [
+            2,
+            5.0
+          ]
+        ],
+        "2": [
+          [
+            3,
+            2.5
+          ]
+        ],
+        "3": []
+      },
+      [
+        1
+      ],
+      10.0,
+      1.0,
+      0,
+      3,
+      [
+        1,
+        2
+      ]
+    ],
+    "input_lines": [
+      "{\"0\": [[1, 5.0]], \"1\": [[2, 5.0]], \"2\": [[3, 2.5]], \"3\": []}",
+      "[1]",
+      "10.0",
+      "1.0",
+      "0",
+      "3",
+      "[1, 2]"
+    ],
+    "focus": "Precision/boundary case where fuel usage matches capacity exactly unless refueled; multiple mandatory inspections in order-sensitive path."
+  }
+]

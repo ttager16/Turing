@@ -1,0 +1,73 @@
+[
+  {
+    "case_index": 0,
+    "args": [
+      {
+        "alpha": [
+          3.1415,
+          2.71828,
+          3.1415
+        ],
+        "beta": [],
+        "delta": [
+          3.1415
+        ],
+        "gamma": [
+          2.71828,
+          2.71828
+        ]
+      }
+    ],
+    "input_lines": [
+      "{\"alpha\": [3.1415, 2.71828, 3.1415], \"beta\": [], \"delta\": [3.1415], \"gamma\": [2.71828, 2.71828]}"
+    ],
+    "focus": "Multi-market case with empty market and duplicate values to exercise deterministic pairwise rounds and stability across adjacent merges."
+  },
+  {
+    "case_index": 1,
+    "args": [
+      {
+        "single": [
+          1e+308,
+          -1e+308,
+          1.234567890123456,
+          1.234567890123456,
+          5e-324,
+          2.2250738585072014e-308,
+          0.0
+        ]
+      }
+    ],
+    "input_lines": [
+      "{\"single\": [1e308, -1e308, 1.234567890123456, 1.234567890123456, 5e-324, 2.2250738585072014e-308, 0.0]}"
+    ],
+    "focus": "Single-market extreme and high-precision floats (very large, very small, duplicates) to check numeric precision preservation and correct in-place-free behavior."
+  },
+  {
+    "case_index": 2,
+    "args": [
+      {
+        "a": [
+          2.0,
+          1.0
+        ],
+        "b": [
+          2.0,
+          1.0
+        ],
+        "c": [],
+        "d": [
+          1.0,
+          2.0
+        ],
+        "e": [
+          1.0
+        ]
+      }
+    ],
+    "input_lines": [
+      "{\"a\": [2.0, 1.0], \"b\": [2.0, 1.0], \"c\": [], \"d\": [1.0, 2.0], \"e\": [1.0]}"
+    ],
+    "focus": "Odd number of markets including empty list and identical value distributions to validate deterministic lexicographic merge scheduling and stability when merging equal elements from different markets."
+  }
+]

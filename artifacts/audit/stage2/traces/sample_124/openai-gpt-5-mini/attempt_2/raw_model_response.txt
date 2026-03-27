@@ -1,0 +1,163 @@
+import collections
+from typing import List, Deque
+
+def design_metro_system(
+    demand_matrix: List[List[int]],
+    cost_matrix: List[List[int]],
+    budget: int,
+    max_avg_time: float
+) -> bool:
+    n = len(demand_matrix)
+    # Quick checks
+    if n == 0:
+        return True
+    # If budget zero but any demand between distinct stations exists, impossible
+    if budget <= 0:
+        for i in range(n):
+            for j in range(n):
+                if i != j and demand_matrix[i][j] > 0:
+                    return False
+        return True
+
+    # Helper: compute all-pairs shortest path lengths (unweighted) via BFS from each node
+    def all_pairs_shortest_paths(adj):
+        dist = [[-1]*n for _ in range(n)]
+        for s in range(n):
+            q: Deque[int] = collections.deque([s])
+            dist[s][s] = 0
+            while q:
+                u = q.popleft()
+                for v in adj[u]:
+                    if dist[s][v] == -1:
+                        dist[s][v] = dist[s][u] + 1
+                        q.append(v)
+        return dist
+
+    # Initial empty adjacency
+    adj = [set() for _ in range(n)]
+    remaining_budget = budget
+
+    # Precompute total demand per node for prioritization
+    total_out = [sum(row) for row in demand_matrix]
+    total_in = [sum(demand_matrix[i][j] for i in range(n)) for j in range(n)]
+    node_weight = [total_out[i] + sum(demand_matrix[r][i] for r in range(n)) for i in range(n)]
+
+    # Candidate edges list (i<j)
+    candidates = []
+    for i in range(n):
+        for j in range(i+1, n):
+            c = cost_matrix[i][j] if cost_matrix[i][j] >= 0 else cost_matrix[j][i]
+            # benefit heuristic: demand between i and j plus demands to/from heavy nodes
+            demand_pair = demand_matrix[i][j] + demand_matrix[j][i]
+            # node centrality proxy
+            central = node_weight[i] + node_weight[j]
+            # score: higher demand and centrality, lower cost => higher priority
+            score = (demand_pair * 3 + central) / (1 + c)
+            candidates.append((score, i, j, c))
+    # Sort descending by score
+    candidates.sort(reverse=True, key=lambda x: x[0])
+
+    # Greedy: iteratively add best edge that fits budget and improves connectivity for demanded pairs
+    # We'll also try to ensure connectivity among nodes that have any demand.
+    demand_nodes = set()
+    for i in range(n):
+        for j in range(n):
+            if demand_matrix[i][j] > 0:
+                demand_nodes.add(i)
+                demand_nodes.add(j)
+
+    # Ensure we at least connect the demand nodes: build a cheap spanning-like set among demand nodes
+    # Use Kruskal-like on candidates constrained to demand_nodes first
+    parent = list(range(n))
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+    def union(a,b):
+        ra, rb = find(a), find(b)
+        if ra==rb: return False
+        parent[rb]=ra
+        return True
+
+    # Consider candidate edges sorted by cost efficiency first for demand nodes
+    demand_candidates = sorted([ (cost_matrix[i][j] if i<j else cost_matrix[j][i], i, j) 
+                                for _,i,j,_ in candidates if i in demand_nodes and j in demand_nodes ],
+                               key=lambda x: x[0])
+    for c,i,j in demand_candidates:
+        if remaining_budget < c:
+            continue
+        if union(i,j):
+            adj[i].add(j); adj[j].add(i)
+            remaining_budget -= c
+
+    # Now add more edges from top-scoring candidates while budget allows to reduce average time
+    for score,i,j,c in candidates:
+        if remaining_budget < c:
+            continue
+        # if already connected directly, skip if doesn't help connectivity
+        if j in adj[i]:
+            continue
+        # Tentatively add edge and see improvement in weighted total distance
+        # Compute current distances
+        cur_dist = all_pairs_shortest_paths(adj)
+        # If any demanded pair currently disconnected, treat distance as large (inf)
+        disconnected = False
+        total_passengers = 0
+        cur_total_time = 0
+        for a in range(n):
+            for b in range(n):
+                dmd = demand_matrix[a][b]
+                if dmd == 0:
+                    continue
+                total_passengers += dmd
+                da = cur_dist[a][b]
+                if da == -1:
+                    disconnected = True
+                    # set large proxy
+                    cur_total_time += dmd * (n+5)
+                else:
+                    cur_total_time += dmd * da
+        # Now distances after adding edge
+        adj[i].add(j); adj[j].add(i)
+        new_dist = all_pairs_shortest_paths(adj)
+        new_total_time = 0
+        new_disconnected = False
+        for a in range(n):
+            for b in range(n):
+                dmd = demand_matrix[a][b]
+                if dmd == 0:
+                    continue
+                db = new_dist[a][b]
+                if db == -1:
+                    new_disconnected = True
+                    new_total_time += dmd * (n+5)
+                else:
+                    new_total_time += dmd * db
+        # Evaluate improvement per cost
+        improvement = cur_total_time - new_total_time
+        if improvement > 0 and remaining_budget >= c:
+            # keep edge
+            remaining_budget -= c
+        else:
+            # revert
+            adj[i].remove(j); adj[j].remove(i)
+
+    # Final check: compute final distances
+    final_dist = all_pairs_shortest_paths(adj)
+    total_passengers = 0
+    total_time = 0
+    for a in range(n):
+        for b in range(n):
+            dmd = demand_matrix[a][b]
+            if dmd == 0:
+                continue
+            total_passengers += dmd
+            db = final_dist[a][b]
+            if db == -1:
+                return False
+            total_time += dmd * db
+    if total_passengers == 0:
+        return True
+    avg_time = total_time / total_passengers
+    return avg_time <= max_avg_time

@@ -1,0 +1,179 @@
+def allocate_minimum_agencies(population: List[int], demands: List[int], max_cost: int) -> int:
+    n = len(population)
+    if n == 0:
+        return 0
+
+    # Precompute base costs and priority flags
+    base = [ (population[i] / 1000.0) + (demands[i] * 1.5) + (i * 0.5) for i in range(n) ]
+    is_priority = [ (demands[i] > 40 or population[i] > 8000) for i in range(n) ]
+
+    # Helper to compute shared cost between i and i+1, assuming legal sharing (placement at j)
+    def shared_cost(i, j):
+        # j is index where agency placed (higher demand region as per rule)
+        # discount logic depends on populations
+        p1, p2 = population[i], population[i+1]
+        # if priority sharing with non-priority => no discount (multiplier 1.0)
+        if is_priority[j] and (not is_priority[i if j==i+1 else i+1]):
+            mult = 1.0
+        elif is_priority[i] and is_priority[i+1]:
+            # invalid, should not call
+            return float('inf')
+        else:
+            # determine discount tiers
+            if p1 < 3000 and p2 < 3000:
+                mult = 0.80
+            elif (p1 >= 6000) or (p2 >= 6000):
+                mult = 0.90
+            else:
+                # one region between 3000 and 5999 (or both)
+                mult = 0.85
+        return mult * base[j]
+
+    # For priority sharing: rule says if priority shares with non-priority, no discount (mult=1.0)
+    # But above logic needs correct detection: if one priority and one non-priority then mult=1.0
+    # Adjust shared_cost to simpler logic
+    def shared_cost(i):
+        # share i and i+1; agency placed at higher demand region; tie break population then lower index
+        j = i
+        if demands[i+1] > demands[i]:
+            j = i+1
+        elif demands[i+1] == demands[i]:
+            if population[i+1] > population[i]:
+                j = i+1
+            elif population[i+1] == population[i]:
+                j = i  # lower index
+            else:
+                j = i
+        # j is chosen placement
+        if is_priority[i] and is_priority[i+1]:
+            return float('inf')
+        if (is_priority[i] != is_priority[i+1]) and (is_priority[i] or is_priority[i+1]):
+            mult = 1.0
+            return mult * base[j]
+        p1, p2 = population[i], population[i+1]
+        if p1 < 3000 and p2 < 3000:
+            mult = 0.80
+        elif p1 >= 6000 or p2 >= 6000:
+            mult = 0.90
+        else:
+            mult = 0.85
+        return mult * base[j]
+
+    # Check minimum coverage: regions with demand>=35 must be covered by agency placed in region with demand>=30
+    # That will be validated during transitions.
+
+    # DP: for each position i, we track minimal cost for each pair state:
+    # state encodes whether previous region was covered by a shared agency with current (prev_shared_with_next)
+    # and run-length of consecutive individual agencies for cluster penalty tracking (we only need up to 3)
+    # But we must also minimize number of agencies primarily. So DP will store for each (i, prev_shared_flag, run_indiv_len capped at 3)
+    # a tuple (min_agencies, min_cost). We'll perform a BFS-like DP where we prioritize fewer agencies then less cost.
+    # Because n can be big, we keep only current states.
+
+    INF_COST = float('inf')
+    # dp maps state -> (agencies, cost)
+    # state: (pos, prev_shared_flag, run_indiv) but we'll iterate pos sequentially and keep current mapping for pos index
+    # prev_shared_flag means previous region (i-1) was shared with i (i is covered already by that shared)
+    # At start pos=0, prev_shared_flag=False, run_indiv=0
+    cur = { (False, 0): (0, 0.0) }
+
+    for i in range(n):
+        nxt = {}
+        for (prev_shared, run_indiv), (agencies, cost) in cur.items():
+            # If prev_shared True means region i is already covered by shared agency placed at i-1 or i (we defined shared covers i-1 & i)
+            if prev_shared:
+                # region i already covered; move to next with prev_shared=False (since share was with previous)
+                # run_indiv resets because this was not individual placement at i
+                key = (False, 0)
+                prev = nxt.get(key)
+                if prev is None or (agencies < prev[0] or (agencies == prev[0] and cost < prev[1])):
+                    nxt[key] = (agencies, cost)
+                continue
+
+            # Option 1: place individual agency at i
+            place_cost = base[i]
+            new_cost = cost + place_cost
+            new_agencies = agencies + 1
+            new_run = run_indiv + 1
+            # cluster penalty applied when a run of 3 individual agencies is formed: we add penalty when run reaches 3
+            add_penalty = 0.0
+            if new_run == 3:
+                add_penalty = 5.0
+            # If run >3, each additional sequence of length >=3 counts as penalty "for each such sequence of 3+ individual agencies".
+            # Ambiguity: interpret as each maximal sequence of length L>=3 adds 5.0 (not multiple per extra). We'll implement once per sequence.
+            # To achieve that we add penalty only when run reaches 3 and not for lengths >3.
+            new_cost += add_penalty
+            # Minimum coverage check: if region i has demand>=35 then placement region demand must be >=30 (here placed at i so check demands[i] >=30)
+            if demands[i] >= 35 and demands[i] < 30:
+                pass  # impossible, but demands[i]>=35 implies demands[i]>=30 so always satisfied
+            # store
+            # cap run to 3 to limit state
+            cap_run = 3 if new_run >=3 else new_run
+            key = (False, cap_run)
+            if new_cost <= max_cost:
+                prev = nxt.get(key)
+                if prev is None or (new_agencies < prev[0] or (new_agencies == prev[0] and new_cost < prev[1])):
+                    nxt[key] = (new_agencies, new_cost)
+
+            # Option 2: share with i+1 if possible
+            if i+1 < n:
+                # check chain constraint: cannot share i with i+1 if previous was shared with i (we have prev_shared=False so OK)
+                # But chain constraint says if i is covered by shared with i+1 then i+2 cannot share with i+1. That will be enforced later when at i+1 prev_shared is True.
+                # Check priority rules: two adjacent priority cannot share
+                if not (is_priority[i] and is_priority[i+1]):
+                    # For sharing, placement at higher demand region with tie-break
+                    # If priority with non-priority present, multiplier 1.0
+                    # Also minimum coverage: any region with demand>=35 must be covered by agency placed at region with demand>=30.
+                    # If region i has demand >=35 and sharing placement is at i+1 whose demand <30 -> invalid.
+                    # Similarly for region i+1 with demand>=35 must be placed at a region with demand>=30.
+                    # Determine placement index j (higher demand etc.)
+                    j = i
+                    if demands[i+1] > demands[i]:
+                        j = i+1
+                    elif demands[i+1] == demands[i]:
+                        if population[i+1] > population[i]:
+                            j = i+1
+                        elif population[i+1] == population[i]:
+                            j = i  # lower index
+                        else:
+                            j = i
+                    # Check priority sharing constraint: a priority region can only share with exactly one adjacent non-priority region
+                    if is_priority[i] and is_priority[i+1]:
+                        pass
+                    else:
+                        # If one is priority and other non-priority it's allowed but no discount
+                        # Minimum coverage constraints:
+                        ok_min = True
+                        if demands[i] >= 35:
+                            # must be covered by placement region demand >=30
+                            if demands[j] < 30:
+                                ok_min = False
+                        if demands[i+1] >= 35:
+                            if demands[j] < 30:
+                                ok_min = False
+                        if ok_min:
+                            sc = shared_cost(i)
+                            if sc < float('inf'):
+                                new_cost2 = cost + sc
+                                new_agencies2 = agencies + 1
+                                # sharing breaks individual run (since i covered by shared)
+                                # Also prev_shared for next position i+1 should be True so that at next iteration we know i+1 is already covered.
+                                # run_indiv resets to 0
+                                if new_cost2 <= max_cost:
+                                    key2 = (True, 0)  # at next index, prev_shared True meaning next region is covered already
+                                    prev2 = nxt.get(key2)
+                                    if prev2 is None or (new_agencies2 < prev2[0] or (new_agencies2 == prev2[0] and new_cost2 < prev2[1])):
+                                        nxt[key2] = (new_agencies2, new_cost2)
+        # prune dominated states: for same key keep best
+        cur = nxt
+        if not cur:
+            return -1
+
+    # After processing all positions, ensure no leftover prev_shared True (shouldn't happen because prev_shared True at i means i was covered by share with i-1, at end it's fine)
+    # But our loop handles coverage; now find minimal agencies with cost<=max_cost
+    ans = None
+    for (prev_shared, run_indiv), (agencies, cost) in cur.items():
+        # prev_shared True at position n means nonexistent; treat as valid
+        if cost <= max_cost:
+            if ans is None or agencies < ans:
+                ans = agencies
+    return -1 if ans is None else ans

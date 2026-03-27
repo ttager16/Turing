@@ -1,0 +1,231 @@
+def hft_bitmask_framework(trading_signals: List[int], market_conditions: List[int]) -> List[str]:
+    # Deterministic, single-process simulation of requested framework with concurrency primitives
+    # Prepare inputs
+    n = min(len(trading_signals), len(market_conditions))
+    trading = trading_signals[:n]
+    market = market_conditions[:n]
+
+    # Compute bit width
+    def msb_index(x: int) -> int:
+        if x <= 0:
+            return -1
+        return x.bit_length() - 1
+    maxval = 0
+    for v in trading + market:
+        if v > maxval:
+            maxval = v
+    bit_width = max(1, msb_index(maxval) + 1)
+
+    # Build bitmask helpers
+    def bitmask_pad(x: int) -> int:
+        # mask to bit_width bits
+        if bit_width >= x.bit_length():
+            return x & ((1 << bit_width) - 1)
+        return x & ((1 << bit_width) - 1)
+
+    trading = [bitmask_pad(x) for x in trading]
+    market = [bitmask_pad(x) for x in market]
+
+    # Segment Tree with per-node locks storing OR and AND aggregates
+    size = 1
+    while size < n:
+        size <<= 1
+    seg_or = [0] * (2 * size)
+    seg_and = [(1 << bit_width) - 1] * (2 * size)
+    seg_locks = [threading.Lock() for _ in range(2 * size)]
+
+    # Build leaves
+    for i in range(n):
+        idx = size + i
+        seg_or[idx] = trading[i] | market[i]
+        seg_and[idx] = trading[i] & market[i]
+    for i in range(size - 1, 0, -1):
+        with seg_locks[i]:
+            left = 2 * i
+            right = left + 1
+            seg_or[i] = seg_or[left] | seg_or[right]
+            seg_and[i] = seg_and[left] & seg_and[right]
+
+    # Trie for bitsets with hand-over-hand locking
+    class TrieNode:
+        __slots__ = ('children', 'lock', 'count', 'agg_or', 'agg_and', 'index_list')
+        def __init__(self):
+            self.children = [None, None]
+            self.lock = threading.Lock()
+            self.count = 0
+            self.agg_or = 0
+            self.agg_and = (1 << bit_width) - 1
+            self.index_list = []
+
+    root = TrieNode()
+
+    # Insert into trie with hand-over-hand locking deterministically (bit from MSB to LSB)
+    def trie_insert(bitset: int, idx: int):
+        node = root
+        node.lock.acquire()
+        try:
+            node.count += 1
+            node.agg_or |= bitset
+            node.agg_and &= bitset
+            node.index_list.append(idx)
+            for b in range(bit_width - 1, -1, -1):
+                bit = (bitset >> b) & 1
+                nxt = node.children[bit]
+                if nxt is None:
+                    nxt = TrieNode()
+                    node.children[bit] = nxt
+                # hand-over-hand: lock next before releasing current
+                nxt.lock.acquire()
+                node.lock.release()
+                node = nxt
+                node.count += 1
+                node.agg_or |= bitset
+                node.agg_and &= bitset
+                node.index_list.append(idx)
+            node.lock.release()
+        except Exception:
+            # attempt to release if held
+            try:
+                node.lock.release()
+            except Exception:
+                pass
+            raise
+
+    for i in range(n):
+        trie_insert(trading[i] | market[i], i)
+
+    # Segment tree query (inclusive) with fine-grained locking for OR and AND aggregates
+    def seg_query(l: int, r: int) -> Tuple[int, int]:
+        l += size
+        r += size
+        res_or = 0
+        res_and = (1 << bit_width) - 1
+        # To ensure determinism and avoid deadlocks, gather nodes to read without holding multiple locks
+        left_nodes = []
+        right_nodes = []
+        ll, rr = l, r
+        while ll <= rr:
+            if (ll & 1) == 1:
+                left_nodes.append(ll)
+                ll += 1
+            if (rr & 1) == 0:
+                right_nodes.append(rr)
+                rr -= 1
+            ll //= 2
+            rr //= 2
+        nodes = left_nodes + right_nodes[::-1]
+        for node in nodes:
+            with seg_locks[node]:
+                res_or |= seg_or[node]
+                res_and &= seg_and[node]
+        return res_or, res_and
+
+    # Best-match lookup in trie: greedy along target bit path with tolerant locking
+    def trie_best_match(target: int) -> Tuple[int, int, int]:
+        node = root
+        node.lock.acquire()
+        try:
+            agg_or = node.agg_or
+            agg_and = node.agg_and
+            best_count = node.count
+            best_idx = node.index_list[0] if node.index_list else -1
+            for b in range(bit_width - 1, -1, -1):
+                bit = (target >> b) & 1
+                nxt = node.children[bit]
+                if nxt is None:
+                    # try alternate child deterministically (0 before 1)
+                    alt = node.children[0] if node.children[0] is not None else node.children[1]
+                    if alt is None:
+                        break
+                    alt.lock.acquire()
+                    node.lock.release()
+                    node = alt
+                else:
+                    nxt.lock.acquire()
+                    node.lock.release()
+                    node = nxt
+                agg_or = node.agg_or
+                agg_and = node.agg_and
+                if node.index_list:
+                    best_idx = node.index_list[0]
+                    best_count = node.count
+            node.lock.release()
+            return agg_or, agg_and, best_idx
+        except Exception:
+            try:
+                node.lock.release()
+            except Exception:
+                pass
+            raise
+
+    # Scoring function per index deterministically
+    def compute_score(i: int) -> Tuple[float, dict]:
+        s = trading[i]
+        m = market[i]
+        overlap_s = bin(s & m).count("1") / max(1, bit_width)  # overlap trading vs market
+        overlap_m = bin(m & s).count("1") / max(1, bit_width)  # same as overlap_s but included as requirement
+        match_overlap_m = 1.0 if (s & m) == m and m != 0 else (bin(s & m).count("1") / max(1, bin(m).count("1"))) if m != 0 else 0.0
+        # breadth: measure of bits set across combined
+        breadth = bin(s | m).count("1") / max(1, bit_width)
+        # consensus: from trie node count normalized
+        agg_or, agg_and, best_idx = trie_best_match(s | m)
+        consensus = (bin(agg_or).count("1") - bin(agg_and).count("1")) / max(1, bit_width)
+        # combine weights
+        score = (overlap_s * 0.45 + overlap_m * 0.20 + match_overlap_m * 0.20 + breadth * 0.10 + consensus * 0.05)
+        meta = {
+            'overlap_s': overlap_s,
+            'overlap_m': overlap_m,
+            'match_overlap_m': match_overlap_m,
+            'breadth': breadth,
+            'consensus': consensus,
+            'best_idx': best_idx
+        }
+        return score, meta
+
+    # Simulate open positions (deterministic): initial zero
+    open_positions = 0
+
+    # Compute raw scores
+    scores = []
+    metas = []
+    for i in range(n):
+        sc, meta = compute_score(i)
+        scores.append(sc)
+        metas.append(meta)
+
+    # Apply crowding penalty: reduce scores by up to 0.20 based on open_positions (deterministic; here open_positions = 0)
+    # But to simulate dynamic penalty, compute a deterministic pseudo-open based on aggregates: use seg query full range
+    full_or, full_and = seg_query(0, n - 1) if n > 0 else (0, (1 << bit_width) - 1)
+    # open_positions simulated as number of set bits in full_or modulo (n+1)
+    if n > 0:
+        open_positions = bin(full_or).count("1") % (n + 1)
+    else:
+        open_positions = 0
+    penalty_factor = min(0.20, (open_positions / max(1, n)) * 0.20)
+    adjusted_scores = [max(0.0, sc - penalty_factor) for sc in scores]
+
+    # Decision thresholds
+    actions = []
+    for i, sc in enumerate(adjusted_scores):
+        if sc >= 0.75:
+            actions.append('BUY')
+        elif sc >= 0.55:
+            actions.append('BUY_PARTIAL')
+        elif sc <= 0.15:
+            actions.append('SELL')
+        elif sc <= 0.30:
+            actions.append('SELL_PARTIAL')
+        else:
+            actions.append('HOLD')
+
+    # Post-pass moderation: when BUYs exceed n/2, downgrade half with lowest overlap_s to BUY_PARTIAL
+    buy_indices = [i for i, a in enumerate(actions) if a == 'BUY']
+    if len(buy_indices) > n / 2:
+        # sort by overlap_s ascending, tie-breaker by index
+        buy_indices_sorted = sorted(buy_indices, key=lambda i: (metas[i]['overlap_s'], i))
+        to_downgrade = len(buy_indices_sorted) // 2
+        for idx in buy_indices_sorted[:to_downgrade]:
+            actions[idx] = 'BUY_PARTIAL'
+
+    # Ensure determinism and length
+    return actions[:n]

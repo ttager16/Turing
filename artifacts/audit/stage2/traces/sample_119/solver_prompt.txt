@@ -1,0 +1,307 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+A municipal water utility company operates a complex urban water distribution network where maintaining optimal flow rates is critical for ensuring reliable service while preventing reservoir overflow and pipe damage. The network is modeled as a directed graph where water treatment plants serve as sources, reservoirs act as intermediate storage nodes, and residential/commercial areas represent demand sinks.
+
+You are tasked with implementing a sophisticated Flow Network Optimization algorithm that manages water distribution through this multi-tiered network. The system must efficiently detect flow cycles, identify bottlenecks, and optimize water routing while respecting capacity constraints, pressure requirements, and demand fulfillment across multiple priority zones.
+
+## Optimization Approach
+The algorithm implements **minimum-flow optimization** - it finds the optimal flow allocation that satisfies all demand requirements using the minimum total network flow. This approach minimizes operational costs, reduces system stress, and maximizes efficiency by avoiding unnecessary flow through pipes. The algorithm uses Ford-Fulkerson max-flow principles to find augmenting paths from sources to demand zones, allocating only the flow necessary to meet each zone's target requirements in priority order.
+
+## Core Requirements
+Your solution must implement a **pure Python** Flow Network Optimization algorithm (no external libraries) that processes urban water distribution data and generates optimal flow allocation plans. The algorithm should satisfy all demand zone requirements while minimizing total network flow usage and ensuring system stability.
+
+### Key Operational Constraints
+1. **Flow Conservation**: Total inflow must equal total outflow at every intermediate node (excluding sources and sinks)
+2. **Capacity Constraints**: Flow through each pipe segment cannot exceed its maximum capacity
+3. **Pressure Requirements**: Each demand zone must receive a minimum flow to maintain adequate pressure
+4. **Priority Allocation**: Higher priority zones (lower priority numbers) must be satisfied before lower priority zones
+5. **Cycle Detection**: The algorithm must identify and handle flow cycles that could cause system instability
+
+### Advanced Algorithmic Requirements
+The Flow Optimization algorithm must incorporate a multi-objective scoring system that evaluates network efficiency using this composite formula:
+
+**Network Efficiency Score = (Total Flow Delivered / Total Available Capacity) × 100 + Priority Satisfaction Bonus - Cycle Penalty**
+
+Where:
+- Total Flow Delivered: Sum of actual flow reaching all demand zones
+- Total Available Capacity: Sum of the maximum capacities of all outgoing edges from sources
+- Priority Satisfaction Bonus: Sum of (flow_delivered × (6 - priority_level) × 10) for each satisfied zone
+- Cycle Penalty: Number of detected cycles × 50
+
+The algorithm must also implement pressure drop calculation, where pipes with high utilization rates experience reduced effective capacity:
+
+**Pressure Drop Formula**:
+- If flow_rate / pipe_capacity > 0.8: effective_capacity = pipe_capacity × 0.9
+- If flow_rate / pipe_capacity > 0.9: effective_capacity = pipe_capacity × 0.8
+- Otherwise: effective_capacity = pipe_capacity
+
+**Flow Redistribution Rule**:
+When cycles are detected, the algorithm must redistribute flow by reducing the minimum flow in the cycle by 20% and reallocating it to alternative paths using the following criteria:
+- Select pipes not part of the detected cycle
+- Choose pipes with `maintenance_status` = "active" 
+- Prioritize pipes with current utilization < 80% (current_flow_rate < max_flow_capacity × 0.8)
+- Distribute redistributed flow evenly among qualifying alternative pipes
+- Respect each pipe's remaining capacity (max_flow_capacity - current_flow_rate)
+
+**Additional Calculation Definitions**:
+- **satisfaction_percentage**: (flow_delivered / target_flow_requirement) × 100
+- **pressure_status**: "normal" if utilization ≤ 80%, "reduced" if utilization ≤ 90%, "critical" if utilization > 90%
+- **total_production_cost**: Sum of (current_production_rate × operational_cost) for all sources
+- **utilization_rate** (reservoirs): current_water_level / max_storage_capacity
+- **underutilized_capacity**: Sum of (max_flow_capacity - current_flow_rate) for all pipes with utilization < 50%
+- **bottleneck_pipes**: List of pipe_ids where utilization_percentage > 95%
+
+## Function Signature
+```python
+def optimize_water_distribution(source_nodes, pipe_segments, demand_zones, reservoir_nodes):
+    """
+    Optimizes water distribution network flow using advanced flow algorithms.
+    Returns: Dictionary with optimal flow allocation and network metrics
+    """
+    pass
+```
+
+## Input Specifications
+
+**source_nodes**: List of dictionaries, each containing:
+- source_id: Unique water treatment plant identifier (integer, 0-49)
+- location_coordinates: List of [x, y] position coordinates (integers, 0-2000)
+- max_output_capacity: Maximum water output in liters per minute (integer, 1000-10000)
+- current_production_rate: Current water production rate in liters per minute (integer, 500-9000)
+- source_type: Type classification (string: "primary", "secondary", "emergency", "backup")
+- operational_cost: Cost per liter produced (float, 0.01-0.50)
+
+**pipe_segments**: List of dictionaries, each containing:
+- pipe_id: Unique pipe identifier (integer, 0-999)
+- start_node_id: Starting node identifier (integer)
+- end_node_id: Ending node identifier (integer)
+- max_flow_capacity: Maximum flow capacity in liters per minute (integer, 100-5000)
+- current_flow_rate: Initial flow state in liters per minute (integer, 0-4500). Represents the starting flow condition used for input validation, cycle detection calculations, and computing initial utilization rates for alternative path selection. The algorithm calculates new allocated_flow_rate values that replace current_flow_rate in the optimization process.
+- pipe_diameter: Pipe diameter in millimeters (integer, 50-500)
+- maintenance_status: Operational status (string: "active", "maintenance", "degraded", "critical")
+- installation_year: Year of pipe installation (integer, 1950-2023)
+
+**demand_zones**: List of dictionaries, each containing:
+- zone_id: Unique demand zone identifier (integer, 0-199)
+- node_id: Associated network node identifier (integer)
+- priority_level: Service priority (integer, 1=critical to 5=low)
+- minimum_flow_requirement: Minimum flow needed in liters per minute (integer, 50-2000)
+- target_flow_requirement: Optimal flow target in liters per minute (integer, 100-3000)
+- zone_type: Area classification (string: "residential", "commercial", "industrial", "hospital", "school")
+- population_served: Number of people served (integer, 100-50000)
+
+**reservoir_nodes**: List of dictionaries, each containing:
+- reservoir_id: Unique reservoir identifier (integer, 0-99)
+- node_id: Associated network node identifier (integer)
+- current_water_level: Starting water level in cubic meters (integer, 100-10000)
+- max_storage_capacity: Maximum storage capacity in cubic meters (integer, 1000-50000)
+- overflow_threshold: Level at which overflow occurs (integer, 900-45000)
+- inlet_capacity: Maximum inflow rate in liters per minute (integer, 500-8000)
+- outlet_capacity: Maximum outflow rate in liters per minute (integer, 400-7000)
+
+**Final Water Level Calculation**: Flow changes are converted using the formula: volume_change = net_flow_rate / 1000 (liters per minute to cubic meters). final_water_level = current_water_level + cumulative_volume_change_from_all_flows. Net flow rate is calculated as (total_inflow - total_outflow) for each reservoir. In cases where reservoir inflow equals outflow, the final_water_level remains unchanged from current_water_level.
+
+## Output Specification
+Return a dictionary containing:
+```python
+{
+    "optimal_flow_allocation": [
+        {
+            "pipe_id": int,
+            "allocated_flow_rate": int,
+            "utilization_percentage": float,
+            "effective_capacity": int,
+            "pressure_status": str  # "normal", "reduced", "critical"
+        }
+    ],
+    "zone_satisfaction": [
+        {
+            "zone_id": int,
+            "flow_delivered": int,
+            "satisfaction_percentage": float,
+            "priority_met": bool
+        }
+    ],
+    "network_efficiency_score": float,
+    "cycle_analysis": {
+        "cycles_detected": int,
+        "cycle_paths": list[list[int]],  # List of node sequences forming cycles
+        "redistributed_flow": int
+    },
+    "reservoir_status": [
+        {
+            "reservoir_id": int,
+            "final_water_level": int,
+            "overflow_risk": bool,
+            "utilization_rate": float
+        }
+    ],
+    "system_metrics": {
+        "total_flow_delivered": int,
+        "total_production_cost": float,
+        "bottleneck_pipes": list[int],
+        "underutilized_capacity": int
+    }
+}
+```
+
+## Constraint Requirements
+* **Network Connectivity Validation**: Return {"error": "Network contains unreachable demand zones"} if any demand zone cannot be reached from at least one source through active pipe segments
+* **Source Capacity Validation**: Return {"error": "Source production exceeds maximum capacity for source {source_id}"} if current_production_rate > max_output_capacity for any source
+* **Pipe Capacity Validation**: Return {"error": "Current flow exceeds pipe capacity for pipe {pipe_id}"} if current_flow_rate > max_flow_capacity for any pipe
+* **Demand Zone Validation**: Return {"error": "Invalid flow requirements for zone {zone_id}"} if minimum_flow_requirement > target_flow_requirement for any zone
+* **Node Reference Validation**: Return {"error": "Invalid node reference in pipe {pipe_id}"} if start_node_id or end_node_id references non-existent nodes
+* **Reservoir Overflow Validation**: Return {"error": "Reservoir {reservoir_id} exceeds overflow threshold"} if current_water_level > overflow_threshold
+* **Maintenance Status Validation**: Return {"error": "Invalid maintenance status for pipe {pipe_id}"} if maintenance_status is not one of the allowed values
+* **Priority Level Validation**: Return {"error": "Invalid priority level for zone {zone_id}"} if priority_level is not between 1 and 5
+* **Coordinate Validation**: Return {"error": "Invalid coordinates for source {source_id}"} if any coordinate values are outside the 0-2000 range
+* **Empty Input Validation**: Return {"error": "No demand zones provided"} if demand_zones list is empty
+* For any other input parameter violation, return {"error": "Input is not valid"}
+
+## Sample Input/Output
+
+**Input:**
+```python
+source_nodes = [
+    {"source_id": 0, "location_coordinates": [500, 1000], "max_output_capacity": 5000, "current_production_rate": 4000, "source_type": "primary", "operational_cost": 0.15},
+    {"source_id": 1, "location_coordinates": [1500, 800], "max_output_capacity": 3000, "current_production_rate": 2500, "source_type": "secondary", "operational_cost": 0.20}
+]
+
+pipe_segments = [
+    {"pipe_id": 0, "start_node_id": 0, "end_node_id": 2, "max_flow_capacity": 2000, "current_flow_rate": 1500, "pipe_diameter": 300, "maintenance_status": "active", "installation_year": 2010},
+    {"pipe_id": 1, "start_node_id": 1, "end_node_id": 3, "max_flow_capacity": 1500, "current_flow_rate": 1200, "pipe_diameter": 250, "maintenance_status": "active", "installation_year": 2015},
+    {"pipe_id": 2, "start_node_id": 2, "end_node_id": 4, "max_flow_capacity": 1000, "current_flow_rate": 800, "pipe_diameter": 200, "maintenance_status": "active", "installation_year": 2018},
+    {"pipe_id": 3, "start_node_id": 3, "end_node_id": 5, "max_flow_capacity": 800, "current_flow_rate": 600, "pipe_diameter": 180, "maintenance_status": "active", "installation_year": 2020}
+]
+
+demand_zones = [
+    {"zone_id": 0, "node_id": 4, "priority_level": 1, "minimum_flow_requirement": 400, "target_flow_requirement": 800, "zone_type": "hospital", "population_served": 5000},
+    {"zone_id": 1, "node_id": 5, "priority_level": 2, "minimum_flow_requirement": 300, "target_flow_requirement": 600, "zone_type": "residential", "population_served": 12000}
+]
+
+reservoir_nodes = [
+    {"reservoir_id": 0, "node_id": 2, "current_water_level": 5000, "max_storage_capacity": 20000, "overflow_threshold": 18000, "inlet_capacity": 3000, "outlet_capacity": 2500},
+    {"reservoir_id": 1, "node_id": 3, "current_water_level": 3000, "max_storage_capacity": 15000, "overflow_threshold": 13500, "inlet_capacity": 2000, "outlet_capacity": 1800}
+]
+```
+
+**Expected Output:**
+```python
+{
+    "optimal_flow_allocation": [
+        {
+            "pipe_id": 0,
+            "allocated_flow_rate": 800,
+            "utilization_percentage": 40.0,
+            "effective_capacity": 2000,
+            "pressure_status": "normal"
+        },
+        {
+            "pipe_id": 1,
+            "allocated_flow_rate": 600,
+            "utilization_percentage": 40.0,
+            "effective_capacity": 1500,
+            "pressure_status": "normal"
+        },
+        {
+            "pipe_id": 2,
+            "allocated_flow_rate": 800,
+            "utilization_percentage": 80.0,
+            "effective_capacity": 1000,
+            "pressure_status": "normal"
+        },
+        {
+            "pipe_id": 3,
+            "allocated_flow_rate": 600,
+            "utilization_percentage": 75.0,
+            "effective_capacity": 800,
+            "pressure_status": "normal"
+        }
+    ],
+    "zone_satisfaction": [
+        {
+            "zone_id": 0,
+            "flow_delivered": 800,
+            "satisfaction_percentage": 100.0,
+            "priority_met": true
+        },
+        {
+            "zone_id": 1,
+            "flow_delivered": 600,
+            "satisfaction_percentage": 100.0,
+            "priority_met": true
+        }
+    ],
+    "network_efficiency_score": 64040.0,
+    "cycle_analysis": {
+        "cycles_detected": 0,
+        "cycle_paths": [],
+        "redistributed_flow": 0
+    },
+    "reservoir_status": [
+        {
+            "reservoir_id": 0,
+            "final_water_level": 5000,
+            "overflow_risk": false,
+            "utilization_rate": 0.25
+        },
+        {
+            "reservoir_id": 1,
+            "final_water_level": 3000,
+            "overflow_risk": false,
+            "utilization_rate": 0.2
+        }
+    ],
+    "system_metrics": {
+        "total_flow_delivered": 1400,
+        "total_production_cost": 1100.0,
+        "bottleneck_pipes": [],
+        "underutilized_capacity": 2100
+    }
+}
+```
+
+## Implementation Guidelines
+**Flow Network Strategy**: Implement Ford-Fulkerson max-flow algorithm with breadth-first search to find augmenting paths from sources to demand zones
+**Priority Processing**: Process demand zones in priority order (priority_level 1 first, then 2, etc.)
+**Minimum Flow Optimization**: Allocate only the minimum flow necessary to satisfy each zone's target requirements
+**Capacity Management**: Apply pressure drop calculations dynamically based on allocated flows
+**Cycle Resolution**: When cycles are detected, redistribute flow using the 20% reduction rule and find alternative paths
+**Reservoir Monitoring**: Track water levels and prevent overflow by redirecting excess flow to alternative reservoirs
+**Cost Optimization**: Use minimum flow allocation to minimize operational costs
+**Bottleneck Identification**: Identify pipes operating at >95% capacity as bottlenecks requiring attention
+**Deterministic Output**: The algorithm must produce consistent results for identical inputs
+**Maintenance Integration**: Reduce effective capacity by 30% for pipes in "maintenance" status and 50% for "degraded" status
+
+## Algorithm Flow
+1. **Preprocessing Phase**: Validate inputs and build network graph representation using current_flow_rate for capacity validation
+2. **Priority Sorting**: Sort demand_zones by priority_level in ascending order
+3. **Flow Network Construction**: Build capacity matrix representing available pipe capacities, accounting for current_flow_rate utilization
+4. **Cycle Detection**: Use depth-first search with current_flow_rate values to identify flow cycles and mark problematic paths
+5. **Flow Redistribution**: If cycles exist, apply 20% reduction to current_flow_rate and redistribute to alternative paths
+6. **Flow Allocation**: Apply the Ford-Fulkerson algorithm starting from the updated flow state to calculate new allocated_flow_rate for each zone in priority order
+7. **Pressure Analysis**: Calculate pressure status for each pipe segment based on final allocated_flow_rate utilization rates
+8. **Reservoir Management**: Monitor reservoir levels using net flow changes from allocated_flow_rate and implement overflow prevention measures
+9. **System Optimization**: Minimize total flow usage while satisfying all demand requirements using allocated_flow_rate as final output
+10. **Result Compilation**: Generate comprehensive output with allocated_flow_rate as optimized values replacing initial current_flow_rate
+
+The algorithm should terminate successfully when all feasible demand zones are served within their requirements using minimum total network flow, or identify zones that cannot be satisfied due to network capacity limitations or connectivity issues.
+
+Starter Code:
+```python
+from typing import List, Dict, Any, Set, Tuple
+from collections import defaultdict, deque
+import copy
+
+def optimize_water_distribution(source_nodes: List[Dict], pipe_segments: List[Dict], 
+                               demand_zones: List[Dict], reservoir_nodes: List[Dict]) -> Dict[str, Any]:    
+                               pass
+```

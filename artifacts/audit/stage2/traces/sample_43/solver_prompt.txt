@@ -1,0 +1,194 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### Problem: Multi-Constraint Drone Delivery Route Optimization
+
+In the expanding realm of automated logistics, a critical challenge is to coordinate a fleet of drones with complex multi-constraint flight paths. Route planning must track each drone's fuel and scheduling constraints while adapting to real-time weather changes, traffic updates, and delivery priorities. This problem requires implementing a constraint satisfaction system with intelligent state tracking, priority-based allocation, and dynamic fuel management under competing operational constraints.
+
+Drones may need to make pit stops for refueling at designated hubs before starting deliveries, which restores them to maximum fuel capacity. Hubs can be temporarily deactivated due to severe weather events or airspace restrictions, affecting refueling availability. Destinations have varying urgency levels with associated penalties for missed deliveries. The goal is to design a deterministic allocation system that assigns routes for minimal fuel waste, optimal priority handling, and balanced resource distribution among drones—even when faced with unpredictable weather conditions, traffic congestion, or restricted zones.
+
+#### Objectives:
+1. Implement priority-based allocation that assigns delivery destinations to available drones based on urgency levels (1 = highest, 2 = medium, 3+ = lower), processing destinations in strict priority order with penalty-based tie-breaking.
+2. Deploy fuel management that continuously monitors each drone's fuel capacity and depletion rate, triggering refueling operations when fuel levels fall below defined thresholds or become insufficient for planned deliveries.
+3. Ensure operational safety by filtering drones when wind conditions exceed their tolerance levels and limiting deliveries when adverse weather is forecasted or traffic congestion is detected.
+4. Implement multi-state tracking for each drone, maintaining fuel levels, refueling status, workload (number of assigned deliveries), and delivery capacity limits based on environmental conditions.
+5. Handle competing constraints through intelligent drone selection heuristics that balance fuel efficiency, priority requirements, and load distribution across the available fleet with deterministic tie-breaking rules.
+
+#### Constraints:
+
+**Environmental Constraints:**
+- Drones are grounded if current wind speed exceeds their wind tolerance plus a 3.0 unit safety margin.
+- If weather forecast predicts wind speed exceeding a drone's tolerance at any future time, limit that drone to maximum 1 delivery.
+- If traffic congestion level is 'high' or 'medium' on any air lane, limit all drones to maximum 1 delivery each.
+- Hubs listed as restricted zones in current weather cannot be used for refueling.
+
+**Fuel Management:**
+- Fuel consumption per delivery: `Base(20.0) × Priority_Factor(1.0 + (priority-1) × 0.15) × Workload_Factor(1.0 + workload × 0.1)`.
+  - Where `workload` = number of deliveries already assigned to the drone.
+- Drones can only refuel at available hubs and only at the start of their route before any deliveries.
+- Refueling always restores drone to maximum fuel capacity.
+
+**Refueling Decision Rules (evaluated once per drone before first delivery):**
+
+First, determine if Exception Case conditions are met:
+- Exception applies if: (weather forecast limits drone to 1 delivery) AND (traffic congestion limits all drones to 1 delivery)
+
+**Exception Case** (when BOTH limiting conditions are active):
+1. Calculate `fuel_percentage = (fuel_level / max_fuel) × 100`
+2. Calculate `fuel_required` for the specific destination being assigned
+3. Evaluate in this exact order:
+   - If `fuel_level < fuel_required`: REFUEL
+   - Else if `fuel_percentage == 50.0`: DO NOT REFUEL
+   - Else if `fuel_percentage < 50.0`: REFUEL
+   - Else if `fuel_percentage <= 60.0`: REFUEL
+   - Else: DO NOT REFUEL
+
+**Standard Case** (all other scenarios):
+- Refuel if: `(fuel_percentage <= 60.0) OR (fuel_level < fuel_required)`
+
+**Hub Selection:**
+- Available hubs: keys in `traffic_data['hub_connectivity']` that are NOT in restricted zones.
+- If `hub_connectivity` is empty or missing: no hubs available, cannot refuel.
+- If all hubs in restricted zones: cannot refuel.
+- If multiple hubs available: select hub with most connections (ties broken alphabetically by hub name).
+- If refueling needed but no hubs available: drone can only deliver if it has sufficient fuel without refueling.
+
+**Allocation Rules:**
+- Process destinations in priority order (1, then 2, then 3+).
+- Within same priority: process by descending penalty values.
+- Each destination assigned to at most one drone.
+- Only operational drones considered (not grounded by weather, fuel_level > 0).
+
+**Drone Selection Algorithm:**
+
+For each destination being processed:
+
+**Step 1: Filter Candidates by Fuel Capability**
+- Include drone if: `(fuel_level >= fuel_required) OR (max_fuel >= fuel_required)`.
+- If no candidates: skip this destination.
+
+**Step 2: Filter by Workload**
+- Calculate `min_workload` = minimum workload among candidates.
+  - `workload` = number of deliveries already assigned to each drone (starts at 0).
+- For priority 1-2 destinations: keep drones with `workload <= min_workload + 1`.
+- For priority 3+ destinations: keep only drones with `workload == min_workload`.
+
+**Step 3: Categorize by Refueling Need**
+- For each candidate, determine if it "needs refuel" using Standard Case rule only:
+  - Needs refuel if: `(fuel_percentage <= 60.0) OR (fuel_level < fuel_required)`.
+- Create two groups: `needing_refuel` and `not_needing_refuel`.
+- Note: This categorization is for selection purposes only. The actual refueling decision uses the full Exception/Standard logic.
+
+**Step 4: Select Best Drone**
+
+For **Priority 1** destinations:
+- If `needing_refuel` is not empty:
+  - Select: `min(needing_refuel, key=(−wind_tolerance, −fuel_percentage, drone_id))`.
+- Else:
+  - Select: `min(all_candidates, key=(−fuel_level, drone_id))`.
+
+For **Priority 2** destinations:
+- If `needing_refuel` is not empty:
+  - Select: `min(needing_refuel, key=(fuel_percentage, drone_id))`.
+- Else:
+  - Select: `min(all_candidates, key=(−fuel_level, drone_id))`.
+
+For **Priority 3+** destinations:
+- If `not_needing_refuel` is not empty:
+  - Select: `min(not_needing_refuel, key=(−fuel_level, drone_id))`.
+- Else:
+  - Select: `min(needing_refuel, key=(−fuel_level, drone_id))`.
+
+**Edge Cases:**
+- No drones: return `{}`.
+- No destinations: return `{drone_id: [] for each drone}`.
+- All drones grounded: all have empty routes.
+- No hubs available: drones can deliver only if sufficient fuel without refueling.
+
+**Performance Requirements:**
+- Time Complexity: O(M × N).
+- Space Complexity: O(N + M).
+- Must handle 100 drones and 500 destinations in under 5 seconds.
+- Must be deterministic.
+
+#### Function Signature:
+```python
+def optimize_drone_routes(drones: List[Dict], destinations: List[Dict], weather_data: Dict, traffic_data: Dict) -> Dict:
+    pass
+```
+
+#### Sample Input:
+```python
+optimize_drone_routes(
+    [
+        {'id': 'droneA', 'fuel_level': 60, 'max_fuel': 100, 'wind_tolerance': 20},
+        {'id': 'droneB', 'fuel_level': 90, 'max_fuel': 120, 'wind_tolerance': 25},
+        {'id': 'droneC', 'fuel_level': 40, 'max_fuel': 110, 'wind_tolerance': 15}
+    ],
+    [
+        {'id': 'destX', 'priority': 3, 'time_window': (8, 11), 'penalty': 10},
+        {'id': 'destY', 'priority': 1, 'time_window': (9, 12), 'penalty': 20},
+        {'id': 'destZ', 'priority': 2, 'time_window': (10, 13), 'penalty': 15}
+    ],
+    {
+        'current': {'wind_speed': 18, 'wind_direction': 'NW', 'restricted_zones': []},
+        'forecast': [
+            {'time': 10, 'wind_speed': 25, 'wind_direction': 'N', 'restricted_zones': ['hub3']},
+            {'time': 11, 'wind_speed': 20, 'wind_direction': 'NE', 'restricted_zones': []}
+        ]
+    },
+    {
+        'air_lanes': [
+            {'lane_id': 'A1', 'congestion_level': 'high'},
+            {'lane_id': 'A2', 'congestion_level': 'medium'}
+        ],
+        'hub_connectivity': {
+            'hub1': ['hub2', 'hub3'],
+            'hub2': ['hub1', 'hub3'],
+            'hub3': ['hub1', 'hub2']
+        }
+    }
+)
+```
+
+#### Expected Output Format:
+- Dictionary mapping drone IDs to lists of planned stops.
+- Refueling operations: `{'hub': hub_name, 'refuel': True}`.
+- Destinations: strings with destination ID.
+- All drones must appear in output.
+
+#### Sample Output:
+```python
+{
+    'droneA': [{'hub': 'hub1', 'refuel': True}, 'destY'],
+    'droneB': ['destX'],
+    'droneC': [{'hub': 'hub1', 'refuel': True}, 'destZ']
+}
+```
+
+**Explanation**: 
+- Processing order: destY (priority 1, penalty 20), destZ (priority 2, penalty 15), destX (priority 3, penalty 10).
+- Traffic is high/medium: each drone limited to 1 delivery.
+- droneA (60% fuel): needs refuel, assigned destY, refuels at hub1.
+- droneC (36% fuel): needs refuel, assigned destZ, refuels at hub1.
+- droneB (75% fuel): doesn't need refuel, assigned destX directly.
+
+Starter Code:
+```python
+import logging
+from typing import Dict, List, Union
+
+def optimize_drone_routes(
+    drones: List[Dict],
+    destinations: List[Dict],
+    weather_data: Dict,
+    traffic_data: Dict
+) -> Dict[str, List[Union[str, Dict]]]:
+    pass
+```

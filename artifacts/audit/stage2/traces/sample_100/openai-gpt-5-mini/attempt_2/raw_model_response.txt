@@ -1,0 +1,231 @@
+from typing import Dict, List
+import heapq
+
+INF = 10**30
+
+def find_graph_center(graph: Dict[str, List[List[int]]]) -> int:
+    # Validate graph dict
+    if not isinstance(graph, dict) or len(graph) == 0:
+        return -1
+    # Parse nodes and validate keys
+    nodes = {}
+    for k, v in graph.items():
+        if not isinstance(k, str):
+            return -1
+        try:
+            kid = int(k)
+        except Exception:
+            return -1
+        if not isinstance(v, list):
+            return -1
+        nodes[kid] = v
+    # Build normalized undirected adjacency with min weights, ignore self-loops
+    adj = {}  # int -> dict neighbor->weight
+    for u_str, neighs in nodes.items():
+        u = u_str
+        if u not in adj:
+            adj[u] = {}
+        for item in neighs:
+            if not (isinstance(item, list) or isinstance(item, tuple)) or len(item) != 2:
+                return -1
+            v_raw, w = item
+            # neighbor id validation: must be int or string representing int? prompt: neighbor IDs that are not integers => invalid
+            if isinstance(v_raw, str):
+                try:
+                    v = int(v_raw)
+                except Exception:
+                    return -1
+            elif isinstance(v_raw, int):
+                v = v_raw
+            else:
+                return -1
+            if not isinstance(w, int) or isinstance(w, bool):
+                return -1
+            if w < 0:
+                return -1
+            if u == v:
+                continue
+            # undirected: set both directions with min weight
+            if v not in adj:
+                adj[v] = {}
+            prev = adj[u].get(v)
+            if prev is None or w < prev:
+                adj[u][v] = w
+            prev2 = adj[v].get(u)
+            if prev2 is None or w < prev2:
+                adj[v][u] = w
+    if len(adj) == 0:
+        return -1
+    # iterative DFS to label components
+    visited = set()
+    components = []  # list of lists of nodes
+    for node in sorted(adj.keys()):
+        if node in visited:
+            continue
+        stack = [node]
+        comp = []
+        visited.add(node)
+        while stack:
+            cur = stack.pop()
+            comp.append(cur)
+            for nb in adj[cur]:
+                if nb not in visited:
+                    visited.add(nb)
+                    stack.append(nb)
+        components.append(sorted(comp))
+    # If there are nodes in input that had empty neighbor lists but weren't in adj (isolated), include them
+    # nodes dict keys are all node ids from input; ensure isolated nodes included
+    input_node_ids = set(nodes.keys())
+    for nid in input_node_ids:
+        if nid not in adj:
+            adj[nid] = {}
+            components.append([nid])
+    # Recompute components to merge any duplicates and ensure all nodes included uniquely
+    # Use DFS over adj keys
+    visited = set()
+    comps = []
+    for node in sorted(adj.keys()):
+        if node in visited:
+            continue
+        stack = [node]
+        visited.add(node)
+        comp = []
+        while stack:
+            cur = stack.pop()
+            comp.append(cur)
+            for nb in adj[cur]:
+                if nb not in visited:
+                    visited.add(nb)
+                    stack.append(nb)
+        comps.append(sorted(comp))
+    components = comps
+    # Check if all components are singletons
+    all_singleton = all(len(c) == 1 for c in components)
+    # Helper: unweighted iterative DFS to find farthest node (by hop count)
+    def unweighted_farthest(start, comp_set):
+        visited_local = set([start])
+        stack = [(start, 0)]
+        far_node = start
+        far_dist = 0
+        while stack:
+            cur, d = stack.pop()
+            if d > far_dist or (d == far_dist and cur < far_node):
+                far_dist = d
+                far_node = cur
+            for nb in adj[cur]:
+                if nb in comp_set and nb not in visited_local:
+                    visited_local.add(nb)
+                    stack.append((nb, d + 1))
+        return far_node
+    # Dijkstra
+    def dijkstra(source, comp_set):
+        dist = {n: INF for n in comp_set}
+        dist[source] = 0
+        h = [(0, source)]
+        while h:
+            d, u = heapq.heappop(h)
+            if d != dist[u]:
+                continue
+            for v, w in adj[u].items():
+                if v not in comp_set:
+                    continue
+                nd = d + w
+                if nd < dist[v]:
+                    dist[v] = nd
+                    heapq.heappush(h, (nd, v))
+        return dist
+    # For each component evaluate candidates and pruning
+    best_global_node = None
+    best_global_ecc = INF
+    # For components singletons: collect for possible all-singleton case
+    singleton_nodes = []
+    for comp in components:
+        if len(comp) == 1:
+            singleton_nodes.append(comp[0])
+            continue
+        comp_set = set(comp)
+        # seed candidates: farthest heuristic
+        s = comp[0]
+        a = unweighted_farthest(s, comp_set)
+        b = unweighted_farthest(a, comp_set)
+        # highest-degree node and smallest-ID node
+        deg = -1
+        deg_node = comp[0]
+        for n in comp:
+            d = len(adj[n])
+            if d > deg or (d == deg and n < deg_node):
+                deg = d
+                deg_node = n
+        smallest = min(comp)
+        candidates = {a, b, deg_node, smallest}
+        # initialize LB and UB per node using distances from run candidates incrementally
+        LB = {n: 0 for n in comp}  # lower bounds on eccentricity
+        UB = {n: INF for n in comp}
+        evaluated = set()
+        component_best_node = None
+        component_best_ecc = INF
+        # order to run Dijkstra: run from candidates first
+        run_sources = list(sorted(candidates))
+        # limit number of initial candidate runs to len(run_sources)
+        for src in run_sources:
+            dist = dijkstra(src, comp_set)
+            evaluated.add(src)
+            # update UB: for any v, eccentricity <= dist[src][v] + max_dist_from_src
+            max_from_src = 0
+            for v in comp:
+                dv = dist[v]
+                if dv < INF and dv > max_from_src:
+                    max_from_src = dv
+            for v in comp:
+                dv = dist[v]
+                if dv >= INF:
+                    # unreachable within component shouldn't happen
+                    continue
+                # ecc(v) >= max over sources of dist[src][v]
+                if dv > LB[v]:
+                    LB[v] = dv
+                # UB via this source: ecc(v) <= dist[v->src] + ecc(src) <= dist[v] + max_from_src
+                ub_candidate = dv + max_from_src
+                if ub_candidate < UB[v]:
+                    UB[v] = ub_candidate
+            # update component best from this source's eccentricity
+            ecc_src = max(dist[v] for v in comp if dist[v] < INF)
+            if ecc_src < component_best_ecc or (ecc_src == component_best_ecc and src < component_best_node):
+                component_best_ecc = ecc_src
+                component_best_node = src
+        # Now pruning: consider remaining nodes that could beat current component_best_ecc
+        # We'll iterate remaining nodes sorted by LB ascending to try promising ones first
+        remaining = [v for v in comp if v not in evaluated]
+        # compute initial LB using the distances we have (already done). Now prune nodes with LB >= component_best_ecc
+        candidates_to_check = [v for v in remaining if LB[v] < component_best_ecc]
+        # sort by LB then node id
+        candidates_to_check.sort(key=lambda x: (LB[x], x))
+        for v in candidates_to_check:
+            # recompute full distances from v
+            dist = dijkstra(v, comp_set)
+            ecc_v = max(dist[u] for u in comp if dist[u] < INF)
+            # update bounds using this source
+            max_from_src = ecc_v
+            for u in comp:
+                dv = dist[u]
+                if dv > LB[u]:
+                    LB[u] = dv
+                ub_candidate = dv + max_from_src
+                if ub_candidate < UB[u]:
+                    UB[u] = ub_candidate
+            if ecc_v < component_best_ecc or (ecc_v == component_best_ecc and v < component_best_node):
+                component_best_ecc = ecc_v
+                component_best_node = v
+            # further prune remaining nodes
+            # quick check: if LB of a node >= component_best_ecc skip later (we'll naturally skip since building list once)
+        # after evaluating, compare to global
+        if component_best_node is not None:
+            if (component_best_ecc < best_global_ecc) or (component_best_ecc == best_global_ecc and component_best_node < best_global_node):
+                best_global_ecc = component_best_ecc
+                best_global_node = component_best_node
+    # Handle all-singleton case
+    if best_global_node is None:
+        if len(singleton_nodes) == 0:
+            return -1
+        return min(singleton_nodes)
+    return best_global_node

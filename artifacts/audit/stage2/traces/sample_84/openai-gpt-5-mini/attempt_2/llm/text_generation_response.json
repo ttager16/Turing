@@ -1,0 +1,76 @@
+{
+  "id": "resp_024fa6cd24fba9ad0069c32ed6b99c8197a3efabcf9f7a728d",
+  "object": "response",
+  "created_at": 1774399190,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1774399228,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "model": "gpt-5-mini-2025-08-07",
+  "output": [
+    {
+      "id": "rs_024fa6cd24fba9ad0069c32ed747d48197938fcbcd59a75e6f",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_024fa6cd24fba9ad0069c32ed786dc8197830395025f7a1f38",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "from decimal import Decimal, getcontext, ROUND_HALF_UP\nfrom fractions import Fraction\nimport math\n\nINT64_MIN = -2**63\nINT64_MAX = 2**63 - 1\n\ndef _half_up_round(x):\n    # x can be float or Decimal\n    d = Decimal(x)\n    return int(d.to_integral_value(rounding=ROUND_HALF_UP))\n\ndef _check_int(v):\n    return isinstance(v, int) and not isinstance(v, bool)\n\ndef process_stock_movements(n: int, operations: list) -> dict:\n    # Input validation\n    if not _check_int(n) or n <= 0:\n        return {'error': \"n must be a positive integer\"}\n    if not isinstance(operations, list):\n        return {'error': \"operations must be a list\"}\n\n    # state\n    arr = [0] * n  # 0-based\n    results = []\n    audit = []\n    summary = {\n        'num_updates': 0,\n        'num_queries': 0,\n        'num_reverses': 0,\n        'num_batches': 0,\n        'final_sum': 0,\n        'final_min': 0,\n        'final_max': 0,\n        'final_unique': 0\n    }\n\n    # tracking updates by ID (1-based)\n    update_history = {}  # id -> (L,R,delta,active)\n    next_update_id = 1\n\n    def check_bounds(i_op, L, R):\n        if not (_check_int(L) and _check_int(R)) or L < 1 or R < 1 or L > n or R > n or L > R:\n            return False\n        return True\n\n    def check_int_delta(i_op, delta):\n        if not _check_int(delta):\n            return False\n        return True\n\n    def apply_update(L, R, delta):\n        # apply and check int64\n        for idx in range(L-1, R):\n            val = arr[idx] + delta\n            if val < INT64_MIN or val > INT64_MAX:\n                return False\n            arr[idx] = val\n        return True\n\n    def compute_range(L, R):\n        return arr[L-1:R]\n\n    # Preconfigure Decimal precision\n    getcontext().prec = 40\n\n    # process operations\n    for idx, op in enumerate(operations, start=1):\n        # basic op structure check\n        if not isinstance(op, list):\n            return {'error': f\"operation at index {idx} must be a list\"}\n        if len(op) == 0:\n            return {'error': f\"operation at index {idx} has invalid type or argument count\"}\n        typ = op[0]\n        if not isinstance(typ, str):\n            return {'error': f\"operation at index {idx} has invalid type or argument count\"}\n\n        try:\n            if typ == 'update':\n                if len(op) != 4:\n                    return {'error': f\"operation at index {idx} has invalid type or argument count\"}\n                _, L, R, delta = op\n                if not check_bounds(idx, L, R):\n                    return {'error': f\"operation indices out of bounds at op {idx}: L={L}, R={R}\"}\n                if not check_int_delta(idx, delta):\n                    return {'error': f\"delta at op {idx} must be an integer\"}\n                ok = apply_update(L, R, delta)\n                if not ok:\n                    return {'error': f\"cumulative value out of range after op {idx}\"}\n                update_history[next_update_id] = (L, R, delta, True)\n                next_update_id += 1\n                summary['num_updates'] += 1\n                audit.append({'op_idx': idx, 'type': 'update', 'args': [L, R, delta], 'result': None, 'affected_range': [L, R]})\n            elif typ == 'query':\n                if len(op) != 4:\n                    return {'error': f\"operation at index {idx} has invalid type or argument count\"}\n                _, mode, L, R = op\n                if not isinstance(mode, str):\n                    return {'error': f\"query mode not supported at op {idx}\"}\n                if mode not in {'sum','min','max','mean','var','unique','rms','trend'}:\n                    return {'error': f\"query mode not supported at op {idx}\"}\n                if not check_bounds(idx, L, R):\n                    return {'error': f\"operation indices out of bounds at op {idx}: L={L}, R={R}\"}\n                seg = compute_range(L, R)\n                res = None\n                length = len(seg)\n                if mode == 'sum':\n                    res = sum(seg)\n                elif mode == 'min':\n                    res = min(seg) if seg else 0\n                elif mode == 'max':\n                    res = max(seg) if seg else 0\n                elif mode == 'unique':\n                    res = len(set(seg))\n                elif mode == 'mean':\n                    s = sum(seg)\n                    mean = Decimal(s) / Decimal(length)\n                    res = _half_up_round(mean)\n                elif mode == 'var':\n                    # population variance: mean of squared deviations\n                    s = sum(seg)\n                    mean = Decimal(s) / Decimal(length)\n                    var = Decimal(0)\n                    for v in seg:\n                        d = Decimal(v) - mean\n                        var += d * d\n                    var = var / Decimal(length)\n                    res = _half_up_round(var)\n                elif mode == 'rms':\n                    sumsq = Decimal(0)\n                    for v in seg:\n                        sumsq += Decimal(v) * Decimal(v)\n                    mean_sq = sumsq / Decimal(length)\n                    rms = mean_sq.sqrt()\n                    res = _half_up_round(rms)\n                elif mode == 'trend':\n                    # slope of values vs indices (actual positions 1-based), least squares slope\n                    # x = actual indices L..R\n                    nlen = length\n                    # compute slope = covariance(x,y)/variance(x)\n                    # use Decimal\n                    x0 = L\n                    # sum_x = sum(L..R) = n*(L+R)/2\n                    sum_x = Decimal(nlen) * Decimal(L + R) / Decimal(2)\n                    sum_x2 = Decimal( (nlen * (L+R) * (2*L + 2*R - (nlen-1)) ) ) / Decimal(6)  # Not trust; compute directly\n                    # safer compute directly:\n                    sum_x = Decimal(0)\n                    sum_x2 = Decimal(0)\n                    for xi in range(L, R+1):\n                        sum_x += Decimal(xi)\n                        sum_x2 += Decimal(xi)*Decimal(xi)\n                    sum_y = Decimal(0)\n                    for v in seg:\n                        sum_y += Decimal(v)\n                    sum_xy = Decimal(0)\n                    xi = L\n                    for v in seg:\n                        sum_xy += Decimal(xi) * Decimal(v)\n                        xi += 1\n                    denom = (Decimal(nlen) * sum_x2 - sum_x * sum_x)\n                    if denom == 0:\n                        slope = Decimal(0)\n                    else:\n                        slope = (Decimal(nlen) * sum_xy - sum_x * sum_y) / denom\n                    slope_scaled = slope * Decimal(1000)\n                    res = _half_up_round(slope_scaled)\n                # check int64 bounds for integer results\n                if not isinstance(res, int):\n                    # ensure it's int\n                    res = int(res)\n                if res < INT64_MIN or res > INT64_MAX:\n                    return {'error': f\"cumulative value out of range after op {idx}\"}\n                results.append(res)\n                summary['num_queries'] += 1\n                audit.append({'op_idx': idx, 'type': 'query', 'args': [mode, L, R], 'result': res, 'affected_range': [L, R]})\n            elif typ == 'reverse':\n                if len(op) != 2:\n                    return {'error': f\"operation at index {idx} has invalid type or argument count\"}\n                _, op_id = op\n                if not _check_int(op_id) or op_id <= 0:\n                    return {'error': \"operation id must be a positive integer\"}\n                if op_id not in update_history or not update_history[op_id][3]:\n                    return {'error': f\"reverse references non-existent or already reversed op id {op_id}\"}\n                L, R, delta, active = update_history[op_id]\n                # apply inverse\n                ok = apply_update(L, R, -delta)\n                if not ok:\n                    return {'error': f\"cumulative value out of range after op {idx}\"}\n                update_history[op_id] = (L, R, delta, False)\n                summary['num_reverses'] += 1\n                audit.append({'op_idx': idx, 'type': 'reverse', 'args': [op_id], 'result': None, 'affected_range': [L, R]})\n            elif typ == 'batch_update':\n                if len(op) != 2:\n                    return {'error': f\"operation at index {idx} has invalid type or argument count\"}\n                _, items = op\n                if not isinstance(items, list):\n                    return {'error': f\"operation at index {idx} has invalid type or argument count\"}\n                if len(items) > 100:\n                    return {'error': f\"batch_update at op {idx} exceeds max batch size\"}\n                # validate all first\n                for sub in items:\n                    if not (isinstance(sub, list) and len(sub) == 3):\n                        return {'error': f\"operation at index {idx} has invalid type or argument count\"}\n                    L, R, delta = sub\n                    if not check_bounds(idx, L, R):\n                        return {'error': f\"operation indices out of bounds at op {idx}: L={L}, R={R}\"}\n                    if not check_int_delta(idx, delta):\n                        return {'error': f\"delta at op {idx} must be an integer\"}\n                # apply all atomically: try applying on temp copy\n                temp = arr.copy()\n                for L, R, delta in items:\n                    for j in range(L-1, R):\n                        val = temp[j] + delta\n                        if val < INT64_MIN or val > INT64_MAX:\n                            return {'error': f\"cumulative value out of range after op {idx}\"}\n                        temp[j] = val\n                # commit\n                arr = temp\n                # record each sub-op with ids\n                affected = []\n                for L, R, delta in items:\n                    update_history[next_update_id] = (L, R, delta, True)\n                    next_update_id += 1\n                    summary['num_updates'] += 1\n                    affected.append([L, R])\n                summary['num_batches'] += 1\n                audit.append({'op_idx': idx, 'type': 'batch_update', 'args': items, 'result': None, 'affected_range': affected})\n            elif typ == 'conditional':\n                if len(op) != 4:\n                    return {'error': f\"operation at index {idx} has invalid type or argument count\"}\n                _, L, R, threshold = op\n                if not check_bounds(idx, L, R):\n                    return {'error': f\"operation indices out of bounds at op {idx}: L={L}, R={R}\"}\n                if not _check_int(threshold):\n                    return {'error': f\"conditional query at op {idx} requires integer threshold\"}\n                seg = compute_range(L, R)\n                s = sum(seg)\n                res = s if s > threshold else 0\n                if res < INT64_MIN or res > INT64_MAX:\n                    return {'error': f\"cumulative value out of range after op {idx}\"}\n                results.append(res)\n                summary['num_queries'] += 1\n                audit.append({'op_idx': idx, 'type': 'conditional', 'args': [L, R, threshold], 'result': res, 'affected_range': [L, R]})\n            else:\n                return {'error': f\"operation type not supported at op {idx}\"}\n        except Exception:\n            return {'error': f\"unknown error at op {idx}\"}\n\n    # finalize summary final stats\n    try:\n        total = sum(arr)\n        final_min = min(arr) if arr else 0\n        final_max = max(arr) if arr else 0\n        final_unique = len(set(arr))\n        summary['final_sum'] = total\n        summary['final_min'] = final_min\n        summary['final_max'] = final_max\n        summary['final_unique'] = final_unique\n    except Exception:\n        return {'error': \"unknown error at op {i}\"}\n\n    return {'results': results, 'audit': audit, 'summary': summary}"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "minimal",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "low"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2016,
+    "input_tokens_details": {
+      "cached_tokens": 1920
+    },
+    "output_tokens": 2756,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 4772
+  },
+  "user": null,
+  "metadata": {}
+}

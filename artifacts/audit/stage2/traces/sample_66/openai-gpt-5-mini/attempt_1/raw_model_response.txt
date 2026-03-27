@@ -1,0 +1,84 @@
+from typing import List
+import collections
+import sys
+
+def manage_trust_relationships(participants: List[str], operations: List[List[str]]) -> List[bool]:
+    # Validation: participants
+    if participants is None or operations is None:
+        return []
+    if not isinstance(participants, list) or not isinstance(operations, list):
+        return []
+    # participants must be unique, non-empty strings of letters
+    seen = set()
+    for p in participants:
+        if not isinstance(p, str) or p == "" or not p.isalpha():
+            return []
+        if p in seen:
+            return []
+        seen.add(p)
+    # deterministic ordering of nodes
+    nodes = sorted(participants)
+    node_set = set(nodes)
+    # validate operations shape and contents
+    for op in operations:
+        if not isinstance(op, list) or len(op) != 3:
+            return []
+        typ, a, b = op
+        if not isinstance(typ, str) or not isinstance(a, str) or not isinstance(b, str):
+            return []
+        if typ not in ("union", "split", "rekey", "find"):
+            return []
+        # participants must exist
+        if a not in node_set or b not in node_set:
+            return []
+        # no self-loop
+        if a == b:
+            return []
+    # representation: adjacency as dict of sorted neighbor lists (use set internally but careful with deterministic ops)
+    adj = {p: set() for p in nodes}
+    results: List[bool] = []
+    # helper: deterministic BFS/DFS by lexicographic neighbor order
+    def connected(u: str, v: str) -> bool:
+        if u == v:
+            return True
+        visited = set()
+        # stack DFS but iterate neighbors in sorted order for determinism
+        stack = [u]
+        visited.add(u)
+        while stack:
+            cur = stack.pop()
+            # neighbors in sorted order
+            for nb in sorted(adj[cur]):
+                if nb == v:
+                    return True
+                if nb not in visited:
+                    visited.add(nb)
+                    stack.append(nb)
+        return False
+    # process operations in order
+    for op in operations:
+        typ, a, b = op
+        # normalize edge key for checking direct existence: treat as unordered pair
+        # but adjacency stored both directions
+        if typ == "union":
+            # if direct edge exists already -> failure
+            if b in adj[a]:
+                return []
+            # add direct edge
+            adj[a].add(b)
+            adj[b].add(a)
+        elif typ == "split":
+            # must exist direct edge
+            if b not in adj[a]:
+                return []
+            adj[a].remove(b)
+            adj[b].remove(a)
+        elif typ == "rekey":
+            # no-op
+            continue
+        elif typ == "find":
+            res = connected(a, b)
+            results.append(res)
+        else:
+            return []
+    return results

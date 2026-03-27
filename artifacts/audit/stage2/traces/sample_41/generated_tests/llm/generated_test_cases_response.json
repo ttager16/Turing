@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-DN5oigiyBqeREd7NS3hgZOQbQuPXk",
+  "object": "chat.completion",
+  "created": 1774396276,
+  "model": "gpt-5-mini-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"cases\":[{\"input_lines\":[\"[\\\"Stable\\\"]\",\"[\\\"Risky\\\", \\\"Safe\\\"]\",\"{\\\"Stable\\\": {\\\"Risky\\\": {\\\"Stable\\\": 1.0}, \\\"Safe\\\": {\\\"Stable\\\": 1.0}}}\",\"{\\\"Stable\\\": {\\\"Risky\\\": 5, \\\"Safe\\\": 5}}\",\"0.95\",\"1e-6\"],\"focus\":\"Single-state self-loop with two actions that yield identical returns to test tie-breaking (choose first action) and single-state value computation.\"},{\"input_lines\":[\"[\\\"Active\\\", \\\"Dormant\\\", \\\"Exit\\\"]\",\"[\\\"Invest\\\", \\\"Divest\\\"]\",\"{\\\"Active\\\": {\\\"Invest\\\": {\\\"Dormant\\\": 1.0}, \\\"Divest\\\": {\\\"Active\\\": 1.0}}, \\\"Dormant\\\": {\\\"Invest\\\": {\\\"Exit\\\": 1.0}, \\\"Divest\\\": {\\\"Dormant\\\": 1.0}}, \\\"Exit\\\": {\\\"Invest\\\": {\\\"Exit\\\": 1.0}, \\\"Divest\\\": {\\\"Exit\\\": 1.0}}}\",\"{\\\"Active\\\": {\\\"Invest\\\": 10, \\\"Divest\\\": 2}, \\\"Dormant\\\": {\\\"Invest\\\": -1, \\\"Divest\\\": 0}, \\\"Exit\\\": {\\\"Invest\\\": 0, \\\"Divest\\\": 0}}\",\"0.99\",\"0.0001\"],\"focus\":\"Deterministic transitions with an absorbing zero-reward state and mixed positive/negative rewards; high gamma to exercise propagation and convergence behavior.\"},{\"input_lines\":[\"[\\\"S1\\\", \\\"S2\\\", \\\"S3\\\"]\",\"[\\\"Hold\\\"]\",\"{\\\"S1\\\": {\\\"Hold\\\": {\\\"S1\\\": 0.3333333, \\\"S2\\\": 0.3333333, \\\"S3\\\": 0.3333333}}, \\\"S2\\\": {\\\"Hold\\\": {\\\"S1\\\": 0.3333333, \\\"S2\\\": 0.3333333, \\\"S3\\\": 0.3333333}}, \\\"S3\\\": {\\\"Hold\\\": {\\\"S1\\\": 0.3333333, \\\"S2\\\": 0.3333333, \\\"S3\\\": 0.3333333}}}\",\"{\\\"S1\\\": {\\\"Hold\\\": 0}, \\\"S2\\\": {\\\"Hold\\\": 5}, \\\"S3\\\": {\\\"Hold\\\": -2}}\",\"0.5\",\"1e-8\"],\"focus\":\"Single-action MDP with floating-point transition sums (0.9999999) to test tolerance handling and propagation with sparse/non-integer probabilities.\"}]}",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2648,
+    "completion_tokens": 2031,
+    "total_tokens": 4679,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1472,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

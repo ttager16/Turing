@@ -1,0 +1,172 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+## Problem Statement
+
+Develop a comprehensive Python-based k-linkage robotic arm path optimization system for precision robotics applications. This system serves as a critical component for robotics research labs performing micro-component assembly and precision manipulation tasks. The framework must implement multi-criteria path planning algorithms combining collision detection, energy optimization, and kinematic constraints to achieve safe, efficient trajectories in 3D workspace environments with obstacles. The solution employs advanced data structures including spatial segment trees, union-find for connectivity analysis, and forward kinematics computations essential for real-time robotic motion planning.
+
+## Problem Description
+
+The system plans and optimizes paths for multi-joint robotic arms (k-linkage) operating in 3D environments with obstacles. The framework must implement:
+
+### Core Features
+
+1. **3D Forward Kinematics**: Compute spatial positions of all joints given angles and link lengths
+2. **Collision Detection**: Hierarchical spatial queries using 3D segment trees with sphere-based obstacles
+3. **Path Optimization**: Multi-criteria optimization considering energy, time, and angular distance
+4. **Constraint Validation**: Verify velocity, acceleration, and torque limits throughout trajectories
+5. **Connectivity Analysis**: Track configuration space connectivity using union-find data structure
+6. **Calibration Error Handling**: Deterministic error modeling and compensation
+
+## Function Signature
+
+```python
+def main_trigger(input_data: Dict) -> Dict:
+    """
+    K-linkage robotic arm path optimization system.
+    
+    Parameters:
+        input_data (Dict): Dictionary containing:
+            - k (int): Number of joints in the robotic arm
+            - joint_lengths (List[float]): Length of each joint segment
+            - start_config (List[List[float]]): Initial configuration [[angle, velocity], ...]
+            - target_config (List[List[float]]): Target configuration [[angle, velocity], ...]
+            - obstacles (Optional[List[Dict]]): List of obstacles with 'center' [x,y,z] and 'radius'
+            - workspace_bounds (Optional[List]): [[min_x, min_y, min_z], [max_x, max_y, max_z]]
+            - max_steps (Optional[int]): Maximum interpolation steps (default: 50)
+    
+    Returns:
+        Dict: Dictionary with path, metrics, and optimization results
+    """
+    pass
+```
+
+## Constraints
+
+1. **Libraries**: Only standard Python libraries allowed: typing, math
+2. **Configuration Format**: Each configuration is List[Tuple[float, float]] representing (angle, velocity) pairs for each of the k joints; internally use tuples for immutability, but input/output uses nested lists [[angle, velocity], ...]
+3. **3D Kinematics**: Alternate between XY-plane rotation (even-indexed joints) and Z-axis elevation (odd-indexed joints) with 0.3 dampening factor for Z rotations; when even-indexed, add current angle to cumulative_angle_xy; when odd-indexed, add (current angle × 0.3) to cumulative_angle_z; both cumulative angles are used to compute dx, dy, dz for all joints
+4. **Workspace Bounds**: Default workspace extends to 1.5 times sum of joint lengths in all positive and negative dimensions: ((-total_reach, -total_reach, -total_reach), (total_reach, total_reach, total_reach))
+5. **Spatial Tree**: Use 3D segment tree with max_depth of 8 levels and stop subdivision if obstacles <= 4
+6. **Tree Subdivision**: Split along longest axis (dx, dy, or dz) using midpoint; create left and right child nodes with appropriate bounds
+7. **Collision Model**: Treat obstacles as spheres with center tuple (x, y, z) and radius; obstacles stored in dict format with 'center' and 'radius' keys
+8. **Segment-Sphere Collision**: Use quadratic formula with discriminant = b.b - 4ac where a = d.d, b = 2(f.d), c = f.f - r.r; if discriminant < 0 return False; compute t1 = (-b - sqrt(discriminant))/(2a) and t2 = (-b + sqrt(discriminant))/(2a); check (0 <= t1 <= 1) or (0 <= t2 <= 1) or (t1 < 0 and t2 > 1); for degenerate case a < 1e-9 check c <= 0
+9. **Bounding Box**: Compute using min/max of all position coordinates with 0.1 margin subtracted from minimums and added to maximums
+10. **Energy Components**: Total energy per joint = |kinetic_energy| + work_energy + velocity_penalty where kinetic = 0.5 * mass_factor * (v2² - v1²), work = torque * delta_angle, penalty = 0.1 * (|v1| + |v2|)
+11. **Mass Factor**: Calculate as joint_length * (k - joint_index) where joint_index is 0-based; represents outer joints carrying more mass
+12. **Torque Calculation for Energy**: When computing energy cost, torque = mass_factor * acceleration_energy where acceleration_energy = delta_velocity + 0.1; this simplified acceleration model adds a baseline to account for static friction and baseline torque requirements
+13. **Time Cost**: Maximum time among all joints where time = delta_angle / max(avg_velocity, 0.01) and avg_velocity = (|v1| + |v2|) / 2
+14. **Default Constraints**: max_velocity=1.0 rad/s, max_acceleration=0.5 rad/s2, max_torque=10.0 N.m per joint
+15. **Acceleration for Constraint Checking**: When validating constraints, acceleration = |v2 - v1| / time_step where time_step=0.1 seconds; this physical acceleration is used to check against max_acceleration and to compute torque for torque constraint validation (torque = mass_factor * acceleration)
+16. **Interpolation**: Linear interpolation for both angles and velocities: value = v1 + t * (v2 - v1) where t in [0, 1]
+17. **Path Generation**: Use number of steps capped at 50; iterate from step=0 to num_steps inclusive (i.e., range(num_steps + 1)) with t = step / num_steps; this produces (num_steps + 1) configurations before collision filtering
+18. **Calibration Error**: Use deterministic sine-based offsets: error_offsets[i] = sin(i * 0.7) * error_magnitude where error_magnitude=0.01; apply by adding offsets to angles only (not velocities), compensate by subtracting; extract angles from configuration as [a for a, v in config]
+19. **Configuration Hashing**: Round angles and velocities to 3 decimal places for deterministic graph node identification using str(rounded_list) as key
+20. **Union-Find**: Implement with path compression (parent[x] = find(parent[x])) and union by rank (connect smaller rank under larger; increment rank when equal)
+21. **Path Inclusion**: After generating path through interpolation and collision filtering, insert start at beginning if path is empty or path[0] != start; append target at end if path is empty or path[-1] != target
+22. **Collision Checking**: After path is generated with start/target included, for each consecutive pair of configurations in path, check configuration at index i+1 against all obstacles using check_configuration_collision; if any collision detected, set collision_free=False; continue checking all pairs
+23. **Path Efficiency**: Calculate as total_distance / max(sum(|a2 - a1| for (a1,v1),(a2,v2) in zip(start_config, target_config)), 0.01); measures how close the path is to the direct angular distance from start to target (1.0 = optimal straight-line path)
+24. **Workspace Utilization**: Calculate as sum(joint_lengths) / ((workspace_bounds[1][0] - workspace_bounds[0][0]) * 0.5); measures arm reach relative to workspace size in x-dimension
+25. **Angular Velocity**: Calculate as total_distance / max(total_time, 0.01) to avoid division by zero
+26. **Constraint Violations Count**: Iterate through all consecutive path pairs (i, i+1); for each pair call check_constraints; increment counter by 1 for each pair that violates constraints (returns False); final count is total number of constraint-violating transitions
+27. **Rounding Rules**: Round total_energy, total_time, total_distance to 6 decimals; path angles to 2 decimals; velocities to 4 decimals; all metrics values to 3 decimals
+28. **Output Conversion**: Convert path tuples to nested lists [[angle, velocity], ...] format; convert workspace_bounds tuples to lists
+29. **Graph and Components**: Add bidirectional edges only if constraint check passes; count components using set of unique union-find roots; divide by max(len(path) - 1, 1) for averages
+30. **Input Validation**: Before processing, validate input_data structure, and if any of the following validations fail, return an error dictionary immediately with "error" key and the message.
+    - (1) Check required keys exist: 'k', 'joint_lengths', 'start_config', 'target_config'; if any missing, return "Missing required keys: <comma-separated list>."
+    - (2) Validate k is positive integer, if not return "Parameter 'k' must be a positive integer."
+    - (3) Validate joint_lengths is list of length k, if not return "Parameter 'joint_lengths' must be a list of length 'k'."
+    - (4) Validate start_config is list of length k, if not return "Parameter 'start_config' must be a list of length 'k'."
+    - (5) Validate target_config is list of length k, if not return "Parameter 'target_config' must be a list of length 'k'."
+
+## Sample Input
+
+```python
+input_data = {
+    'k': 3,
+    'joint_lengths': [2.0, 2.0, 1.5],
+    'start_config': [[0.0, 0.0], [0.1, 0.0], [0.0, 0.0]],
+    'target_config': [[1.57, 0.0], [0.78, 0.0], [0.78, 0.0]],
+    'obstacles': [
+        {'center': [3.0, 1.0, 0.5], 'radius': 0.5},
+        {'center': [1.5, 2.5, 0.3], 'radius': 0.4}
+    ],
+    'max_steps': 30
+}
+```
+
+## Sample Output
+
+```python
+{
+    'path': [
+        [[0.0, 0.0], [0.1, 0.0], [0.0, 0.0]],
+        [[0.08, 0.0], [0.13, 0.0], [0.04, 0.0]],
+        [[0.16, 0.0], [0.17, 0.0], [0.08, 0.0]],
+        [[0.24, 0.0], [0.2, 0.0], [0.12, 0.0]],
+        [[0.47, 0.0], [0.3, 0.0], [0.23, 0.0]],
+        [[0.55, 0.0], [0.34, 0.0], [0.27, 0.0]],
+        [[0.63, 0.0], [0.37, 0.0], [0.31, 0.0]],
+        [[0.71, 0.0], [0.41, 0.0], [0.35, 0.0]],
+        [[0.79, 0.0], [0.44, 0.0], [0.39, 0.0]],
+        [[0.86, 0.0], [0.47, 0.0], [0.43, 0.0]],
+        [[1.18, 0.0], [0.61, 0.0], [0.58, 0.0]],
+        [[1.26, 0.0], [0.64, 0.0], [0.62, 0.0]],
+        [[1.33, 0.0], [0.68, 0.0], [0.66, 0.0]],
+        [[1.41, 0.0], [0.71, 0.0], [0.7, 0.0]],
+        [[1.49, 0.0], [0.75, 0.0], [0.74, 0.0]],
+        [[1.57, 0.0], [0.78, 0.0], [0.78, 0.0]]
+    ],
+    'total_energy': 1.331,
+    'total_time': 157.0,
+    'total_distance': 3.03,
+    'collision_free': True,
+    'num_configurations': 16,
+    'connectivity_components': 1,
+    'metrics': {
+        'average_energy_per_step': 0.089,
+        'average_time_per_step': 10.467,
+        'average_angular_velocity': 0.019,
+        'path_efficiency': 1.0,
+        'workspace_utilization': 0.667,
+        'constraint_violations': 0,
+        'calibration_error_magnitude': 0.01,
+        'num_obstacles': 2
+    },
+    'workspace_bounds': [
+        [-8.25, -8.25, -8.25],
+        [8.25, 8.25, 8.25]
+    ],
+    'num_obstacles': 2
+}
+```
+
+## Output Format
+
+- Return value: Dictionary with exactly 10 keys as specified below
+- `path`: List of configurations where each configuration is [[angle, velocity], ...] for all k joints
+- `total_energy`: Float number representing total energy consumption
+- `total_time`: Float number representing total execution time
+- `total_distance`: Float number representing total angular distance
+- `collision_free`: Boolean indicating if entire path avoids all obstacles (checked after path generation)
+- `num_configurations`: Integer count of waypoints in the final path (after collision filtering and start/target inclusion)
+- `connectivity_components`: Integer count of disconnected components in configuration graph (from union-find)
+- `metrics`: Dictionary containing exactly 8 keys: average_energy_per_step, average_time_per_step, average_angular_velocity, path_efficiency, workspace_utilization, constraint_violations, calibration_error_magnitude, num_obstacles (all floats/ints rounded to 3 decimals except num_obstacles as int)
+- `workspace_bounds`: List of two lists [[min_x, min_y, min_z], [max_x, max_y, max_z]]
+- `num_obstacles`: Integer count of obstacles in environment
+
+Starter Code:
+```python
+from typing import List, Tuple, Dict, Optional
+import math
+
+
+def main_trigger(input_data: Dict) -> Dict:
+    pass
+```

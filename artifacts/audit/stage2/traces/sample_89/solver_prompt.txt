@@ -1,0 +1,171 @@
+Solve the following Python coding task.
+
+Requirements:
+- Return only Python code.
+- Implement the requested entry function exactly.
+- Do not include explanations before or after the code.
+- Use only the Python standard library unless the prompt explicitly permits otherwise.
+
+Problem Statement:
+### **Problem Statement**
+
+A financial analytics platform maintains precise historical and real-time stock prices for multiple companies. Each company’s stock data evolves through updates, corrections, and rollbacks, which analysts use to compute range-based statistics and generate consistent snapshots of current market states.
+
+The system must maintain a full history of updates for every company, allow rollback of recent changes (either globally or per specific day), and compute range statistics with exact decimal precision. It must also support immutable audit logging of all modifications for compliance and reproducibility.
+
+Volatility computations must remain real, non-negative, and numerically stable under all conditions.
+
+### **Objectives**
+
+1. **Accurate Price Management:**
+Track daily prices for multiple companies, supporting decimal precision and deterministic rounding.
+
+2. **Update Tracking and Rollback:**
+Allow updates to specific days while preserving full update history and supporting partial or full rollback (per company or per day).
+
+3. **Immutable Audit History:**
+Maintain a permanent, non-destructive log of all updates and rollbacks, indicating which changes remain active versus rolled back.
+
+4. **Range Queries with Precision:**
+Support computation of aggregates (`sum`, `average`, `max`, `volatility`) over any inclusive date range, using full internal precision and rounding only upon return.
+
+5. **Snapshot Generation:**
+Produce snapshots summarizing each company’s current state (latest active price and average) after all updates and rollbacks.
+The “latest” price is the active price of the last day index for that company, and all snapshot statistics must reflect **only active prices** (excluding rolled-back or inactive values).
+
+6. **Edge Condition Safety:**
+Handle empty companies, rollbacks, single-day queries, and invalid ranges without data corruption.
+
+7. **Volatility Stability:**
+Ensure computed volatility (population standard deviation) is always a non-negative real number, even in degenerate or single-day ranges.
+
+### **Constraints**
+
+* `company_data`: Dictionary mapping ticker strings to lists of positive floats (prices).
+All lists must be non-empty and of equal length across companies.
+
+**Updates**
+
+* Each update must be reversible.
+* Rollbacks may target a specific day or the most recent *k* updates.
+* Rollbacks must not affect unrelated days or companies.
+* Even after rollback, updates remain in the audit log marked as “inactive.”
+* Any attempt to set a non-positive price must return `"Error: Invalid price. Must be positive."`.
+
+**Query Modes**
+
+* Supported: `"sum"`, `"average"`, `"max"`, `"volatility"`.
+* Each query must return a float rounded to **four decimal places**.
+* Invalid query modes must return `"Error: Invalid query mode."`.
+
+**Rounding and Precision**
+
+* All arithmetic must use **exact decimal precision** (`decimal.Decimal`).
+* Intermediate calculations must not be rounded; only final results are.
+
+**Volatility Definition**
+
+* Population standard deviation over `[start_day, end_day]`.
+* `( σ = \sqrt{Σ(p_i − μ)^2 / n} )`, where ( `μ` ) is the mean of prices in the queried range.
+* Single-day ranges must yield volatility `0.0`.
+
+**Edge Conditions**
+
+* Empty or mismatched company data → `"Error: All companies must have non-empty price lists of equal length."`
+* Invalid ticker or day → `"Error: Invalid ticker or day index."`
+* Uninitialized tickers queried or rolled back → `"Error: Invalid ticker."`
+* Rollback exceeding history → `"Error: Rollback exceeds update history."`
+* Query range out of bounds or reversed → `"Error: Invalid query range."`
+* Rollbacks with non-positive or invalid step counts (e.g., 0 or negative) must return `"Error: Invalid input."`
+
+**Snapshot Rules**
+
+* Each ticker maps to `{ "latest": float, "average": float }`.
+* Must reflect **only active prices**.
+* Must not mutate system state during retrieval.
+
+**Rollback Behavior**
+
+Rollback operations may be invoked in two forms:
+
+* `["rollback", ticker, steps]` → revert the most recent *steps* updates for the given ticker.
+* `["rollback", ticker, steps, day]` → revert the most recent *steps* updates affecting the specified day.
+
+* If `day` is omitted, it defaults to **the most recent day index**.
+* Rollbacks must not affect other tickers or unrelated days.
+* Even after rollback, affected updates remain in the audit log but are marked as **inactive**.
+* Rollbacks exceeding available history must return `"Error: Rollback exceeds update history."`
+* After rollback, each company’s active prices must revert to the values that existed immediately before the reverted updates.
+
+### **Function Specification**
+
+```python
+def manage_stock_data(operations: list) -> list:
+"""
+Processes a sequence of stock management operations across multiple companies.
+
+Each operation is a list defining an action and its parameters.
+The system maintains internal state across operations and produces outputs where applicable.
+
+Supported operations:
+["init", ticker: str, prices: list[float]]
+Initialize company data with baseline prices.
+
+["update", ticker: str, day: int, new_price: float]
+Modify price for a given day while recording audit history.
+
+["rollback", ticker: str, steps: int, day: Optional[int] = None]
+Revert recent updates for a given company or specific day.
+If day is omitted, rollback applies to the most recent day index.
+
+["query", ticker: str, mode: str, start_day: int, end_day: int]
+Compute an aggregate statistic over the inclusive range [start_day, end_day].
+Supported modes: "sum", "average", "max", "volatility".
+
+["snapshot", ticker: str]
+Retrieve a summary of the company’s current active prices.
+
+Returns:
+list:
+A list of outputs corresponding to each operation in order.
+- `None` for "init", "update", or "rollback" operations.
+- Float or error string for "query" results.
+- Dictionary for "snapshot" summaries.
+"""
+pass
+```
+
+### **Behavioral Requirements**
+
+1. After multiple updates to the same day, rolling back the last *k* updates must restore the correct prior price history.
+2. Computations of `sum` and `average` must use full precision internally and round only when returned.
+3. Single-day queries, full-range queries, and empty ranges must produce distinct, consistent behaviors (`volatility=0`, valid sums, or `"Error"`).
+4. Immutable audit history must record all actions, including rolled-back updates, with flags for “active” vs. “inactive.”
+5. Volatility computation must guarantee non-negative, real results under all conditions.
+
+### **Sample Input / Output**
+
+**Input:**
+
+```python
+[
+            ["init", "AAPL", [100.0, 105.0, 110.0]],
+            ["update", "AAPL", 1, 108.0],
+            ["rollback", "AAPL", 1, 1],
+            ["query", "AAPL", "sum", 0, 2]
+]
+```
+
+**Output:**
+
+```python
+[None, None, None, 315.0000]
+```
+
+Starter Code:
+```python
+from decimal import Decimal, getcontext, ROUND_HALF_UP
+from typing import Optional, List, Dict, Any
+
+def manage_stock_data(operations: list) -> list:
+```
