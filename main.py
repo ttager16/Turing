@@ -23,11 +23,11 @@ STAGE_CHOICES = (
     "manual-audit",
 )
 
-STAGE_SECONDS_PER_SAMPLE = {
-    "sample-requirements-analysis": 18.5,
-    "sample-efficacy-analysis": 81.8,
-    "dataset-analysis": 2.9,
-    "manual-audit": 2.0,
+STAGE_SECONDS_PER_SAMPLE_RANGE = {
+    "sample-requirements-analysis": (120.0, 180.0),
+    "sample-efficacy-analysis": (180.0, 240.0),
+    "dataset-analysis": (5.0, 15.0),
+    "manual-audit": (30.0, 90.0),
 }
 DEFAULT_STAGE4_PACKET_SIZE = 26
 
@@ -127,8 +127,10 @@ def _estimate_sample_count(stage_name: str, args, remaining: list[str]) -> int:
     return _dataset_size()
 
 
-def _estimate_stage_seconds(stage_name: str, args, remaining: list[str]) -> float:
-    return _estimate_sample_count(stage_name, args, remaining) * STAGE_SECONDS_PER_SAMPLE.get(stage_name, 0.0)
+def _estimate_stage_seconds_range(stage_name: str, args, remaining: list[str]) -> tuple[float, float]:
+    count = _estimate_sample_count(stage_name, args, remaining)
+    low, high = STAGE_SECONDS_PER_SAMPLE_RANGE.get(stage_name, (0.0, 0.0))
+    return count * low, count * high
 
 
 def _format_seconds(seconds: float) -> str:
@@ -148,6 +150,16 @@ def _format_finish_time(seconds_from_now: float) -> str:
         time.time() + max(0, seconds_from_now),
         tz=local_tz,
     ).strftime("%Y-%m-%d %I:%M %p %Z")
+
+
+def _format_seconds_window(low_seconds: float, high_seconds: float) -> str:
+    return f"{_format_seconds(low_seconds)} to {_format_seconds(high_seconds)}"
+
+
+def _format_finish_window(low_seconds: float, high_seconds: float) -> str:
+    return (
+        f"{_format_finish_time(low_seconds)} and {_format_finish_time(high_seconds)}"
+    )
 
 
 def _run_stage(stage_name: str, args, remaining: list[str]) -> int:
@@ -397,21 +409,26 @@ def main(argv: list[str] | None = None) -> int:
             ]
             if args.prepare_stage4:
                 stage_sequence.append("manual-audit")
-            estimated_total = sum(_estimate_stage_seconds(stage_name, args, remaining) for stage_name in stage_sequence)
+            total_low = 0.0
+            total_high = 0.0
+            for stage_name in stage_sequence:
+                stage_low, stage_high = _estimate_stage_seconds_range(stage_name, args, remaining)
+                total_low += stage_low
+                total_high += stage_high
             print(
-                "Approximate total runtime remaining: "
-                f"{_format_seconds(estimated_total)} "
-                f"(target finish around {_format_finish_time(estimated_total)})"
+                "Estimated total runtime window: "
+                f"{_format_seconds_window(total_low, total_high)}. "
+                f"Check back between {_format_finish_window(total_low, total_high)}."
             )
             elapsed_so_far = 0.0
             for stage_name in stage_sequence:
-                stage_estimate = _estimate_stage_seconds(stage_name, args, remaining)
-                remaining_after_stage = max(0.0, estimated_total - elapsed_so_far)
+                remaining_low = max(0.0, total_low - elapsed_so_far)
+                remaining_high = max(0.0, total_high - elapsed_so_far)
                 print(
                     f"Starting {stage_name}. "
-                    f"Approximate time remaining before this stage completes: "
-                    f"{_format_seconds(remaining_after_stage)} "
-                    f"(finish around {_format_finish_time(remaining_after_stage)})"
+                    f"Estimated remaining runtime window: "
+                    f"{_format_seconds_window(remaining_low, remaining_high)}. "
+                    f"Check back between {_format_finish_window(remaining_low, remaining_high)}."
                 )
                 started_at = time.perf_counter()
                 result = _run_stage(stage_name, args, remaining)
@@ -419,17 +436,18 @@ def main(argv: list[str] | None = None) -> int:
                     return result
                 actual_elapsed = time.perf_counter() - started_at
                 elapsed_so_far += actual_elapsed
-                remaining_estimate = max(0.0, estimated_total - elapsed_so_far)
+                remaining_low = max(0.0, total_low - elapsed_so_far)
+                remaining_high = max(0.0, total_high - elapsed_so_far)
                 print(
                     f"Finished {stage_name} in {_format_seconds(actual_elapsed)}. "
-                    f"Approximate runtime remaining: {_format_seconds(remaining_estimate)} "
-                    f"(finish around {_format_finish_time(remaining_estimate)})"
+                    f"Estimated runtime remaining: {_format_seconds_window(remaining_low, remaining_high)}. "
+                    f"Check back between {_format_finish_window(remaining_low, remaining_high)}."
                 )
             return 0
-        stage_estimate = _estimate_stage_seconds(args.stage, args, remaining)
+        stage_low, stage_high = _estimate_stage_seconds_range(args.stage, args, remaining)
         print(
-            f"Approximate runtime for {args.stage}: {_format_seconds(stage_estimate)} "
-            f"(finish around {_format_finish_time(stage_estimate)})"
+            f"Estimated runtime window for {args.stage}: {_format_seconds_window(stage_low, stage_high)}. "
+            f"Check back between {_format_finish_window(stage_low, stage_high)}."
         )
         started_at = time.perf_counter()
         result = _run_stage(args.stage, args, remaining)

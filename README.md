@@ -83,7 +83,7 @@ export OPENAI_API_KEY="..."
 Use LM Studio, not Hugging Face, and download:
 
 - model: `nomic-ai/nomic-embed-text-v1.5-GGUF`
-- quantization: `Q4_0`
+- quantization: `Q4_K_M`
 
 Expose it locally as:
 
@@ -99,23 +99,47 @@ python scripts/check_setup.py
 
 ## Reproduction
 
-Run the canonical automated pipeline:
+Fresh outputs are written under:
+
+- `outputs/`
+
+Frozen copies of the shipped artifacts live under:
+
+- `submission_artifacts/`
+- `submission_artifacts/dataset_analysis.xlsx`
+- `submission_artifacts/dataset_analysis.json`
+
+To smoke-test the full Stage 1 to Stage 3 pipeline on a single sample, run:
+
+```bash
+python main.py --limit 1
+```
+
+This usually takes roughly 5 to 8 minutes end to end.
+
+To run the full pipeline on the entire dataset and regenerate the primary working artifacts in `outputs/`, run:
 
 ```bash
 python main.py
 ```
 
-Run a smaller slice:
+Warning: this is a full-dataset run and will typically take roughly 5 to 10 hours.
+
+To run a small development slice without running the full dataset:
 
 ```bash
 python main.py --limit 5
 ```
 
-Run a batched pipeline:
+This processes only the first 5 samples, then stops.
+
+To run the full dataset in top-level batches while still completing the whole Stage 1 to Stage 3 pipeline:
 
 ```bash
 python main.py --batch-size 5
 ```
+
+This still processes the entire dataset. The difference is that it runs the full pipeline in 5-sample chunks under the hood instead of processing all samples in one uninterrupted pass.
 
 Launch the Stage 4 review UI:
 

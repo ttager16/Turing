@@ -43,6 +43,7 @@ Why this run is authoritative:
 - Core analysis: deterministic aggregation and heuristic synthesis over Stage 1 and Stage 2 outputs
 - Embedding model: `text-embedding-nomic-embed-text-v1.5`
 - Embedding source: local OpenAI-compatible endpoint via LM Studio
+- LM Studio install target: `nomic-ai/nomic-embed-text-v1.5-GGUF`, quantization `Q4_K_M`
 - Optional lightweight auditor: a small LLM-backed disagreement helper used only for a narrow Stage 3 disagreement signal
 - Canonical outputs:
   - [outputs/dataset_analysis/dataset_analysis.xlsx](outputs/dataset_analysis/dataset_analysis.xlsx)
